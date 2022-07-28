@@ -2,7 +2,7 @@ version: "3"
 services:
   uptime:
     container_name: atd-uptime
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uptime:2.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uptime:1.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -12,7 +12,7 @@ services:
       - atd_nginx
   conftopo:
     container_name: atd-conftopo
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_conftopo:0.1
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_conftopo:1.0.0
     restart: always
     networks:
       - atd_nginx
@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:2.0.8
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.0
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -41,7 +41,7 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
   cvpupdater:
     container_name: atd-cvpupdater
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_cvpupdater:2.0.4
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_cvpupdater:1.0.0
     user: $ArID:$ArGD
     restart: always
     environment:
@@ -53,7 +53,7 @@ services:
       - cvp_dir:/home/arista/CVP_DATA:rw
   gitconfigletsync:
     container_name: atd-gitconfigletsync
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_gitconfigletsync:2.0.5
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_gitconfigletsync:1.0.0
     user: $ArID:$ArGD
     restart: always
     environment:
@@ -64,7 +64,7 @@ services:
       - cvp_dir:/home/arista/CVP_DATA:rw
   kvmbuilder:
     container_name: atd-kvmbuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_kvmbuilder:2.0.1
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_kvmbuilder:1.0.0
     user: $AtID:$AtGD
     restart: on-failure
     environment:
@@ -75,7 +75,7 @@ services:
       - /home/atdadmin/KVM_scripts:/home/atdadmin/kvm:rw
   ceosbuilder:
     container_name: atd-ceosbuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ceosbuilder:2.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ceosbuilder:1.0.0
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
@@ -85,7 +85,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:2.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -97,7 +97,7 @@ services:
       - atd_nginx
   labguides:
     container_name: atd-labguides
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides:2.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides:1.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -108,7 +108,7 @@ services:
       - atd_nginx
   freerad:
     container_name: atd-freeradius
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:2.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:1.0.0
     restart: always
     volumes:
       - /opt/atd/nested-labvm/atd-docker/freeradius/src/mods-config/files/authorize:/etc/freeradius/mods-config/files/authorize:ro
@@ -117,7 +117,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:2.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.0
     restart: always
     depends_on:
       - uilanding
@@ -134,7 +134,7 @@ services:
       - atd_nginx
   monitor:
     container_name: atd-monitor
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_monitor:2.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_monitor:1.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -146,7 +146,7 @@ services:
       - /var/log/wtmp:/var/log/wtmp:ro
   jenkins:
     container_name: atd-jenkins
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_jenkins:20220209
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_jenkins:1.0.0
     restart: always
     environment:
       - JENKINS_OPTS="--prefix=/jenkins"
@@ -158,7 +158,7 @@ services:
       - ./jenkins/src/groovy/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
   coder:
     container_name: atd-coder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:2.1.1
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.0
     restart: always
     user: $ArID:$ArGD
     command: /home/coder/project
@@ -176,7 +176,7 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
   ssh:
     container_name: atd-ssh
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ssh:2.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ssh:1.0.0
     restart: always
     networks:
       - atd_nginx
