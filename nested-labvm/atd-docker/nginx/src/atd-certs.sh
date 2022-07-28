@@ -1,6 +1,8 @@
 #!/bin/bash
 
-PROJECT=$(cut -d':' -f2 <<<$(grep project /etc/atd/ACCESS_INFO.yaml) | awk '{print $1}')
+#PROJECT=$(cut -d':' -f2 <<<$(grep project /etc/atd/ACCESS_INFO.yaml) | awk '{print $1}')
+
+PROJECT="atd-testdrivetraining-dev"
 
 if [ $PROJECT ]
 then
