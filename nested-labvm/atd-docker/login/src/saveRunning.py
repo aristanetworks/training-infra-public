@@ -1,4 +1,4 @@
-#!/bin/bash/python
+#!/usr/bin/env python
 
 #Save running config on all switches
 
