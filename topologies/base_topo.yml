@@ -388,8 +388,8 @@ topologies:
             resources:
               cpu: 36
               ram: 72
-            branch: nested-release
-            image: base-training-l3-e4-27-0f-c2021-3-0-e6-20220107
+            branch: nested/2021.3
+            image: base-training-l3-e4-27-2f-c2021-3-0-20220809
             eos:
               - 4.27.0F
     prod:
