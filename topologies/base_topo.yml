@@ -389,7 +389,7 @@ topologies:
               cpu: 36
               ram: 72
             branch: nested/2021.3
-            image: base-training-l3-e4-27-2f-c2021-3-0-20220810
+            image: base-training-l3-e4-27-2f-c2021-3-0-20220810-2
             eos:
               - 4.27.0F
     prod:
