@@ -427,7 +427,7 @@ topologies:
     name: 'Training - Level 1'
     title: 'Training Level 1 Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level2:
@@ -472,7 +472,7 @@ topologies:
     name: 'Training - Level 2'
     title: 'Training Level 2 Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level3:
@@ -544,7 +544,7 @@ topologies:
     name: 'Training - Level 3'
     title: 'Training Level 3 Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level3-exam:
@@ -598,7 +598,7 @@ topologies:
     name: 'Training - Level 3 Exam'
     title: 'Training Level 3 Exam Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level3-2:
@@ -643,7 +643,7 @@ topologies:
     name: 'Training - Level 3 Exam 2'
     title: 'Training Level 3 Exam Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level4:
@@ -702,7 +702,7 @@ topologies:
     name: 'Training - Level 4'
     title: 'Training Level 4 Lab'
     disk_size: 300
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level5:
@@ -758,7 +758,7 @@ topologies:
     name: 'Training - Level 5'
     title: 'Training Level 5 Lab'
     disk_size: 500
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
   training-level7:
@@ -814,6 +814,6 @@ topologies:
     name: 'Training - Level 7'
     title: 'Training Level 7 Lab'
     disk_size: 500
-    access: admin
+    access: standard
     disable_links: [labguides, jenkins]
     labguides: self
