@@ -813,7 +813,7 @@ topologies:
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 7'
     title: 'Training Level 7 Lab'
-    disk_size: 300
+    disk_size: 500
     access: admin
     disable_links: [labguides, jenkins]
     labguides: self
