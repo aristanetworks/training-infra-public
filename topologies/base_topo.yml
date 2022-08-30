@@ -727,7 +727,7 @@ topologies:
               ram: 72
             branch: nested/2021.3
             orderable: true
-            image: base-training-l5-ceos-c2021-3-0-20220830
+            image: base-training-l5-ceos-c2021-3-0-20220830-2
             eos:
               - 4.27.2F
     prod:
