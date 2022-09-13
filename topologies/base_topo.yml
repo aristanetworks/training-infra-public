@@ -779,8 +779,8 @@ topologies:
               - 4.26.0F
           2021.3.0:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 80
             branch: nested/2021.3
             orderable: true
             image: base-training-l7-ceos-c2021-3-0-20220815
@@ -803,8 +803,8 @@ topologies:
               - 4.26.0F
           2021.3.0:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 80
             branch: 2021.3-3.0
             orderable: true
             image: base-training-l7-ceos-c2021-3-0-20220629
