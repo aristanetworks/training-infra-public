@@ -851,7 +851,7 @@ topologies:
             resources:
               cpu: 40
               ram: 70
-            branch: v2020.2-20220404a
+            branch: 2021.3-3.0
             orderable: false
             image: base-training-l7-ceos-c2020-2-3-20211220
             eos:
@@ -859,11 +859,11 @@ topologies:
               - 4.26.0F
           2021.3.0:
             resources:
-              cpu: 40
-              ram: 70
-            branch: v2021.3-20220609a
+              cpu: 60
+              ram: 80
+            branch: 2021.3-3.0
             orderable: true
-            image: base-training-l7-ceos-c2021-3-0-20220629
+            image: base-training-l7-ceos-c2021-3-0-20220914
             eos:
               - 4.27.2F
     desc: 'Level 7 - Part 3 Training Lab. For use by the Arista Training Team.'
