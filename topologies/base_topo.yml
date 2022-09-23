@@ -817,7 +817,7 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
-  training-level7-Part3:
+  training-level7-part3:
     dev:
       ceos:
         cpu: 40
