@@ -1,20 +1,21 @@
+
 int ethernet 1
-   no shutdown
-   no ip address
-   switchport 
-   switchport mode access 
-   switchport access vlan 130
+no shutdown
+no ip address
+switchport 
+switchport mode trunk 
+switchport trunk allowed vlan 130-134
 
 int ethernet 2
-   no shutdown
-   no ip address
-   switchport 
-   switchport mode access 
-   switchport access vlan 130
+no shutdown
+no ip address
+switchport 
+switchport mode trunk 
+switchport trunk allowed vlan 15-19
 
 
 int loopback 0
-   ip address 192.168.255.83/32
+ip address 192.168.255.82/32
 
 
 vlan 130
@@ -73,112 +74,121 @@ ip routing vrf VLAN19
 
 interface VLAN130
 vrf VLAN130
-ip address 172.16.130.83/24
+ip address 172.16.130.82/24
 no shutdown
 
 interface VLAN131
 vrf VLAN131
-ip address 172.16.131.83/24
+ip address 172.16.131.82/24
 no shutdown
 
 interface VLAN132
 vrf VLAN132
-ip address 172.16.132.83/24
+ip address 172.16.132.82/24
 no shutdown
 
 interface VLAN133
 vrf VLAN133
-ip address 172.16.133.83/24
+ip address 172.16.133.82/24
 no shutdown
 
 interface VLAN134
 vrf VLAN134
-ip address 172.16.134.83/24
+ip address 172.16.134.82/24
 no shutdown
 
 interface VLAN15
 vrf VLAN15
-ip address 172.16.15.83/24
+ip address 172.16.15.82/24
 no shutdown
 
 interface VLAN16
 vrf VLAN16
-ip address 172.16.16.83/24
+ip address 172.16.16.82/24
 no shutdown
 
 interface VLAN17
 vrf VLAN17
-ip address 172.16.17.83/24
+ip address 172.16.17.82/24
 no shutdown
 
 interface VLAN18
 vrf VLAN18
-ip address 172.16.18.83/24
+ip address 172.16.18.82/24
 no shutdown
 
 interface VLAN19
 vrf VLAN19
-ip address 172.16.19.83/24
+ip address 172.16.19.82/24
 no shutdown
 
+## additional config
 
-interface Ethernet1
-   switchport access vlan 130
-   mtu 9100
-!
-interface Ethernet2
-   switchport access vlan 130
-   mtu 9100
+int ethernet 1
+mtu 9100
+no shutdown
+no ip address
+switchport 
+switchport mode trunk 
+switchport trunk allowed vlan 15-19
+
+int ethernet 2
+mtu 9100
+no shutdown
+no ip address
+switchport 
+switchport mode trunk 
+switchport trunk allowed vlan 15-19
 !
 interface Vlan15
-   vrf VLAN15
-   mtu 9100
-   ip address 172.16.15.83/24
+vrf VLAN15
+mtu 9098
+ip address 172.16.15.82/24
 !
 interface Vlan16
-   vrf VLAN16
-   mtu 9100
-   ip address 172.16.16.83/24
+vrf VLAN16
+mtu 9098
+ip address 172.16.16.82/24
 !
 interface Vlan17
-   vrf VLAN17
-   mtu 9100
-   ip address 172.16.17.83/24
+vrf VLAN17
+mtu 9098
+ip address 172.16.17.82/24
 !
 interface Vlan18
-   vrf VLAN18
-   mtu 9100
-   ip address 172.16.18.83/24
+vrf VLAN18
+mtu 9098
+ip address 172.16.18.82/24
 !
 interface Vlan19
-   vrf VLAN19
-   mtu 9100
-   ip address 172.16.19.83/24
+vrf VLAN19
+mtu 9098
+ip address 172.16.19.82/24
 !
 interface Vlan130
-   vrf VLAN130
-   mtu 9100
-   ip address 172.16.130.83/24
+vrf VLAN130
+mtu 9098
+ip address 172.16.130.82/24
 !
 interface Vlan131
-   vrf VLAN131
-   mtu 9100
-   ip address 172.16.131.83/24
+vrf VLAN131
+mtu 9098
+ip address 172.16.131.82/24
 !
 interface Vlan132
-   vrf VLAN132
-   mtu 9100
-   ip address 172.16.132.83/24
+vrf VLAN132
+mtu 9098
+ip address 172.16.132.82/24
 !
 interface Vlan133
-   vrf VLAN133
-   mtu 9100
-   ip address 172.16.133.83/24
+vrf VLAN133
+mtu 9098
+ip address 172.16.133.82/24
 !
 interface Vlan134
-   vrf VLAN134
-   mtu 9100
-   ip address 172.16.134.83/24
+vrf VLAN134
+mtu 9098
+ip address 172.16.134.82/24
 
 ip route vrf VLAN130 0.0.0.0/0 172.16.130.254
 ip route vrf VLAN15 0.0.0.0/0 172.16.15.254

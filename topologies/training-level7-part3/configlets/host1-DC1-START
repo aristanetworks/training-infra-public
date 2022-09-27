@@ -1,13 +1,14 @@
 vrf instance OOB
+!
 ip routing vrf OOB
+!
 interface Ethernet15
    vrf OOB
    no shutdown 
    no switchport 
    ip address 192.168.1.51/24
 ip route vrf OOB 0.0.0.0/0 192.168.1.254
-
-
+!
 int ethernet 1 - 4
    no shutdown
    no ip address
