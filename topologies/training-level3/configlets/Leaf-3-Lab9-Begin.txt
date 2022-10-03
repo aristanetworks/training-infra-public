@@ -1,0 +1,55 @@
+hostname leaf3
+!
+vlan 101,103
+!
+interface Ethernet1
+!
+interface Ethernet2
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.1.10/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.10.2.10/30
+!
+interface Ethernet5
+   no switchport
+   ip address 10.10.3.10/30
+!
+interface Ethernet6
+   switchport access vlan 101
+!
+interface Ethernet7
+!
+interface Loopback0
+   ip address 10.13.13.13/32
+!
+interface Vlan103
+   no autostate
+   ip address 172.16.103.1/24
+!
+ip routing
+!
+ip prefix-list deny-management
+   seq 10 deny 192.168.0.0/24 ge 24
+   seq 20 permit 0.0.0.0/0 le 32
+!
+route-map deny-management permit 10
+   match ip address prefix-list deny-management
+!
+router bgp 65003
+   router-id 10.13.13.13
+   no bgp default ipv4-unicast
+   maximum-paths 4 ecmp 4
+   neighbor eBGP-Spine-Underlay peer group
+   neighbor eBGP-Spine-Underlay remote-as 65100
+   neighbor 10.10.1.9 peer group eBGP-Spine-Underlay
+   neighbor 10.10.2.9 peer group eBGP-Spine-Underlay
+   neighbor 10.10.3.9 peer group eBGP-Spine-Underlay
+   !
+   address-family ipv4
+      neighbor eBGP-Spine-Underlay activate
+      redistribute connected route-map deny-management
+!

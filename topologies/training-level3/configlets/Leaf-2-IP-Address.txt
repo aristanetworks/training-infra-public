@@ -1,0 +1,32 @@
+hostname leaf2
+!
+vlan 102,201
+!
+interface Ethernet1
+!
+interface Ethernet2
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.1.6/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.10.2.6/30
+!
+interface Ethernet5
+   no switchport
+   ip address 10.10.3.6/30
+!
+interface Ethernet6
+   switchport access vlan 201
+!
+interface Ethernet7
+!
+interface Loopback0
+   ip address 10.12.12.12/32
+!
+interface Vlan102
+   no autostate
+   ip address 172.16.102.1/24
+!

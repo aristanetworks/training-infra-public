@@ -1,0 +1,32 @@
+hostname leaf4
+!
+vlan 104,201
+!
+interface Ethernet1
+!
+interface Ethernet2
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.1.14/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.10.2.14/30
+!
+interface Ethernet5
+   no switchport
+   ip address 10.10.3.14/30
+!
+interface Ethernet6
+   switchport access vlan 201
+!
+interface Ethernet7
+!
+interface Loopback0
+   ip address 10.14.14.14/32
+!
+interface Vlan104
+   no autostate
+   ip address 172.16.104.1/24
+!

@@ -1,0 +1,73 @@
+hostname spine3
+!
+interface Ethernet1
+   no switchport
+   ip address 10.10.3.1/30
+!
+interface Ethernet2
+   no switchport
+   ip address 10.10.3.5/30
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.3.9/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.10.3.13/30
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.1.10/30
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.2.10/30
+!
+interface Loopback0
+   ip address 10.23.23.23/32
+!
+ip routing
+!
+ip prefix-list deny-management
+   seq 10 deny 192.168.0.0/24 ge 24
+   seq 20 permit 0.0.0.0/0 le 32
+!
+route-map deny-management permit 10
+   match ip address prefix-list deny-management
+!
+peer-filter Leaf-AS-Range
+   10 match as-range 64512-65535 result accept
+!
+router bgp 65100
+   router-id 10.23.23.23
+   no bgp default ipv4-unicast
+   maximum-paths 4 ecmp 4
+   bgp listen range 172.16.0.0/16 peer-group eBGP-BorderLeafs peer-filter Leaf-AS-Range
+   bgp listen range 10.11.11.11/32 peer-group eBGP-LEAFS-EVPN peer-filter Leaf-AS-Range
+   bgp listen range 10.12.12.12/32 peer-group eBGP-LEAFS-EVPN peer-filter Leaf-AS-Range
+   bgp listen range 10.13.13.13/32 peer-group eBGP-LEAFS-EVPN peer-filter Leaf-AS-Range
+   bgp listen range 10.14.14.14/32 peer-group eBGP-LEAFS-EVPN peer-filter Leaf-AS-Range
+   bgp listen range 10.10.0.0/16 peer-group eBGP-LEAFS-Underlay peer-filter Leaf-AS-Range
+   neighbor eBGP-BorderLeafs peer group
+   neighbor eBGP-BorderLeafs send-community
+   neighbor eBGP-BorderLeafs maximum-routes 12000
+   neighbor eBGP-LEAFS-EVPN peer group
+   neighbor eBGP-LEAFS-EVPN next-hop-unchanged
+   neighbor eBGP-LEAFS-EVPN update-source Loopback0
+   neighbor eBGP-LEAFS-EVPN bfd
+   neighbor eBGP-LEAFS-EVPN ebgp-multihop 2
+   neighbor eBGP-LEAFS-EVPN send-community
+   neighbor eBGP-LEAFS-EVPN maximum-routes 0
+   neighbor eBGP-LEAFS-Underlay peer group
+   neighbor eBGP-LEAFS-Underlay send-community
+   neighbor eBGP-LEAFS-Underlay maximum-routes 0
+   !
+   address-family evpn
+      neighbor eBGP-LEAFS-EVPN activate
+   !
+   address-family ipv4
+      neighbor eBGP-BorderLeafs activate
+      neighbor eBGP-LEAFS-Underlay activate
+      redistribute connected route-map deny-management
+!

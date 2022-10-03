@@ -1,0 +1,39 @@
+!
+vlan 101,201-202,301
+!
+interface Ethernet1
+   switchport access vlan 101
+!
+interface Ethernet2
+   switchport access vlan 202
+!
+interface Ethernet3
+   channel-group 1 mode active
+   no shutdown
+!
+interface Ethernet4
+   channel-group 1 mode active
+   no shutdown
+!
+interface po1
+	switchport access vlan 301
+!
+int vlan 301
+	ip address 192.168.30.2/24
+	no autostate
+!
+interface Vlan101
+   no autostate
+   ip address 192.168.101.2/24
+!
+interface Vlan201
+   no autostate
+   ip address 192.168.201.2/24
+   shut
+!
+interface Vlan202
+   no autostate
+   ip address 192.168.202.1/24
+!
+ip route 192.168.201.0/24 192.168.202.254
+!
