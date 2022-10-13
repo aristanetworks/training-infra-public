@@ -535,9 +535,9 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.0
+            branch: 2021.3-3.3
             orderable: true
-            image: base-training-l3-e4-27-2f-c2021-3-0-20220908
+            image: base-training-l3-e4-27-2f-c2021-3-0-20221012
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
