@@ -20,4 +20,4 @@ screen -t PE2 10 ssh 192.168.0.42
 screen -t P3 11 ssh 192.168.0.43
 screen -t P4 12 ssh 192.168.0.44
 screen -t P5 13 ssh 192.168.0.45
-screen -t P6 14 ssh 192.168.0.56
+screen -t P6 14 ssh 192.168.0.46
