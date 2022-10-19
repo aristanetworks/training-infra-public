@@ -695,7 +695,7 @@ topologies:
               ram: 90
             branch: 2021.3-3.0
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20220831
+            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
             eos:
               - 4.27.2F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
