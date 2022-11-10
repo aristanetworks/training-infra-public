@@ -28,6 +28,7 @@ regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 cvpHost = "192.168.0.5"
 cvpUser = "arista"
 url = "https://{host}".format(host=cvpHost)
+EDIT_INSTANCE = 'https://us-central1-atd-testdrivetraining-prod.cloudfunctions.net/edit-instance'
 
 def encodeID(tmp_data):
     tmp_str = json.dumps(tmp_data).encode()
@@ -38,7 +39,7 @@ def readLabDetails():
     # get the lab password and the topolgy in use
     with open(labACCESS) as f:
         labDetails = yaml.load(f,Loader=yaml.FullLoader)
-    return labDetails['login_info']['jump_host']['pw'], labDetails['topology'],labDetails['name']
+    return labDetails['login_info']['jump_host']['pw'], labDetails['topology'],labDetails['name'],labDetails['zone']
 
 
 
@@ -122,7 +123,7 @@ def getUserInfo():
     accept = "n"
     emailCounter = 0
     print("This script requires eAPI to be enabled and functioning. By default this should work, however if any of the settings have been modified it may not work correctly")
-    print("You should only upload once you have finished your exam. Once uploaded you will NOT be able to do it again without contacting Arista training or SDN-Pros.")
+    print("You should only upload once you have finished your exam. Once uploaded you will NOT be able to do it again without contacting Arista training or SDN-Pros, as you will be disconneceted from your lab.")
     while accept != "y":
         accept = input ("Do you accept this? (y/n) ")
         if accept == "n":
@@ -255,7 +256,7 @@ def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
 
 
 def main():
-    labPassword, labTopology, labName = readLabDetails()
+    labPassword, labTopology, labName, labZone = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
     fullName, email, candidateID = getUserInfo()
@@ -275,7 +276,21 @@ def main():
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
     ftpUpload(tarFile)
     print("Upload complete")
+    print("Disconneting you from the lab environment")
+    firewall("block-firewall",labName,labZone)
 
+def firewall(action, instanceName, instanceRegion):
+    """
+    """
+    #get the data from DB if needed
+    #call the cloud function or the do the api calls here itself
+    response = requests.get(EDIT_INSTANCE + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
+    try:
+        print("Response from edit-instance CF: {}".format(response.json()))
+        return(response.json())
+    except Exception as e:
+        print("Response from edit-instance CF: {}".format(e))
+        return(False)
 
 main()
 
