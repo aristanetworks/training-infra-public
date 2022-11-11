@@ -291,10 +291,10 @@ def firewall(action, instanceName, instanceRegion):
     response = requests.get(EDIT_INSTANCE + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
         print("Response from edit-instance CF: {}".format(response.json()))
+        os.system("pkill -KILL -u arista")
         return(response.json())
     except Exception as e:
         print("Response from edit-instance CF: {}".format(e))
-        os.system("pkill -KILL -u arista")
         return(False)
 
 main()
