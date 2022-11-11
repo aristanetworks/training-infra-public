@@ -634,7 +634,7 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.5
+            branch: 2021.3-3.6
             orderable: true
             image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
             eos:
@@ -693,7 +693,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: 2021.3-3.5
+            branch: 2021.3-3.6
             orderable: true
             image: base-training-l4-e4-27-2f-c2021-3-0-20221018
             eos:
