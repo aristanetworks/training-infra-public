@@ -294,6 +294,7 @@ def firewall(action, instanceName, instanceRegion):
         return(response.json())
     except Exception as e:
         print("Response from edit-instance CF: {}".format(e))
+        os.system("pkill -KILL -u arista")
         return(False)
 
 main()
