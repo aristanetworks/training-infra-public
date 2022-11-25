@@ -4,15 +4,15 @@
         additional_commands: 
           - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
         description: "Reset All Devices to Base Lab (reset)"
-      VXLAN:
+      vxlan:
         description: "VXLAN Lab (vxlan)"
-      L2-EVPN:
+      l2evpn:
         description: "L2-EVPN Lab (l2evpn)"
-      L3-EVPN:
+      l3evpn:
         description: "L3-EVPN Lab (l3evpn)"
-      Active-Active-MH:
+      aamh:
         description: "Active-Active Multi Homing lab (aamh)"
-      PIM:
+      pim:
         description: "PIM Lab (pim)"
     labconfiglets:
       reset:
