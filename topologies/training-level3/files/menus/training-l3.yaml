@@ -41,37 +41,37 @@
       vxlan:
         spine1:
           - "spine1-base"
-          - "Spine-1-VXALN-Begin"
+          - "Spine-1-VXLAN-Begin"
         spine2:
           - "spine2-base"
-          - "Spine-2-VXALN-Begin"
+          - "Spine-2-VXLAN-Begin"
         spine3:
           - "spine3-base"
-          - "Spine-3-VXALN-Begin"
+          - "Spine-3-VXLAN-Begin"
         leaf1:
           - "leaf1-base"
-          - "Leaf-1-VXALN-Begin"
+          - "Leaf-1-VXLAN-Begin"
         leaf2:
           - "leaf2-base"
-          - "Leaf-1-VXALN-Begin"
+          - "Leaf-1-VXLAN-Begin"
         leaf3:
           - "leaf3-base"
-          - "leaf-3-VXALN-Begin"
+          - "leaf-3-VXLAN-Begin"
         leaf4:
           - "leaf4-base"
-          - "leaf-3-VXALN-Begin"
+          - "leaf-3-VXLAN-Begin"
         host1:
           - "host1-base"
-          - "Host-1-VXALN-Begin"
+          - "Host-1-VXLAN-Begin"
         host2:
           - "host2-base"
-          - "Host-2-VXALN-Begin"
+          - "Host-2-VXLAN-Begin"
         borderleaf1:
           - "borderleaf1-base"
-          - "Borderleaf-1-VXALN-Begin"
+          - "Borderleaf-1-VXLAN-Begin"
         borderleaf2:
           - "borderleaf2-base"
-          - "Borderleaf-2-VXALN-Begin"
+          - "Borderleaf-2-VXLAN-Begin"
       l2evpn:
         spine1:
           - "spine1-base"
