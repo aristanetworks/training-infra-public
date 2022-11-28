@@ -1,0 +1,29 @@
+    lab_list:
+      reset:
+        description: "Reset All Devices to Base Lab (reset)"
+    labconfiglets:
+      reset:
+        A1:
+          - a1-BASE
+        B1:
+          - b1-BASE
+        C1:
+          - c1-BASE
+        A2:
+          - a2-BASE
+        B2:
+          - b2-BASE
+        C2:
+          - c2-BASE
+        PE1:
+          - pe1-BASE
+        PE2:
+          - pe2-BASE
+        P3:
+          - p3-BASE
+        P4:
+          - p4-BASE
+        P5:
+          - p5-BASE
+        P6:
+          - p6-BASE
