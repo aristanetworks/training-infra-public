@@ -418,7 +418,7 @@ topologies:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.5
+            branch: 2021.3-3.7
             orderable: true
             image: base-training-l1-e4-27-2f-c2021-3-0-20220825
             eos:
@@ -463,7 +463,7 @@ topologies:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.5
+            branch: 2021.3-3.7
             orderable: true
             image: base-training-l2-e4-27-2f-c2021-3-0-20220830
             eos:
@@ -535,7 +535,7 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.5
+            branch: 2021.3-3.7
             orderable: true
             image: base-training-l3-e4-27-2f-c2021-3-0-20221012
             eos:
@@ -693,7 +693,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: 2021.3-3.6
+            branch: 2021.3-3.7
             orderable: true
             image: base-training-l4-e4-27-2f-c2021-3-0-20221018
             eos:
