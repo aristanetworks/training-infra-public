@@ -469,7 +469,7 @@ topologies:
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1'
+    name: 'Training - Level 1 Exam'
     title: 'Training Level 1 Lab'
     disk_size: 300
     access: standard
@@ -550,7 +550,7 @@ topologies:
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 2'
+    name: 'Training - Level 2 Exam'
     title: 'Training Level 2 Lab'
     disk_size: 300
     access: standard
@@ -816,7 +816,7 @@ topologies:
             eos:
               - 4.27.2F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 4'
+    name: 'Training - Level 4 Exam'
     title: 'Training Level 4 Lab'
     disk_size: 300
     access: standard
