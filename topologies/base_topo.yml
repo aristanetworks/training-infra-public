@@ -470,7 +470,7 @@ topologies:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1 Exam'
-    title: 'Training Level 1 EXam'
+    title: 'Training Level 1 Exam'
     disk_size: 300
     access: standard
     disable_links: [labguides, jenkins]
