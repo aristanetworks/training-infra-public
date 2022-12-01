@@ -86,9 +86,9 @@ def device_menu():
 
     # Sort veos instances
     veos_info_sorted = sort_veos(veos_info)
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs*****")
+    print("*******************************************")
     print("\n\n==========Device SSH Menu==========\n")
     print("Screen Instructions:\n")
 
@@ -145,9 +145,9 @@ def lab_options_menu():
     global previous_menu
 
     os.system("clear")
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs*****")
+    print("*******************************************")
 
     if menu_mode == 'LAB_OPTIONS':
       # Get Yaml Files in /home/arista/menus
@@ -263,9 +263,9 @@ def main_menu():
     global previous_menu
 
     os.system("clear")
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs*****")
+    print("*******************************************")
     print("\n\n==========Main Menu==========\n")
     print("Please select from the following options: ")
 
