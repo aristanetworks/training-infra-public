@@ -465,7 +465,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.7
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -546,7 +546,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.7
             orderable: true
-            image: base-training-l2-e4-27-2f-c2021-3-0-20220830
+            image: base-veos-training-l2-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -812,7 +812,7 @@ topologies:
               ram: 90
             branch: 2021.3-3.7
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
+            image: base-veos-training-l4-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
