@@ -87,7 +87,7 @@ def device_menu():
     # Sort veos instances
     veos_info_sorted = sort_veos(veos_info)
     print("\n\n*******************************************")
-    print("*****Jump Host for Arista Training Labs*****")
+    print("*****Jump Host for Arista Training Labs****")
     print("*******************************************")
     print("\n\n==========Device SSH Menu==========\n")
     print("Screen Instructions:\n")
@@ -146,7 +146,7 @@ def lab_options_menu():
 
     os.system("clear")
     print("\n\n*******************************************")
-    print("*****Jump Host for Arista Training Labs*****")
+    print("*****Jump Host for Arista Training Labs****")
     print("*******************************************")
 
     if menu_mode == 'LAB_OPTIONS':
@@ -264,7 +264,7 @@ def main_menu():
 
     os.system("clear")
     print("\n\n*******************************************")
-    print("*****Jump Host for Arista Training Labs*****")
+    print("*****Jump Host for Arista Training Labs****")
     print("*******************************************")
     print("\n\n==========Main Menu==========\n")
     print("Please select from the following options: ")
@@ -298,7 +298,7 @@ def main_menu():
     print('\n')
 
 
-
+    print("96. Upload your exam (exam)")
     print("97. Additional Labs (labs)")
     print("98. SSH to Devices (ssh)")
     print("99. Exit LabVM (quit/exit) - CTRL + c")
@@ -310,6 +310,8 @@ def main_menu():
     try:
       if user_input.lower() in options_dict:
           ConfigureTopology(selected_menu=options_dict[user_input]['selected_menu'],selected_lab=options_dict[user_input]['selected_lab'])
+      elif user_input == '96' or user_input.lower() == 'exam':
+        os.system('uploadExam.py')
       elif user_input == '98' or user_input.lower() == 'ssh':
         previous_menu = menu_mode
         menu_mode = 'DEVICE_SSH'
