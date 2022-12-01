@@ -442,7 +442,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l1-exam-2021-3-20221130-143751
+            image: base-veos-training-l4-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     prod:
@@ -532,7 +532,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l2-exam-2021-3-20221129-115825
+            image: base-veos-training-l2-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     prod:
@@ -798,7 +798,7 @@ topologies:
               ram: 90
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l4-exam-2021-3-20221129-115825
+            image: base-veos-training-l4-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
     prod:
