@@ -11,6 +11,8 @@ RUN mkdir -p /root/labguides
 
 WORKDIR /root
 
+RUN curl -sSL https://get.docker.com/ | sh
+
 COPY ./src/html /opt/topo/html/
 
 COPY ./src/uilanding.py /usr/local/bin/uilanding
