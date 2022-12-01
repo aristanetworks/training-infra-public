@@ -107,6 +107,7 @@ def device_menu():
         counter += 1
     
     print("\nOther Options: ")
+    print("95. Upload your exam (exam)")
     print("96. Screen (screen) - Opens a screen session to each of the hosts")
     print("97. Back to Previous Menu (back)")
     print("98. Shell (shell/bash)")
@@ -121,6 +122,8 @@ def device_menu():
           os.system('ssh -o StrictHostKeyChecking=no ' + device_dict[user_input])
       elif user_input == '96' or user_input.lower() == 'screen':
           os.system('/usr/bin/screen')
+      elif user_input == '95' or user_input.lower() == 'exam':
+        os.system('uploadExam.py')
       elif user_input == '97' or user_input.lower() == 'back':
           if menu_mode == previous_menu:
               menu_mode = 'MAIN'
@@ -298,7 +301,7 @@ def main_menu():
     print('\n')
 
 
-    print("96. Upload your exam (exam)")
+
     print("97. Additional Labs (labs)")
     print("98. SSH to Devices (ssh)")
     print("99. Exit LabVM (quit/exit) - CTRL + c")
@@ -310,8 +313,6 @@ def main_menu():
     try:
       if user_input.lower() in options_dict:
           ConfigureTopology(selected_menu=options_dict[user_input]['selected_menu'],selected_lab=options_dict[user_input]['selected_lab'])
-      elif user_input == '96' or user_input.lower() == 'exam':
-        os.system('uploadExam.py')
       elif user_input == '98' or user_input.lower() == 'ssh':
         previous_menu = menu_mode
         menu_mode = 'DEVICE_SSH'
