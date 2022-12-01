@@ -93,6 +93,7 @@ services:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
   labguides:
