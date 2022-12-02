@@ -128,24 +128,25 @@ def getUserInfo():
         accept = input ("Do you accept this? (y/n) ")
         if accept == "n":
             sys.exit()
-    fullName = input("Please provide your full name: ")
-    fullName = fullName.replace(' ','')
-    email = input("Please provide your email address: ")
-    while checkEmail(email) == 0:
-        emailCounter +=1
-        if emailCounter == 4:
-            print("You have entered your email incorrect too many times, please restart")
-            sys.exit()
-        email = input ("Please provide your email address: ")
+    # fullName = input("Please provide your full name: ")
+    # fullName = fullName.replace(' ','')
+    # email = input("Please provide your email address: ")
+    # while checkEmail(email) == 0:
+    #     emailCounter +=1
+    #     if emailCounter == 4:
+    #         print("You have entered your email incorrect too many times, please restart")
+    #         sys.exit()
+    #     email = input ("Please provide your email address: ")
 
-    candidateID = input("Please provide your candidateID: ")
-    return fullName, email, candidateID
+    # candidateID = input("Please provide your candidateID: ")
+    # return fullName, email, candidateID
+    return
 
-def createUserFile(fullName,email,candidateID,folder,labName,labTopology):
-    topo_id = encodeID({'instance': labName,'topology': labTopology})
-    with open(folder + "/User-Details", 'w') as f:
-         f.writelines(["Name = " + fullName,"\nEmail address = " + email,"\nCandidateID = " + candidateID, "\nLab Name = " + labName,"\nLab Token = " + topo_id,"\n"])
-    print("Written user details to file")
+# def createUserFile(fullName,email,candidateID,folder,labName,labTopology):
+#     topo_id = encodeID({'instance': labName,'topology': labTopology})
+#     with open(folder + "/User-Details", 'w') as f:
+#          f.writelines(["Name = " + fullName,"\nEmail address = " + email,"\nCandidateID = " + candidateID, "\nLab Name = " + labName,"\nLab Token = " + topo_id,"\n"])
+#     print("Written user details to file")
 
 
 def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
@@ -257,20 +258,21 @@ def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
 
 def main():
     labPassword, labTopology, labName, labZone = readLabDetails()
-    print(labZone)
+    #print(labZone)
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
-    fullName, email, candidateID = getUserInfo()
-    folder = str(fullName)
+    #fullName, email, candidateID = getUserInfo()
+    getUserInfo()
+    folder = str(labName[:-11])
     if not os.path.exists(folder):
         try:
             os.makedirs(folder)
         except OSError as exc: # Guard against race condition
             raise
     grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword)
-    tarFile = folder + "-" + candidateID
+    tarFile = "results-" + folder #+ "-" + candidateID
     grabCVPInfo(labPassword,folder)
-    createUserFile(fullName,email,candidateID,folder,labName,labTopology)
+    #createUserFile(fullName,email,candidateID,folder,labName,labTopology)
     print("This file will be created and uploaded " + tarFile)
     with tarfile.open(tarFile, "w:gz") as tar:
         tar.add(os.getcwd() + "/" + folder, arcname=os.path.basename(tarFile))
