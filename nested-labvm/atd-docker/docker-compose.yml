@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.8
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.9
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -85,7 +85,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.4
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.5
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -119,7 +119,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.3
     restart: always
     depends_on:
       - uilanding
