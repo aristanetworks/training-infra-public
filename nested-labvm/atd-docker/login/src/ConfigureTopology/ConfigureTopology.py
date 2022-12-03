@@ -243,6 +243,7 @@ class ConfigureTopology():
                         input('Lab Setup Completed. Please press Enter to continue...')
                         self.send_to_syslog("OK", 'Lab Setup Completed.')
                     else:
+                        print('Lab Setup Completed. ')
                         self.send_to_syslog("OK", 'Lab Setup Completed.')
                     all_tasks_completed = True
                 else:
@@ -279,4 +280,5 @@ class ConfigureTopology():
                 input('Lab Setup Completed. Please press Enter to continue...')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
             else:
+                print('Lab Setup Completed. ')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')

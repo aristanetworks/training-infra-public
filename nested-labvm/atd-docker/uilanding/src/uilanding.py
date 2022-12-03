@@ -25,6 +25,18 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
+MENU_BASE_PATH = '/opt/menus/'
+# Open yaml for the default yaml and read what file to lookup for default menu
+default_menu_file = open(MENU_BASE_PATH+'default.yaml')
+default_menu_info = YAML().load(default_menu_file)
+default_menu_file.close()
+
+# Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
+menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
+MENU_ITEMS = YAML().load(menu_file)  
+menu_file.close()
+menu={}   
+DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
 
 with open(MODULE_FILE, 'r') as mf:
     MOD_YAML = YAML().load(mf)
@@ -123,7 +135,9 @@ class topoRequestHandler(BaseHandler):
                 labguides = '/labguides/index.html'
             if 'cvp' in host_yaml:
                 if host_yaml['cvp'] != "none":
-                    _topo_cvp = True
+                    _topo_cvp = True            
+            for lab in MENU_ITEMS['lab_list']:
+                menu[lab] = MENU_ITEMS['lab_list'][lab]['description']
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
@@ -131,7 +145,8 @@ class topoRequestHandler(BaseHandler):
                 topo_title = TITLE,
                 disable_links = disable_links,
                 labguides = labguides,
-                topo_cvp = _topo_cvp
+                topo_cvp = _topo_cvp,
+                menu_options = menu
             )
     
 class topoDataHandler(tornado.websocket.WebSocketHandler):
@@ -282,6 +297,18 @@ def pS(mtype):
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
+class LabHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        selected_lab_option = self.get_argument('lab_value')
+        import subprocess
+        response =  subprocess.run(f'docker exec -it atd-login python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option} > log.txt',shell=True)
+        with open("log.txt", "r") as txt_file:
+            response =  txt_file.readlines()
+        self.write({
+            'response':response
+        })
+
 
 if __name__ == "__main__":
     settings = {
@@ -296,6 +323,7 @@ if __name__ == "__main__":
         (r'/', topoRequestHandler),
         (r'/td-ws', topoDataHandler),
         (r'/login', LoginHandler),
+        (r'/lab', LabHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
