@@ -11,6 +11,7 @@ import requests
 import secrets
 import hashlib, uuid
 import json
+import docker
 import urllib3
 import traceback
 
@@ -301,8 +302,13 @@ class LabHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
         selected_lab_option = self.get_argument('lab_value')
-        import subprocess
-        response =  subprocess.run(f'docker exec -it atd-login python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option} > log.txt',shell=True)
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        container_output=login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}')
+        print(container_output)
+        log_file = open('log.txt','w')
+        log_file.write(str(container_output.output.decode("utf-8")))
+        log_file.close()
         with open("log.txt", "r") as txt_file:
             response =  txt_file.readlines()
         self.write({
