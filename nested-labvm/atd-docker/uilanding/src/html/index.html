@@ -182,6 +182,10 @@
                 document.getElementById('loader').style.display = 'none'
 
             }
+        }).fail((err)=>{
+            console.log(err)
+            document.getElementById('apiResponse').textContent = "Some thing went wrong"
+                document.getElementById('loader').style.display = 'none'
         })
 
 
