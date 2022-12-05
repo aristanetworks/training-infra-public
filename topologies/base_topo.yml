@@ -376,6 +376,51 @@ topologies:
     access: standard
     disable_links: []
     labguides: self
+  training-ntc:
+    dev:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2021.3.0:
+            resources:
+              cpu: 32
+              ram: 64
+            branch: nested/2021.3
+            orderable: true
+            image: base-veos-training-ntc-2021-3-20221205-133248
+            eos:
+              - 4.27.2F
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2020.2.3:
+            resources:
+              cpu: 32
+              ram: 64
+            branch: v2020.2-20220404a
+            orderable: false
+            image: base-training-l1-e4-26-0f-c2020-2-3-20211220
+            eos:
+              - 4.26.0F
+          2021.3.0:
+            resources:
+              cpu: 32
+              ram: 64
+            branch: 2021.3-3.9
+            orderable: true
+            image: base-veos-training-l1-exam-2021-3-20221130-161201
+            eos:
+              - 4.27.2F
+    desc: 'Topology based of NTC.'
+    name: 'Training - Network To Code lab'
+    title: 'Training Network to Code'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins]
+    labguides: self
   training-level1:
     dev:
       veos:
