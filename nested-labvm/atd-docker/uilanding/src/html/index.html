@@ -15,9 +15,35 @@
 
     <!-- Custom styles for this template -->
     <link href="css/simple-sidebar.css" rel="stylesheet">
+    <style>
+                #spinner{
+            position: fixed;
+            top:0;
+            left: 0;
+            opacity: 0.5;
+            z-index: 60;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: white;   
+        }
+        #spinner img{
+                height: 100px;
+                width: 100px;
+            }
+
+
+    </style>
 </head>
 
 <body>
+    <div id="loader" style="display: none;">
+    <div id="spinner">
+        <img  src="./images/loading.gif" alt="Description when image is not found" width="100" height="100">
+        </div>
+    </div>
     <div id="wrapper" class="toggled">
 
         <!-- Sidebar -->
@@ -26,6 +52,9 @@
                 <br>
                 <img src="images/logotransparent.png" class="arista-logo">
                 <hr class="hr">
+                <li>
+                    <a style="color: white;cursor: pointer;" id="home"  target="_blank">Home</a>
+                </li>
                 {% if "labguides" not in disable_links %}
                 <li>
                     <a href="{{ labguides }}" target="_blank">Lab Guides</a> <a href="/labguides/ATD.pdf" target="_blank">(PDF)</a>
@@ -56,6 +85,9 @@
                     <a href="/jenkins" target="_blank">Jenkins</a>
                 </li>
                 {% end %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="labMenu"  target="_blank">Lab Menu</a>
+                </li>
             </ul>
         </div>
         <!-- /#sidebar-wrapper -->
@@ -63,6 +95,7 @@
         <!-- Page Content -->
         <div id="page-content-wrapper">
             <div class="container-fluid">
+                <div id="mainContent">
                 <h1>Arista {{ topo_title }}</h1>
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
                 <br><br>
@@ -100,6 +133,19 @@
 
                 <br>
             </div>
+            <div id="labMenuDiv" style="display: none;">
+            <h2>Lab Menu</h2>
+           
+            <div id="statistics-table">
+                {% for key, value in menu_options.items() %}
+                <input type="radio" name="lab" value="{{key}}" /> {{value}}<br />
+                {% end %}
+              </div>
+              <button id="labBtn">Start Lab</button>
+              <p id="apiResponse"></p>
+            </div>
+        </div>
+            </div>
         </div>
         <!-- /#page-content-wrapper -->
 
@@ -110,7 +156,41 @@
     <script src="js/jquery.min.js"></script>
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script>
+        $('#labMenu').click(function(event) {
+        document.getElementById('labMenuDiv').style.display = 'block'
+        document.getElementById('mainContent').style.display = 'none'
+        // mainContent
+        });
+        $('#home').click(function(event) {
+        document.getElementById('labMenuDiv').style.display = 'none'
+        document.getElementById('mainContent').style.display = 'block'
+        // mainContent
+        })
+        
+    document.getElementById("labBtn").addEventListener("click", function () {        
+        const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
+        document.getElementById('loader').style.display = 'block'
+        $.get( "/lab?lab_value="+selected_lab_options,(res)=>{
+            console.log(res)
+            if(res.response){
+                output = ''
+                res.response.forEach(element => {
+                    output =  output + element 
+                });
+                document.getElementById('apiResponse').textContent = output
+                document.getElementById('loader').style.display = 'none'
 
+            }
+        }).fail((err)=>{
+            console.log(err)
+            document.getElementById('apiResponse').textContent = "Some thing went wrong"
+                document.getElementById('loader').style.display = 'none'
+        })
+
+
+      });
+    </script>
 
 </body>
 

@@ -3,7 +3,7 @@ FROM python:3.9
 
 RUN pip install --upgrade pip
 
-RUN pip install tornado requests ruamel.yaml
+RUN pip install tornado requests ruamel.yaml docker 
 
 RUN mkdir -p /opt/topo/html
 
