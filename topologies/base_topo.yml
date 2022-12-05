@@ -409,7 +409,7 @@ topologies:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.9
+            branch: 2021.3-3.11
             orderable: true
             image: base-veos-training-l1-exam-2021-3-20221130-161201
             eos:
@@ -508,7 +508,7 @@ topologies:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.10
+            branch: 2021.3-3.11
             orderable: true
             image: base-veos-training-l1-exam-2021-3-20221130-161201
             eos:
@@ -589,7 +589,7 @@ topologies:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.10
+            branch: 2021.3-3.11
             orderable: true
             image: base-veos-training-l2-exam-2021-3-20221130-161201
             eos:
@@ -715,7 +715,7 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.10
+            branch: 2021.3-3.11
             orderable: true
             image: base-training-l3-exam-e4-27-2f-c2021-3-0-20220831
             eos:
@@ -760,7 +760,7 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.9
+            branch: 2021.3-3.11
             orderable: true
             image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
             eos:
@@ -855,7 +855,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: 2021.3-3.10
+            branch: 2021.3-3.11
             orderable: true
             image: base-veos-training-l4-exam-2021-3-20221130-161201
             eos:
@@ -911,7 +911,7 @@ topologies:
             resources:
               cpu: 48
               ram: 72
-            branch: 2021.3-3.9
+            branch: 2021.3-3.11
             orderable: true
             image: base-training-l5-ceos-c2021-3-0-20220905
             eos:
