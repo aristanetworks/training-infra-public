@@ -2,54 +2,60 @@ cvp_info:
   containers:
     Tenant:
       nodes:
-    Leaf:
+    Leaf-dc1:
       parent: Tenant
       nodes:
-      - leaf1
-      - leaf2
-      - leaf3
-      - leaf4
-    Borderleaf:
+      - leaf1-dc1
+      - leaf2-dc1
+    Spine-DC1:
       parent: Tenant
       nodes:
-      - border-leaf1
-      - border-leaf2
-    Spine:
+      - spine1-dc1
+      - spine2-dc1
+    Spine-DC2:
       parent: Tenant
       nodes:
-      - spine1
-      - spine2
-      - spine3
-    Hosts:
+      - spine1-dc2
+      - spine2-dc2
+    ISP-DC1:
       parent: Tenant
       nodes:
-      - host1
-      - host2
+      - isp1-dc1
+      - isp2-dc1
+      - isp3-dc1
+    ISP-DC2:
+      parent: Tenant
+      nodes:
+      - isp1-dc2
+      - isp2-dc2
+      - isp3-dc2
   snapshots:
   configlets:
     containers:
       Tenant:
         - ATD-INFRA
     netelements:
-      spine1:
-        - spine1-base
-      spine2:
-        - spine2-base
-      spine3:
-        - spine3-base
-      leaf1:
-        - leaf1-base
-      leaf2:
-        - leaf2-base
-      border-leaf1:
-        - borderleaf1-base
-      border-leaf2:
-        - borderleaf2-base
-      leaf3:
-        - leaf3-base
-      leaf4:
-        - leaf4-base
-      host1:
-        - host1-base
-      host2:
-        - host2-base
+      spine1-dc1:
+        - spine1-dc1-base
+      spine2-dc1:
+        - spine2-dc1-base
+      spine1-dc2:
+        - spine1-dc2-base
+      spine2-dc2:
+        - spine2-dc2-base
+      leaf1-dc1:
+        - leaf1-dc1-base
+      leaf2-dc1:
+        - leaf2-dc1-base
+      isp1-dc1:
+        - isp1-dc1-base
+      isp2-dc1:
+        - isp2-dc1-base
+      isp3-dc1:
+        - isp3-dc1-base
+      isp1-dc2:
+        - isp1-dc2-base
+      isp2-dc2:
+        - isp2-dc2-base
+      isp3-dc2:
+        - isp3-dc2-base

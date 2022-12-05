@@ -1,11 +1,11 @@
-hostname host2
-!
-spanning-tree mode none
+hostname isp1-dc2
 !
 interface Management 1
-  ip address 192.168.0.52/24
+  ip address 192.168.0.34/24
   no lldp transmit
   no lldp receive
+!
+service routing protocols model multi-agent
 !
 dns domain arista.lab
 !

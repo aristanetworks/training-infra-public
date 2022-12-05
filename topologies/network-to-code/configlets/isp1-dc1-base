@@ -1,7 +1,7 @@
-hostname borderleaf2
+hostname isp1-dc1
 !
 interface Management 1
-  ip address 192.168.0.26/24
+  ip address 192.168.0.31/24
   no lldp transmit
   no lldp receive
 !

@@ -1,11 +1,9 @@
-hostname spine1
+hostname spine2-dc2
 !
 interface Management 1
-  ip address 192.168.0.11/24
+  ip address 192.168.0.26/24
   no lldp transmit
   no lldp receive
-!
-service routing protocols model multi-agent
 !
 dns domain arista.lab
 !
