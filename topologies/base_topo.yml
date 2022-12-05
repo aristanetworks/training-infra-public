@@ -376,7 +376,7 @@ topologies:
     access: standard
     disable_links: []
     labguides: self
-  training-ntc:
+  network-to-code:
     dev:
       veos:
         cpu: 32
