@@ -26,18 +26,21 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
-MENU_BASE_PATH = '/opt/menus/'
-# Open yaml for the default yaml and read what file to lookup for default menu
-default_menu_file = open(MENU_BASE_PATH+'default.yaml')
-default_menu_info = YAML().load(default_menu_file)
-default_menu_file.close()
+try:
+    MENU_BASE_PATH = '/opt/menus/'
+    # Open yaml for the default yaml and read what file to lookup for default menu
+    default_menu_file = open(MENU_BASE_PATH+'default.yaml')
+    default_menu_info = YAML().load(default_menu_file)
+    default_menu_file.close()
 
-# Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
-menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
-MENU_ITEMS = YAML().load(menu_file)  
-menu_file.close()
-menu={}   
-DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
+    # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
+    menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
+    MENU_ITEMS = YAML().load(menu_file)  
+    menu_file.close()
+    
+    DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
+except:
+    NOMENUOPTIONFILE =True
 
 with open(MODULE_FILE, 'r') as mf:
     MOD_YAML = YAML().load(mf)
@@ -127,6 +130,8 @@ class topoRequestHandler(BaseHandler):
                 disable_links = host_yaml['disabled_links']
             else:
                 disable_links = []
+            if NOMENUOPTIONFILE:
+                disable_links.append('lab_menu')
             if 'labguides' in host_yaml:
                 if host_yaml['labguides'] == 'self':
                     labguides = '/labguides/index.html'
@@ -138,6 +143,7 @@ class topoRequestHandler(BaseHandler):
                 if host_yaml['cvp'] != "none":
                     _topo_cvp = True            
             for lab in MENU_ITEMS['lab_list']:
+                menu={}  
                 menu[lab] = MENU_ITEMS['lab_list'][lab]['description']
             self.render(
                 BASE_PATH + 'index.html',
