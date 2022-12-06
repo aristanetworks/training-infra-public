@@ -85,9 +85,11 @@
                     <a href="/jenkins" target="_blank">Jenkins</a>
                 </li>
                 {% end %}
+                {% if "lab_menu" not in disable_links %}
                 <li>
                     <a style="color: white;cursor: pointer;" id="labMenu"  target="_blank">Lab Menu</a>
                 </li>
+                {% end %}
             </ul>
         </div>
         <!-- /#sidebar-wrapper -->
