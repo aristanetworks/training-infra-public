@@ -911,7 +911,7 @@ topologies:
             resources:
               cpu: 48
               ram: 72
-            branch: 2021.3-3.11
+            branch: 2021.3-3.9
             orderable: true
             image: base-training-l5-ceos-c2021-3-0-20220905
             eos:
