@@ -39,6 +39,7 @@ try:
     menu_file.close()
     
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
+    NOMENUOPTIONFILE = False
 except:
     NOMENUOPTIONFILE =True
 
