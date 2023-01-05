@@ -39,6 +39,7 @@ try:
     menu_file.close()
     
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
+    NOMENUOPTIONFILE = False
 except:
     NOMENUOPTIONFILE =True
 
@@ -130,8 +131,12 @@ class topoRequestHandler(BaseHandler):
                 disable_links = host_yaml['disabled_links']
             else:
                 disable_links = []
+            menu={} 
             if NOMENUOPTIONFILE:
                 disable_links.append('lab_menu')
+            else:
+                for lab in MENU_ITEMS['lab_list']:
+                    menu[lab] = MENU_ITEMS['lab_list'][lab]['description']
             if 'labguides' in host_yaml:
                 if host_yaml['labguides'] == 'self':
                     labguides = '/labguides/index.html'
@@ -142,9 +147,6 @@ class topoRequestHandler(BaseHandler):
             if 'cvp' in host_yaml:
                 if host_yaml['cvp'] != "none":
                     _topo_cvp = True            
-            for lab in MENU_ITEMS['lab_list']:
-                menu={}  
-                menu[lab] = MENU_ITEMS['lab_list'][lab]['description']
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
