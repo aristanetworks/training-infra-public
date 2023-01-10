@@ -39,7 +39,7 @@ nodes:
         - neighborDevice: spine2-dc1
           neighborPort: Ethernet1
           port: Ethernet2
-  - leaf2-dc2:
+  - leaf2-dc1:
       ip_addr: 192.168.0.22
       sys_mac: 00:1c:73:c2:c6:04
       neighbors:
@@ -67,14 +67,14 @@ nodes:
       sys_mac: 00:1c:73:c4:c6:06
       neighbors:
         - neighborDevice: isp3-dc1
-          neighborPort: Ethernet3
-          port: Ethernet3
+          neighborPort: Ethernet2
+          port: Ethernet1
         - neighborDevice: isp1-dc1
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine2-dc1
           neighborPort: Ethernet3
-          port: Ethernet1
+          port: Ethernet3
   - isp3-dc1:
       ip_addr: 192.168.0.33
       sys_mac: 00:1c:73:c4:c6:07
@@ -83,7 +83,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet3
         - neighborDevice: isp2-dc1
-          neighborPort: Ethernet2
+          neighborPort: Ethernet1
           port: Ethernet2
         - neighborDevice: isp1-dc1
           neighborPort: Ethernet1
@@ -94,9 +94,6 @@ nodes:
       neighbors:
         - neighborDevice: isp3-dc2
           neighborPort: Ethernet1
-          port: Ethernet3
-        - neighborDevice: isp2-dc2
-          neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1-dc2
           neighborPort: Ethernet1
@@ -106,9 +103,6 @@ nodes:
       sys_mac: 00:1c:73:c4:c6:09
       neighbors:
         - neighborDevice: isp3-dc2
-          neighborPort: Ethernet3
-          port: Ethernet3
-        - neighborDevice: isp2-dc2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine2-dc2
@@ -125,13 +119,13 @@ nodes:
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: isp1-dc2
-          neighborPort: Ethernet3
+          neighborPort: Ethernet2
           port: Ethernet1
   - spine1-dc2:
       ip_addr: 192.168.0.24
       sys_mac: 00:1c:73:c5:c6:a2
       neighbors:
-        - neighborDevice: isp-dc2
+        - neighborDevice: isp1-dc2
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: spine2-dc2
