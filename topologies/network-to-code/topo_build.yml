@@ -121,7 +121,7 @@ nodes:
         - neighborDevice: isp3-dc1
           neighborPort: Ethernet3
           port: Ethernet3
-        - neighborDevice: isp-dc2
+        - neighborDevice: isp1-dc2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: isp1-dc2
@@ -131,7 +131,7 @@ nodes:
       ip_addr: 192.168.0.24
       sys_mac: 00:1c:73:c4:c6:01
       neighbors:
-        - neighborDevice: isp-dc2
+        - neighborDevice: isp1-dc2
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: spine2-dc2
