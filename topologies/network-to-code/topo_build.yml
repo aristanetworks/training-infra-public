@@ -43,10 +43,10 @@ nodes:
       ip_addr: 192.168.0.22
       sys_mac: 00:1c:73:c2:c6:01
       neighbors:
-        - neighborDevice: spine1-dc2
+        - neighborDevice: spine1-dc1
           neighborPort: Ethernet2
           port: Ethernet1
-        - neighborDevice: spine2-dc2
+        - neighborDevice: spine2-dc1
           neighborPort: Ethernet2
           port: Ethernet2
   - isp1-dc1:
