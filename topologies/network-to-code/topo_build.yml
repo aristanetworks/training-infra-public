@@ -115,7 +115,7 @@ nodes:
         - neighborDevice: isp1-dc2
           neighborPort: Ethernet2
           port: Ethernet1
-        - neighborDevice: isp-dc2
+        - neighborDevice: isp2-dc2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: isp3-dc1
