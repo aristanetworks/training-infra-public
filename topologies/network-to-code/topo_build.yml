@@ -79,48 +79,48 @@ nodes:
       ip_addr: 192.168.0.33
       sys_mac: 00:1c:73:d3:c6:01
       neighbors:
-        - neighborDevice: isp3-dc2
-          neighborPort: Ethernet3
-          port: Ethernet3
-        - neighborDevice: isp2-dc1
-          neighborPort: Ethernet1
-          port: Ethernet2
         - neighborDevice: isp1-dc1
           neighborPort: Ethernet1
           port: Ethernet1
+        - neighborDevice: isp2-dc1
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: isp3-dc2
+          neighborPort: Ethernet3
+          port: Ethernet3
   - isp1-dc2:
       ip_addr: 192.168.0.34
       sys_mac: 00:1c:73:d4:c6:01
       neighbors:
-        - neighborDevice: isp3-dc2
-          neighborPort: Ethernet1
-          port: Ethernet2
         - neighborDevice: spine1-dc2
           neighborPort: Ethernet1
           port: Ethernet1
+        - neighborDevice: isp3-dc2
+          neighborPort: Ethernet1
+          port: Ethernet2
   - isp2-dc2:
       ip_addr: 192.168.0.35
       sys_mac: 00:1c:73:d5:c6:01
       neighbors:
-        - neighborDevice: isp3-dc2
-          neighborPort: Ethernet2
-          port: Ethernet2
         - neighborDevice: spine2-dc2
           neighborPort: Ethernet1
           port: Ethernet1
+        - neighborDevice: isp3-dc2
+          neighborPort: Ethernet2
+          port: Ethernet2
   - isp3-dc2:
       ip_addr: 192.168.0.36
       sys_mac: 00:1c:73:d6:c6:01
       neighbors:
-        - neighborDevice: isp3-dc1
-          neighborPort: Ethernet3
-          port: Ethernet3
-        - neighborDevice: isp-dc2
-          neighborPort: Ethernet2
-          port: Ethernet2
         - neighborDevice: isp1-dc2
           neighborPort: Ethernet2
           port: Ethernet1
+        - neighborDevice: isp-dc2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: isp3-dc1
+          neighborPort: Ethernet3
+          port: Ethernet3
   - spine1-dc2:
       ip_addr: 192.168.0.24
       sys_mac: 00:1c:73:c4:c6:01
@@ -142,7 +142,7 @@ nodes:
           port: Ethernet5
   - spine2-dc2:
       ip_addr: 192.168.0.26
-      sys_mac: 00:1c:73:c6:c6:01
+      sys_mac: 00:1c:73:c6:c6:a3
       neighbors:
         - neighborDevice: isp2-dc2
           neighborPort: Ethernet1
