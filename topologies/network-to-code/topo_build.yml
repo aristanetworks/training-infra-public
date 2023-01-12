@@ -142,7 +142,7 @@ nodes:
           port: Ethernet5
   - spine2-dc2:
       ip_addr: 192.168.0.26
-      sys_mac: 00:1c:73:c6:c6:a3
+      sys_mac: 00:1c:73:c6:c6:01
       neighbors:
         - neighborDevice: isp2-dc2
           neighborPort: Ethernet1
