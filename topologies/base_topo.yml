@@ -388,7 +388,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-ntc-2021-3-20230111-140609
+            image: base-veos-training-ntc-2021-3-20230112-105848
             eos:
               - 4.27.2F
     prod:
