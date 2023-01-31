@@ -26,22 +26,21 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
-try:
-    MENU_BASE_PATH = '/opt/menus/'
-    # Open yaml for the default yaml and read what file to lookup for default menu
-    default_menu_file = open(MENU_BASE_PATH+'default.yaml')
-    default_menu_info = YAML().load(default_menu_file)
-    default_menu_file.close()
-
+MENU_BASE_PATH = '/opt/menus/'
+# Open yaml for the default yaml and read what file to lookup for default menu
+default_menu_file = open(MENU_BASE_PATH+'default.yaml')
+default_menu_info = YAML().load(default_menu_file)
+default_menu_file.close()
+if str(default_menu_info['default_menu']).lower() == 'ssh':
+    NOMENUOPTIONFILE =True
+else:
     # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
+    NOMENUOPTIONFILE = False
     menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
     MENU_ITEMS = YAML().load(menu_file)  
     menu_file.close()
-    
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
-    NOMENUOPTIONFILE = False
-except:
-    NOMENUOPTIONFILE =True
+    
 
 with open(MODULE_FILE, 'r') as mf:
     MOD_YAML = YAML().load(mf)
