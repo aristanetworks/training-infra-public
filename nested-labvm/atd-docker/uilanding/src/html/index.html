@@ -133,7 +133,7 @@ table {
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Console Access</a>
+                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
                 </li>
                 {% end %}
                 {% if "ide" not in disable_links %}
@@ -202,11 +202,7 @@ table {
                     <span id="cvp_info"></span>
                     <br /><br />
                 {% end %}
-                <h2>Usernames and Passwords</h2>
-                Use the following usernames and passwords to access the ATD:
-                <br>
-                <br>
-               
+                
 
                 <br>
             </div>
@@ -266,8 +262,13 @@ table {
                 display: flex;
                 justify-content: space-between;
             ">
-                <h3>Passwords
-            </h3>
+            <div>
+            <h2>Usernames and Passwords</h2>
+            Use the following usernames and passwords to access the ATD:
+            <br>
+            <br>
+            </div>
+           
             <span class="close">×</span>
             </div>
               <table class="table table-striped">
