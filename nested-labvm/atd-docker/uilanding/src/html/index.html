@@ -133,7 +133,7 @@ table {
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
+                    <a href="/ssh/host/192.168.0.1" target="_blank">Console Access</a>
                 </li>
                 {% end %}
                 {% if "ide" not in disable_links %}
@@ -147,9 +147,12 @@ table {
                 </li>
                 {% end %}
                 {% if "cvp" not in disable_links %}
-                <li class="tooltipOfCvp" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
+                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
                     <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
-                    <span id="tooltiptext">CVP is getting up</span>
+                    <span id="tooltiptext">CVP is Starting, Please wait</span>
+                </li>
+                <li id="cvpLoaded">
+                    <a href="/cv" target="_blank" >CVP</a>                
                 </li>
                 {% end %}
                 {% if "jenkins" not in disable_links %}
@@ -163,10 +166,10 @@ table {
                 </li>
                 {% end %}
                 <li>
-                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
+                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Password</a>
                 </li>
                 <li>
-                    <a style="color: white;cursor: pointer;"  target="_blank">Lab Status</a>
+                    <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
                 </li>
             </ul>
         </div>
@@ -220,7 +223,7 @@ table {
               <p id="apiResponse"></p>              
             </div>
             
-            <div>
+            <div id="labStatusContent" style="display: none;">
                 <p>Lab Status</p>
                 <table>
                     <tr>
@@ -287,12 +290,20 @@ table {
         $('#labMenu').click(function(event) {
         document.getElementById('labMenuDiv').style.display = 'block'
         document.getElementById('mainContent').style.display = 'none'
+        document.getElementById('labStatusContent').style.display = 'none'
+        // labStatusContent
         // mainContent
         });
         $('#home').click(function(event) {
         document.getElementById('labMenuDiv').style.display = 'none'
         document.getElementById('mainContent').style.display = 'block'
+        document.getElementById('labStatusContent').style.display = 'none'
         // mainContent
+        })
+        $('#labStaus').click(function(event){
+            document.getElementById('labMenuDiv').style.display = 'none'
+            document.getElementById('mainContent').style.display = 'none'
+            document.getElementById('labStatusContent').style.display = 'block'
         })
         
     document.getElementById("labBtn").addEventListener("click", function () {        
@@ -354,7 +365,7 @@ table {
         if (event.target == modal) {
           modal.style.display = "none";
         }
-      }
+      }    
     </script>
 
 </body>
