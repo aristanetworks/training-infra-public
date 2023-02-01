@@ -34,7 +34,78 @@
                 width: 100px;
             }
 
+         
+            /* .tooltip {
+            position: relative;
+            display: inline-block;
+            border-bottom: 1px dotted black; 
+            } */
 
+        #tooltiptext {       
+            visibility: hidden; 
+            background-color: black;
+            color: #fff;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 1;
+            text-align: center;
+            display: flex;
+            margin-left: 12px;
+            width: 200px;
+        }        
+        
+table {
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  td, th {
+    border: 1px solid #dddddd;
+    text-align: left;
+    text-align: center;
+    padding: 8px;
+  }
+
+  .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        padding-top: 100px; /* Location of the box */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgb(0,0,0); /* Fallback color */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+      }
+
+      /* Modal Content */
+      .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+      }
+
+      /* The Close Button */
+      .close {
+        color: #aaaaaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+
+      .close:hover,
+      .close:focus {
+        color: #000;
+        text-decoration: none;
+        cursor: pointer;
+      }
+     
     </style>
 </head>
 
@@ -62,7 +133,7 @@
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Console Access</a>
+                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
                 </li>
                 {% end %}
                 {% if "ide" not in disable_links %}
@@ -76,8 +147,9 @@
                 </li>
                 {% end %}
                 {% if "cvp" not in disable_links %}
-                <li>
-                    <a href="/cv" target="_blank">CVP</a>
+                <li class="tooltipOfCvp" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
+                    <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
+                    <span id="tooltiptext">CVP is getting up</span>
                 </li>
                 {% end %}
                 {% if "jenkins" not in disable_links %}
@@ -90,6 +162,12 @@
                     <a style="color: white;cursor: pointer;" id="labMenu"  target="_blank">Lab Menu</a>
                 </li>
                 {% end %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
+                </li>
+                <li>
+                    <a style="color: white;cursor: pointer;"  target="_blank">Lab Status</a>
+                </li>
             </ul>
         </div>
         <!-- /#sidebar-wrapper -->
@@ -125,13 +203,7 @@
                 Use the following usernames and passwords to access the ATD:
                 <br>
                 <br>
-                <table class="table table-striped">
-                  <thead> <tr> <th>Device</th> <th>Username</th> <th>Password</th> </tr> </thead>
-                  <tbody> 
-                    <tr><td>Lab Credentials</td> <td>arista</td> <td>{{ ARISTA_PWD }}</td> </tr>
-                    <tr><td>Programmability IDE</td> <td></td><td>{{ ARISTA_PWD }}</td></tr>
-                    <tr><td>WebUI</td> <td></td><td>@rista1</td></tr>
-                  </tbody> </table>
+               
 
                 <br>
             </div>
@@ -147,11 +219,63 @@
               <p id="cvpStatus"></p>
               <p id="apiResponse"></p>              
             </div>
-        </div>
+            
+            <div>
+                <p>Lab Status</p>
+                <table>
+                    <tr>
+                      <td>CVP</td>
+                      <td style="color: green;">Ok</td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td>Leaf1</td>
+                      <td style="color: red;font-weight: bold;">Failed</td>
+                      <td style="text-decoration: underline;">Reset</td>
+                    </tr>
+                    <tr>
+                        <td>Leaf2</td>
+                        <td style="color: green;">Ok</td>
+                        <td></td>
+                      </tr>
+                      <tr>
+                        <td>Spine1</td>
+                        <td style="color: green;">Ok</td>
+                        <td></td>
+                      </tr>
+                      <tr>
+                        <td>Spine2</td>
+                        <td style="color: green;">Ok</td>
+                        <td></td>
+                      </tr>
+                  </table>
+            </div>
+
+
+            </div>
             </div>
         </div>
         <!-- /#page-content-wrapper -->
-
+        <div id="myModal" class="modal">
+            <!-- Modal content -->
+            <div class="modal-content">
+                <div style="
+                display: flex;
+                justify-content: space-between;
+            ">
+                <h3>Passwords
+            </h3>
+            <span class="close">×</span>
+            </div>
+              <table class="table table-striped">
+                <thead> <tr> <th>Device</th> <th>Username</th> <th>Password</th> </tr> </thead>
+                <tbody> 
+                  <tr><td>Lab Credentials</td> <td>arista</td> <td>{{ ARISTA_PWD }}</td> </tr>
+                  <tr><td>Programmability IDE</td> <td></td><td>{{ ARISTA_PWD }}</td></tr>
+                  <tr><td>WebUI</td> <td></td><td>@rista1</td></tr>
+                </tbody> </table>
+            </div>
+          </div>
     </div>
     <!-- /#wrapper -->
 
@@ -193,6 +317,44 @@
 
 
       });
+      function displayToolTip (){
+        document.getElementById('tooltiptext').style.visibility = "visible";
+      }
+      function hideToolTip (){
+        document.getElementById('tooltiptext').style.visibility = "hidden";
+      }
+      document.getElementById('CvpStatus').style.color = "grey";
+      document.getElementById('CvpStatus').style.pointerEvents = "none";
+
+
+
+      // For Popup
+
+      // Get the modal
+      var modal = document.getElementById("myModal");
+
+      // Get the button that opens the modal
+      var btn = document.getElementById("myBtn");
+
+      // Get the <span> element that closes the modal
+      var span = document.getElementsByClassName("close")[0];
+
+      // When the user clicks the button, open the modal 
+      btn.onclick = function() {
+        modal.style.display = "block";
+      }
+
+      // When the user clicks on <span> (x), close the modal
+      span.onclick = function() {
+        modal.style.display = "none";
+      }
+
+      // When the user clicks anywhere outside of the modal, close it
+      window.onclick = function(event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+        }
+      }
     </script>
 
 </body>
