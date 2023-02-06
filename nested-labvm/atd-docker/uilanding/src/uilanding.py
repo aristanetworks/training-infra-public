@@ -327,7 +327,7 @@ class LabStausHandler(tornado.web.RequestHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'')
+        container_output=login_container.exec_run(f'sudo lab_status.py')
         print(container_output)
         log_file = open('log.txt','w')
         log_file.write(str(container_output.output.decode("utf-8")))

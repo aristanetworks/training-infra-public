@@ -59,6 +59,7 @@ def main():
     labPassword, labTopology = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
+    dummy_array=[]
     for name, ip in zip(allHostsName,allHostsIP):
 
 
@@ -74,9 +75,11 @@ def main():
             # machine_to_kill.create()
             # print("Restarted {switch}".format(switch = name))
             # restarted += 1
-            print("{switch},Failed".format(switch = name))
+            dummy_array.append("{switch},Failed".format(switch = name))
+            
         else:
-            print("{switch},Ok".format(switch = name))
+            dummy_array.append("{switch},Ok".format(switch = name))
+    print(dummy_array)
 
     # if restarted >=1:
     #     print("Switches were restarted, please wait for 5 minutes before running again")
