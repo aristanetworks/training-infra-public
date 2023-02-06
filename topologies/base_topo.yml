@@ -442,7 +442,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230206-202647
             eos:
               - 4.27.2F
     prod:
@@ -465,7 +465,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230206-202647
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
