@@ -169,6 +169,9 @@ table {
                     <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Password</a>
                 </li>
                 <li>
+                  <a style="color: white;cursor: pointer;" id="labGrading"  target="_blank">Lab Grading</a>
+              </li>
+                <li>
                     <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
                 </li>
             </ul>
@@ -221,8 +224,9 @@ table {
             
             <div id="labStatusContent" style="display: none;">
                 <p>Lab Status</p>
-                <table>
-                    <tr>
+                <table id="labStatusByApi">
+                  
+                    <!-- <tr>
                       <td>CVP</td>
                       <td style="color: green;">Ok</td>
                       <td></td>
@@ -246,11 +250,57 @@ table {
                         <td>Spine2</td>
                         <td style="color: green;">Ok</td>
                         <td></td>
-                      </tr>
+                      </tr> -->
                   </table>
             </div>
 
-
+            <div id="labGradingData" style="display: none;">
+              <table>
+                <thead>
+                  <th>
+                    Lab
+                  </th>
+                  <th>
+                    Completed
+                  </th>
+                </thead>
+                  <tr>
+                    <td>Ip</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>
+                  <tr>
+                    <td>BGP</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>
+                  <tr>
+                    <td>VXLAN</td>
+                    <td style="color: red;font-weight: bold;">No
+                    <br>
+                      <p style="color: black;">
+                        Comments: issues with rm
+                      </p>
+                  </td>
+                  
+                  </tr>
+                  <tr>
+                    <td>EVP (L2)</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>                  
+                </table>
+                <div style="
+                text-align: center;
+                margin-top: 8px;">
+                <button style="
+                padding: 10px 20px;
+                border-radius: 20px;
+                border: none;
+                background-color: blue;
+                color: white;
+                font-size: 16px;">
+                  Grade
+                </button>
+              </div>
+          </div>
             </div>
             </div>
         </div>
@@ -292,21 +342,72 @@ table {
         document.getElementById('labMenuDiv').style.display = 'block'
         document.getElementById('mainContent').style.display = 'none'
         document.getElementById('labStatusContent').style.display = 'none'
-        // labStatusContent
-        // mainContent
+        document.getElementById('labGradingData').style.display = 'none'
+        clearInterval(labStatusInterval)
         });
         $('#home').click(function(event) {
         document.getElementById('labMenuDiv').style.display = 'none'
         document.getElementById('mainContent').style.display = 'block'
         document.getElementById('labStatusContent').style.display = 'none'
-        // mainContent
+        document.getElementById('labGradingData').style.display = 'none'
+        clearInterval(labStatusInterval)
         })
         $('#labStaus').click(function(event){
             document.getElementById('labMenuDiv').style.display = 'none'
             document.getElementById('mainContent').style.display = 'none'
             document.getElementById('labStatusContent').style.display = 'block'
+            document.getElementById('labGradingData').style.display = 'none'
+            getLabStatus()
+            labStatusInterval =   setInterval(
+              ()=>{
+                getLabStatus()
+              },30000
+            )
+        })
+        $('#labGrading').click(function(event){
+            document.getElementById('labMenuDiv').style.display = 'none'
+            document.getElementById('mainContent').style.display = 'none'
+            document.getElementById('labStatusContent').style.display = 'none'
+            document.getElementById('labGradingData').style.display = 'block'
+            clearInterval(labStatusInterval)
         })
         
+        function getLabStatus(){
+          let tableBody = document.getElementById("labStatusByApi");
+          tableBody.innerHTML = "";
+
+          $.get('/labStaus',(res)=>{
+            console.log(res);  
+            res.response.forEach(
+              (item)=>{
+                let row = document.createElement("tr");
+                let column1 = document.createElement("td");
+                values = item.split(',')
+                column1.innerHTML =values[0];
+                let column2 = document.createElement("td");
+                column2.innerHTML =values[1];
+                if(values[1].indexOf("Ok") >=0){
+                  column2.style.color = "green"
+                }else{
+                  column2.style.color = "red"
+                  column2.style.fontWeight = "bold"
+                }
+                
+                row.appendChild(column1);
+                row.appendChild(column2);
+                tableBody.appendChild(row);
+
+              }
+            )
+          })
+
+        }
+        
+       
+
+
+
+
     document.getElementById("labBtn").addEventListener("click", function () {        
         const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
         document.getElementById('loader').style.display = 'block'
