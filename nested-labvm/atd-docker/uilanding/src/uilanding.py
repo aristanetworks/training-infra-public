@@ -328,18 +328,15 @@ class LabStausHandler(tornado.web.RequestHandler):
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         container_output=login_container.exec_run(f'sudo lab_status.py')
-        print(container_output)
         log_file = open('log.txt','w')
         log_file.write(str(container_output.output.decode("utf-8")))
         log_file.close()
         with open("log.txt", "r") as txt_file:
             response =  txt_file.readlines()
+        print(response)
         self.write({
             'response':response
         })        
-        self.write({
-            'response':['CVP,Ok\n', 'Leaf1,Failed\n', 'Leaf2,Ok\n', 'Spine1,Ok\n', 'Spine2,Ok']
-        })
 
 
 if __name__ == "__main__":
