@@ -322,6 +322,25 @@ class LabHandler(tornado.web.RequestHandler):
             'response':response
         })
 
+class LabStausHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        container_output=login_container.exec_run(f'')
+        print(container_output)
+        log_file = open('log.txt','w')
+        log_file.write(str(container_output.output.decode("utf-8")))
+        log_file.close()
+        with open("log.txt", "r") as txt_file:
+            response =  txt_file.readlines()
+        self.write({
+            'response':response
+        })        
+        self.write({
+            'response':['CVP,Ok\n', 'Leaf1,Failed\n', 'Leaf2,Ok\n', 'Spine1,Ok\n', 'Spine2,Ok']
+        })
+
 
 if __name__ == "__main__":
     settings = {
@@ -337,6 +356,7 @@ if __name__ == "__main__":
         (r'/td-ws', topoDataHandler),
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
+        (r'/labStaus', LabStausHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

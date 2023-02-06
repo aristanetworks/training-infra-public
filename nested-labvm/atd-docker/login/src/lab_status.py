@@ -74,9 +74,9 @@ def main():
             # machine_to_kill.create()
             # print("Restarted {switch}".format(switch = name))
             # restarted += 1
-            print("switch {switch} seems failed")
+            print("{switch},Failed\n")
         else:
-            print("Switch {switch} seems ok".format(switch = name))
+            print("{switch},Ok\n".format(switch = name))
 
     # if restarted >=1:
     #     print("Switches were restarted, please wait for 5 minutes before running again")
