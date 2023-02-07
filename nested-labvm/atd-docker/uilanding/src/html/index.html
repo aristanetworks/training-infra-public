@@ -255,7 +255,7 @@ table {
             </div>
 
             <div id="labGradingData" style="display: none;">
-              <table>
+              <table style="width: 600px;">
                 <thead>
                   <th>
                     Lab
@@ -385,13 +385,14 @@ table {
                 values = item.split(',')
                 column1.innerHTML =values[0];
                 let column2 = document.createElement("td");
-                column2.innerHTML =values[1] + '<br><p style"text-decoration:underline;"> Reset</p>';
+                
                
                 if(values[1].indexOf("Ok") >=0){
                   column2.style.color = "green"
                 }else{
                   column2.style.color = "red"
                   column2.style.fontWeight = "bold"
+                  column2.innerHTML =values[1] + '<br><p style"text-decoration:underline;"> Reset</p>';
                 }
                 row.appendChild(column1);
                 row.appendChild(column2);
