@@ -638,7 +638,7 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: nested/2022.3
+            branch: lab-options-switch-status
             orderable: true
             image: base-veos-training-l3-2022-3-20230206-101151
             eos:
