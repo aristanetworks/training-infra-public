@@ -388,7 +388,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-ntc-2021-3-20230111-101344
+            image: base-veos-training-ntc-2021-3-20230112-105848
             eos:
               - 4.27.2F
     prod:
@@ -442,7 +442,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230206-202647
             eos:
               - 4.27.2F
     prod:
@@ -465,7 +465,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230206-202647
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -487,7 +487,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l1-exam-2021-3-20221130-161201
+            image: base-veos-training-l1-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -510,7 +510,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.14
             orderable: true
-            image: base-veos-training-l1-exam-2021-3-20221130-161201
+            image: base-veos-training-l1-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -541,7 +541,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-training-l2-e4-27-2f-c2021-3-0-20220830
+            image: base-veos-training-l2-2021-3-20230206-203204
             eos:
               - 4.27.2F
     prod:
@@ -555,7 +555,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l2-e4-27-2f-c2021-3-0-20220830
+            image: base-veos-training-l2-2021-3-20230206-203204
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -577,7 +577,7 @@ topologies:
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l2-exam-2021-3-20221130-161201
+            image: base-veos-training-l2-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -591,7 +591,7 @@ topologies:
               ram: 64
             branch: 2021.3-3.14
             orderable: true
-            image: base-veos-training-l2-exam-2021-3-20221130-161201
+            image: base-veos-training-l2-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -629,9 +629,18 @@ topologies:
             resources:
               cpu: 40
               ram: 80
-            branch: lab-options-switch-status
+            branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l3-2021-3-20221103-161339
+            image: base-veos-training-l3-2021-3-20230206-172838
+            eos:
+              - 4.27.2F
+          2022.3.0:
+            resources:
+              cpu: 40
+              ram: 80
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l3-2022-3-20230206-101151
             eos:
               - 4.27.2F
     prod:
@@ -663,7 +672,7 @@ topologies:
               ram: 80
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l3-e4-27-2f-c2021-3-0-20221012
+            image: base-veos-training-l3-2021-3-20230206-172838
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
@@ -694,7 +703,7 @@ topologies:
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l3-exam-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -708,7 +717,7 @@ topologies:
               ram: 72
             branch: v2020.2-20220404a
             orderable: false
-            image: base-training-l3-exam-e4-26-0f-c2020-2-3-20211220
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.26.0F
           2021.3.0:
@@ -717,7 +726,7 @@ topologies:
               ram: 80
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l3-exam-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Exam Lab. For use by the Arista Training Team.'
@@ -748,7 +757,7 @@ topologies:
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-2-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -762,7 +771,7 @@ topologies:
               ram: 80
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-2-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Exam 2 Lab. For use by the Arista Training Team.'
@@ -784,7 +793,7 @@ topologies:
               ram: 64
             branch: nested/2020.2
             orderable: false
-            image: base-training-l4-ceos-c2020-2-3-20220111
+            image: base-veos-training-l4-2021-3-20230206-203233
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -798,7 +807,7 @@ topologies:
               ram: 90
             branch: nested/2021.3
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
+            image: base-veos-training-l4-2021-3-20230206-203233
             eos:
               - 4.27.2F
           2021.3.0.e6:
@@ -821,7 +830,7 @@ topologies:
               ram: 90
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
+            image: base-veos-training-l4-2021-3-20230206-203233
             eos:
               - 4.27.2F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -843,7 +852,7 @@ topologies:
               ram: 90
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l4-exam-2021-3-20221130-161201
+            image: base-veos-training-l4-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -857,7 +866,7 @@ topologies:
               ram: 90
             branch: 2021.3-3.9
             orderable: true
-            image: base-veos-training-l4-exam-2021-3-20221130-161201
+            image: base-veos-training-l4-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
@@ -889,7 +898,7 @@ topologies:
               ram: 72
             branch: nested/2021.3
             orderable: true
-            image: base-training-l5-ceos-c2021-3-0-20220905
+            image: base-ceos-training-l5-2021-3-20230206-203421
             eos:
               - 4.27.2F
     prod:
@@ -903,7 +912,7 @@ topologies:
               ram: 72
             branch: v2020.2-20220404a
             orderable: false
-            image: base-training-l5-ceos-c2021-3-0-20220830-2
+            image: base-ceos-training-l5-2021-3-20230206-203421
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -913,7 +922,7 @@ topologies:
               ram: 72
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l5-ceos-c2021-3-0-20220905
+            image: base-ceos-training-l5-2021-3-20230206-203421
             eos:
               - 4.27.2F
     desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
