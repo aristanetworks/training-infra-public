@@ -133,7 +133,7 @@ table {
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
+                    <a href="/ssh/host/192.168.0.1" target="_blank">Switc Access</a>
                 </li>
                 {% end %}
                 {% if "ide" not in disable_links %}
@@ -223,8 +223,8 @@ table {
             </div>
             
             <div id="labStatusContent" style="display: none;">
-                <p>Lab Status</p>
-                <table id="labStatusByApi">
+                <h2>Lab Status</h2>
+                <table id="labStatusByApi" style="width: 600px;" >
                   
                     <!-- <tr>
                       <td>CVP</td>
@@ -385,14 +385,14 @@ table {
                 values = item.split(',')
                 column1.innerHTML =values[0];
                 let column2 = document.createElement("td");
-                column2.innerHTML =values[1];
+                column2.innerHTML =values[1] + '<br><p style"text-decoration:underline;"> Reset</p>';
+               
                 if(values[1].indexOf("Ok") >=0){
                   column2.style.color = "green"
                 }else{
                   column2.style.color = "red"
                   column2.style.fontWeight = "bold"
                 }
-                
                 row.appendChild(column1);
                 row.appendChild(column2);
                 tableBody.appendChild(row);
