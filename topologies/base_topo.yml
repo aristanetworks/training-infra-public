@@ -879,7 +879,7 @@ topologies:
             eos:
               - 4.29.1F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 4'
+    name: 'Training - Level 4 v2'
     title: 'Training Level 4 Lab'
     disk_size: 300
     access: standard
