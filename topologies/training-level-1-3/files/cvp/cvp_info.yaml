@@ -44,9 +44,9 @@ cvp_info:
         - leaf1-base
       leaf2:
         - leaf2-base
-      border-leaf1:
+      borderleaf1:
         - borderleaf1-base
-      border-leaf2:
+      borderleaf2:
         - borderleaf2-base
       leaf3:
         - leaf3-base

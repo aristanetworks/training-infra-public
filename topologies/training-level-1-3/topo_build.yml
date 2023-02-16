@@ -255,10 +255,10 @@ nodes:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
       neighbors:
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -277,10 +277,10 @@ nodes:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
       neighbors:
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
