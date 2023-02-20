@@ -68,6 +68,24 @@ int ethernet 1-4
    switchport
    channel-group 10 mode active
 !
+int ethernet 2
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 3
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 4
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
 int loopback 0
    ip address 192.168.255.51/32
 !

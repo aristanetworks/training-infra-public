@@ -71,7 +71,25 @@ interface Ethernet15
    ip address 192.168.1.52/24
 ip route vrf OOB 0.0.0.0/0 192.168.1.254
 !
-int ethernet 1 - 4
+int ethernet 1
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 2
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 3
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 4
    no shutdown
    no ip address
    switchport
