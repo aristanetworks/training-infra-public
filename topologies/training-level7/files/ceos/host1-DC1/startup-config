@@ -96,7 +96,7 @@ interface Ethernet15
    no switchport
    ip address 192.168.1.51/24
 !
-int ethernet 1-4
+int ethernet 1
    no shutdown
    no ip address
    switchport
