@@ -58,28 +58,4 @@ interface Management0
    ip address 192.168.0.76/24
 !
 ip routing
-!
-interface Ethernet1
-   no switchport
-   ip address 10.201.0.2/30
-interface Ethernet3
-   no switchport
-   ip address 10.201.0.6/30
 
-router bgp 65500
-  neighbor 10.201.0.1 remote-as 65210
-  neighbor 10.201.0.5 remote-as 65220
-
-! Multicast routing
-ip multicast-routing
-router multicast
-   ipv4
-      routing
-      software-forwarding sfe
-
-router pim sparse-mode
-   ipv4
-      rp address 192.168.255.111
-
-interface Ethernet1,3
-   pim ipv4 sparse-mode
