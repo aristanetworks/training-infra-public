@@ -62,7 +62,7 @@ interface Ethernet15
    ip address 192.168.1.51/24
 ip route vrf OOB 0.0.0.0/0 192.168.1.254
 !
-int ethernet 1-4
+int ethernet 1
    no shutdown
    no ip address
    switchport

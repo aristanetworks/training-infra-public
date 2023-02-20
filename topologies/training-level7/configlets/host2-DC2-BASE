@@ -38,12 +38,30 @@ vlan 19
 interface port-Channel 10
    no shut
    switchport mode trunk
-int ethernet 1-4
+int ethernet 1
    no shutdown
    no ip address
    switchport
    channel-group 10 mode active
 !
+int ethernet 2
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 3
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+!
+int ethernet 4
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+1
 interface Ethernet15
    vrf OOB
    no shutdown
