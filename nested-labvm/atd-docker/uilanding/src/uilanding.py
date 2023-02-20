@@ -339,6 +339,19 @@ class LabStausHandler(tornado.web.RequestHandler):
         })        
 
 
+class ResetLabHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        lab_names = self.get_argument('lab_names')
+        self.write({
+            'response':lab_names
+        })
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        login_container.exec_run(f'sudo python3 usr/local/bin/resetVMs.py')
+
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -354,6 +367,7 @@ if __name__ == "__main__":
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
+        (r'/resetLab', ResetLabHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

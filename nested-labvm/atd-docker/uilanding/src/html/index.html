@@ -223,8 +223,8 @@ table {
             </div>
             
             <div id="labStatusContent" style="display: none;">
-                <p>Lab Status</p>
-                <table id="labStatusByApi">
+                <h2>Lab Status</h2>
+                <table id="labStatusByApi" style="width: 600px;" >
                   
                     <!-- <tr>
                       <td>CVP</td>
@@ -252,10 +252,18 @@ table {
                         <td></td>
                       </tr> -->
                   </table>
+                  <br>
+                  <p id="lastUpdated" ></p>
+                  <div id="resetLabs" >
+                    
+                  </div>
+                  <div id="resetOkMSG">
+
+                  </div>
             </div>
 
             <div id="labGradingData" style="display: none;">
-              <table>
+              <table style="width: 600px;">
                 <thead>
                   <th>
                     Lab
@@ -338,6 +346,10 @@ table {
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script>
+        const  tableBody1 = document.getElementById("labStatusByApi");
+        tableBody1.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
+        let failedSwitches = []
+        isAllOk = true;
         $('#labMenu').click(function(event) {
         document.getElementById('labMenuDiv').style.display = 'block'
         document.getElementById('mainContent').style.display = 'none'
@@ -371,13 +383,27 @@ table {
             document.getElementById('labGradingData').style.display = 'block'
             clearInterval(labStatusInterval)
         })
+
+        $('#resetLabs').click((event)=>{
+          if(confirm('Please click ok to reset below switches \n-' + failedSwitches.join('\n-'))){
+            document.getElementById('resetLabs').innerHTML = ''
+            document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at "+  new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()            
+            isAllOk = false;
+            $.get('/resetLab?lab_names='+failedSwitches.join(','),(res)=>{
+
+            })
+          }
+        })
+        
         
         function getLabStatus(){
           let tableBody = document.getElementById("labStatusByApi");
-          tableBody.innerHTML = "";
+          
 
           $.get('/labStaus',(res)=>{
             console.log(res);  
+            tableBody.innerHTML = "";
+            failedSwitches = []
             res.response.forEach(
               (item)=>{
                 let row = document.createElement("tr");
@@ -386,19 +412,34 @@ table {
                 column1.innerHTML =values[0];
                 let column2 = document.createElement("td");
                 column2.innerHTML =values[1];
+                
+               
                 if(values[1].indexOf("Ok") >=0){
                   column2.style.color = "green"
                 }else{
+                  failedSwitches.push(values[0])
                   column2.style.color = "red"
                   column2.style.fontWeight = "bold"
+                  column2.innerHTML =values[1];
                 }
-                
                 row.appendChild(column1);
                 row.appendChild(column2);
                 tableBody.appendChild(row);
 
               }
             )
+            if(failedSwitches.length == 0){
+              isAllOk = true; 
+              document.getElementById('resetOkMSG').innerHTML = ''
+            }
+            if(isAllOk &&  failedSwitches.length >0 ){
+              document.getElementById('resetLabs').innerHTML = 'Please <span style="color: blue; text-decoration: underline; cursor: pointer;">click here</span> to reset failed switches'        
+              
+            }else{
+              document.getElementById('resetLabs').innerHTML = ''
+            }
+            
+            document.getElementById('lastUpdated').innerHTML= "Last updated : " + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()
           })
 
         }
