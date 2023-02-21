@@ -69,7 +69,10 @@ def main():
             print("Switch {switch} appears to have no eAPI connectivity".format(switch = name))
             machine_to_kill = _get_libvirt_machine(name)
             print("Restarting {switch}".format(switch = name))
-            machine_to_kill.destroy()
+            try:
+                machine_to_kill.destroy()
+            except:
+                print("Switch does not exists.")
             time.sleep(3)
             machine_to_kill.create()
             print("Restarted {switch}".format(switch = name))

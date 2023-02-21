@@ -137,6 +137,15 @@ table {
                      
                 </li>
                 {% end %}
+                {% if "cvp" not in disable_links %}
+                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
+                    <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
+                    <span id="tooltiptext">CVP is Starting, Please wait</span>
+                </li>
+                <li id="cvpLoaded">
+                    <a href="/cv" target="_blank" >CVP</a>                
+                </li>
+                {% end %}
                 {% if "ide" not in disable_links %}
                 <li>
                     <a href="/coder" target="_blank">Programmability IDE</a>
@@ -147,15 +156,7 @@ table {
                     <a href="/firefox" target="_blank">WebUI</a>
                 </li>
                 {% end %}
-                {% if "cvp" not in disable_links %}
-                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
-                    <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
-                    <span id="tooltiptext">CVP is Starting, Please wait</span>
-                </li>
-                <li id="cvpLoaded">
-                    <a href="/cv" target="_blank" >CVP</a>                
-                </li>
-                {% end %}
+               
                 {% if "jenkins" not in disable_links %}
                 <li>
                     <a href="/jenkins" target="_blank">Jenkins</a>
@@ -167,11 +168,13 @@ table {
                 </li>
                 {% end %}
                 <li>
-                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Password</a>
+                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
                 </li>
+                {% if "lab_grading" not in disable_links %}
                 <li>
                   <a style="color: white;cursor: pointer;" id="labGrading"  target="_blank">Lab Grading</a>
               </li>
+              {% end %}
                 <li>
                     <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
                 </li>
@@ -226,32 +229,6 @@ table {
             <div id="labStatusContent" style="display: none;">
                 <h2>Lab Status</h2>
                 <table id="labStatusByApi" style="width: 600px;" >
-                  
-                    <!-- <tr>
-                      <td>CVP</td>
-                      <td style="color: green;">Ok</td>
-                      <td></td>
-                    </tr>
-                    <tr>
-                      <td>Leaf1</td>
-                      <td style="color: red;font-weight: bold;">Failed</td>
-                      <td style="text-decoration: underline;">Reset</td>
-                    </tr>
-                    <tr>
-                        <td>Leaf2</td>
-                        <td style="color: green;">Ok</td>
-                        <td></td>
-                      </tr>
-                      <tr>
-                        <td>Spine1</td>
-                        <td style="color: green;">Ok</td>
-                        <td></td>
-                      </tr>
-                      <tr>
-                        <td>Spine2</td>
-                        <td style="color: green;">Ok</td>
-                        <td></td>
-                      </tr> -->
                   </table>
                   <br>
                   <p id="lastUpdated" ></p>
@@ -350,7 +327,18 @@ table {
         const  tableBody1 = document.getElementById("labStatusByApi");
         tableBody1.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
         let failedSwitches = []
+        const checkIsAllOk =  localStorage.getItem('isAllOk')
         isAllOk = true;
+        if(checkIsAllOk == 'yes' || checkIsAllOk == undefined){
+          isAllOk = true;
+        }else{
+          isAllOk = false;
+        }
+        refreshTime =  localStorage.getItem('refreshTime')
+        if(refreshTime){
+          document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at "+ refreshTime +" If switch does not comes up in 15 min, please contact instructor or support."
+        }
+        
         $('#labMenu').click(function(event) {
         document.getElementById('labMenuDiv').style.display = 'block'
         document.getElementById('mainContent').style.display = 'none'
@@ -388,8 +376,10 @@ table {
         $('#resetLabs').click((event)=>{
           if(confirm('Please click ok to reset below switches \n-' + failedSwitches.join('\n-'))){
             document.getElementById('resetLabs').innerHTML = ''
-            document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at "+  new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()            
+            document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at "+  new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() +" If switch does not comes up in 15 min, please contact instructor or support."           
             isAllOk = false;
+            localStorage.setItem('isAllOk','no')
+            localStorage.setItem('refreshTime', new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString())
             $.get('/resetLab?lab_names='+failedSwitches.join(','),(res)=>{
 
             })
@@ -431,7 +421,9 @@ table {
             ) 
             if(failedSwitches.length == 0){
               isAllOk = true; 
+              localStorage.setItem('isAllOk','yes')
               document.getElementById('resetOkMSG').innerHTML = ''
+              localStorage.removeItem('refreshTime')
             }
             if(isAllOk &&  failedSwitches.length >0 ){
               document.getElementById('resetLabs').innerHTML = 'Please <span style="color: blue; text-decoration: underline; cursor: pointer;">click here</span> to reset failed switches'        
