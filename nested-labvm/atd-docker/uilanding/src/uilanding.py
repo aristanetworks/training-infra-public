@@ -348,7 +348,7 @@ class ResetLabHandler(tornado.web.RequestHandler):
         })
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        login_container.exec_run(f'sudo python3 usr/local/bin/resetVMs.py')
+        login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
 
 
 
