@@ -67,4 +67,5 @@ def main():
             switch_status.append("{switch},Down".format(switch = name))
         else:
             switch_status.append("{switch},Ok".format(switch = name))
+    print(switch_status)
 main()
