@@ -64,8 +64,7 @@ def main():
         try:
             switch.runCmds(1,["show version"])
         except:
-            switch_status.append("{switch},Down".format(switch = name))
+            print("{switch},Down".format(switch = name))
         else:
-            switch_status.append("{switch},Ok".format(switch = name))
-    print(switch_status)
+            print("{switch},Ok".format(switch = name))
 main()
