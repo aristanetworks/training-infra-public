@@ -58,32 +58,13 @@ def _get_libvirt_machine(machine):
 def main():
     labPassword, labTopology = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
-    restarted = 0
+    switch_status=[]
     for name, ip in zip(allHostsName,allHostsIP):
-
-
         switch = jsonrpclib.Server("https://arista:{password}@{ipaddress}/command-api".format(password = labPassword, ipaddress = ip))
         try:
             switch.runCmds(1,["show version"])
         except:
-            print("Switch {switch} appears to have no eAPI connectivity".format(switch = name))
-            machine_to_kill = _get_libvirt_machine(name)
-            print("Restarting {switch}".format(switch = name))
-            try:
-                machine_to_kill.destroy()
-            except:
-                print("Switch does not exists.")
-            time.sleep(3)
-            machine_to_kill.create()
-            print("Restarted {switch}".format(switch = name))
-            restarted += 1
+            print("{switch},Down".format(switch = name))
         else:
-            print("Switch {switch} seems ok".format(switch = name))
-
-    if restarted >=1:
-        print("Switches were restarted, please wait for 5 minutes before running again")
-    else:
-        print("No problems were detected, please check with your instructor")
-
-
+            print("{switch},Ok".format(switch = name))
 main()

@@ -15,9 +15,15 @@
 
     <!-- Custom styles for this template -->
     <link href="css/simple-sidebar.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
 </head>
 
 <body>
+    <div id="loader" style="display: none;">
+    <div id="spinner">
+        <img  src="./images/loading.gif" alt="Description when image is not found" width="100" height="100">
+        </div>
+    </div>
     <div id="wrapper" class="toggled">
 
         <!-- Sidebar -->
@@ -26,6 +32,9 @@
                 <br>
                 <img src="images/logotransparent.png" class="arista-logo">
                 <hr class="hr">
+                <li>
+                    <a style="color: white;cursor: pointer;" id="home"  target="_blank">Home</a>
+                </li>
                 {% if "labguides" not in disable_links %}
                 <li>
                     <a href="{{ labguides }}" target="_blank">Lab Guides</a> <a href="/labguides/ATD.pdf" target="_blank">(PDF)</a>
@@ -33,7 +42,17 @@
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Console Access</a>
+                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
+                     
+                </li>
+                {% end %}
+                {% if "cvp" not in disable_links %}
+                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
+                    <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
+                    <span id="tooltiptext">CVP is Starting, Please wait</span>
+                </li>
+                <li id="cvpLoaded">
+                    <a href="/cv" target="_blank" >CVP</a>                
                 </li>
                 {% end %}
                 {% if "ide" not in disable_links %}
@@ -46,16 +65,28 @@
                     <a href="/firefox" target="_blank">WebUI</a>
                 </li>
                 {% end %}
-                {% if "cvp" not in disable_links %}
-                <li>
-                    <a href="/cv" target="_blank">CVP</a>
-                </li>
-                {% end %}
+               
                 {% if "jenkins" not in disable_links %}
                 <li>
                     <a href="/jenkins" target="_blank">Jenkins</a>
                 </li>
                 {% end %}
+                {% if "lab_menu" not in disable_links %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="labMenu"  target="_blank">Lab Menu</a>
+                </li>
+                {% end %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
+                </li>
+                {% if "lab_grading" not in disable_links %}
+                <li>
+                  <a style="color: white;cursor: pointer;" id="labGrading"  target="_blank">Lab Grading</a>
+              </li>
+              {% end %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
+                </li>
             </ul>
         </div>
         <!-- /#sidebar-wrapper -->
@@ -63,6 +94,7 @@
         <!-- Page Content -->
         <div id="page-content-wrapper">
             <div class="container-fluid">
+                <div id="mainContent">
                 <h1>Arista {{ topo_title }}</h1>
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
                 <br><br>
@@ -86,23 +118,113 @@
                     <span id="cvp_info"></span>
                     <br /><br />
                 {% end %}
-                <h2>Usernames and Passwords</h2>
-                Use the following usernames and passwords to access the ATD:
-                <br>
-                <br>
-                <table class="table table-striped">
-                  <thead> <tr> <th>Device</th> <th>Username</th> <th>Password</th> </tr> </thead>
-                  <tbody> 
-                    <tr><td>Lab Credentials</td> <td>arista</td> <td>{{ ARISTA_PWD }}</td> </tr>
-                    <tr><td>Programmability IDE</td> <td></td><td>{{ ARISTA_PWD }}</td></tr>
-                    <tr><td>WebUI</td> <td></td><td>@rista1</td></tr>
-                  </tbody> </table>
+                
 
                 <br>
             </div>
+            <div id="labMenuDiv" style="display: none;">
+            <h2>Lab Menu</h2>
+           
+            <div id="statistics-table">
+                {% for key, value in menu_options.items() %}
+                <input type="radio" name="lab" value="{{key}}" /> {{value}}<br />
+                {% end %}
+              </div>
+              <button id="labBtn">Start Lab</button>
+              <p id="cvpStatus"></p>
+              <p id="apiResponse"></p>              
+            </div>
+            
+            <div id="labStatusContent" style="display: none;">
+                <h2>Lab Status</h2>
+                <table id="labStatusByApi" style="width: 600px;" >
+                  </table>
+                  <br>
+                  <p id="lastUpdated" ></p>
+                  <div id="resetLabs" >
+                    
+                  </div>
+                  <div id="resetOkMSG">
+
+                  </div>
+            </div>
+
+            <div id="labGradingData" style="display: none;">
+              <table style="width: 600px;">
+                <thead>
+                  <th>
+                    Lab
+                  </th>
+                  <th>
+                    Completed
+                  </th>
+                </thead>
+                  <tr>
+                    <td>Ip</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>
+                  <tr>
+                    <td>BGP</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>
+                  <tr>
+                    <td>VXLAN</td>
+                    <td style="color: red;font-weight: bold;">No
+                    <br>
+                      <p style="color: black;">
+                        Comments: issues with rm
+                      </p>
+                  </td>
+                  
+                  </tr>
+                  <tr>
+                    <td>EVP (L2)</td>
+                    <td style="color: green;">Yes</td>
+                  </tr>                  
+                </table>
+                <div style="
+                text-align: center;
+                margin-top: 8px;">
+                <button style="
+                padding: 10px 20px;
+                border-radius: 20px;
+                border: none;
+                background-color: blue;
+                color: white;
+                font-size: 16px;">
+                  Grade
+                </button>
+              </div>
+          </div>
+            </div>
+            </div>
         </div>
         <!-- /#page-content-wrapper -->
-
+        <div id="myModal" class="modal">
+            <!-- Modal content -->
+            <div class="modal-content">
+                <div style="
+                display: flex;
+                justify-content: space-between;
+            ">
+            <div>
+            <h2>Usernames and Passwords</h2>
+            Use the following usernames and passwords to access the ATD:
+            <br>
+            <br>
+            </div>
+           
+            <span class="close">×</span>
+            </div>
+              <table class="table table-striped">
+                <thead> <tr> <th>Device</th> <th>Username</th> <th>Password</th> </tr> </thead>
+                <tbody> 
+                  <tr><td>Lab Credentials</td> <td>arista</td> <td>{{ ARISTA_PWD }}</td> </tr>
+                  <tr><td>Programmability IDE</td> <td></td><td>{{ ARISTA_PWD }}</td></tr>
+                  <tr><td>WebUI</td> <td></td><td>@rista1</td></tr>
+                </tbody> </table>
+            </div>
+          </div>
     </div>
     <!-- /#wrapper -->
 
@@ -110,6 +232,7 @@
     <script src="js/jquery.min.js"></script>
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script src="js/backend.js"></script>
 
 
 </body>

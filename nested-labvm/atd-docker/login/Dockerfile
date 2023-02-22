@@ -31,13 +31,19 @@ RUN mkdir .ssh
 
 COPY src/login.py /usr/local/bin
 
+COPY src/callConfigTopo.py /usr/local/bin
+
 COPY src/resetVMs.py /usr/local/bin
+
+COPY src/lab_status.py /usr/local/bin
 
 COPY src/uploadExam.py /usr/local/bin
 
 COPY src/localGrading.py /usr/local/bin
 
 COPY src/saveRunning.py /usr/local/bin
+
+RUN chmod +x /usr/local/bin/lab_status.py
 
 RUN chmod +x /usr/local/bin/login.py
 
