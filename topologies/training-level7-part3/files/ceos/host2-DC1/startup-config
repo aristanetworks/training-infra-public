@@ -28,6 +28,8 @@ radius-server host 192.168.0.1 vrf MGMT key 7 0207165218120E
 aaa group server radius atds
    server 192.168.0.1 vrf MGMT
 !
+hostname host2-DC1
+!
 aaa authentication login default group atds local
 aaa authorization exec default group atds local
 aaa authorization commands all default local

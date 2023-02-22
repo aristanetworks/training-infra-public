@@ -21,6 +21,8 @@ alias intdesc
 !
 dns domain arista.lab
 !
+hostname host1-DC1
+!
 ntp server vrf MGMT 192.168.0.1 iburst source Management0
 !
 radius-server host 192.168.0.1 vrf MGMT key 7 0207165218120E
@@ -49,7 +51,6 @@ management api http-commands
    vrf MGMT
      no shutdown
 !
-
 interface Management0
    vrf MGMT
    ip address 192.168.0.53/24

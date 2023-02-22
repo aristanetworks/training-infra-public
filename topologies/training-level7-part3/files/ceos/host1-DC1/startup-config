@@ -23,6 +23,8 @@ dns domain arista.lab
 !
 ntp server vrf MGMT 192.168.0.1 iburst source Management0
 !
+hostname host1-DC1
+!
 radius-server host 192.168.0.1 vrf MGMT key 7 0207165218120E
 !
 aaa group server radius atds
