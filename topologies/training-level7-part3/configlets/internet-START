@@ -27,6 +27,8 @@ interface Ethernet5
    ip address 10.103.0.2/30
 !
 interface Ethernet6
+   no switchport
+   ip address 10.103.0.6/30
 !
 interface Loopback0
    ip address 192.168.255.75/32
@@ -41,32 +43,20 @@ ip routing
 ip routing vrf MGMT
 !
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
+ip route 192.168.255.76/30 10.103.0.1
+ip route 192.168.255.76/30 10.103.0.5
+ip route 192.168.255.155/32 10.103.0.1
+ip route 192.168.255.155/32 10.103.0.5
+
 !
 ip radius source-interface Management0
 !
-router bgp 3
-   neighbor DC3 peer group
-   neighbor DC3 remote-as 65230
-   neighbor DC3 ebgp-multihop 3
-   neighbor DC3 maximum-routes 12000
-   neighbor ISP2 peer group
-   neighbor ISP2 remote-as 2
-   neighbor ISP2 update-source Loopback0
-   neighbor ISP2 ebgp-multihop 3
-   neighbor ISP2 send-community standard extended
-   neighbor ISP2 maximum-routes 12000
-   neighbor 10.103.0.1 peer group DC3
-   neighbor 10.103.0.5 peer group DC3
-   neighbor 192.168.255.73 peer group ISP2
-   neighbor 192.168.255.74 peer group ISP2
-   !
-   address-family ipv4
-      neighbor ISP2 activate
 !
 router isis ISP
    net 49.0003.0000.0000.0075.00
    is-type level-2
    advertise passive-only
+   redistribute static
    !
    address-family ipv4 unicast
 !

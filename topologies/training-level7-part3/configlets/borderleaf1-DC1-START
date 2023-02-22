@@ -3,7 +3,7 @@ interface Ethernet1
 !
 interface Ethernet12
    no switchport
-   ip address 10.201.0.5/30
+   ip address 10.201.0.1/30
 !
 interface Ethernet3
    no switchport
