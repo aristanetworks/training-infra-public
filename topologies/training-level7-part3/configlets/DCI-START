@@ -6,5 +6,5 @@ interface Ethernet3
    ip address 10.201.0.6/30
 
 router bgp 65500
-  neighbor 10.201.0.1 remote-as 65210
-  neighbor 10.201.0.5 remote-as 65220
+  neighbor 10.201.0.1 remote-as 65100
+  neighbor 10.201.0.5 remote-as 65200
