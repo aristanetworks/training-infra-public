@@ -37,7 +37,6 @@ interface Ethernet15
 !
 router bgp 65220
    neighbor LEAFS peer group
-   neighbor LEAFS remote-as 65220
    neighbor LEAFS next-hop-self
    neighbor LEAFS maximum-routes 12000
    neighbor 10.21.0.14 peer group LEAFS
