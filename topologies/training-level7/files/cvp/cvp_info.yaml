@@ -101,8 +101,10 @@ cvp_info:
     netelements:
       borderleaf1-DC1:
       - borderleaf1-DC1-BASE
+      - borderleaf1-DC1-START
       borderleaf2-DC1:
       - borderleaf2-DC1-BASE
+      - borderleaf2-DC1-START
       leaf1-DC1:
       - leaf1-DC1-BASE
       leaf2-DC1:

@@ -1,0 +1,60 @@
+
+   
+interface Ethernet1
+!
+interface Ethernet2
+!
+interface Ethernet3
+   no switchport
+   ip address 10.11.0.1/30
+   pim ipv4 sparse-mode
+!
+interface Ethernet4
+   no switchport
+   ip address 10.11.0.5/30
+    pim ipv4 sparse-mod
+!
+interface Ethernet5
+   no switchport
+   ip address 10.11.0.9/30
+   pim ipv4 sparse-mode
+!
+interface Ethernet10
+   no switchport
+!
+interface Ethernet10.100
+   encapsulation dot1q vlan 100
+   ip address 10.101.0.1/30
+!
+interface Ethernet10.200
+   encapsulation dot1q vlan 200
+   ip address 10.101.0.5/30
+!
+interface Ethernet10.300
+   encapsulation dot1q vlan 300
+   ip address 10.101.0.9/30
+!
+interface Ethernet11
+!
+interface Ethernet12
+   no switchport
+   ip address 10.201.0.1/30
+   pim ipv4 sparse-mode
+!
+interface Ethernet15
+!
+router bgp 65210
+   neighbor 10.201.0.2 remote-as 65500
+   neighbor 10.101.0.2 remote-as 2
+   neighbor 10.101.0.2 maximum-routes 12000
+!
+! Multicast routing
+ip multicast-routing
+router multicast
+   ipv4
+      routing
+      software-forwarding sfe
+
+router pim sparse-mode
+   ipv4
+      rp address 192.168.255.111
