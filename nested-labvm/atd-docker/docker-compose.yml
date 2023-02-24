@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.5
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -93,8 +93,6 @@ services:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
-      - /home/arista/arista-dir/menus:/opt/menus:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
   labguides:
@@ -119,7 +117,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.2
     restart: always
     depends_on:
       - uilanding
@@ -160,7 +158,7 @@ services:
       - ./jenkins/src/groovy/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
   coder:
     container_name: atd-coder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.1
     restart: always
     user: $ArID:$ArGD
     command: /home/coder/project
