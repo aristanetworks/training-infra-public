@@ -128,28 +128,20 @@ cvp_info:
       - borderleaf1-DC2-START
       borderleaf2-DC2:
       - borderleaf2-DC2-BASE
-      - borderleaf2-DC2-START
       leaf1-DC2:
       - leaf1-DC2-BASE
-      - leaf1-DC2-START
       leaf2-DC2:
       - leaf2-DC2-BASE
-      - leaf2-DC2-START
       leaf3-DC2:
       - leaf3-DC2-BASE
-      - leaf3-DC2-START
       leaf4-DC2:
       - leaf4-DC2-BASE
-      - leaf4-DC2-START
       spine1-DC2:
       - spine1-DC2-BASE
-      - Spine1-DC2-START
       spine2-DC2:
       - spine2-DC2-BASE
-      - Spine2-DC2-START
       spine3-DC2:
       - spine3-DC2-BASE
-      - Spine3-DC2-START
       host1-DC2:
       - host1-DC2-BASE
       - host1-DC2-START

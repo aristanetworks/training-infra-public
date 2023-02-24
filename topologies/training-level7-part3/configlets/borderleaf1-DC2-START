@@ -14,3 +14,5 @@ interface Ethernet4
 interface Ethernet5
    no switchport
 !
+router bgp 65200	
+   neighbor 10.201.0.6 remote-as 65500
