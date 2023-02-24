@@ -40,6 +40,33 @@ function createWS(SOCK_URL) {
     { 
         var re_data = evt.data;
         var received_msg = JSON.parse(re_data);
+        console.log(received_msg)
+        reg_data = received_msg['data'];
+        if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
+            
+            btn = document.getElementById('labBtn')
+            if (btn) {
+                btn.disabled = true
+                cvp = document.getElementById('cvpStatus')
+                if (cvp) {
+                    cvp.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
+                    document.getElementById('cvpLoading').style.display = "block"
+                    document.getElementById('cvpLoaded').style.display = "none"
+                }
+            }
+        } else {
+            btn = document.getElementById('labBtn')
+            if (btn) {
+                btn.disabled = false
+                cvp = document.getElementById('cvpStatus')
+                if (cvp) {
+                    cvp.textContent = ""
+                    document.getElementById('cvpLoading').style.display = "none"
+                    document.getElementById('cvpLoaded').style.display = "block"
+                }
+            }
+
+        }
         if (received_msg['type'] == 'ping') {
             ws.send(JSON.stringify({
                 type: "pong", 
