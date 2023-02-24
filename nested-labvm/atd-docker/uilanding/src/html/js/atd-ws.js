@@ -49,9 +49,10 @@ function createWS(SOCK_URL) {
                 cvp = document.getElementById('cvpStatus')
                 if (cvp) {
                     cvp.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
+                    document.getElementById('cvpLoading').style.display = "block"
+                    document.getElementById('cvpLoaded').style.display = "none"
                 }
             }
-
         } else {
             btn = document.getElementById('labBtn')
             if (btn) {
@@ -59,6 +60,8 @@ function createWS(SOCK_URL) {
                 cvp = document.getElementById('cvpStatus')
                 if (cvp) {
                     cvp.textContent = ""
+                    document.getElementById('cvpLoading').style.display = "none"
+                    document.getElementById('cvpLoaded').style.display = "block"
                 }
             }
 
