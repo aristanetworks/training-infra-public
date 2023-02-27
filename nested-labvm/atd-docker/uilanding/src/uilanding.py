@@ -26,22 +26,21 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
-try:
-    MENU_BASE_PATH = '/opt/menus/'
-    # Open yaml for the default yaml and read what file to lookup for default menu
-    default_menu_file = open(MENU_BASE_PATH+'default.yaml')
-    default_menu_info = YAML().load(default_menu_file)
-    default_menu_file.close()
-
+MENU_BASE_PATH = '/opt/menus/'
+# Open yaml for the default yaml and read what file to lookup for default menu
+default_menu_file = open(MENU_BASE_PATH+'default.yaml')
+default_menu_info = YAML().load(default_menu_file)
+default_menu_file.close()
+if str(default_menu_info['default_menu']).lower() == 'ssh':
+    NOMENUOPTIONFILE =True
+else:
     # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
+    NOMENUOPTIONFILE = False
     menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
     MENU_ITEMS = YAML().load(menu_file)  
     menu_file.close()
-    
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
-    NOMENUOPTIONFILE = False
-except:
-    NOMENUOPTIONFILE =True
+    
 
 with open(MODULE_FILE, 'r') as mf:
     MOD_YAML = YAML().load(mf)
@@ -323,6 +322,35 @@ class LabHandler(tornado.web.RequestHandler):
             'response':response
         })
 
+class LabStausHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        container_output=login_container.exec_run(f'sudo lab_status.py')
+        log_file = open('log.txt','w')
+        log_file.write(str(container_output.output.decode("utf-8")))
+        log_file.close()
+        with open("log.txt", "r") as txt_file:
+            response =  txt_file.readlines()
+        print(response)
+        self.write({
+            'response':response
+        })        
+
+
+class ResetLabHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        lab_names = self.get_argument('lab_names')
+        self.write({
+            'response':lab_names
+        })
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
+
+
 
 if __name__ == "__main__":
     settings = {
@@ -338,6 +366,8 @@ if __name__ == "__main__":
         (r'/td-ws', topoDataHandler),
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
+        (r'/labStaus', LabStausHandler),
+        (r'/resetLab', ResetLabHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
