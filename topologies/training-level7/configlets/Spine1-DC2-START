@@ -78,7 +78,7 @@ router bgp 65220
       neighbor DC3-EVPN activate
       neighbor EVPN activate
       no neighbor LEAFS activate
-      eighbor DCI-EVPN activate
+      neighbor DCI-EVPN activate
 
    !
    address-family ipv4
