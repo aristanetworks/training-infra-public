@@ -1044,7 +1044,7 @@ topologies:
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l7-ceos-c2021-3-0-20220914
+            image: base-ceos-training-l7-2021-3-20230224-151013
             eos:
               - 4.27.2F
     prod:
@@ -1100,7 +1100,7 @@ topologies:
               ram: 70
             branch: nested/2021.3
             orderable: true
-            image: base-training-l7-part3-ceos-c2021-3-0-20220923
+            image: base-ceos-training-l7-part-3-2021-3-20230224-151013
             eos:
               - 4.27.2F
     prod:
