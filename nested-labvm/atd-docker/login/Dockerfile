@@ -31,6 +31,8 @@ RUN mkdir .ssh
 
 COPY src/login.py /usr/local/bin
 
+COPY src/callConfigTopo.py /usr/local/bin
+
 COPY src/resetVMs.py /usr/local/bin
 
 COPY src/lab_status.py /usr/local/bin

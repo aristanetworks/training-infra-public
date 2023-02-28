@@ -86,9 +86,9 @@ def device_menu():
 
     # Sort veos instances
     veos_info_sorted = sort_veos(veos_info)
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs****")
+    print("*******************************************")
     print("\n\n==========Device SSH Menu==========\n")
     print("Screen Instructions:\n")
 
@@ -107,6 +107,7 @@ def device_menu():
         counter += 1
     
     print("\nOther Options: ")
+    print("95. Upload your exam (exam)")
     print("96. Screen (screen) - Opens a screen session to each of the hosts")
     print("97. Back to Previous Menu (back)")
     print("98. Shell (shell/bash)")
@@ -121,6 +122,8 @@ def device_menu():
           os.system('ssh -o StrictHostKeyChecking=no ' + device_dict[user_input])
       elif user_input == '96' or user_input.lower() == 'screen':
           os.system('/usr/bin/screen')
+      elif user_input == '95' or user_input.lower() == 'exam':
+        os.system('uploadExam.py')
       elif user_input == '97' or user_input.lower() == 'back':
           if menu_mode == previous_menu:
               menu_mode = 'MAIN'
@@ -145,9 +148,9 @@ def lab_options_menu():
     global previous_menu
 
     os.system("clear")
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs****")
+    print("*******************************************")
 
     if menu_mode == 'LAB_OPTIONS':
       # Get Yaml Files in /home/arista/menus
@@ -263,9 +266,9 @@ def main_menu():
     global previous_menu
 
     os.system("clear")
-    print("\n\n*****************************************")
-    print("*****Jump Host for Arista Test Drive*****")
-    print("*****************************************")
+    print("\n\n*******************************************")
+    print("*****Jump Host for Arista Training Labs****")
+    print("*******************************************")
     print("\n\n==========Main Menu==========\n")
     print("Please select from the following options: ")
 
