@@ -90,9 +90,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
+      - /etc/opt:/etc/opt:ro
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
   labguides:
@@ -190,6 +192,14 @@ services:
     restart: always
     volumes:
       - "/home/arista/arista-dir/apps/webui:/config:rw"
+    networks:
+      - atd_nginx
+  grader:
+    container_name: atd-grader
+    image: gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0
+    command: ["false"]
+    volumes:
+      - /etc/opt:/etc/opt:rw
     networks:
       - atd_nginx
 networks:

@@ -79,9 +79,14 @@
                 <li>
                     <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
                 </li>
-              {% if "lab_status" not in disable_links %}
+                {% if "lab_status" not in disable_links %}
                 <li>
                     <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
+                </li>
+                {% end %}
+                {% if "lab_status" not in disable_links %}
+                <li>
+                    <a style="color: white;cursor: pointer;" id="labGrading"  target="_blank">Lab Grading</a>
                 </li>
                 {% end %}
             </ul>
@@ -145,8 +150,9 @@
 
                   </div>
             </div>
-
-            <div id="labGradingData" style="display: none;">
+            <div id="grades"></div>
+            <button id="grade-button" name="grade-button" style="display:none" disabled>GRADE</button>
+            <!-- <div id="labGradingData" style="display: none;">
               <table style="width: 600px;">
                 <thead>
                   <th>
@@ -195,7 +201,7 @@
           </div>
             </div>
             </div>
-        </div>
+        </div> -->
         <!-- /#page-content-wrapper -->
         <div id="myModal" class="modal">
             <!-- Modal content -->
