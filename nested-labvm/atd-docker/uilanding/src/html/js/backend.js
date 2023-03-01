@@ -42,7 +42,8 @@ $('#labGrading').click(function (event) {
     document.getElementById('labMenuDiv').style.display = 'none'
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
-    document.getElementById('labGradingData').style.display = 'block'
+    //document.getElementById('labGradingData').style.display = 'block'
+    loadData("labGrading")
     clearInterval(labStatusInterval)
 })
 
