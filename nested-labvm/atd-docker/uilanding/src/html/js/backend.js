@@ -42,7 +42,6 @@ $('#labGrading').click(function (event) {
     document.getElementById('labMenuDiv').style.display = 'none'
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
-    //document.getElementById('labGradingData').style.display = 'block'
     loadData("labGrading")
     clearInterval(labStatusInterval)
 })
@@ -108,6 +107,49 @@ function getLabStatus() {
 }
 
 
+function loadData(item) {
+    if (item === 'labGrading') {
+        // Show table and button
+        document.getElementById('grade-button').style.display = 'block';
+        document.getElementById('grade-button').disabled = true;
+        // send request to backend
+        const gradeButton = document.getElementById('grade-button')
+        fetch('/grade')
+            .then(response => {
+            if (response.ok) {
+                response.json().then(data => {
+                if (data.grading == "No data available") {
+                    displayGradeError("No details to show")
+                    gradeButton.disabled = false;
+                    gradeButtonListener(gradeButton)
+                    } else {
+                    loadGradingData(data.grading)
+                    gradeButton.disabled = false;
+                    gradeButtonListener(gradeButton)
+                    };
+                });
+            } else {
+                response.text().then(errorMessage => {
+                // Display error message and enable button
+                    displayGradeError("No details to show");
+                    gradeButton.disabled = false;
+                    gradeButtonListener(gradeButton)
+                });
+            }
+            });
+    };
+    };
+function loadGradingData(data) {
+    // Get reference to the parent element where the collapsible items will be added
+    const parentElem = document.getElementById("grades");
+    // Clear the container HTML content
+    parentElem.innerHTML = '';
+    // Loop through the JSON data and create collapsible items for each lab
+    for (const lab in data) {
+    // Create the outer lab header element
+    const labHeader = document.createElement("button");
+    labHeader.classList.add("collapsible");
+    labHeader.textContent = lab;
 
 
 
