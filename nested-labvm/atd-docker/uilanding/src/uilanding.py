@@ -370,6 +370,9 @@ class LabGradingHandler(BaseHandler):
         Calls the docker image to grade
         """
         client = docker.from_env()
+        # Call for the running configs
+        login_container = client.containers.get('atd-login')
+        login_container.exec_run(f'sudo localGrading.py')
         #image_name = client.images.pull("selgrading:latest",no_cache=True)
         #import pdb;pdb.set_trace()
         #image_name = client.images.pull("gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0")
