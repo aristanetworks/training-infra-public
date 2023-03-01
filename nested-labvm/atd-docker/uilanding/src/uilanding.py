@@ -349,6 +349,58 @@ class ResetLabHandler(tornado.web.RequestHandler):
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
+class LabGradingHandler(BaseHandler):
+    _FILE_PATH = "/etc/opt/graderlogs/"
+    _FILE_PATTERN = "*-output.json"
+    _TITLE_MAPPINGS = {
+        "Training Level 3 Lab":"training-3-2",
+    }
+    def get(self):
+        """
+        Gets the latest output json file
+        """
+        data = self.get_data()
+        self.write(json.dumps(data))
+
+    def post(self):
+        """
+        Calls the docker image to grade
+        """
+        client = docker.from_env()
+        # Call for the running configs
+        login_container = client.containers.get('atd-login')
+        login_container.exec_run(f'sudo localGrading.py')
+        #image_name = client.images.pull("selgrading:latest",no_cache=True)
+        #import pdb;pdb.set_trace()
+        #image_name = client.images.pull("gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0")
+        image_name = "gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0"
+        lab = self.get_labname()
+        if lab:
+            container = client.containers.run(image_name, detach=True, tty=True, volumes={
+                "/etc/opt": {
+                    "bind": "/etc/opt",
+                    "mode": "rw"
+                }
+            },
+            command=lab
+            )
+            container.wait()
+            output = container.logs().decode("utf-8")
+            #output = container.logs()
+            container.remove()
+        data = self.get_data()
+        self.write(json.dumps(data))
+    def get_labname(self):
+        """
+        Gets the lab name and returns the relative lab code
+        """
+        access_file = "/etc/atd/ACCESS_INFO.yaml"
+        #with open(access_file, "r") as f:
+        host_yaml = YAML().load(open(access_file, 'r'))
+        title = host_yaml["title"]
+        #if title in title_maps
+        lab_code = self._TITLE_MAPPINGS.get(title, None)
+        return lab_code
 
 
 

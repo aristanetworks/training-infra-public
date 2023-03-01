@@ -34,6 +34,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - /etc/atd:/etc/atd:rw
+      - /etc/opt/:/etc/opt:rw
       - /opt/atd/topologies:/opt/atd/topologies:ro
       - /home/arista/arista-dir:/home/arista:rw
       - /home/arista/.ssh:/home/arista/.ssh:rw
