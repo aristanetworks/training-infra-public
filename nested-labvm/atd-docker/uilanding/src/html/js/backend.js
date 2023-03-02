@@ -44,7 +44,7 @@ $('#labGrading').click(function (event) {
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'block'
     loadData("labGrading")
-    clearInterval(labStatusInterval)
+    //clearInterval(labStatusInterval)
 })
 
 $('#resetLabs').click((event) => {
@@ -159,7 +159,7 @@ document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
     document.getElementById('loader').style.display = 'block'
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
-        console.log(res)
+        //console.log(res)
         if (res.response) {
             output = ''
             res.response.forEach(element => {
@@ -170,7 +170,7 @@ document.getElementById("labBtn").addEventListener("click", function () {
 
         }
     }).fail((err) => {
-        console.log(err)
+        //console.log(err)
         document.getElementById('apiResponse').textContent = "Some thing went wrong"
         document.getElementById('loader').style.display = 'none'
     })
