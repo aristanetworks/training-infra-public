@@ -53,13 +53,13 @@
           - "Leaf-1-VXLAN-Begin"
         leaf2:
           - "leaf2-base"
-          - "Leaf-1-VXLAN-Begin"
+          - "Leaf-2-VXLAN-Begin"
         leaf3:
           - "leaf3-base"
           - "leaf-3-VXLAN-Begin"
         leaf4:
           - "leaf4-base"
-          - "leaf-3-VXLAN-Begin"
+          - "leaf-4-VXLAN-Begin"
         host1:
           - "host1-base"
           - "Host-1-VXLAN-Begin"
