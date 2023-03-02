@@ -93,6 +93,8 @@ services:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
+      - /home/arista/arista-dir/menus:/opt/menus:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
   labguides:
@@ -117,7 +119,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.3
     restart: always
     depends_on:
       - uilanding

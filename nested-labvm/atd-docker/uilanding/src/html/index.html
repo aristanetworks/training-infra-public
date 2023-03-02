@@ -19,6 +19,11 @@
 </head>
 
 <body>
+    <div id="loader" style="display: none;">
+    <div id="spinner">
+        <img  src="./images/loading.gif" alt="Description when image is not found" width="100" height="100">
+        </div>
+    </div>
     <div id="wrapper" class="toggled">
 
         <!-- Sidebar -->
@@ -27,6 +32,9 @@
                 <br>
                 <img src="images/logotransparent.png" class="arista-logo">
                 <hr class="hr">
+                <li>
+                    <a style="color: white;cursor: pointer;" id="home"  target="_blank">Home</a>
+                </li>
                 {% if "labguides" not in disable_links %}
                 <li>
                     <a href="{{ labguides }}" target="_blank">Lab Guides</a> <a href="/labguides/ATD.pdf" target="_blank">(PDF)</a>
@@ -83,6 +91,7 @@
         <!-- Page Content -->
         <div id="page-content-wrapper">
             <div class="container-fluid">
+                <div id="mainContent">
                 <h1>Arista {{ topo_title }}</h1>
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
                 <br><br>
