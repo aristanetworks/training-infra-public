@@ -373,7 +373,8 @@ class LabGradingHandler(BaseHandler):
         #image_name = client.images.pull("selgrading:latest",no_cache=True)
         #import pdb;pdb.set_trace()
         #image_name = client.images.pull("gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0")
-        image_name = "gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0"
+        #image_name = "gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0"
+        image_name = "us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:latest"
         lab = self.get_labname()
         if lab:
             container = client.containers.run(image_name, detach=True, tty=True, volumes={
