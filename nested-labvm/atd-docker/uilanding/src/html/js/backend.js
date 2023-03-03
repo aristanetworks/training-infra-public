@@ -150,7 +150,7 @@ function loadGradingData(data) {
         // Create the outer lab header element
         const labHeader = document.createElement("button");
         labHeader.classList.add("collapsible");
-        labHeader.textContent = lab + '(' + Object.keys(data[lab]).length + ')';
+        labHeader.textContent = lab + ' (' + Object.keys(data[lab]).length + ')';
 
         // Create the inner lab content element
         const labContent = document.createElement("div");
@@ -161,7 +161,7 @@ function loadGradingData(data) {
             // Create the outer device header element
             const deviceHeader = document.createElement("button");
             deviceHeader.classList.add("collapsible");
-            deviceHeader.textContent = device + '(' + device.length +')';
+            deviceHeader.textContent = device + ' (' + data[lab][device].length +')';
 
             // Create the inner device content element
             const deviceContent = document.createElement("div");
