@@ -119,6 +119,10 @@ function loadData(item) {
             .then(response => {
             if (response.ok) {
                 response.json().then(data => {
+                //Add timestamp to the page
+                dtstamp = document.getElementById('grade-timestamp')
+                localTime = convertTime(data.timestamp)
+                dtstamp.text = "Last graded at " + localTime
                 if (data.grading == "No data available") {
                     displayGradeError("No details to show")
                     gradeButton.disabled = false;
@@ -219,6 +223,14 @@ function displayGradeError(errorMessage) {
     document.getElementById('grades').innerHTML = `<p>${errorMessage}</p>`;
   }
 
+function convertTime(utcString) {
+    now = new Date();
+    offset = -(now.getTimezoneOffset());
+
+    utcObj = new Date(utcString);
+    localTime = new Date(utcObj - (offset * 60 * 1000));
+    return localStorage;
+}
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
     document.getElementById('loader').style.display = 'block'
