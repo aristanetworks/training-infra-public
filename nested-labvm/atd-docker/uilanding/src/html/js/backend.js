@@ -122,7 +122,7 @@ function loadData(item) {
                 //Add timestamp to the page
                 dtstamp = document.getElementById('grading-timestamp')
                 newTime = convertTime(data.timestamp)
-                dtstamp.innerHTML = "Last graded at: " + newTime
+                dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString()
                 if (data.grading == "No data available") {
                     displayGradeError("No details to show")
                     gradeButton.disabled = false;
