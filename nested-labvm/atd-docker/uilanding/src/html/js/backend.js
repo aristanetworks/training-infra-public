@@ -120,7 +120,7 @@ function loadData(item) {
             if (response.ok) {
                 response.json().then(data => {
                 //Add timestamp to the page
-                dtstamp = document.getElementById('grade-timestamp')
+                dtstamp = document.getElementById('grading-timestamp')
                 newTime = convertTime(data.timestamp)
                 dtstamp.innerHTML = "Last graded at: " + newTime
                 if (data.grading == "No data available") {
