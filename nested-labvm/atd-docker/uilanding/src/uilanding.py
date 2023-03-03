@@ -404,6 +404,50 @@ class LabGradingHandler(BaseHandler):
         return lab_code
 
 
+    def get_data(self):
+        """
+        Gets the data from the output file 
+        parses it to the frontend
+        """
+        data = 'No data available'
+        ret_data = {}
+        p_data = None
+        date_time = None
+        if os.path.exists(self._FILE_PATH):
+            # get a list of all files in the folder that match the pattern
+            files = glob.glob(os.path.join(self._FILE_PATH, self._FILE_PATTERN))
+            # sort the files by modification time
+            if files:
+                files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                latest_updated_file = files[0]
+                with open (latest_updated_file, 'r') as f:
+                    data = json.load(f)
+                    #self.write(data)
+                p_data = self.parse_data(data)
+                #date_string = latest_updated_file.split("-")[0] + " " + latest_updated_file.split("-")[1]
+                file_string = latest_updated_file.split("/")[-1]
+                date_string = file_string.split("-")[0] + " " + file_string.split("-")[1]
+                date_time = datetime.strptime(date_string, '%Y_%m_%d %H:%M:%S')
+
+        if p_data and date_time:
+            ret_data['timestamp'] = str(date_time)
+            ret_data['grading'] = p_data
+        else:
+            ret_data['timestamp'] = str(datetime.now())
+            ret_data['grading'] =  'No data available'
+
+        return ret_data
+    def parse_data(self,data):
+        """
+        Parses the grading data as per the FE
+        """
+        out_data = {}
+        for lab in data:
+            out_data[data[lab]['name']] = {}
+            for device in data[lab]['devices']:
+                if data[lab]['devices'][device]["status"] != 'pass':
+                    out_data[data[lab]['name']][device] = data[lab]['devices'][device]["errors"]
+        return out_data
 
 if __name__ == "__main__":
     settings = {
