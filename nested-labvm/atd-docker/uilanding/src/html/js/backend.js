@@ -124,10 +124,12 @@ function gradeButtonListener(gradeButton) {
       .then(data => {
         loadGradingData(data.grading)
         document.getElementById('grade-button').disabled = false;
+        displayConvertTime(data.timestamp)
       })
       .catch(error => {
         displayGradeError("No details to show")
         document.getElementById('grade-button').disabled = false;
+        displayConvertTime(data.timestamp)
       });
     });
     };
@@ -144,9 +146,7 @@ function loadData(item) {
             if (response.ok) {
                 response.json().then(data => {
                 //Add timestamp to the page
-                dtstamp = document.getElementById('grading-timestamp')
-                newTime = convertTime(data.timestamp)
-                dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString()
+                displayConvertTime(data.timestamp)
                 if (data.grading == "No data available") {
                     displayGradeError("No details to show")
                     gradeButton.disabled = false;
@@ -247,14 +247,20 @@ function displayGradeError(errorMessage) {
     document.getElementById('grades').innerHTML = `<p>${errorMessage}</p>`;
   }
 
-function convertTime(utcString) {
+function displayConvertTime(utcString) {
+
+    //Add timestamp to the page
+    dtstamp = document.getElementById('grading-timestamp')
+    dtstamp.innerHTML = ''
+
     now = new Date();
     offset = -(now.getTimezoneOffset());
 
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
-    return newTime;
+    dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString()
 }
+
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
     document.getElementById('loader').style.display = 'block'
