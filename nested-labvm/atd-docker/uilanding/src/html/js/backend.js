@@ -171,72 +171,72 @@ function loadGradingData(data) {
     parentElem.innerHTML = '';
     // Loop through the JSON data and create collapsible items for each lab
     for (const lab in data) {
-    // Create the outer lab header element
-    const labHeader = document.createElement("button");
-    labHeader.classList.add("collapsible");
-    labHeader.textContent = lab;
+        // Create the outer lab header element
+        const labHeader = document.createElement("button");
+        labHeader.classList.add("collapsible");
+        labHeader.textContent = lab + '(' + Object.keys(data[lab]).length + ')';
 
-    // Create the inner lab content element
-    const labContent = document.createElement("div");
-    labContent.classList.add("content");
+        // Create the inner lab content element
+        const labContent = document.createElement("div");
+        labContent.classList.add("content");
 
-    // Loop through the devices for the current lab and create collapsible items for each device
-    for (const device in data[lab]) {
-        // Create the outer device header element
-        const deviceHeader = document.createElement("button");
-        deviceHeader.classList.add("collapsible");
-        deviceHeader.textContent = device;
+        // Loop through the devices for the current lab and create collapsible items for each device
+        for (const device in data[lab]) {
+            // Create the outer device header element
+            const deviceHeader = document.createElement("button");
+            deviceHeader.classList.add("collapsible");
+            deviceHeader.textContent = device + '(' + device.length +')';
 
-        // Create the inner device content element
-        const deviceContent = document.createElement("div");
-        deviceContent.classList.add("content");
+            // Create the inner device content element
+            const deviceContent = document.createElement("div");
+            deviceContent.classList.add("content");
 
-        // Loop through the comments for the current leaf and create a list item for each comment
-        const comments = data[lab][device];
-        const commentList = document.createElement("ul");
-        for (const comment of comments) {
-            const commentItem = document.createElement("li");
-            //commentItem.textContent = comment.comment;
-            if (comment.reference != "None") {
-                commentItem.textContent = comment.comment + ", refer:" + comment.reference
-            } else {
-                commentItem.textContent = comment.comment;
+            // Loop through the comments for the current leaf and create a list item for each comment
+            const comments = data[lab][device];
+            const commentList = document.createElement("ul");
+            for (const comment of comments) {
+                const commentItem = document.createElement("li");
+                //commentItem.textContent = comment.comment;
+                if (comment.reference != "None") {
+                    commentItem.textContent = comment.comment + ", refer:" + comment.reference
+                } else {
+                    commentItem.textContent = comment.comment;
+                }
+                    commentList.appendChild(commentItem);
             }
-                commentList.appendChild(commentItem);
+
+            // Add the comment list to the device content element
+            deviceContent.appendChild(commentList);
+
+            // Add the device header and content to the inner lab content element
+            labContent.appendChild(deviceHeader);
+            labContent.appendChild(deviceContent);
+
+            // Add a click listener to the leaf header to toggle the leaf content
+            deviceHeader.addEventListener("click", () => {
+            deviceContent.classList.toggle("active");
+            if (deviceContent.style.maxHeight) {
+                deviceContent.style.maxHeight = null;
+            } else {
+                deviceContent.style.maxHeight = deviceContent.scrollHeight + "px";
+            }
+            });
         }
 
-        // Add the comment list to the device content element
-        deviceContent.appendChild(commentList);
+        // Add the lab header and content to the parent element
+        parentElem.appendChild(labHeader);
+        parentElem.appendChild(labContent);
 
-        // Add the device header and content to the inner lab content element
-        labContent.appendChild(deviceHeader);
-        labContent.appendChild(deviceContent);
-
-        // Add a click listener to the leaf header to toggle the leaf content
-        deviceHeader.addEventListener("click", () => {
-        deviceContent.classList.toggle("active");
-        if (deviceContent.style.maxHeight) {
-            deviceContent.style.maxHeight = null;
-        } else {
-            deviceContent.style.maxHeight = deviceContent.scrollHeight + "px";
-        }
+        // Add a click listener to the lab header to toggle the lab content
+        labHeader.addEventListener("click", () => {
+            labContent.classList.toggle("active");
+            if (labContent.style.maxHeight) {
+            labContent.style.maxHeight = null;
+            } else {
+            //labContent.style.maxHeight = labContent.scrollHeight + "px";
+            labContent.style.maxHeight = "max-content"
+            }
         });
-    }
-
-    // Add the lab header and content to the parent element
-    parentElem.appendChild(labHeader);
-    parentElem.appendChild(labContent);
-
-    // Add a click listener to the lab header to toggle the lab content
-    labHeader.addEventListener("click", () => {
-        labContent.classList.toggle("active");
-        if (labContent.style.maxHeight) {
-        labContent.style.maxHeight = null;
-        } else {
-        //labContent.style.maxHeight = labContent.scrollHeight + "px";
-        labContent.style.maxHeight = "max-content"
-        }
-    });
     }
 }
 function displayGradeError(errorMessage) {
