@@ -436,7 +436,7 @@ class LabGradingHandler(BaseHandler):
             ret_data['timestamp'] = str(date_time)
             ret_data['grading'] = p_data
         else:
-            ret_data['timestamp'] = str(datetime.now())
+            ret_data['timestamp'] = str(datetime.utcnow().strftime("%Y_%m_%d-%H:%M:%S"))
             ret_data['grading'] =  'No data available'
 
         return ret_data
