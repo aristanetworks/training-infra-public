@@ -448,7 +448,8 @@ class LabGradingHandler(BaseHandler):
         for lab in data:
             out_data[data[lab]['name']] = {}
             for device in data[lab]['devices']:
-                out_data[data[lab]['name']][device] = data[lab]['devices'][device]["errors"]
+                if data[lab]['devices'][device]["status"] != 'pass':
+                    out_data[data[lab]['name']][device] = data[lab]['devices'][device]["errors"]
         return out_data
 
 if __name__ == "__main__":
