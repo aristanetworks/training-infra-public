@@ -178,7 +178,7 @@ function loadGradingData(data) {
         // Create the outer lab header element
         const labHeader = document.createElement("button");
         labHeader.classList.add("collapsible");
-        labHeader.textContent = lab + ' (' + Object.keys(data[lab]).length + ')';
+        labHeader.textContent = lab + ' ( Misconfiguration in ' + Object.keys(data[lab]).length + ' devices)';
 
         // Create the inner lab content element
         const labContent = document.createElement("div");
@@ -189,7 +189,7 @@ function loadGradingData(data) {
             // Create the outer device header element
             const deviceHeader = document.createElement("button");
             deviceHeader.classList.add("collapsible");
-            deviceHeader.textContent = device + ' (' + data[lab][device].length +')';
+            deviceHeader.textContent = device + ' (' + data[lab][device].length +' errors)';
 
             // Create the inner device content element
             const deviceContent = document.createElement("div");
@@ -258,7 +258,7 @@ function displayConvertTime(utcString) {
 
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
-    dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString()
+    dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString() + '  (Beta version - Still under development)' 
 }
 
 document.getElementById("labBtn").addEventListener("click", function () {
