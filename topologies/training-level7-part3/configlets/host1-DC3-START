@@ -121,7 +121,6 @@ vrf VLAN19
 ip address 172.16.19.82/24
 no shutdown
 
-
 int ethernet 1
    mtu 9100
    no shutdown

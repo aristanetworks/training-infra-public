@@ -124,8 +124,6 @@ vrf VLAN19
 ip address 172.16.19.82/24
 no shutdown
 
-## additional config
-
 interface Ethernet1
    switchport access vlan 130
    mtu 9098

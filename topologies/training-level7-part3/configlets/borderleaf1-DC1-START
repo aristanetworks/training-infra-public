@@ -1,16 +1,7 @@
-interface Ethernet1
-   no switchport
-!
 interface Ethernet12
    no switchport
    ip address 10.201.0.1/30
 !
-interface Ethernet3
-   no switchport
-!
-interface Ethernet4
-   no switchport
-!
-interface Ethernet5
-   no switchport
+router bgp 65100
+  neighbor 10.201.0.2 remote-as 65000
 !
