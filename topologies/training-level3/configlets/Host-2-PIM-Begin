@@ -16,11 +16,11 @@ interface Ethernet4
    no shutdown
 !
 interface po1
-	switchport access vlan 301
+   switchport access vlan 301
 !
 int vlan 301
-	ip address 192.168.30.2/24
-	no autostate
+   ip address 192.168.30.2/24
+   no autostate
 !
 interface Vlan101
    no autostate

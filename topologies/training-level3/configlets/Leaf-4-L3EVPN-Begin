@@ -1,4 +1,3 @@
-hostname leaf4
 !
 vlan 101,104,201
 !
@@ -30,40 +29,38 @@ interface Vlan104
    no autostate
    ip address 172.16.104.1/24
 !
-!
-int vxlan 1
-   vxlan source-interface loopback 0
+interface Vxlan1
+   vxlan source-interface Loopback0
+   vxlan udp-port 4789
+   vxlan vlan 101 vni 10101
    vxlan vlan 201 vni 20202
-!
 !
 ip routing
 !
-ip prefix-list deny-management
-   seq 10 deny 192.168.0.0/24 ge 24
-   seq 20 permit 0.0.0.0/0 le 32
+ip prefix-list local-SVI
+   seq 10 permit 172.16.104.0/24
 !
-route-map deny-management permit 10
-   match ip address prefix-list deny-management
+route-map redist-SVI permit 10
+   match ip address prefix-list local-SVI
 !
 router bgp 65004
-   router-id 10.14.14.14
-   no bgp default ipv4-unicast
    maximum-paths 4 ecmp 4
    neighbor EVPN-OVERLAY peer group
    neighbor EVPN-OVERLAY remote-as 65100
    neighbor EVPN-OVERLAY update-source Loopback0
-   neighbor EVPN-OVERLAY bfd
-   neighbor EVPN-OVERLAY ebgp-multihop 2
+   neighbor EVPN-OVERLAY ebgp-multihop
    neighbor EVPN-OVERLAY send-community
    neighbor EVPN-OVERLAY maximum-routes 0
-   neighbor eBGP-Spine-Underlay peer group
-   neighbor eBGP-Spine-Underlay remote-as 65100
-   neighbor 10.10.1.13 peer group eBGP-Spine-Underlay
-   neighbor 10.10.2.13 peer group eBGP-Spine-Underlay
-   neighbor 10.10.3.13 peer group eBGP-Spine-Underlay
+   neighbor spines peer group
+   neighbor spines remote-as 65100
+   neighbor spines maximum-routes 12000
+   neighbor 10.10.1.13 peer group spines
+   neighbor 10.10.2.13 peer group spines
+   neighbor 10.10.3.13 peer group spines
    neighbor 10.21.21.21 peer group EVPN-OVERLAY
    neighbor 10.22.22.22 peer group EVPN-OVERLAY
    neighbor 10.23.23.23 peer group EVPN-OVERLAY
+   redistribute connected route-map redist-SVI
    !
    vlan-aware-bundle leafvlans
       rd 10.14.14.14:1
@@ -72,9 +69,11 @@ router bgp 65004
       vlan 101,201
    !
    address-family evpn
+      bgp next-hop-unchanged
       neighbor EVPN-OVERLAY activate
    !
    address-family ipv4
-      neighbor eBGP-Spine-Underlay activate
-      redistribute connected route-map deny-management
+      no neighbor EVPN-OVERLAY activate
+      network 10.10.0.0/16
+      network 10.14.14.14/32
 !

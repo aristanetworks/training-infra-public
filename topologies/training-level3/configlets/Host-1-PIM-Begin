@@ -8,19 +8,19 @@ interface Ethernet2
    switchport access vlan 201
 !
 interface Ethernet3
-    channel-group 1 mode active
-	no shutdown
+   channel-group 1 mode active
+   no shutdown
 !
 interface Ethernet4
-	channel-group 1 mode active
-    no shutdown
+   channel-group 1 mode active
+   no shutdown
 !
 interface po1
-	switchport access vlan 301
+   switchport access vlan 301
 !
 int vlan 301
-	no autostate
-	ip address 192.168.30.1/24
+   no autostate
+   ip address 192.168.30.1/24
 !
 interface Vlan101
    no autostate

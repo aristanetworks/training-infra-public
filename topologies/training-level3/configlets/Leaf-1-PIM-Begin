@@ -1,6 +1,13 @@
-hostname leaf1
 !
 vlan 101,201,301
+!
+interface Port-Channel1
+   switchport access vlan 301
+   !
+   evpn ethernet-segment
+      identifier 00a2:b97c:4cac:0300:0000
+      route-target import 00:1c:73:cd:69:3d
+   lacp system-id 0000.0000.aaaa
 !
 interface Ethernet1
 !
@@ -22,15 +29,7 @@ interface Ethernet6
    switchport access vlan 101
 !
 interface Ethernet7
-    no shut
-	channel-group 1 mode active
-!
-interface po1
-	switchport access vlan 301
-    lacp system-id 0000.0000.aaaa
-    evpn ethernet-segment
-        identifier 00a2:b97c:4cac:0300:0000
-        route-target import 001c.73cd.693d
+   channel-group 1 mode active
 !
 interface Loopback0
    ip address 10.11.11.11/32
@@ -39,12 +38,11 @@ interface Vlan101
    no autostate
    ip address 172.16.101.1/24
 !
-!
-interface vxlan1
+interface Vxlan1
    vxlan source-interface Loopback0
+   vxlan udp-port 4789
    vxlan vlan 101 vni 10101
    vxlan vlan 301 vni 30303
-!
 !
 ip routing
 !
