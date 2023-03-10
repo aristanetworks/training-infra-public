@@ -48,7 +48,7 @@ topologies:
     desc: 'Dual Data Center ATD Topology'
     name: 'Dual Data Center'
     title: 'Dual Data Center Lab'
-    disk_size: 300
+    disk_size: 500
     access: admin
     disable_links: []
     labguides: self
@@ -453,7 +453,7 @@ topologies:
     desc: 'New Training Level 1-3 Topo. TESTING ONLY'
     name: 'Training - Level 1-3 TESTING ONLY'
     title: 'Training Level 1-3 Lab. TESTING ONLY'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -507,7 +507,7 @@ topologies:
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1'
     title: 'Training Level 1 Lab'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -552,7 +552,7 @@ topologies:
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1 Exam'
     title: 'Training Level 1 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -597,7 +597,7 @@ topologies:
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 2'
     title: 'Training Level 2 Lab'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -732,7 +732,7 @@ topologies:
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3'
     title: 'Training Level 3 Lab'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -786,7 +786,7 @@ topologies:
     desc: 'Level 3 Training Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3 Exam'
     title: 'Training Level 3 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -831,7 +831,7 @@ topologies:
     desc: 'Level 3 Training Exam 2 Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3 Exam 2'
     title: 'Training Level 3 Exam 2'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -890,7 +890,7 @@ topologies:
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4'
     title: 'Training Level 4 Lab'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -926,7 +926,7 @@ topologies:
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 v2'
     title: 'Training Level 4 Lab'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -962,7 +962,7 @@ topologies:
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 Exam'
     title: 'Training Level 4 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
