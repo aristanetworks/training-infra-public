@@ -683,7 +683,7 @@ topologies:
             resources:
               cpu: 40
               ram: 100
-            branch: nested/2022.3
+            branch: 2021.3-3.14
             orderable: true
             image: base-veos-training-l3-2022-3-4291-20230213-114928
             eos:
