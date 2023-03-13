@@ -254,7 +254,7 @@ function displayConvertTime(utcString) {
     dtstamp.innerHTML = ''
 
     now = new Date();
-    offset = -(now.getTimezoneOffset());
+    offset = (now.getTimezoneOffset());
 
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
