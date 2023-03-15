@@ -61,6 +61,7 @@ def getAPI(action):
         print("Message: {err}".format( 
             err = str(e), 
         ))
+        return (e)
 
 def main():
     status = 0
@@ -77,7 +78,12 @@ def main():
             if name != switches[name]['hostname'] or switches[name]['ztp_mode']!='disabled':
                 return("failed")
         switches["cvp_status"]=getAPI("cvp_tasks")
-        return ("success")
+        if isinstance(switches["cvp_status"], Exception):
+            return("failed")
+        elif switches["cvp_status"]['status'] == 'Complete':
+            return("success")
+        else:
+            return ("failed")
     except Exception as e:
         print(e)
         return("failed")
