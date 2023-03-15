@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.11
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:selfgrading
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -86,7 +86,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.7
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:selfgrading
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -193,6 +193,14 @@ services:
     restart: always
     volumes:
       - "/home/arista/arista-dir/apps/webui:/config:rw"
+    networks:
+      - atd_nginx
+  grader:
+    container_name: atd-grader
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:latest
+    command: ["false"]
+    volumes:
+      - /etc/opt:/etc/opt:rw
     networks:
       - atd_nginx
 networks:
