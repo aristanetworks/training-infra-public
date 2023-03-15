@@ -122,7 +122,7 @@ vrf VLAN19
 ip address 172.16.19.82/24
 no shutdown
 
-interface Ethernet1
+int ethernet 1
    mtu 9100
    switchport trunk allowed vlan 130-134
    switchport mode trunk
