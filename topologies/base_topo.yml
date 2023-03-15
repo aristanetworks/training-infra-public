@@ -501,13 +501,13 @@ topologies:
               ram: 64
             branch: 2021.3-3.15
             orderable: true
-            image: base-veos-training-l1-2021-3-20230206-202647
+            image: base-veos-training-l1-2021-3-20230315-110300
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1'
     title: 'Training Level 1 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -591,13 +591,13 @@ topologies:
               ram: 64
             branch: 2021.3-3.15
             orderable: true
-            image: base-veos-training-l2-2021-3-20230206-203204
+            image: base-veos-training-l2-2021-3-20230314-153844
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 2'
     title: 'Training Level 2 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -726,13 +726,13 @@ topologies:
               ram: 80
             branch: 2021.3-3.15
             orderable: true
-            image: base-veos-training-l3-2021-3-20230206-172838
+            image: base-veos-training-l3-2021-3-20230314-142621
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3'
     title: 'Training Level 3 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -884,13 +884,13 @@ topologies:
               ram: 90
             branch: 2021.3-3.15
             orderable: true
-            image: base-veos-training-l4-2021-3-20230206-203233
+            image: base-veos-training-l4-2021-3-20230314-153844
             eos:
               - 4.27.2F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4'
     title: 'Training Level 4 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
@@ -1012,13 +1012,13 @@ topologies:
               ram: 72
             branch: 2021.3-3.15
             orderable: true
-            image: base-ceos-training-l5-2021-3-20230206-203421
+            image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
     desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 5'
     title: 'Training Level 5 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
     disable_links: [labguides, jenkins,lab_status]
     labguides: self
