@@ -43,9 +43,13 @@ COPY src/localGrading.py /usr/local/bin
 
 COPY src/saveRunning.py /usr/local/bin
 
+COPY src/qa-steps.py /usr/local/bin
+
 RUN chmod +x /usr/local/bin/lab_status.py
 
 RUN chmod +x /usr/local/bin/login.py
+
+RUN chmod +x /usr/local/bin/qa-steps.py
 
 RUN chmod +x /usr/local/bin/resetVMs.py
 
