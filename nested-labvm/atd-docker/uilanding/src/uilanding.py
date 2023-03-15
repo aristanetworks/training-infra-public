@@ -11,9 +11,12 @@ import requests
 import secrets
 import hashlib, uuid
 import json
-import docker
 import urllib3
 import traceback
+import os
+import glob
+import docker
+import time
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -465,6 +468,7 @@ if __name__ == "__main__":
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
         (r'/resetLab', ResetLabHandler),
+        (r'/grade', LabGradingHandler)
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
