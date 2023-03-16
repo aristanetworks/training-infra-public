@@ -91,6 +91,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
+      - /etc/opt:/etc/opt:ro
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
