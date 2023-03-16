@@ -109,6 +109,7 @@ function getLabStatus() {
 
 function gradeButtonListener(gradeButton) {
     gradeButton.addEventListener('click', () => {
+        document.getElementById('grade-button').disabled = true;
         fetch('/grade', {
         method: 'POST',
         headers: {
