@@ -637,6 +637,42 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
+  training-level2-exam-2:
+    dev:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2021.3.0:
+            resources:
+              cpu: 32
+              ram: 64
+            branch: nested/2021.3
+            orderable: true
+            image: base-veos-training-l2-exam-2-2021-3-20230320-122942
+            eos:
+              - 4.27.2F
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2021.3.0:
+            resources:
+              cpu: 32
+              ram: 64
+            branch: 2021.3-3.14
+            orderable: false
+            image: base-veos-training-l2-exam-2021-3-20230206-214313
+            eos:
+              - 4.27.2F
+    desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
+    name: 'Training - Level 2 Exam Topology 2'
+    title: 'Training Level 2 Exam Exam Topology 2'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins]
+    labguides: self
   training-level3:
     dev:
       veos:
