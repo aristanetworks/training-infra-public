@@ -705,7 +705,7 @@ topologies:
             branch: nested/2021.3
             eos:
             - 4.27.2F
-            image: base-veos-training-l3-2021-3-20230314-142621
+            image: base-veos-training-l3-2021-3-20230206-172838
             orderable: true
             resources:
               cpu: 40
@@ -770,7 +770,7 @@ topologies:
             branch: 2021.3-3.15
             eos:
             - 4.27.2F
-            image: base-veos-training-l3-2021-3-20230314-142621
+            image: base-veos-training-l3-2021-3-20230206-172838
             orderable: true
             resources:
               cpu: 40
