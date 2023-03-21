@@ -130,7 +130,7 @@ function gradeButtonListener(gradeButton) {
       .catch(error => {
         displayGradeError("No details to show")
         document.getElementById('grade-button').disabled = false;
-        displayConvertTime(data.timestamp)
+        //displayConvertTime(data.timestamp)
       });
     });
     };

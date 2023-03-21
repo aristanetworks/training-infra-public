@@ -356,7 +356,7 @@ class LabGradingHandler(BaseHandler):
     _FILE_PATH = "/etc/opt/graderlogs/"
     _FILE_PATTERN = "*-output.json"
     _TITLE_MAPPINGS = {
-        "Training Level 3 Lab":"training-3-2",
+        "Training Level 3 Lab":"training-3-1",
     }
     def get(self):
         """
@@ -373,10 +373,7 @@ class LabGradingHandler(BaseHandler):
         # Call for the running configs
         login_container = client.containers.get('atd-login')
         login_container.exec_run(f'sudo localGrading.py')
-        #image_name = client.images.pull("selgrading:latest",no_cache=True)
-        #import pdb;pdb.set_trace()
-        #image_name = client.images.pull("gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0")
-        #image_name = "gcr.io/atd-testdrivetraining-dev/selfgrading:1.0.0"
+        #Call for grading
         image_name = "us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:latest"
         lab = self.get_labname()
         if lab:
@@ -390,7 +387,6 @@ class LabGradingHandler(BaseHandler):
             )
             container.wait()
             output = container.logs().decode("utf-8")
-            #output = container.logs()
             container.remove()
         data = self.get_data()
         self.write(json.dumps(data))
@@ -399,7 +395,6 @@ class LabGradingHandler(BaseHandler):
         Gets the lab name and returns the relative lab code
         """
         access_file = "/etc/atd/ACCESS_INFO.yaml"
-        #with open(access_file, "r") as f:
         host_yaml = YAML().load(open(access_file, 'r'))
         title = host_yaml["title"]
         #if title in title_maps
@@ -425,9 +420,7 @@ class LabGradingHandler(BaseHandler):
                 latest_updated_file = files[0]
                 with open (latest_updated_file, 'r') as f:
                     data = json.load(f)
-                    #self.write(data)
                 p_data = self.parse_data(data)
-                #date_string = latest_updated_file.split("-")[0] + " " + latest_updated_file.split("-")[1]
                 file_string = latest_updated_file.split("/")[-1]
                 date_string = file_string.split("-")[0] + " " + file_string.split("-")[1]
                 date_time = datetime.strptime(date_string, '%Y_%m_%d %H:%M:%S')
