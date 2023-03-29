@@ -31,17 +31,15 @@ ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
 # Open yaml for the default yaml and read what file to lookup for default menu
-default_menu_file = open(MENU_BASE_PATH+'default.yaml')
-default_menu_info = YAML().load(default_menu_file)
-default_menu_file.close()
+with open(MENU_BASE_PATH+'default.yaml') as default_menu_file:
+    default_menu_info = YAML().load(default_menu_file)
 if str(default_menu_info['default_menu']).lower() == 'ssh':
     NOMENUOPTIONFILE =True
 else:
     # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
     NOMENUOPTIONFILE = False
-    menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
-    MENU_ITEMS = YAML().load(menu_file)  
-    menu_file.close()
+    with open('/opt/menus/{0}'.format(default_menu_info['default_menu'])) as  menu_file:
+        MENU_ITEMS = YAML().load(menu_file)  
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
     
 
@@ -316,9 +314,8 @@ class LabHandler(tornado.web.RequestHandler):
         login_container = docker_conn.containers.get('atd-login')
         container_output=login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}')
         print(container_output)
-        log_file = open('log.txt','w')
-        log_file.write(str(container_output.output.decode("utf-8")))
-        log_file.close()
+        with open('log.txt','w') as log_file:
+            log_file.write(str(container_output.output.decode("utf-8")))
         with open("log.txt", "r") as txt_file:
             response =  txt_file.readlines()
         self.write({
@@ -331,9 +328,8 @@ class LabStausHandler(tornado.web.RequestHandler):
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         container_output=login_container.exec_run(f'sudo lab_status.py')
-        log_file = open('log.txt','w')
-        log_file.write(str(container_output.output.decode("utf-8")))
-        log_file.close()
+        with open('log.txt','w') as log_file:
+            log_file.write(str(container_output.output.decode("utf-8")))
         with open("log.txt", "r") as txt_file:
             response =  txt_file.readlines()
         print(response)
@@ -429,7 +425,7 @@ class LabGradingHandler(BaseHandler):
             ret_data['timestamp'] = str(date_time)
             ret_data['grading'] = p_data
         else:
-            ret_data['timestamp'] = str(datetime.utcnow().strftime("%Y_%m_%d-%H:%M:%S"))
+            ret_data['timestamp'] = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
             ret_data['grading'] =  'No data available'
 
         return ret_data

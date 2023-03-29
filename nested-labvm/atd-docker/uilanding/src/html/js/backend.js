@@ -1,6 +1,7 @@
 const labStaustext = document.getElementById("labStatusByApi");
 labStaustext.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
 let failedSwitches = []
+let labStatusInterval;
 const checkIsAllSwitchesOK = localStorage.getItem('isAllSwitchesOk')
 isAllSwitchesOk = true;
 if (checkIsAllSwitchesOK == 'yes' || checkIsAllSwitchesOK == undefined) {
@@ -17,14 +18,16 @@ $('#labMenu').click(function (event) {
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
-    clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
+
 });
 $('#home').click(function (event) {
     document.getElementById('labMenuDiv').style.display = 'none'
     document.getElementById('mainContent').style.display = 'block'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
-    clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
+
 })
 $('#labStaus').click(function (event) {
     document.getElementById('labMenuDiv').style.display = 'none'
@@ -44,7 +47,7 @@ $('#labGrading').click(function (event) {
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'block'
     loadData("labGrading")
-    clearInterval(labStatusInterval)
+    if (labStatusInterval){ clearInterval(labStatusInterval) }
 })
 
 $('#resetLabs').click((event) => {
@@ -58,6 +61,7 @@ $('#resetLabs').click((event) => {
 
         })
     }
+if (labStatusInterval){ clearInterval(labStatusInterval) }
 })
 
 
@@ -111,29 +115,30 @@ function gradeButtonListener(gradeButton) {
     gradeButton.addEventListener('click', () => {
         document.getElementById('grade-button').disabled = true;
         fetch('/grade', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        loadGradingData(data.grading)
-        document.getElementById('grade-button').disabled = false;
-        displayConvertTime(data.timestamp)
-      })
-      .catch(error => {
-        displayGradeError("No details to show")
-        document.getElementById('grade-button').disabled = false;
-        //displayConvertTime(data.timestamp)
-      });
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadGradingData(data.grading)
+                document.getElementById('grade-button').disabled = false;
+                displayConvertTime(data.timestamp)
+            })
+            .catch(error => {
+                displayGradeError("No details to show")
+                document.getElementById('grade-button').disabled = false;
+                //displayConvertTime(data.timestamp)
+            });
     });
-    };
+};
+
 
 function loadData(item) {
     if (item === 'labGrading') {
@@ -144,31 +149,32 @@ function loadData(item) {
         const gradeButton = document.getElementById('grade-button')
         fetch('/grade')
             .then(response => {
-            if (response.ok) {
-                response.json().then(data => {
-                //Add timestamp to the page
-                displayConvertTime(data.timestamp)
-                if (data.grading == "No data available") {
-                    displayGradeError("No details to show")
-                    gradeButton.disabled = false;
-                    gradeButtonListener(gradeButton)
-                    } else {
-                    loadGradingData(data.grading)
-                    gradeButton.disabled = false;
-                    gradeButtonListener(gradeButton)
-                    };
-                });
-            } else {
-                response.text().then(errorMessage => {
-                // Display error message and enable button
-                    displayGradeError("No details to show");
-                    gradeButton.disabled = false;
-                    gradeButtonListener(gradeButton)
-                });
-            }
+                if (response.ok) {
+                    response.json().then(data => {
+                        //Add timestamp to the page
+                        displayConvertTime(data.timestamp)
+                        if (data.grading == "No data available") {
+                            displayGradeError("No details to show")
+                            gradeButton.disabled = false;
+                            gradeButtonListener(gradeButton)
+                        } else {
+                            loadGradingData(data.grading)
+                            gradeButton.disabled = false;
+                            gradeButtonListener(gradeButton)
+                        };
+                    });
+                } else {
+                    response.text().then(errorMessage => {
+                        // Display error message and enable button
+                        displayGradeError("No details to show");
+                        gradeButton.disabled = false;
+                        gradeButtonListener(gradeButton)
+                    });
+                }
             });
     };
-    };
+};
+
 function loadGradingData(data) {
     // Get reference to the parent element where the collapsible items will be added
     const parentElem = document.getElementById("grades");
@@ -190,12 +196,11 @@ function loadGradingData(data) {
             // Create the outer device header element
             const deviceHeader = document.createElement("button");
             deviceHeader.classList.add("collapsible");
-            deviceHeader.textContent = device + ' (' + data[lab][device].length +' errors)';
+            deviceHeader.textContent = device + ' (' + data[lab][device].length + ' errors)';
 
             // Create the inner device content element
             const deviceContent = document.createElement("div");
             deviceContent.classList.add("content");
-
             // Loop through the comments for the current leaf and create a list item for each comment
             const comments = data[lab][device];
             const commentList = document.createElement("ul");
@@ -207,7 +212,7 @@ function loadGradingData(data) {
                 } else {
                     commentItem.textContent = comment.comment;
                 }
-                    commentList.appendChild(commentItem);
+                commentList.appendChild(commentItem);
             }
 
             // Add the comment list to the device content element
@@ -219,12 +224,12 @@ function loadGradingData(data) {
 
             // Add a click listener to the leaf header to toggle the leaf content
             deviceHeader.addEventListener("click", () => {
-            deviceContent.classList.toggle("active");
-            if (deviceContent.style.maxHeight) {
-                deviceContent.style.maxHeight = null;
-            } else {
-                deviceContent.style.maxHeight = deviceContent.scrollHeight + "px";
-            }
+                deviceContent.classList.toggle("active");
+                if (deviceContent.style.maxHeight) {
+                    deviceContent.style.maxHeight = null;
+                } else {
+                    deviceContent.style.maxHeight = deviceContent.scrollHeight + "px";
+                }
             });
         }
 
@@ -236,17 +241,18 @@ function loadGradingData(data) {
         labHeader.addEventListener("click", () => {
             labContent.classList.toggle("active");
             if (labContent.style.maxHeight) {
-            labContent.style.maxHeight = null;
+                labContent.style.maxHeight = null;
             } else {
-            //labContent.style.maxHeight = labContent.scrollHeight + "px";
-            labContent.style.maxHeight = "max-content"
+                //labContent.style.maxHeight = labContent.scrollHeight + "px";
+                labContent.style.maxHeight = "max-content"
+
             }
         });
     }
 }
 function displayGradeError(errorMessage) {
     document.getElementById('grades').innerHTML = `<p>${errorMessage}</p>`;
-  }
+}
 
 function displayConvertTime(utcString) {
 
@@ -259,8 +265,7 @@ function displayConvertTime(utcString) {
 
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
-    dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString() + '  (Beta version - Still under development)' 
-}
+    dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString() + '  (Beta version - Still under development)'
 
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
@@ -271,12 +276,12 @@ document.getElementById("labBtn").addEventListener("click", function () {
             res.response.forEach(element => {
                 output = output + element
             });
-            document.getElementById('apiResponse').textContent = output
+            document.getElementById('apiResponse').innerHTML = output
             document.getElementById('loader').style.display = 'none'
 
         }
     }).fail((err) => {
-        document.getElementById('apiResponse').textContent = "Some thing went wrong"
+        document.getElementById('apiResponse').innerHTML = "Some thing went wrong"
         document.getElementById('loader').style.display = 'none'
     })
 
