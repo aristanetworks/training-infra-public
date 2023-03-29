@@ -47,8 +47,7 @@ $('#labGrading').click(function (event) {
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'block'
     loadData("labGrading")
-if (labStatusInterval){ clearInterval(labStatusInterval) }
-
+    if (labStatusInterval){ clearInterval(labStatusInterval) }
 })
 
 $('#resetLabs').click((event) => {
@@ -140,6 +139,7 @@ function gradeButtonListener(gradeButton) {
     });
 };
 
+
 function loadData(item) {
     if (item === 'labGrading') {
         // Show table and button
@@ -174,6 +174,7 @@ function loadData(item) {
             });
     };
 };
+
 function loadGradingData(data) {
     // Get reference to the parent element where the collapsible items will be added
     const parentElem = document.getElementById("grades");
@@ -200,7 +201,6 @@ function loadGradingData(data) {
             // Create the inner device content element
             const deviceContent = document.createElement("div");
             deviceContent.classList.add("content");
-
             // Loop through the comments for the current leaf and create a list item for each comment
             const comments = data[lab][device];
             const commentList = document.createElement("ul");
@@ -245,6 +245,7 @@ function loadGradingData(data) {
             } else {
                 //labContent.style.maxHeight = labContent.scrollHeight + "px";
                 labContent.style.maxHeight = "max-content"
+
             }
         });
     }
@@ -265,7 +266,6 @@ function displayConvertTime(utcString) {
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
     dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString() + '  (Beta version - Still under development)'
-}
 
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
