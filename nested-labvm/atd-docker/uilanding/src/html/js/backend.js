@@ -266,6 +266,7 @@ function displayConvertTime(utcString) {
     utcObj = new Date(utcString);
     newTime = new Date(utcObj - (offset * 60 * 1000));
     dtstamp.innerHTML = "Last graded at: " + newTime.toLocaleDateString() + ' ' + newTime.toLocaleTimeString() + '  (Beta version - Still under development)'
+}
 
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
