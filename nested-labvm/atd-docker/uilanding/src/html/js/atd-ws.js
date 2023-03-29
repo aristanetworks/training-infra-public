@@ -39,7 +39,6 @@ function createWS(SOCK_URL) {
     {
         var re_data = evt.data;
         var received_msg = JSON.parse(re_data);
-        console.log(received_msg)
         reg_data = received_msg['data'];
         if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
             

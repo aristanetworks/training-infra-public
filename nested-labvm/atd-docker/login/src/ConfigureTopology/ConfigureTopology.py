@@ -122,7 +122,7 @@ class ConfigureTopology():
         mmes = "\t" + mtype
         syslog.syslog("[{0}] {1}".format(mstat,mmes.expandtabs(7 - len(mstat))))
         if DEBUG:
-            print("[{0}] {1}".format(mstat,mmes.expandtabs(7 - len(mstat))))
+            print("[{0}] {1}<br>".format(mstat,mmes.expandtabs(7 - len(mstat))))
 
 
     def push_bare_config(self,veos_host, veos_ip, veos_config):
@@ -165,7 +165,7 @@ class ConfigureTopology():
         
         if tasks_in_progress:
             self.send_to_syslog('INFO', 'Tasks in progress. Waiting for 10 seconds.')
-            print('Tasks are currently executing. Waiting 10 seconds...')
+            print('Tasks are currently executing. Waiting 10 seconds... <br>')
             time.sleep(10)
             self.check_for_tasks()
 
@@ -195,7 +195,7 @@ class ConfigureTopology():
 
         # Send message that deployment is beginning
         self.send_to_syslog('INFO', 'Starting deployment for {0} - {1} lab...'.format(self.selected_menu,self.selected_lab))
-        print("Starting deployment for {0} - {1} lab...".format(self.selected_menu,self.selected_lab))
+        print("Starting deployment for {0} - {1} lab...<br>".format(self.selected_menu,self.selected_lab))
 
         # Check if the topo has CVP, and if it does, create CVP connection
         if 'cvp' in access_info['nodes']:
@@ -209,7 +209,7 @@ class ConfigureTopology():
             time.sleep(15)
             
             # Execute all tasks generated from reset_devices()
-            print('Gathering task information...')
+            print('Gathering task information...<br>')
             self.send_to_syslog("INFO", 'Gathering task information')
             self.client.getAllTasks("pending")
             tasks_to_check = self.client.tasks['pending']
@@ -217,7 +217,7 @@ class ConfigureTopology():
             self.client.execAllTasks("pending")
             self.send_to_syslog("OK", 'Completed setting devices to topology: {}'.format(self.selected_lab))
 
-            print('Waiting on change control to finish executing...')
+            print('Waiting on change control to finish executing...<br>')
             all_tasks_completed = False
             while not all_tasks_completed:
                 tasks_running = []
@@ -225,7 +225,7 @@ class ConfigureTopology():
                     if self.client.getTaskStatus(task['workOrderId'])['taskStatus'] != 'Completed':
                         tasks_running.append(task)
                     elif self.client.getTaskStatus(task['workOrderId'])['taskStatus'] == 'Failed':
-                        print('Task {0} failed.'.format(task['workOrderId']))
+                        print('Task {0} failed. <br>'.format(task['workOrderId']))
                     else:
                         pass
                 
@@ -233,7 +233,7 @@ class ConfigureTopology():
 
                     # Execute additional commands in linux if needed
                     if len(additional_commands) > 0:
-                        print('Running additional setup commands...')
+                        print('Running additional setup commands...<br>')
                         self.send_to_syslog('INFO', 'Running additional setup commands.')
 
                         for command in additional_commands:
@@ -243,7 +243,7 @@ class ConfigureTopology():
                         input('Lab Setup Completed. Please press Enter to continue...')
                         self.send_to_syslog("OK", 'Lab Setup Completed.')
                     else:
-                        print('Lab Setup Completed. ')
+                        print('<br> Lab Setup Completed.<br> ')
                         self.send_to_syslog("OK", 'Lab Setup Completed.')
                     all_tasks_completed = True
                 else:
@@ -272,7 +272,7 @@ class ConfigureTopology():
 
                 # Execute additional commands in linux if needed
                 if len(additional_commands) > 0:
-                    print('Running additional setup commands...')
+                    print('Running additional setup commands... <br>')
 
                     for command in additional_commands:
                         os.system(command)
@@ -280,5 +280,5 @@ class ConfigureTopology():
                 input('Lab Setup Completed. Please press Enter to continue...')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
             else:
-                print('Lab Setup Completed. ')
+                print(' <br> Lab Setup Completed. <br> ')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
