@@ -334,7 +334,7 @@ class LabStausHandler(tornado.web.RequestHandler):
             response =  txt_file.readlines()
         print(response)
         self.write({
-            'response':str(response)
+            'response':response
         })        
 
 
