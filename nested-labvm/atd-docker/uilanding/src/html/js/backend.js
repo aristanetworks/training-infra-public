@@ -18,7 +18,7 @@ $('#labMenu').click(function (event) {
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
-labStatusInterval ?? clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
 
 });
 $('#home').click(function (event) {
@@ -26,7 +26,7 @@ $('#home').click(function (event) {
     document.getElementById('mainContent').style.display = 'block'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
-labStatusInterval ?? clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
 
 })
 $('#labStaus').click(function (event) {
@@ -47,7 +47,7 @@ $('#labGrading').click(function (event) {
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'block'
     loadData("labGrading")
-labStatusInterval ?? clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
 
 })
 
@@ -62,7 +62,7 @@ $('#resetLabs').click((event) => {
 
         })
     }
-labStatusInterval ?? clearInterval(labStatusInterval)
+if (labStatusInterval){ clearInterval(labStatusInterval) }
 })
 
 
