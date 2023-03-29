@@ -76,7 +76,7 @@ def main():
     labPassword, labTopology, labName = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
-    folder = "running-configs"
+    folder = "/etc/opt/running-configs"
     if not os.path.exists(folder):
         try:
             os.makedirs(folder)

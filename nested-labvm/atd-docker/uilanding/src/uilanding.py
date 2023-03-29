@@ -11,9 +11,12 @@ import requests
 import secrets
 import hashlib, uuid
 import json
-import docker
 import urllib3
 import traceback
+import os
+import glob
+import docker
+import time
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -349,8 +352,98 @@ class ResetLabHandler(tornado.web.RequestHandler):
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
+class LabGradingHandler(BaseHandler):
+    _FILE_PATH = "/etc/opt/graderlogs/"
+    _FILE_PATTERN = "*-output.json"
+    _TITLE_MAPPINGS = {
+        "Training Level 3 Lab":"training-3-1",
+    }
+    def get(self):
+        """
+        Gets the latest output json file
+        """
+        data = self.get_data()
+        self.write(json.dumps(data))
+
+    def post(self):
+        """
+        Calls the docker image to grade
+        """
+        client = docker.from_env()
+        # Call for the running configs
+        login_container = client.containers.get('atd-login')
+        login_container.exec_run(f'sudo localGrading.py')
+        #Call for grading
+        image_name = "us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:1.0.0"
+        lab = self.get_labname()
+        if lab:
+            container = client.containers.run(image_name, detach=True, tty=True, volumes={
+                "/etc/opt": {
+                    "bind": "/etc/opt",
+                    "mode": "rw"
+                }
+            },
+            command=lab
+            )
+            container.wait()
+            output = container.logs().decode("utf-8")
+            container.remove()
+        data = self.get_data()
+        self.write(json.dumps(data))
+    def get_labname(self):
+        """
+        Gets the lab name and returns the relative lab code
+        """
+        access_file = "/etc/atd/ACCESS_INFO.yaml"
+        host_yaml = YAML().load(open(access_file, 'r'))
+        title = host_yaml["title"]
+        #if title in title_maps
+        lab_code = self._TITLE_MAPPINGS.get(title, None)
+        return lab_code
 
 
+    def get_data(self):
+        """
+        Gets the data from the output file 
+        parses it to the frontend
+        """
+        data = 'No data available'
+        ret_data = {}
+        p_data = None
+        date_time = None
+        if os.path.exists(self._FILE_PATH):
+            # get a list of all files in the folder that match the pattern
+            files = glob.glob(os.path.join(self._FILE_PATH, self._FILE_PATTERN))
+            # sort the files by modification time
+            if files:
+                files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                latest_updated_file = files[0]
+                with open (latest_updated_file, 'r') as f:
+                    data = json.load(f)
+                p_data = self.parse_data(data)
+                file_string = latest_updated_file.split("/")[-1]
+                date_string = file_string.split("-")[0] + " " + file_string.split("-")[1]
+                date_time = datetime.strptime(date_string, '%Y_%m_%d %H:%M:%S')
+
+        if p_data and date_time:
+            ret_data['timestamp'] = str(date_time)
+            ret_data['grading'] = p_data
+        else:
+            ret_data['timestamp'] = str(datetime.utcnow().strftime("%Y_%m_%d-%H:%M:%S"))
+            ret_data['grading'] =  'No data available'
+
+        return ret_data
+    def parse_data(self,data):
+        """
+        Parses the grading data as per the FE
+        """
+        out_data = {}
+        for lab in data:
+            out_data[data[lab]['name']] = {}
+            for device in data[lab]['devices']:
+                if data[lab]['devices'][device]["status"] != 'pass':
+                    out_data[data[lab]['name']][device] = data[lab]['devices'][device]["errors"]
+        return out_data
 
 if __name__ == "__main__":
     settings = {
@@ -368,6 +461,7 @@ if __name__ == "__main__":
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
         (r'/resetLab', ResetLabHandler),
+        (r'/grade', LabGradingHandler)
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
