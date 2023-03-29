@@ -283,7 +283,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet4
         - neighborDevice: spine3-DC1
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet5
         # connections to host-switches
         - neighborDevice: host1-DC1
@@ -343,10 +343,10 @@ nodes:
           port: Ethernet2
           # connections to spines
         - neighborDevice: spine1-DC1
-          neighborPort: Ethernet4
+          neighborPort: Ethernet5
           port: Ethernet3
         - neighborDevice: spine2-DC1
-          neighborPort: Ethernet4
+          neighborPort: Ethernet5
           port: Ethernet4
         - neighborDevice: spine3-DC1
           neighborPort: Ethernet5
@@ -490,7 +490,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet4
         - neighborDevice: spine3-DC2
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet5
         # connections to host-switches
         - neighborDevice: host1-DC2
@@ -550,10 +550,10 @@ nodes:
           port: Ethernet2
           # connections to spines
         - neighborDevice: spine1-DC2
-          neighborPort: Ethernet4
+          neighborPort: Ethernet5
           port: Ethernet3
         - neighborDevice: spine2-DC2
-          neighborPort: Ethernet4
+          neighborPort: Ethernet5
           port: Ethernet4
         - neighborDevice: spine3-DC2
           neighborPort: Ethernet5
@@ -695,16 +695,16 @@ nodes:
       neighbors:
           # connections to leafs
         - neighborDevice: leaf1-DC1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet1
         - neighborDevice: leaf1-DC1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet3
         - neighborDevice: leaf2-DC1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet2
         - neighborDevice: leaf2-DC1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet4
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet11
@@ -716,16 +716,16 @@ nodes:
       neighbors:
           # connections to leafs
         - neighborDevice: leaf3-DC1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet1
         - neighborDevice: leaf3-DC1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet3
         - neighborDevice: leaf4-DC1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet2
         - neighborDevice: leaf4-DC1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet4
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet12
@@ -738,16 +738,16 @@ nodes:
       neighbors:
           # connections to leafs
         - neighborDevice: leaf1-DC2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet1
         - neighborDevice: leaf1-DC2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet3
         - neighborDevice: leaf2-DC2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet2
         - neighborDevice: leaf2-DC2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet4
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet11
@@ -759,16 +759,16 @@ nodes:
       neighbors:
           # connections to leafs
         - neighborDevice: leaf3-DC2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet1
         - neighborDevice: leaf3-DC2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet3
         - neighborDevice: leaf4-DC2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet6
           port: Ethernet2
         - neighborDevice: leaf4-DC2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet4
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet12
@@ -780,7 +780,7 @@ nodes:
       sys_mac: 00:1c:73:02:c6:01
       neighbors:
         - neighborDevice: OOB-CORE
-          neighborPort: Ethernet 1
+          neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: spine1-DC1
           neighborPort: Ethernet15
@@ -821,7 +821,7 @@ nodes:
       sys_mac: 00:1c:73:03:c6:01
       neighbors:
         - neighborDevice: OOB-CORE
-          neighborPort: Ethernet 2
+          neighborPort: Ethernet2
           port: Ethernet1
         - neighborDevice: spine1-DC2
           neighborPort: Ethernet15
@@ -918,7 +918,7 @@ nodes:
           neighborPort: Ethernet10
           port: Ethernet10
         - neighborDevice: borderleaf1-DC1
-          neighborPort: Ethernet1
+          neighborPort: Ethernet11
           port: Ethernet11
 
   - core2-isp2:
@@ -955,10 +955,10 @@ nodes:
         - neighborDevice: core2-isp2
           neighborPort: Ethernet2
           port: Ethernet4
-        - neighborDevice: Spine1-DC3
+        - neighborDevice: spine1-DC3
           neighborPort: Ethernet1
           port: Ethernet5
-        - neighborDevice: Spine2-DC3
+        - neighborDevice: spine2-DC3
           neighborPort: Ethernet1
           port: Ethernet6
 
