@@ -1,0 +1,22 @@
+!
+Hostname GW-DC1
+!
+ip routing
+!
+mpls ip
+!
+service routing protocols model multi-agent
+!
+interface Loopback0
+   ip address 192.168.100.5/32
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.15.5/24
+   no shut
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.56.5/24
+   no shut
+!

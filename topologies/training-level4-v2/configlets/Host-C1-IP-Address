@@ -1,0 +1,20 @@
+!
+! hostname Host-C1-DC1
+!
+ip routing
+!
+vlan 12
+   name Stretched-between-DC1-and-DC2
+!
+int ethernet 1
+   shutdown
+!
+int ethernet 2
+   switchport access vlan 12
+!
+int vlan 12
+   ip address 10.12.0.31/16
+   no shut
+!
+ip route 0.0.0.0/0 10.12.0.11
+!

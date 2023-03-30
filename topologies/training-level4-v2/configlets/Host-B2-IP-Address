@@ -1,0 +1,20 @@
+!
+! hostname Host-B2-DC2
+!
+ip routing
+!
+vlan 11
+   name local-to-DC2
+!
+int ethernet 1
+   shutdown
+!
+int ethernet 2
+   switchport access vlan 11
+!
+int vlan 11
+   ip address 10.11.2.22/24
+   no shut
+!
+ip route 0.0.0.0/0 10.11.2.12
+!
