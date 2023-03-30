@@ -1,0 +1,42 @@
+!
+Hostname Leaf-DC1
+!
+ip routing
+!
+mpls ip
+!
+service routing protocols model multi-agent
+!
+int loopback0
+   ip address 192.168.10.1/32
+!
+int ethernet1
+   no switchport
+   ip address 192.168.11.2/30
+   no shut
+!
+int ethernet2
+   switchport access vlan 10
+   no shut
+!
+int ethernet3
+   switchport access vlan 12
+   no shut
+!
+!
+vrf instance ABC
+!
+ip routing vrf ABC
+!
+vlan 10,12
+!
+interface Vlan10
+   vrf ABC
+   ip address 10.10.1.11/24
+   arp aging timeout 295
+!
+int vlan 12
+   vrf ABC
+   ip address 10.12.0.11/16
+   arp aging timeout 295 
+!

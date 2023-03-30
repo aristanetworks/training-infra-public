@@ -1,0 +1,55 @@
+!
+Hostname GW-DC2
+!
+vrf instance ABC
+!
+ip routing vrf ABC
+!
+vlan 11,12
+!
+interface Vlan11
+   vrf ABC
+   ip address 10.11.2.6/24
+   arp aging timeout 295
+!
+interface Vxlan1
+   vxlan source-interface Loopback0
+   vxlan udp-port 4789
+   vxlan vlan 11 vni 10011
+   vxlan vlan 12 vni 10012
+   vxlan vrf ABC vni 10000
+!
+router bgp 65004
+   maximum-paths 128
+   no bgp default ipv4-unicast
+   neighbor 172.16.26.2 remote-as 65005
+   !
+   neighbor 192.168.100.2 remote-as 65005
+   neighbor 192.168.100.2 update-source Loopback0
+   neighbor 192.168.100.2 ebgp-multihop 3
+   neighbor 192.168.100.2 send-community
+   !
+   redistribute connected
+   !
+   vlan 11
+      rd 10011:10011
+      route-target import export 10011:10011
+      redistribute learned
+   !
+   vlan 12
+      rd 2:10012
+      route-target import export 2:10012
+      redistribute learned
+   !
+   address-family evpn
+      neighbor 192.168.100.2 activate
+   !
+   address-family ipv4
+      neighbor 172.16.26.2 activate
+   !
+   vrf ABC
+      rd 192.168.100.6:10000
+      route-target import evpn 10000:10000
+      route-target export evpn 10000:10000
+      redistribute connected
+!
