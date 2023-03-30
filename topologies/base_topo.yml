@@ -955,7 +955,7 @@ topologies:
               cpu: 60
               ram: 90
             branch: 2022.3-3.1
-            orderable: false
+            orderable: true
             image: base-veos-training-l4-v2-2022-3-4291-20230327-150557
             eos:
               - 4.29.1F
