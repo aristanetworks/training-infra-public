@@ -274,7 +274,7 @@ servers:
       ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
       size: "t2.medium"
       type: generic
-      ip_addr: 192.168.0.41
+      ip_addr: 19.168.0.41
       sys_mac: 00:1c:73:e1:c6:01
       neighbors:
         - neighborDevice: leaf1
