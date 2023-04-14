@@ -185,7 +185,7 @@ class ConfigureTopology():
         if os.path.isfile(file_path):
             with open(file_path, "r+") as file:
                 # Load the data from file
-                file_data = YAML().safe_load(file)
+                file_data = YAML().load(file)
                 # Modify data
                 file_data["loaded_labs"].append(data)
                 # Set the file pointer to the beginning of the file
