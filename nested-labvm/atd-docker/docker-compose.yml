@@ -86,7 +86,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.8
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:db-grading
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
