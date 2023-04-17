@@ -374,7 +374,7 @@ class LabGradingHandler(BaseHandler):
         lab = self.get_labname()
         if lab:
             grader_container = client.containers.get('atd-grader')
-            login_container.exec_run(f'python selfgrader.py {lab}')
+            grader_container.exec_run(f'python selfgrader.py {lab}')
             # container = client.containers.run(image_name, detach=True, tty=True, volumes={
             #     "/etc/opt": {
             #         "bind": "/etc/opt",
