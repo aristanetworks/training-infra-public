@@ -335,7 +335,7 @@ nodes:
           port: Ethernet4
   - host3:
       ip_addr: 192.168.0.53
-      sys_mac: 00:1c:73:f2:c6:01
+      sys_mac: 00:1c:73:f3:c6:01
       neighbors:
         - neighborDevice: leaf3
           neighborPort: Ethernet9
@@ -351,7 +351,7 @@ nodes:
           port: Ethernet4
   - host4:
       ip_addr: 192.168.0.54
-      sys_mac: 00:1c:73:f2:c6:01
+      sys_mac: 00:1c:73:f4:c6:01
       neighbors:
         - neighborDevice: leaf3
           neighborPort: Ethernet9
