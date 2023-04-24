@@ -6,7 +6,7 @@ Requires=docker.service network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/opt/atd/nested-labvm/services/atdShutdown/gradingToDB.sh
+ExecStart=/usr/bin/python3 /opt/atd/nested-labvm/services/atdShutdown/gradingToDB.py
 
 [Install]
 WantedBy=multi-user.target
