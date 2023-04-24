@@ -347,16 +347,16 @@ nodes:
       ip_addr: 192.168.0.54
       sys_mac: 00:1c:73:f4:c6:01
       neighbors:
-        - neighborDevice: leaf4
+        - neighborDevice: leaf3
           neighborPort: Ethernet9
           port: Ethernet1
-        - neighborDevice: leaf3
+        - neighborDevice: leaf4
           neighborPort: Ethernet9
           port: Ethernet2
-        - neighborDevice: leaf4
+        - neighborDevice: leaf3
           neighborPort: Ethernet10
           port: Ethernet3
-        - neighborDevice: leaf3
+        - neighborDevice: leaf4
           neighborPort: Ethernet10
           port: Ethernet4
 servers:
