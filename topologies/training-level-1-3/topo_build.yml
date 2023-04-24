@@ -183,6 +183,12 @@ nodes:
         - neighborDevice: host1
           neighborPort: Ethernet4
           port: Ethernet8
+        - neighborDevice: host2
+          neighborPort: Ethernet1
+          port: Ethernet9
+        - neighborDevice: host2
+          neighborPort: Ethernet3
+          port: Ethernet10
         # - neighborDevice: server1
         #   neighborPort: Ethernet2
         #   port: Ethernet11
@@ -211,12 +217,18 @@ nodes:
         - neighborDevice: spine4
           neighborPort: Ethernet5
           port: Ethernet6
-        - neighborDevice: host2
+        - neighborDevice: host3
           neighborPort: Ethernet1
           port: Ethernet7
-        - neighborDevice: host2
+        - neighborDevice: host3
           neighborPort: Ethernet3
           port: Ethernet8
+        - neighborDevice: host4
+          neighborPort: Ethernet1
+          port: Ethernet9
+        - neighborDevice: host4
+          neighborPort: Ethernet3
+          port: Ethernet10
         # - neighborDevice: server3
         #   neighborPort: Ethernet1
         #   port: Ethernet11
@@ -245,12 +257,18 @@ nodes:
         - neighborDevice: spine4
           neighborPort: Ethernet6
           port: Ethernet6
-        - neighborDevice: host2
+        - neighborDevice: host3
           neighborPort: Ethernet2
           port: Ethernet7
-        - neighborDevice: host2
+        - neighborDevice: host3
           neighborPort: Ethernet4
           port: Ethernet8
+        - neighborDevice: host4
+          neighborPort: Ethernet1
+          port: Ethernet9
+        - neighborDevice: host4
+          neighborPort: Ethernet3
+          port: Ethernet10
         # - neighborDevice: server4
         #   neighborPort: Ethernet1
         #   port: Ethernet11
