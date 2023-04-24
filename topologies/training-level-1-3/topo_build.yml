@@ -212,10 +212,10 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet8
         - neighborDevice: host4
-          neighborPort: Ethernet1
+          neighborPort: Ethernet2
           port: Ethernet9
         - neighborDevice: host4
-          neighborPort: Ethernet3
+          neighborPort: Ethernet4
           port: Ethernet10
   - leaf4:
       ip_addr: 192.168.0.24
