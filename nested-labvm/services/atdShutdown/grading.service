@@ -1,7 +1,7 @@
 [Unit]
 Description=Script to get grading data to firestore
 Before=shutdown.target
-Requires=docker.service
+Requires=docker.service network.target
 
 [Service]
 Type=oneshot
