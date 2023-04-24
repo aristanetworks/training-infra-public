@@ -654,16 +654,16 @@ topologies:
               - 4.27.2F
     prod:
       veos:
-        cpu: 32
+        cpu: 40
         ram: 64
         cvp:
           2021.3.0:
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.14
+            branch: 2021.3-3.16
             orderable: false
-            image: base-veos-training-l2-exam-2021-3-20230206-214313
+            image: base-veos-training-l2-exam-2-2021-3-20230322-094649-image
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
