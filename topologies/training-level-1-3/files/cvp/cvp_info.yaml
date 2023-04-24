@@ -26,6 +26,8 @@ cvp_info:
       nodes:
       - host1
       - host2
+      - host3
+      - host4
   snapshots:
   configlets:
     containers:
@@ -56,3 +58,7 @@ cvp_info:
         - host1-base
       host2:
         - host2-base
+      host3:
+        - host3-base
+      host4:
+        - host4-base
