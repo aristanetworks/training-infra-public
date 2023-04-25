@@ -429,11 +429,11 @@ topologies:
         cvp:
           2022.3.1:
             resources:
-              cpu: 40
+              cpu: 48
               ram: 110
             branch: nested/2022.3
             orderable: true
-            image: base-veos-training-l1-3-2022-3-4291-20230223-115146
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
             eos:
               - 4.29.1F
     prod:
