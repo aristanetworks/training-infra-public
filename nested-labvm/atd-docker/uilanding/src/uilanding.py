@@ -370,20 +370,21 @@ class LabGradingHandler(BaseHandler):
         login_container = client.containers.get('atd-login')
         login_container.exec_run(f'sudo localGrading.py')
         #Call for grading
-        image_name = "us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:1.0.0"
         lab = self.get_labname()
         if lab:
-            container = client.containers.run(image_name, detach=True, tty=True, volumes={
-                "/etc/opt": {
-                    "bind": "/etc/opt",
-                    "mode": "rw"
-                }
-            },
-            command=lab
-            )
-            container.wait()
-            output = container.logs().decode("utf-8")
-            container.remove()
+            grader_container = client.containers.get('atd-grader')
+            grader_container.exec_run(f'python selfgrader.py {lab}')
+            # container = client.containers.run(image_name, detach=True, tty=True, volumes={
+            #     "/etc/opt": {
+            #         "bind": "/etc/opt",
+            #         "mode": "rw"
+            #     }
+            # },
+            # command=lab
+            # )
+            # container.wait()
+            # output = container.logs().decode("utf-8")
+            # container.remove()
         data = self.get_data()
         self.write(json.dumps(data))
     def get_labname(self):

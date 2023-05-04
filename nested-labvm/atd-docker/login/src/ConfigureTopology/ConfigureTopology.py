@@ -6,6 +6,7 @@ from ruamel.yaml import YAML
 import paramiko
 from scp import SCPClient
 import os
+from datetime import datetime
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -172,6 +173,33 @@ class ConfigureTopology():
         else:
             return
 
+    def results_yaml(self,loaded_lab):
+        """
+        Loads the loaded/selected lab to the results.yaml file
+        """
+        file_path = '/home/arista/loaded_labs.yaml'
+        date = datetime.utcnow().strftime("%Y_%m_%d-%H:%M:%S")
+        data = {"loaded_timestamp": date, "lab": loaded_lab}
+
+
+        if os.path.isfile(file_path):
+            with open(file_path, "r+") as file:
+                # Load the data from file
+                file_data = YAML().load(file)
+                # Modify data
+                file_data["loaded_labs"].append(data)
+                # Set the file pointer to the beginning of the file
+                file.seek(0)
+                # Write updated YAML data to file
+                YAML().dump(file_data, file)
+                # Truncate any remaining data in the file (if the new data is shorter than the old data)
+                file.truncate()
+        else:
+            init_data = {
+                "loaded_labs": [data],
+            }
+            with open(file_path, 'w') as file:
+                YAML().dump(init_data, file)
 
     def deploy_lab(self):
 
@@ -282,3 +310,6 @@ class ConfigureTopology():
             else:
                 print(' <br> Lab Setup Completed. <br> ')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
+
+        #keep the loaded lab in the results.yaml file
+        self.results_yaml(self.selected_lab)
