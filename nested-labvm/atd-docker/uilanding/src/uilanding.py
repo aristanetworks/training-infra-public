@@ -370,7 +370,6 @@ class LabGradingHandler(BaseHandler):
         login_container = client.containers.get('atd-login')
         login_container.exec_run(f'sudo localGrading.py')
         #Call for grading
-        image_name = "us.gcr.io/atd-testdrivetraining-dev/atddocker_selfgrading:db-root"
         lab = self.get_labname()
         if lab:
             grader_container = client.containers.get('atd-grader')
