@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.15
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.16
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
