@@ -35,6 +35,8 @@ COPY src/callConfigTopo.py /usr/local/bin
 
 COPY src/resetVMs.py /usr/local/bin
 
+COPY src/fix-L7.py /usr/local/bin
+
 COPY src/lab_status.py /usr/local/bin
 
 COPY src/uploadExam.py /usr/local/bin
@@ -48,6 +50,8 @@ COPY src/qa-steps.py /usr/local/bin
 RUN chmod +x /usr/local/bin/lab_status.py
 
 RUN chmod +x /usr/local/bin/login.py
+
+RUN chmod +x /usr/local/bin/fix-L7.py
 
 RUN chmod +x /usr/local/bin/qa-steps.py
 
