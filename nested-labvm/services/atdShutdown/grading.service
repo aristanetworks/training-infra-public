@@ -1,0 +1,13 @@
+[Unit]
+Description=Script to get grading data to firestore
+Before=shutdown.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/atd/nested-labvm/services/atdShutdown/gradingToDB.py
+
+[Install]
+#WantedBy=shutdown.target
+WantedBy=multi-user.target
