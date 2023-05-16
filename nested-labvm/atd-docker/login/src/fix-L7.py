@@ -95,9 +95,12 @@ def grabSwitchDetails(allHostsName,allHostsIP,labPassword):
                 try:
                     data = switch.runCmds(1,["enable", "show ip interface brief"],"json")
                     loopback_ip = data[1]
-                    disable = switch.runCmds(1,["enable", "configure", "no interface loopback 0"],"text")
-                    enable = switch.runCmds(1,["enable", "configure", "interface loopback 0", "ip address "+ str(loopback_ip['interfaces']['Loopback0']['interfaceAddress']['ipAddr']['address']) +"/24"])
-                    print("Fixed " +name)
+                    if "Loopback0"  in loopback_ip['interfaces']:
+                        disable = switch.runCmds(1,["enable", "configure", "no interface loopback 0"],"text")
+                        enable = switch.runCmds(1,["enable", "configure", "interface loopback 0", "ip address "+ str(loopback_ip['interfaces']['Loopback0']['interfaceAddress']['ipAddr']['address']) +"/24"])
+                        print("Fixed " +name+ ". " + "Used IP address - " + str(loopback_ip['interfaces']['Loopback0']['interfaceAddress']['ipAddr']['address']) + "/24")
+                    else:
+                        print("lo0 NOT configured, skipping " + name)
                 except Exception as e:
                     print(str(e))
                     print("Check eAPI is enabled on {switch}".format(switch = name))
