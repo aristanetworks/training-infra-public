@@ -446,8 +446,8 @@ topologies:
               cpu: 32
               ram: 64
             branch: 2022.3-3.1
-            orderable: false
-            image: base-veos-training-l1-3-2022-3-4291-20230223-115146
+            orderable: true
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
             eos:
               - 4.29.1F
     desc: 'New Training Level 1-3 Topo. TESTING ONLY'
