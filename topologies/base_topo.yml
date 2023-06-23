@@ -1035,3 +1035,79 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
+  dmf-lab-controller:
+    dev:
+      ceos:
+        cpu: 8
+        ram: 32
+        cvp:
+          2020.2.3:
+            resources:
+              cpu: 40
+              ram: 70
+            branch: nested/2020.2
+            orderable: false
+            image: dmf-lab-controller
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+    prod:
+      ceos:
+        cpu: 8
+        ram: 32
+        cvp:
+          2020.2.3:
+            resources:
+              cpu: 40
+              ram: 70
+            branch: 2021.3-3.5
+            orderable: false
+            image: dmf-lab-controller
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+    desc: 'DMF lab for controller'
+    name: 'DMF lab for controller'
+    title: 'DMF lab for controller'
+    disk_size: 100
+    access: standard
+    disable_links: [labguides, jenkins]
+    labguides: self
+  dmf-lab-main-machine:
+    dev:
+      ceos:
+        cpu: 8
+        ram: 32
+        cvp:
+          2020.2.3:
+            resources:
+              cpu: 40
+              ram: 70
+            branch: nested/2020.2
+            orderable: false
+            image: dmf-lab-main-machine
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+    prod:
+      ceos:
+        cpu: 8
+        ram: 32
+        cvp:
+          2020.2.3:
+            resources:
+              cpu: 40
+              ram: 70
+            branch: 2021.3-3.5
+            orderable: false
+            image: dmf-lab-main-machine
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+    desc: 'DMF lab for Main Machine'
+    name: 'DMF lab for Main Machine'
+    title: 'DMF lab for Main Machine'
+    disk_size: 100
+    access: standard
+    disable_links: [labguides, jenkins]
+    labguides: self
