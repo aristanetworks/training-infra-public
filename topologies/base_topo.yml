@@ -1069,7 +1069,7 @@ topologies:
     desc: 'DMF lab for controller'
     name: 'DMF lab for controller'
     title: 'DMF lab for controller'
-    disk_size: 100
+    disk_size: 415
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
