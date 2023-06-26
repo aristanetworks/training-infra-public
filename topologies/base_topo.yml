@@ -1043,10 +1043,10 @@ topologies:
         cvp:
           2020.2.3:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 8
+              ram: 32
             branch: nested/2020.2
-            orderable: false
+            orderable: true
             image: dmf-lab-controller
             eos:
               - 4.25.1F
@@ -1058,10 +1058,10 @@ topologies:
         cvp:
           2020.2.3:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 8
+              ram: 32
             branch: 2021.3-3.5
-            orderable: false
+            orderable: true
             image: dmf-lab-controller
             eos:
               - 4.25.1F
@@ -1081,10 +1081,10 @@ topologies:
         cvp:
           2020.2.3:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 8
+              ram: 32
             branch: nested/2020.2
-            orderable: false
+            orderable: true
             image: dmf-lab-main-machine
             eos:
               - 4.25.1F
@@ -1096,10 +1096,10 @@ topologies:
         cvp:
           2020.2.3:
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 8
+              ram: 32
             branch: 2021.3-3.5
-            orderable: false
+            orderable: true
             image: dmf-lab-main-machine
             eos:
               - 4.25.1F
