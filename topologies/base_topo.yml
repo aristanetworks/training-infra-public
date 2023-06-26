@@ -1036,8 +1036,9 @@ topologies:
     disable_links: [labguides, jenkins]
     labguides: self
   dmf-lab-controller:
+    dmf-controller : true
     dev:
-      ceos:
+      dmf:
         cpu: 8
         ram: 32
         cvp:
@@ -1052,7 +1053,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
     prod:
-      ceos:
+      dmf:
         cpu: 8
         ram: 32
         cvp:
@@ -1074,8 +1075,9 @@ topologies:
     disable_links: [labguides, jenkins]
     labguides: self
   dmf-lab-main-machine:
+    dmf-lab-machine : true
     dev:
-      ceos:
+      dmf:
         cpu: 8
         ram: 32
         cvp:
@@ -1090,7 +1092,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
     prod:
-      ceos:
+      dmf:
         cpu: 8
         ram: 32
         cvp:
