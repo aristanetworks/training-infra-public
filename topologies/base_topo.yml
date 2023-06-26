@@ -1047,7 +1047,7 @@ topologies:
               ram: 32
             branch: nested/2020.2
             orderable: true
-            image: dmf-lab-controller
+            image: dmf-controller
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -1062,7 +1062,7 @@ topologies:
               ram: 32
             branch: 2021.3-3.5
             orderable: true
-            image: dmf-lab-controller
+            image: dmf-controller
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -1085,7 +1085,7 @@ topologies:
               ram: 32
             branch: nested/2020.2
             orderable: true
-            image: dmf-lab-main-machine
+            image: dmf-lab
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -1100,7 +1100,7 @@ topologies:
               ram: 32
             branch: 2021.3-3.5
             orderable: true
-            image: dmf-lab-main-machine
+            image: dmf-lab
             eos:
               - 4.25.1F
               - 4.26.0F
