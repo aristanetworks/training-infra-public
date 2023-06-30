@@ -52,10 +52,6 @@ cvp_info:
         - leaf3-base
       leaf4:
         - leaf4-base
-      host1:
-        - host1-base
-      host2:
-        - host2-base
       host3:
         - host3-base
       host4:
