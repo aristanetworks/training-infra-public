@@ -421,7 +421,7 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins, lab_grading]
     labguides: self
-  training-level-3v2:
+  training-level3v2:
     dev:
       veos:
         cpu: 40
