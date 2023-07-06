@@ -79,6 +79,12 @@ echo 'y' | docker image prune
 
 systemctl restart sshd
 
+if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
+then
+    python3 /opt/clab/scripts/containerlabs_setup.py >> log.txt
+fi
+
+
 # if cEOS Startup present, run it
 if [ -f "/opt/ceos/scripts/.ceos.txt" ]
 then
