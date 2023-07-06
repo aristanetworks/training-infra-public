@@ -81,7 +81,7 @@ systemctl restart sshd
 
 if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
 then
-    python3 /opt/clab/scripts/containerlabs_setup.py >> log.txt
+    bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
 fi
 
 
