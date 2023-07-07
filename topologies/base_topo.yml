@@ -1197,7 +1197,7 @@ topologies:
     labguides: self
   training-level7-part3:
     dev:
-      ceos:
+      veos:
         cpu: 40
         ram: 70
         cvp:
@@ -1221,7 +1221,7 @@ topologies:
             eos:
               - 4.27.2F
     prod:
-      ceos:
+      veos:
         cpu: 40
         ram: 70
         cvp:
