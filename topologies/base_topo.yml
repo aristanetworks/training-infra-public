@@ -1251,3 +1251,40 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins,lab_status, lab_grading]
     labguides: self
+  training-level-1-3-container-labs:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2022.3.1:
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2022.3
+            orderable: true
+            image: level-1-3-container-labs-2022-3
+            eos:
+              - 4.27.2F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2022.3.1:
+            resources:
+              cpu: 48
+              ram: 64
+            branch: 2022.3-3.19-l1-3
+            orderable: true
+            image: level-1-3-container-labs-2022-3
+            eos:
+              - 4.27.2F
+    desc: 'Training Level 1-3 Container labs'
+    name: 'Training Level 1-3 Container labs'
+    title: 'Training Level 1-3 Container labs'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  
