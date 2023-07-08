@@ -1253,7 +1253,7 @@ topologies:
     labguides: self
   training-level-1-3-container-labs:
     dev:
-      veos:
+      ceos:
         cpu: 40
         ram: 110
         cvp:
@@ -1267,7 +1267,7 @@ topologies:
             eos:
               - 4.27.2F
     prod:
-      veos:
+      ceos:
         cpu: 60
         ram: 110
         cvp:
