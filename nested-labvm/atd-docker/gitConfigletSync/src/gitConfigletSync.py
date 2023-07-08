@@ -6,11 +6,18 @@ import shutil
 import yaml
 from ruamel.yaml import YAML
 from rcvpapi.rcvpapi import *
+from cvprac.cvp_client import CvpClient
+from paramiko import SSHClient
+from paramiko import AutoAddPolicy
+from scp import SCPClient
+from os import path
 from datetime import datetime
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ACCESS = '/etc/atd/ACCESS_INFO.yaml'
+REPO_PATH = '/opt/atd/'
+REPO_TOPO = REPO_PATH + 'topologies/'
 CVP_CONFIG_FIILE = os.path.expanduser('~/CVP_DATA/.cvpState.txt')
 sleep_delay = 30
 
@@ -36,6 +43,45 @@ def syncConfiglet(cvpClient,configletName,configletConfig):
 
 ##### End of syncConfiglet
 
+def getTopoInfo(yaml_file):
+    """
+    Function that parses the supplied YAML file to build the CVP topology.
+    """
+    topoInfo = open(yaml_file,'r')
+    topoYaml = YAML().load(topoInfo)
+    topoInfo.close()
+    return(topoYaml)
+
+def checkConnected(cvp_clnt, NODES):
+    """
+    Function to check if all nodes have connected and
+    are reachable via ping
+    Parameters:
+    cvp_clnt = CVP rCVPAPI client (object)
+    NODES = EOS Node yaml (dict)
+    """
+    tmp_device_count = len(cvp_clnt.inventory)
+    while len(NODES) > tmp_device_count:
+        pS("INFO", "Only {0} out of {1} nodes have registered to CVP. Sleeping {2} seconds.".format(tmp_device_count, len(NODES), sleep_delay))
+        sleep(sleep_delay)
+        cvp_clnt.getDeviceInventory()
+        tmp_device_count = len(cvp_clnt.inventory)
+    pS("OK", "All {0} out of {1} nodes have registered to CVP.".format(tmp_device_count, len(NODES)))
+    pS("INFO", "Checking to see if all nodes are reachable")
+    # Make sure all nodes are up and reachable
+    for vnode in cvp_clnt.inventory:
+        while True:
+            vresponse = cvp_clnt.ipConnectivityTest(cvp_clnt.inventory[vnode]['ipAddress'])
+            if 'data' in vresponse:
+                if vresponse['data'] == 'success':
+                    pS("OK", "{0} is up and reachable at {1}".format(vnode, cvp_clnt.inventory[vnode]['ipAddress']))
+                    break
+            else:
+                pS("INFO", "{0} is NOT reachable at {1}. Sleeping {2} seconds.".format(vnode, cvp_clnt.inventory[vnode]['ipAddress'], sleep_delay))
+                sleep(sleep_delay)
+    pS("OK", "All Devices are registered and reachable.")
+    return(True)
+
 def pS(mstat,mtype):
     """
     Function to send output from service file to Syslog
@@ -53,7 +99,7 @@ def main():
          break
       else:
          pS("ERROR", "ACCESS_INFO file is not available...Waiting for {0} seconds".format(sleep_delay))
-         sleep(sleep_delay)
+         time.sleep(sleep_delay)
    try:
       f = open(ACCESS)
       accessinfo = yaml.safe_load(f)
@@ -88,6 +134,7 @@ def main():
 
    # rcvpapi clnt var container
    cvp_clnt = ""
+   cvprc_clnt = ""
 
    # Adding new connection to CVP via rcvpapi
    while not cvp_clnt:
@@ -106,6 +153,49 @@ def main():
       else:
          pS("INFO", "Local copy is missing....Waiting 1 minute for it to become available")
          time.sleep(60)
+   while not cvprc_clnt:
+      try:
+         cvprac_clnt = CvpClient()
+         cvprac_clnt.api.request_timeout = 180
+         cvprac_clnt.connect([accessinfo['nodes']['cvp'][0]['ip']], cvpUsername, cvpPassword)
+         cvprc_clnt = CVPCON(accessinfo['nodes']['cvp'][0]['ip'], cvpUsername, cvpPassword)
+         pS("OK","Connected to CVP at {0}".format(accessinfo['nodes']['cvp'][0]['ip']))
+      except:
+         pS("ERROR","CVP is currently unavailable....Retrying in {0} seconds.".format(sleep_delay))
+         sleep(sleep_delay)
+   
+   # ==========================================
+   # Check the current version to see if a 
+   # token needs to be generated
+   # ==========================================
+   _version = cvprac_clnt.api.get_cvp_info()
+   _version = _version['version'].split('.')
+   _version_major = float(f"{_version[0]}.{_version[1]}")
+   build_yaml = getTopoInfo(REPO_TOPO + accessinfo['topology'] + '/topo_build.yml')
+   # Perform check if it is a cEOS based topo and 2022.2 or later CVP
+   if _version_major >= 2022.2 and accessinfo['eos_type'] == 'ceos':
+      pS("INFO", "Generating a token for onboarding...")
+      _token_response = cvprac_clnt.api.create_enroll_token("24h")
+      _token_path = path.expanduser(f"~/token")
+      with open(f"{_token_path}", 'w') as token_out:
+         token_out.write(_token_response['data'])
+      # EOS_DEV = []
+      for dev in build_yaml['nodes']:
+         devn = list(dev.keys())[0]
+         _eos_ip = dev[devn]['ip_addr']
+         with SSHClient() as ssh:
+            ssh.set_missing_host_key_policy(AutoAddPolicy())
+            ssh.connect(_eos_ip, username=cvpUsername, password=cvpPassword,)
+            with SCPClient(ssh.get_transport()) as scp:
+               pS("INFO", f"Transferring token to {devn}")
+               scp.put(f"{_token_path}", "/tmp/token")
+   else:
+      pS("INFO", f"Version does not require a token for onboarding...")
+
+   # ==========================================
+   # Check to see how many nodes have connected
+   # ==========================================
+   checkConnected(cvp_clnt, build_yaml['nodes'])
 
    configlets = os.listdir(gitTempPath + configletPath)
 
@@ -133,17 +223,17 @@ def main():
             res = cvp_clnt.impConfiglet("static",configletName,configletConfig)
             pS("OK", "{0} Configlet: {1}".format(res[0],configletName))
    # Perform a check to see if there any pending tasks to be executed due to configlet update
-   sleep(20)
+   time.sleep(20)
    pS("INFO", "Checking for any pending tasks")
    cvp_clnt.getAllTasks("pending")
    if cvp_clnt.tasks['pending']:
       pS("INFO", "{0} Pending tasks found, will be executing".format(len(cvp_clnt.tasks['pending'])))
       task_response = cvp_clnt.execAllTasks("pending")
-      sleep(10)
+      time.sleep(10)
       while len(cvp_clnt.tasks['pending']) > 0:
          pS("INFO", "{0} Pending tasks found, will be executing".format(len(cvp_clnt.tasks['pending'])))
          _tmp_response = cvp_clnt.execAllTasks("pending")
-         sleep(5)
+         time.sleep(5)
          cvp_clnt.getAllTasks("pending")
       # Perform check to see if there are any existing tasks to be executed
       if task_response:
@@ -160,7 +250,27 @@ def main():
                      break
                else:
                      pS("INFO", "Task ID: {0} Status: {1}, Waiting 10 seconds...".format(task_id, task_status))
-                     sleep(10)
+                     time.sleep(10)
+      # Perform check to see if any tasks failed
+      cvp_clnt.getAllTasks("failed")
+      if len(cvp_clnt.tasks["failed"]) > 0:
+         pS("INFO", "Failed tasks found, will execute tasks...")
+         task_response = cvp_clnt.execAllTasks("failed")
+         if task_response:
+            pS("OK", "All pending tasks are executing")
+            for task_id in task_response['ids']:
+               task_status = cvp_clnt.getTaskStatus(task_id)['taskStatus']
+               while task_status != "Completed":
+                  task_status = cvp_clnt.getTaskStatus(task_id)['taskStatus']
+                  if task_status == 'Failed':
+                        pS("iBerg", "Task ID: {0} Status: {1}".format(task_id, task_status))
+                        break
+                  elif task_status == 'Completed':
+                        pS("INFO", "Task ID: {0} Status: {1}".format(task_id, task_status))
+                        break
+                  else:
+                        pS("INFO", "Task ID: {0} Status: {1}, Waiting 10 seconds...".format(task_id, task_status))
+                        time.sleep(10)
    else:
       pS("INFO", "No pending tasks found to be executed.")
 
@@ -174,4 +284,4 @@ if __name__ == '__main__':
    else:
       pS("INFO", "CVP not provisioned, holding off on configlet sync.")
    while True:
-      sleep(600)
+      time.sleep(600)
