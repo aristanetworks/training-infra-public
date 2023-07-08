@@ -63,7 +63,7 @@ def checkConnected(cvp_clnt, NODES):
     tmp_device_count = len(cvp_clnt.inventory)
     while len(NODES) > tmp_device_count:
         pS("INFO", "Only {0} out of {1} nodes have registered to CVP. Sleeping {2} seconds.".format(tmp_device_count, len(NODES), sleep_delay))
-        sleep(sleep_delay)
+        time.sleep(sleep_delay)
         cvp_clnt.getDeviceInventory()
         tmp_device_count = len(cvp_clnt.inventory)
     pS("OK", "All {0} out of {1} nodes have registered to CVP.".format(tmp_device_count, len(NODES)))
@@ -78,7 +78,7 @@ def checkConnected(cvp_clnt, NODES):
                     break
             else:
                 pS("INFO", "{0} is NOT reachable at {1}. Sleeping {2} seconds.".format(vnode, cvp_clnt.inventory[vnode]['ipAddress'], sleep_delay))
-                sleep(sleep_delay)
+                time.sleep(sleep_delay)
     pS("OK", "All Devices are registered and reachable.")
     return(True)
 
@@ -162,7 +162,7 @@ def main():
          pS("OK","Connected to CVP at {0}".format(accessinfo['nodes']['cvp'][0]['ip']))
       except:
          pS("ERROR","CVP is currently unavailable....Retrying in {0} seconds.".format(sleep_delay))
-         sleep(sleep_delay)
+         time.sleep(sleep_delay)
    
    # ==========================================
    # Check the current version to see if a 
