@@ -145,10 +145,18 @@ class topoRequestHandler(BaseHandler):
                 labguides = '/labguides/index.html'
             if 'cvp' in host_yaml:
                 if host_yaml['cvp'] != "none":
-                    _topo_cvp = True            
+                    _topo_cvp = True       
+            gui_urls= []
+            servers = [] 
+            if host_yaml['eos_type'] == 'container-labs':
+                servers =  MOD_YAML['topology']['servers']
+                for server in servers:
+                    gui_urls.append(f'http://{self.request.host}:{servers[server]["port"]}')
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
+                SERVERS = servers,
+                GUI_URLS= gui_urls,
                 ARISTA_PWD=host_yaml['login_info']['jump_host']['pw'],
                 topo_title = TITLE,
                 disable_links = disable_links,

@@ -31,10 +31,12 @@ topology:
     BorderLeaf2:
       coords: "599,20,778,101"
       ip: "192.168.0.26"
-servers:
-    Host1:
-      coords: "184,669,362,756"
-      ip: "192.168.0.51"
-    Host2:
-      coords: "753,673,928,751"
-      ip: "192.168.0.52"
+  servers:
+      Host1:
+        coords: "184,669,362,756"
+        ip: "192.168.0.51"
+        port : 6001
+      Host2:
+        coords: "753,673,928,751"
+        ip: "192.168.0.52"
+        port : 6002
