@@ -331,6 +331,7 @@ servers:
   - host1:
       image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
       ip_addr: 192.168.0.51
+      port : 6001
       neighbors:
         - neighborDevice: leaf1
           neighborPort: Ethernet11
@@ -341,6 +342,7 @@ servers:
   - host2:
       image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host2:latest"
       ip_addr: 192.168.0.52
+      port : 6002
       neighbors:
         - neighborDevice: leaf1
           neighborPort: Ethernet12
