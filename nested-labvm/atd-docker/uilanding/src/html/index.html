@@ -110,7 +110,7 @@
                     {% end %}
                     {% end %}
                     {% for gui_url in zip(GUI_URLS,SERVERS) %}
-                        <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
+                        <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
                     {% end %}
                 </map>
                 <br /><br />
