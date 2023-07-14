@@ -328,12 +328,9 @@ nodes:
           neighborPort: Ethernet10
           port: Ethernet4
 servers:
-  - server1:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.41
-      sys_mac: 00:1c:73:e1:c6:01
+  - host1:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.51
       neighbors:
         - neighborDevice: leaf1
           neighborPort: Ethernet11
@@ -341,12 +338,9 @@ servers:
         - neighborDevice: leaf2
           neighborPort: Ethernet11
           port: Ethernet2
-  - server2:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.42
-      sys_mac: 00:1c:73:e2:c6:01
+  - host2:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host2:latest"
+      ip_addr: 192.168.0.52
       neighbors:
         - neighborDevice: leaf1
           neighborPort: Ethernet12
@@ -354,30 +348,4 @@ servers:
         - neighborDevice: leaf2
           neighborPort: Ethernet12
           port: Ethernet1
-  - server3:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.43
-      sys_mac: 00:1c:73:e3:c6:01
-      neighbors:
-        - neighborDevice: leaf3
-          neighborPort: Ethernet11
-          port: Ethernet1
-        - neighborDevice: leaf3
-          neighborPort: Ethernet12
-          port: Ethernet2
-  - server4:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.44
-      sys_mac: 00:1c:73:e4:c6:01
-      neighbors:
-        - neighborDevice: leaf4
-          neighborPort: Ethernet11
-          port: Ethernet1
-        - neighborDevice: leaf4
-          neighborPort: Ethernet12
-          port: Ethernet2
 additional_ssh_nodes:
