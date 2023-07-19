@@ -1023,7 +1023,7 @@ topologies:
               ram: 90
             branch: nested/2022.3
             orderable: true
-            image: base-veos-training-l4-v2-2022-3-4291-20230327-150557
+            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314 
             eos:
               - 4.29.1F
     prod:
