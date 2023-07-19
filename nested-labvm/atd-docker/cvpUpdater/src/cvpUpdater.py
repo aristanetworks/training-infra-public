@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 from cvprac.cvp_client import CvpClient
 from ruamel.yaml import YAML
 from rcvpapi.rcvpapi import *
@@ -22,6 +21,7 @@ sleep_delay = 30
 
 # Temporary file_path location for CVP Custom info
 cvp_file = '/home/arista/cvp/cvp_info.yaml'
+
 
 # ==================================
 # Start of Global Functions
@@ -233,7 +233,8 @@ def main():
         _version = cvprac_clnt.api.get_cvp_info()
         _version = _version['version'].split('.')
         _version_major = float(f"{_version[0]}.{_version[1]}")
-        if _version_major >= 2022.2:
+        # Perform check if it is a cEOS based topo and 2022.2 or later CVP
+        if _version_major >= 2022.2 and atd_yaml['eos_type'] == 'ceos':
             pS("INFO", "Generating a token for onboarding...")
             _token_response = cvprac_clnt.api.create_enroll_token("24h")
             _token_path = path.expanduser(f"~/token")
@@ -248,6 +249,7 @@ def main():
                         scp.put(f"{_token_path}", "/tmp/token")
         else:
             pS("INFO", f"Version does not require a token for onboarding...")
+        
         # ==========================================
         # Check to see how many nodes have connected
         # ==========================================
