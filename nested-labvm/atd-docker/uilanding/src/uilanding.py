@@ -150,8 +150,11 @@ class topoRequestHandler(BaseHandler):
             servers = [] 
             if host_yaml['eos_type'] == 'container-labs':
                 servers =  MOD_YAML['topology']['servers']
+                external_ip_url = "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip"
+                headers = {"Metadata-Flavor": "Google"}
+                response = requests.get(external_ip_url, headers=headers)
                 for server in servers:
-                    gui_urls.append(f'http://{self.request.host}:{servers[server]["port"]}')
+                    gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
