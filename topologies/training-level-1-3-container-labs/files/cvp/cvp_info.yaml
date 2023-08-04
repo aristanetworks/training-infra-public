@@ -58,3 +58,7 @@ cvp_info:
         - host3-base
       host4:
         - host4-base
+      host1:
+        - host1-base
+      host2:
+        - host2-base
