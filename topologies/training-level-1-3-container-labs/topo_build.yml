@@ -140,14 +140,14 @@ nodes:
         - neighborDevice: host1
           neighborPort: Ethernet1
           port: Ethernet7
-        - neighborDevice: host1
-          neighborPort: Ethernet3
+        - neighborDevice: host5
+          neighborPort: Ethernet1
           port: Ethernet8
         - neighborDevice: host2
           neighborPort: Ethernet1
           port: Ethernet9
-        - neighborDevice: host2
-          neighborPort: Ethernet3
+        - neighborDevice: host6
+          neighborPort: Ethernet1
           port: Ethernet10
   - leaf2:
       ip_addr: 192.168.0.22
@@ -174,14 +174,14 @@ nodes:
         - neighborDevice: host1
           neighborPort: Ethernet2
           port: Ethernet7
-        - neighborDevice: host1
-          neighborPort: Ethernet4
+        - neighborDevice: host5
+          neighborPort: Ethernet2
           port: Ethernet8
         - neighborDevice: host2
           neighborPort: Ethernet2
           port: Ethernet9
-        - neighborDevice: host2
-          neighborPort: Ethernet4
+        - neighborDevice: host6
+          neighborPort: Ethernet2
           port: Ethernet10
   - leaf3:
       ip_addr: 192.168.0.23
@@ -208,14 +208,14 @@ nodes:
         - neighborDevice: host3
           neighborPort: Ethernet1
           port: Ethernet7
-        - neighborDevice: host3
-          neighborPort: Ethernet3
+        - neighborDevice: host7
+          neighborPort: Ethernet1
           port: Ethernet8
         - neighborDevice: host4
           neighborPort: Ethernet1
           port: Ethernet9
-        - neighborDevice: host4
-          neighborPort: Ethernet3
+        - neighborDevice: host8
+          neighborPort: Ethernet1
           port: Ethernet10
   - leaf4:
       ip_addr: 192.168.0.24
@@ -224,7 +224,7 @@ nodes:
         - neighborDevice: leaf3
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: leaf3
+        - neighborDevice: leaf3 
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -241,16 +241,16 @@ nodes:
           port: Ethernet6
         - neighborDevice: host3
           neighborPort: Ethernet2
-          port: Ethernet7
-        - neighborDevice: host3
-          neighborPort: Ethernet4
+          port: Ethernet7 
+        - neighborDevice: host7
+          neighborPort: Ethernet2
           port: Ethernet8
         - neighborDevice: host4
           neighborPort: Ethernet2
           port: Ethernet9
-        - neighborDevice: host4
-          neighborPort: Ethernet4
-          port: Ethernet10
+        - neighborDevice: host8
+          neighborPort: Ethernet2
+          port: Ethernet10 
   - borderleaf1:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
@@ -295,6 +295,26 @@ nodes:
         - neighborDevice: spine4
           neighborPort: Ethernet8
           port: Ethernet6
+  - host1:
+      ip_addr: 192.168.0.51
+      sys_mac: 00:1c:73:f1:c6:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet7
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet7
+          port: Ethernet2
+  - host2:
+      ip_addr: 192.168.0.52
+      sys_mac: 00:1c:73:f2:c6:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet9
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet9
+          port: Ethernet2
   - host3:
       ip_addr: 192.168.0.53
       sys_mac: 00:1c:73:f3:c6:01
@@ -305,12 +325,6 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet7
           port: Ethernet2
-        - neighborDevice: leaf3
-          neighborPort: Ethernet8
-          port: Ethernet3
-        - neighborDevice: leaf4
-          neighborPort: Ethernet8
-          port: Ethernet4
   - host4:
       ip_addr: 192.168.0.54
       sys_mac: 00:1c:73:f4:c6:01
@@ -321,34 +335,50 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet9
           port: Ethernet2
-        - neighborDevice: leaf3
-          neighborPort: Ethernet10
-          port: Ethernet3
-        - neighborDevice: leaf4
-          neighborPort: Ethernet10
-          port: Ethernet4
 servers:
-  - host1:
+  - host5:
       image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
-      ip_addr: 192.168.0.51
+      ip_addr: 192.168.0.101
       port : 6001
       neighbors:
         - neighborDevice: leaf1
-          neighborPort: Ethernet11
+          neighborPort: Ethernet8
           port: Ethernet1
         - neighborDevice: leaf2
-          neighborPort: Ethernet11
+          neighborPort: Ethernet8
           port: Ethernet2
-  - host2:
-      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host2:latest"
-      ip_addr: 192.168.0.52
+  - host6:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.102
       port : 6002
       neighbors:
         - neighborDevice: leaf1
-          neighborPort: Ethernet12
-          port: Ethernet2
-        - neighborDevice: leaf2
-          neighborPort: Ethernet12
+          neighborPort: Ethernet10
           port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet10
+          port: Ethernet2
+  - host7:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.103
+      port : 6003
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet8
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet8
+          port: Ethernet2
+  - host8:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.104
+      port : 6004
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet10
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet10
+          port: Ethernet2
 additional_ssh_nodes:
 additional_clab_nodes:

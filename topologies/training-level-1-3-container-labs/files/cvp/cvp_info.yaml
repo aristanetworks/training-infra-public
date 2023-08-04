@@ -24,6 +24,8 @@ cvp_info:
     Hosts:
       parent: Tenant
       nodes:
+      - host1
+      - host2
       - host3
       - host4
   snapshots:
