@@ -495,7 +495,7 @@ additional_clab_nodes:
         - neighborDevice: CiscoS1
           neighborPort: Ethernet2
           port: Ethernet3
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet8
           port: Ethernet4
         - neighborDevice: host9
