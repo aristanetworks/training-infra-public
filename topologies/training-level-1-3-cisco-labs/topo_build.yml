@@ -28,7 +28,7 @@ nodes:
         - neighborDevice: Borderleaf1
           neighborPort: Ethernet3
           port: Ethernet7
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet3
           port: Ethernet8
   - spine2:
@@ -56,7 +56,7 @@ nodes:
         - neighborDevice: Borderleaf1
           neighborPort: Ethernet4
           port: Ethernet7
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet4
           port: Ethernet8
   - spine3:
@@ -84,7 +84,7 @@ nodes:
         - neighborDevice: Borderleaf1
           neighborPort: Ethernet5
           port: Ethernet7
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet5
           port: Ethernet8
   - spine4:
@@ -112,7 +112,7 @@ nodes:
         - neighborDevice: Borderleaf1
           neighborPort: Ethernet6
           port: Ethernet7
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet6
           port: Ethernet8
   - leaf1:
