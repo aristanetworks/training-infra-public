@@ -379,7 +379,7 @@ nodes:
           neighborPort: Ethernet8
           port: Ethernet3
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet7
+          neighborPort: Ethernet8
           port: Ethernet4
 
 servers:
