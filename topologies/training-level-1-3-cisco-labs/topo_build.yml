@@ -445,7 +445,7 @@ additional_clab_nodes:
         - neighborDevice: Borderleaf1
           neighborPort: Ethernet7
           port: Ethernet3
-        - neighborDevice: 
+        - neighborDevice: Borderleaf2
           neighborPort: Ethernet7
           port: Ethernet4
   - CiscoL1:
