@@ -1,11 +1,11 @@
-FROM codercom/code-server:4.0.1
+FROM codercom/code-server:4.6.0
 
 RUN sudo apt update && \
     sudo apt install -y python3 git openssh-server vim nano less rsync man-db jq python3-pip wget zsh sshpass libvirt-clients
 
 RUN sudo pip3 install --upgrade pip
 
-RUN sudo pip3 install pyeapi jsonrpclib-pelix shyaml
+RUN sudo pip3 install pyeapi jsonrpclib-pelix shyaml ansible-pylibssh
 
 RUN wget --quiet https://raw.githubusercontent.com/aristanetworks/ansible-avd/devel/ansible_collections/arista/avd/requirements.txt
 
@@ -16,7 +16,7 @@ RUN wget --quiet https://raw.githubusercontent.com/aristanetworks/ansible-avd/de
 RUN sudo pip3 install -r requirements-dev.txt
 
 # Install arista.avd, community.general and ansible.posix ansible-galaxy collections with upgrade flag if already exists
-RUN ansible-galaxy collection install arista.avd --upgrade
+RUN ansible-galaxy collection install arista.avd --force
 
 RUN ansible-galaxy collection install community.general --upgrade
 
