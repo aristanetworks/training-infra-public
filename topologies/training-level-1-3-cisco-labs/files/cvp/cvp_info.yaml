@@ -7,6 +7,8 @@ cvp_info:
       nodes:
       - leaf1
       - leaf2
+      - leaf3
+      - leaf4
     Borderleaf:
       parent: Tenant
       nodes:
@@ -22,8 +24,12 @@ cvp_info:
     Hosts:
       parent: Tenant
       nodes:
+      - host1
+      - host2
       - host3
       - host4
+      - host9
+      - host10
   snapshots:
   configlets:
     containers:
@@ -54,3 +60,12 @@ cvp_info:
         - host3-base
       host4:
         - host4-base
+      host1:
+        - host1-base
+      host2:
+        - host2-base
+      host9:
+        - host9-base
+      host10:
+        - host10-base
+
