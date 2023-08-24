@@ -1,0 +1,514 @@
+host_cpu: 4
+cvp_cpu: 24
+cvp_nodes: 1
+veos_cpu: 2
+nodes:
+  - spine1:
+      ip_addr: 192.168.0.11
+      sys_mac: 00:1c:73:b1:c6:01
+      neighbors:
+        - neighborDevice: spine2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: leaf1
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: leaf2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: leaf3
+          neighborPort: Ethernet3
+          port: Ethernet5
+        - neighborDevice: leaf4
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet3
+          port: Ethernet8
+  - spine2:
+      ip_addr: 192.168.0.12
+      sys_mac: 00:1c:73:b2:c6:01
+      neighbors:
+        - neighborDevice: spine1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: leaf1
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: leaf2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: leaf3
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: leaf4
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet4
+          port: Ethernet8
+  - spine3:
+      ip_addr: 192.168.0.13
+      sys_mac: 00:1c:73:b3:c6:01
+      neighbors:
+        - neighborDevice: spine4
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine4
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: leaf1
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: leaf2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: leaf3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: leaf4
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet5
+          port: Ethernet7
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet5
+          port: Ethernet8
+  - spine4:
+      ip_addr: 192.168.0.14
+      sys_mac: 00:1c:73:b4:c6:01
+      neighbors:
+        - neighborDevice: spine3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine3
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: leaf1
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: leaf2
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: leaf3
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: leaf4
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet6
+          port: Ethernet7
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet6
+          port: Ethernet8
+  - leaf1:
+      ip_addr: 192.168.0.21
+      sys_mac: 00:1c:73:c1:c6:01
+      neighbors:
+        - neighborDevice: leaf2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet3
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: host1
+          neighborPort: Ethernet1
+          port: Ethernet7
+        - neighborDevice: host5
+          neighborPort: Ethernet1
+          port: Ethernet8
+        - neighborDevice: host2
+          neighborPort: Ethernet1
+          port: Ethernet9
+        - neighborDevice: host6
+          neighborPort: Ethernet1
+          port: Ethernet10
+  - leaf2:
+      ip_addr: 192.168.0.22
+      sys_mac: 00:1c:73:c2:c6:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: host1
+          neighborPort: Ethernet2
+          port: Ethernet7
+        - neighborDevice: host5
+          neighborPort: Ethernet2
+          port: Ethernet8
+        - neighborDevice: host2
+          neighborPort: Ethernet2
+          port: Ethernet9
+        - neighborDevice: host6
+          neighborPort: Ethernet2
+          port: Ethernet10
+  - leaf3:
+      ip_addr: 192.168.0.23
+      sys_mac: 00:1c:73:c3:c6:01
+      neighbors:
+        - neighborDevice: leaf4
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: host3
+          neighborPort: Ethernet1
+          port: Ethernet7
+        - neighborDevice: host7
+          neighborPort: Ethernet1
+          port: Ethernet8
+        - neighborDevice: host4
+          neighborPort: Ethernet1
+          port: Ethernet9
+        - neighborDevice: host8
+          neighborPort: Ethernet1
+          port: Ethernet10
+  - leaf4:
+      ip_addr: 192.168.0.24
+      sys_mac: 00:1c:73:c4:c6:01
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf3 
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: host3
+          neighborPort: Ethernet2
+          port: Ethernet7 
+        - neighborDevice: host7
+          neighborPort: Ethernet2
+          port: Ethernet8
+        - neighborDevice: host4
+          neighborPort: Ethernet2
+          port: Ethernet9
+        - neighborDevice: host8
+          neighborPort: Ethernet2
+          port: Ethernet10 
+  - Borderleaf1:
+      ip_addr: 192.168.0.25
+      sys_mac: 00:1c:73:c5:c6:01
+      neighbors:
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet7
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet7
+          port: Ethernet6
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet4
+          port: Ethernet8
+        - neighborDevice: CiscoS1
+          neighborPort: Ethernet3
+          port: Ethernet7
+
+
+  - Borderleaf2:
+      ip_addr: 192.168.0.26
+      sys_mac: 00:1c:73:c6:c6:01
+      neighbors:
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: spine1
+          neighborPort: Ethernet8
+          port: Ethernet3
+        - neighborDevice: spine2
+          neighborPort: Ethernet8
+          port: Ethernet4
+        - neighborDevice: spine3
+          neighborPort: Ethernet8
+          port: Ethernet5
+        - neighborDevice: spine4
+          neighborPort: Ethernet8
+          port: Ethernet6
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet4
+          port: Ethernet8
+        - neighborDevice: CiscoS1
+          neighborPort: Ethernet4
+          port: Ethernet7
+  - host1:
+      ip_addr: 192.168.0.51
+      sys_mac: 00:1c:73:f1:c6:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet7
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet7
+          port: Ethernet2
+  - host2:
+      ip_addr: 192.168.0.52
+      sys_mac: 00:1c:73:f2:c6:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet9
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet9
+          port: Ethernet2
+  - host3:
+      ip_addr: 192.168.0.53
+      sys_mac: 00:1c:73:f3:c6:01
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet7
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet7
+          port: Ethernet2
+  - host4:
+      ip_addr: 192.168.0.54
+      sys_mac: 00:1c:73:f4:c6:01
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet9
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet9
+          port: Ethernet2
+  - host9:
+      ip_addr: 192.168.0.55
+      sys_mac: 00:1c:73:f5:c6:01
+      neighbors:
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet5
+          port: Ethernet1
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet5
+          port: Ethernet2
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet6
+          port: Ethernet4
+  - host10:
+      ip_addr: 192.168.0.56
+      sys_mac: 00:1c:73:f6:c6:01
+      neighbors:
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet7
+          port: Ethernet1
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet7
+          port: Ethernet2
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet8
+          port: Ethernet3
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet8
+          port: Ethernet4
+
+servers:
+  - host5:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.101
+      port : 6001
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet8
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet8
+          port: Ethernet2
+  - host6:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.102
+      port : 6002
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet10
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet10
+          port: Ethernet2
+  - host7:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.103
+      port : 6003
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet8
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet8
+          port: Ethernet2
+  - host8:
+      image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
+      ip_addr: 192.168.0.104
+      port : 6004
+      neighbors:
+        - neighborDevice: leaf3
+          neighborPort: Ethernet10
+          port: Ethernet1
+        - neighborDevice: leaf4
+          neighborPort: Ethernet10
+          port: Ethernet2
+additional_ssh_nodes:
+additional_clab_nodes:
+  - CiscoS1:
+      kind : vr-n9kv
+      image_name: "gcr.io/atd-testdrivetraining-dev/vr-n9kv:9.3.3"
+      port : 22
+      ip_addr: 192.168.0.111
+      sys_mac: 00:1c:73:d3:c6:01
+      neighbors:
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet7
+          port: Ethernet4
+  - CiscoL1:
+      kind : vr-n9kv
+      image_name: "gcr.io/atd-testdrivetraining-dev/vr-n9kv:9.3.3"
+      ip_addr: 192.168.0.121
+      port : 22
+      sys_mac: 00:1c:73:a1:c6:01
+      neighbors:
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: CiscoL2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: CiscoS1
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: Borderleaf1
+          neighborPort: Ethernet8
+          port: Ethernet4
+        - neighborDevice: host9
+          neighborPort: Ethernet1
+          port: Ethernet5
+        - neighborDevice: host9
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: host10
+          neighborPort: Ethernet1
+          port: Ethernet7
+        - neighborDevice: host10
+          neighborPort: Ethernet3
+          port: Ethernet8
+  - CiscoL2:
+      kind : vr-n9kv
+      image_name: "gcr.io/atd-testdrivetraining-dev/vr-n9kv:9.3.3"
+      ip_addr: 192.168.0.122
+      port : 22
+      sys_mac: 00:1c:73:a2:c6:01
+      neighbors:
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: CiscoL1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: CiscoS1
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: Borderleaf2
+          neighborPort: Ethernet8
+          port: Ethernet4
+        - neighborDevice: host9
+          neighborPort: Ethernet2
+          port: Ethernet5
+        - neighborDevice: host9
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: host10
+          neighborPort: Ethernet2
+          port: Ethernet7
+        - neighborDevice: host10
+          neighborPort: Ethernet4
+          port: Ethernet8
+
+
