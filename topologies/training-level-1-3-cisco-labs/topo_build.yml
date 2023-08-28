@@ -25,10 +25,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet3
           port: Ethernet6
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet3
           port: Ethernet7
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet3
           port: Ethernet8
   - spine2:
@@ -53,10 +53,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet4
           port: Ethernet6
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet4
           port: Ethernet7
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet4
           port: Ethernet8
   - spine3:
@@ -81,10 +81,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet5
           port: Ethernet6
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet5
           port: Ethernet7
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet5
           port: Ethernet8
   - spine4:
@@ -109,10 +109,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet6
           port: Ethernet6
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet6
           port: Ethernet7
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet6
           port: Ethernet8
   - leaf1:
@@ -251,14 +251,14 @@ nodes:
         - neighborDevice: host8
           neighborPort: Ethernet2
           port: Ethernet10 
-  - Borderleaf1:
+  - borderleaf1:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
       neighbors:
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -281,14 +281,14 @@ nodes:
           port: Ethernet7
 
 
-  - Borderleaf2:
+  - borderleaf2:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
       neighbors:
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -442,10 +442,10 @@ additional_clab_nodes:
         - neighborDevice: CiscoL2
           neighborPort: Ethernet3
           port: Ethernet2
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet7
           port: Ethernet3
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet7
           port: Ethernet4
   - CiscoL1:
@@ -464,7 +464,7 @@ additional_clab_nodes:
         - neighborDevice: CiscoS1
           neighborPort: Ethernet1
           port: Ethernet3
-        - neighborDevice: Borderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet8
           port: Ethernet4
         - neighborDevice: host9
@@ -495,7 +495,7 @@ additional_clab_nodes:
         - neighborDevice: CiscoS1
           neighborPort: Ethernet2
           port: Ethernet3
-        - neighborDevice: Borderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet8
           port: Ethernet4
         - neighborDevice: host9
