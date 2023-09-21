@@ -5,6 +5,8 @@ spanning-tree mode none
 interface Management 0
   vrf MGMT
   ip address 192.168.0.54/24
+  no lldp receive
+  no lldp transmit
 
 !
 dns domain arista.lab
