@@ -3,6 +3,8 @@ hostname leaf4
 interface Management 0
   vrf MGMT
   ip address 192.168.0.24/24
+  no lldp receive
+ no lldp transmit
 !
 service routing protocols model multi-agent
 !
