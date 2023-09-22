@@ -1275,7 +1275,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: 2022.3-3.19-l1-3
+            branch: v2022.3-20230922a
             orderable: true
             image: level-1-3-container-labs-2022-3
             eos:
@@ -1311,7 +1311,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: 2022.3-3.19-l1-3
+            branch: v2022.3-20230922a
             orderable: true
             image: level-1-3-container-labs-2022-3
             eos:
