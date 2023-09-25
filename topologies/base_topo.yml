@@ -1164,6 +1164,15 @@ topologies:
             image: base-ceos-training-l7-2021-3-20230224-151013
             eos:
               - 4.27.2F
+          2022.3.1:
+            resources:
+              cpu: 60
+              ram: 80
+            branch: nested/2022.3
+            orderable: true
+            image: base-ceos-training-l7-2022-3-20230925-151013
+            eos:
+              - 4.30.1F
     prod:
       ceos:
         cpu: 40
