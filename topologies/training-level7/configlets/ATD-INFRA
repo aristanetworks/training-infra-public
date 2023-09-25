@@ -1,7 +1,7 @@
 vrf instance MGMT
 !
 daemon TerminAttr
-  exec /usr/bin/TerminAttr -disableaaa -ingestgrpcurl=192.168.0.5:9910 -taillogs,atd-lab -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -ingestvrf=MGMT
+   exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=MGMT -taillogs -disableaaa
   no shutdown
 !
 alias mlag-reload bash /mnt/flash/shut_intfs && sudo shutdown now -r
@@ -12,14 +12,16 @@ alias snz show interface counter | nz
 alias spd show port-channel %1 detail all
 alias sqnz show interface counter queue | nz
 alias srnz show interface counter rate | nz
-alias intdesc 
+alias intdesc
    !! Usage: intdesc interface-name description
-   10 config 
-   20 int %1 
-   30 desc %2 
+   10 config
+   20 int %1
+   30 desc %2
    40 exit
 !
 dns domain arista.lab
+!
+service routing protocols model multi-agent
 !
 ntp server vrf MGMT 192.168.0.1 iburst source Management0
 !
