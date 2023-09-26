@@ -154,16 +154,16 @@ cvp_info:
       - host2-DC3-BASE
       - host2-DC3-START
       core1-isp1:
-      - core1-ISP1-BASE
+      - core1-isp1-BASE
       - core1-ISP1-START
       core2-isp1:
-      - core2-ISP1-BASE
+      - core2-isp1-BASE
       - core2-ISP1-START
       core1-isp2:
-      - core1-ISP2-BASE
+      - core1-isp2-BASE
       - core1-ISP2-START
       core2-isp2:
-      - core2-ISP2-BASE
+      - core2-isp2-BASE
       - core2-ISP2-START
       internet:
       - internet-BASE

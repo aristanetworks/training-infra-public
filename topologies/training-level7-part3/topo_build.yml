@@ -398,9 +398,6 @@ nodes:
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet9
           port: Ethernet15
-
-
-
   - borderleaf2-DC1:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
@@ -469,8 +466,6 @@ nodes:
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet5
           port: Ethernet15
-
-
   - leaf2-DC2:
       ip_addr: 192.168.0.32
       sys_mac: 00:1c:73:d2:c6:01
@@ -502,8 +497,6 @@ nodes:
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet6
           port: Ethernet15
-
-
   - leaf3-DC2:
       ip_addr: 192.168.0.33
       sys_mac: 00:1c:73:d3:c6:01
@@ -535,8 +528,6 @@ nodes:
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet7
           port: Ethernet15
-
-
   - leaf4-DC2:
       ip_addr: 192.168.0.34
       sys_mac: 00:1c:73:d4:c6:01
