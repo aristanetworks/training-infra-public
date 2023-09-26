@@ -31,7 +31,7 @@ topology:
     Host1:
       coords: "141,646,325,733"
       ip: "192.168.0.51"
-  servers:
     Host2:
       coords: "589,647,774,733"
       ip: "192.168.0.52"
+  servers:
