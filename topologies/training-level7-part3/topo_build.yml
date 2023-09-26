@@ -1000,3 +1000,5 @@ nodes:
   #     sys_mac: 00:1c:73:a4:c6:01
   #     neighbors: []
 additional_ssh_nodes:
+servers:
+additional_clab_nodes:
