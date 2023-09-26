@@ -34,3 +34,4 @@ topology:
     Host2:
       coords: "589,647,774,733"
       ip: "192.168.0.52"
+  servers:
