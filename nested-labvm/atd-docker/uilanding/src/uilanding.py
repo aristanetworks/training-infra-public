@@ -146,12 +146,11 @@ class topoRequestHandler(BaseHandler):
             if 'cvp' in host_yaml:
                 if host_yaml['cvp'] != "none":
                     _topo_cvp = True       
-
+            gui_urls,servers =[],[]
             if host_yaml['eos_type'] == 'container-labs':
                 try:
                     servers =  MOD_YAML['topology']['servers']
                     if servers is None:
-                        gui_urls= []
                         servers = [] 
                     external_ip_url = "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip"
                     headers = {"Metadata-Flavor": "Google"}
