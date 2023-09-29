@@ -629,6 +629,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 2
             resources:
               cpu: 40
               ram: 80
