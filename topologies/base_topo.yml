@@ -7,6 +7,7 @@ topologies:
         ram: 54
         cvp:
           2021.2.0:
+            schema: 2
             resources:
               cpu: 32
               ram: 54
@@ -16,6 +17,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.3.0:
+            schema: 2
             resources:
               cpu: 40
               ram: 54
@@ -26,6 +28,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 2
             resources:
               cpu: 40
               ram: 64
@@ -1113,3 +1116,4 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins]
     labguides: self
+  
