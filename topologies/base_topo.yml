@@ -1284,6 +1284,15 @@ topologies:
             image: level-1-3-container-labs-2022-3
             eos:
               - 4.27.2F
+          2023.2.0:
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: level-1-3-container-labs-2023-2
+            eos:
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
