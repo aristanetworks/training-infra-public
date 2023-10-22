@@ -78,6 +78,10 @@ export AtGD=$(id -g atdadmin)
 echo 'y' | docker image prune
 
 systemctl restart sshd
+if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
+then
+    bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
+fi
 
 # if cEOS Startup present, run it
 if [ -f "/opt/ceos/scripts/.ceos.txt" ]
