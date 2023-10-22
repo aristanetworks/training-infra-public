@@ -7,6 +7,7 @@ topologies:
         ram: 54
         cvp:
           2021.2.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 54
@@ -16,6 +17,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 54
@@ -26,6 +28,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -59,6 +62,7 @@ topologies:
         ram: 48
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -69,6 +73,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 48
@@ -79,6 +84,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 58
@@ -93,6 +99,7 @@ topologies:
         ram: 64
         cvp:
           2021.1.0:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -102,6 +109,7 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -111,6 +119,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -120,6 +129,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 74
@@ -129,6 +139,7 @@ topologies:
             eos:
               - 4.28.1F
           2022.1.0-bare:
+            schema: 1
             resources:
               cpu: 40
               ram: 74
@@ -143,6 +154,7 @@ topologies:
         ram: 36
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -153,6 +165,7 @@ topologies:
               - 4.25.2F
               - 4.26.1F
           2021.2.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -162,6 +175,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -172,6 +186,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 48
@@ -186,6 +201,7 @@ topologies:
         ram: 64
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -195,6 +211,7 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.0:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -204,6 +221,7 @@ topologies:
             eos:
               - 4.26.2F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -213,6 +231,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -235,6 +254,7 @@ topologies:
         ram: 90
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -244,6 +264,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -253,6 +274,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -266,6 +288,7 @@ topologies:
         ram: 64
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -276,6 +299,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 64
@@ -286,6 +310,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -301,6 +326,7 @@ topologies:
         ram: 54
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -310,7 +336,8 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.0:
-            resources:
+            resources
+              schema: 1
               cpu: 32
               ram: 64
             branch: v2021.2-20211026a
@@ -319,6 +346,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -329,6 +357,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 64
@@ -343,6 +372,7 @@ topologies:
         ram: 90
         cvp:
           2021.2.0:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -352,6 +382,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -361,6 +392,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -383,6 +415,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -397,6 +430,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -406,6 +440,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -428,6 +463,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 110
@@ -442,6 +478,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 64
@@ -464,6 +501,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 110
@@ -478,6 +516,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 64
@@ -500,6 +539,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -509,6 +549,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -523,6 +564,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -532,6 +574,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -554,6 +597,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -568,6 +612,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -577,6 +622,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -599,6 +645,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -613,6 +660,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -622,6 +670,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -644,6 +693,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -653,6 +703,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -667,6 +718,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -689,6 +741,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -703,6 +756,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -725,6 +779,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -739,6 +794,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -761,6 +817,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -770,6 +827,7 @@ topologies:
             eos:
               - 4.26.0F
           2020.2.3.e426:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -779,6 +837,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -788,6 +847,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.2.1:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -797,6 +857,7 @@ topologies:
             eos:
               - 4.29.1F
           2022.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 100
@@ -806,6 +867,7 @@ topologies:
             eos:
               - 4.29.1F
           2022.3.1:
+            schema: 1
             resources:
               cpu: 40
               ram: 110
@@ -820,6 +882,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -829,6 +892,7 @@ topologies:
             eos:
               - 4.24.2.2F
           2020.2.3.e426:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -838,6 +902,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -860,6 +925,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -869,6 +935,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -883,6 +950,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 70
               ram: 72
@@ -892,6 +960,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -914,6 +983,7 @@ topologies:
         ram: 80
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -923,6 +993,7 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -937,6 +1008,7 @@ topologies:
         ram: 80
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -959,6 +1031,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -973,6 +1046,7 @@ topologies:
         ram: 90
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -982,6 +1056,7 @@ topologies:
             eos:
               - 4.27.2F
           2021.3.0.e6:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -996,6 +1071,7 @@ topologies:
         ram: 64
         cvp:
           2022.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -1018,6 +1094,7 @@ topologies:
         ram: 90
         cvp:
           2022.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -1032,6 +1109,7 @@ topologies:
         ram: 64
         cvp:
           2022.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -1054,6 +1132,7 @@ topologies:
         ram: 90
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -1068,6 +1147,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -1090,6 +1170,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
@@ -1100,6 +1181,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
@@ -1114,6 +1196,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
@@ -1124,6 +1207,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
@@ -1146,6 +1230,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1156,6 +1241,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
@@ -1165,6 +1251,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.3.1:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
@@ -1179,6 +1266,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1189,6 +1277,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
@@ -1211,6 +1300,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1221,6 +1311,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1230,6 +1321,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.3.1:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1244,6 +1336,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1254,6 +1347,7 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
@@ -1276,6 +1370,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 110
@@ -1285,6 +1380,7 @@ topologies:
             eos:
               - 4.27.2F
           2023.2.0:
+            schema: 1
             resources:
               cpu: 48
               ram: 110
@@ -1293,12 +1389,29 @@ topologies:
             image: level-1-3-container-labs-2023-2
             eos:
               - 4.30.1F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 20
+              ram: 40
+              disk: 300
+              image: dual-topo-training-level-1-3-eos
+            resources_cvp:
+              cpu: 28
+              ram: 36
+              disk: 300
+              image: dual-topo-training-level-1-3-cvp
+            branch: nested/2023.2
+            orderable: true
+            eos:
+              - 4.30.0F 
     prod:
       ceos:
         cpu: 60
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 64
@@ -1321,6 +1434,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 110
@@ -1335,6 +1449,7 @@ topologies:
         ram: 110
         cvp:
           2022.3.1:
+            schema: 1
             resources:
               cpu: 48
               ram: 64
