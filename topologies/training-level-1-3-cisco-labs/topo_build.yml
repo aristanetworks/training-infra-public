@@ -354,7 +354,7 @@ nodes:
       sys_mac: 00:1c:73:f5:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet1/5
           port: Ethernet1
         - neighborDevice: CiscoL2
           neighborPort: Ethernet1/5
