@@ -357,29 +357,29 @@ nodes:
           neighborPort: Ethernet5
           port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet1/5
           port: Ethernet2
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet1/6
           port: Ethernet3
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet1/6
           port: Ethernet4
   - host10:
       ip_addr: 192.168.0.56
       sys_mac: 00:1c:73:f6:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet7
+          neighborPort: Ethernet1/7
           port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet7
+          neighborPort: Ethernet1/7
           port: Ethernet2
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet8
+          neighborPort: Ethernet1/8
           port: Ethernet3
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet8
+          neighborPort: Ethernet1/8
           port: Ethernet4
 
 servers:
