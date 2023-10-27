@@ -7,7 +7,7 @@ topologies:
         ram: 54
         cvp:
           2021.2.0:
-            schema: 2
+            schema: 1
             resources:
               cpu: 32
               ram: 54
@@ -17,7 +17,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.3.0:
-            schema: 2
+            schema: 1
             resources:
               cpu: 40
               ram: 54
@@ -28,7 +28,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
-            schema: 2
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -51,7 +51,7 @@ topologies:
     desc: 'Dual Data Center ATD Topology'
     name: 'Dual Data Center'
     title: 'Dual Data Center Lab'
-    disk_size: 300
+    disk_size: 500
     access: admin
     disable_links: []
     labguides: self
@@ -62,6 +62,7 @@ topologies:
         ram: 48
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -72,6 +73,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 48
@@ -82,6 +84,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 58
@@ -96,6 +99,7 @@ topologies:
         ram: 64
         cvp:
           2021.1.0:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -105,6 +109,7 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -114,6 +119,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -123,6 +129,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 74
@@ -132,6 +139,7 @@ topologies:
             eos:
               - 4.28.1F
           2022.1.0-bare:
+            schema: 1
             resources:
               cpu: 40
               ram: 74
@@ -146,6 +154,7 @@ topologies:
         ram: 36
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -156,6 +165,7 @@ topologies:
               - 4.25.2F
               - 4.26.1F
           2021.2.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -165,6 +175,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 48
@@ -175,6 +186,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 48
@@ -189,6 +201,7 @@ topologies:
         ram: 64
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -198,6 +211,7 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.0:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -207,6 +221,7 @@ topologies:
             eos:
               - 4.26.2F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 38
               ram: 64
@@ -216,6 +231,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -238,6 +254,7 @@ topologies:
         ram: 90
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -247,6 +264,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -256,6 +274,7 @@ topologies:
             eos:
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -269,6 +288,7 @@ topologies:
         ram: 64
         cvp:
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -279,6 +299,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 64
@@ -289,6 +310,7 @@ topologies:
               - 4.27.1.1F
               - 4.27.2F
           2022.1.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 64
@@ -304,6 +326,7 @@ topologies:
         ram: 54
         cvp:
           2021.1.1:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -313,6 +336,7 @@ topologies:
             eos:
               - 4.26.1F
           2021.2.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -322,6 +346,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -332,6 +357,7 @@ topologies:
               - 4.27.1.1F
               - 4.26.2F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 36
               ram: 64
@@ -346,6 +372,7 @@ topologies:
         ram: 90
         cvp:
           2021.2.0:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -355,6 +382,7 @@ topologies:
             eos:
               - 4.27.0F
           2021.2.2:
+            schema: 1
             resources:
               cpu: 44
               ram: 90
@@ -364,6 +392,7 @@ topologies:
             eos:
               - 4.27.1.1F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 50
               ram: 90
@@ -386,6 +415,7 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -400,6 +430,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -409,10 +440,11 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.11
+            branch: 2021.3-3.15
             orderable: true
             image: base-veos-training-l1-exam-2021-3-20221130-161201
             eos:
@@ -422,7 +454,83 @@ topologies:
     title: 'Training Network to Code'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  training-level3v2:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
+            eos:
+              - 4.29.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: 2022.3-3.19-l1-3
+            orderable: true
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
+            eos:
+              - 4.29.1F
+    desc: 'Training Level 3 v2'
+    name: 'Training Level 3 v2'
+    title: 'Training Level 3 v2'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  training-level-1-3:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
+            eos:
+              - 4.29.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: 2022.3-3.19-l1-3
+            orderable: true
+            image: base-veos-training-l1-3-2022-3-4291-20230424-175728
+            eos:
+              - 4.29.1F
+    desc: 'Training Level 1-3'
+    name: 'Training Level 1-3'
+    title: 'Training Level 1-3'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level1:
     dev:
@@ -431,6 +539,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -440,12 +549,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230315-110300
             eos:
               - 4.27.2F
     prod:
@@ -454,6 +564,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -463,12 +574,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l1-e4-27-2f-c2021-3-0-20220825
+            image: base-veos-training-l1-2021-3-20230315-110300
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -476,7 +588,7 @@ topologies:
     title: 'Training Level 1 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level1-exam:
     dev:
@@ -485,12 +597,13 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l1-exam-2021-3-20221130-161201
+            image: base-veos-training-l1-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -499,6 +612,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -508,20 +622,69 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-veos-training-l1-exam-2021-3-20221130-161201
+            image: base-veos-training-l1-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1 Exam'
     title: 'Training Level 1 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  training-level1-exam-2:
+    dev:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 32
+              ram: 64
+            branch: nested/2021.3
+            orderable: true
+            image: base-veos-training-l1-exam-2-2021-3-20230622-101922
+            eos:
+              - 4.27.2F
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2020.2.3:
+            schema: 1
+            resources:
+              cpu: 32
+              ram: 64
+            branch: v2020.2-20220404a
+            orderable: false
+            image: base-training-l1-e4-26-0f-c2020-2-3-20211220
+            eos:
+              - 4.26.0F
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 32
+              ram: 64
+            branch: 2021.3-3.17
+            orderable: true
+            image: base-veos-training-l1-exam-2-2021-3-20230622-101922
+            eos:
+              - 4.27.2F
+    desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 1 Exam -2'
+    title: 'Training Level 1 Exam -2'
+    disk_size: 500
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level2:
     dev:
@@ -530,6 +693,7 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
@@ -539,12 +703,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-training-l2-e4-27-2f-c2021-3-0-20220830
+            image: base-veos-training-l2-2021-3-20230314-153844
             eos:
               - 4.27.2F
     prod:
@@ -553,12 +718,13 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l2-e4-27-2f-c2021-3-0-20220830
+            image: base-veos-training-l2-2021-3-20230314-153844
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -566,7 +732,7 @@ topologies:
     title: 'Training Level 2 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level2-exam:
     dev:
@@ -575,12 +741,13 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l2-exam-2021-3-20221130-161201
+            image: base-veos-training-l2-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -589,12 +756,13 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-veos-training-l2-exam-2021-3-20221130-161201
+            image: base-veos-training-l2-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -602,7 +770,45 @@ topologies:
     title: 'Training Level 2 Exam'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  training-level2-exam-2:
+    dev:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 32
+              ram: 64
+            branch: nested/2021.3
+            orderable: true
+            image: base-veos-training-l2-exam-2-2021-3-20230621-093455
+            eos:
+              - 4.27.2F
+    prod:
+      veos:
+        cpu: 40
+        ram: 64
+        cvp:
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 32
+              ram: 64
+            branch: 2021.3-3.17-exam-fixes
+            orderable: true
+            image: base-veos-training-l2-exam-2-2021-3-20230621-093455
+            eos:
+              - 4.27.2F
+    desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
+    name: 'Training - Level 2 Exam Topology 2'
+    title: 'Training Level 2 Exam Exam Topology 2'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level3:
     dev:
@@ -611,6 +817,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -620,6 +827,7 @@ topologies:
             eos:
               - 4.26.0F
           2020.2.3.e426:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -629,28 +837,52 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
-            schema: 2
-            resources_eos:
-              cpu: 32
-              ram: 64
-              disk: 300
-              image: base-veos-training-l3-2021-3-20221103-161339
-            resources_cvp:
-              cpu: 28
-              ram: 36
-              disk: 300
-              image: base-veos-training-l3-2021-3-20221103-161339
-            branch: nested/2021.3
+            schema: 1
+            resources:
+              cpu: 40
+              ram: 80
+            branch:   nested/2021.3
             orderable: true
-            image: base-veos-training-l3-2021-3-20221103-161339
+            image: base-veos-training-l3-2021-3-20230314-142621
             eos:
               - 4.27.2F
+          2022.2.1:
+            schema: 1
+            resources:
+              cpu: 40
+              ram: 80
+            branch: nested/2022.2
+            orderable: true
+            image: base-veos-training-l3-2022-2-20230210-170733
+            eos:
+              - 4.29.1F
+          2022.3.0:
+            schema: 1
+            resources:
+              cpu: 40
+              ram: 100
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l3-2022-3-4291-20230213-114928
+            eos:
+              - 4.29.1F
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 40
+              ram: 110
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l3-2022-3-1-4291-20230214-130205
+            eos:
+              - 4.29.1F
     prod:
       veos:
         cpu: 36
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -660,6 +892,7 @@ topologies:
             eos:
               - 4.24.2.2F
           2020.2.3.e426:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -669,12 +902,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l3-e4-27-2f-c2021-3-0-20221012
+            image: base-veos-training-l3-2021-3-20230314-142621
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
@@ -691,6 +925,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 36
               ram: 72
@@ -700,12 +935,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l3-exam-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -714,29 +950,31 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 70
               ram: 72
             branch: v2020.2-20220404a
             orderable: false
-            image: base-training-l3-exam-e4-26-0f-c2020-2-3-20211220
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l3-exam-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3 Exam'
     title: 'Training Level 3 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level3-2:
     dev:
@@ -745,6 +983,7 @@ topologies:
         ram: 80
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
@@ -754,12 +993,13 @@ topologies:
             eos:
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-2-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -768,20 +1008,21 @@ topologies:
         ram: 80
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 80
             branch: 2021.3-3.14
             orderable: true
-            image: base-training-l3-exam-2-e4-27-2f-c2021-3-0-20220831
+            image: base-veos-training-l3-2-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 3 Training Exam 2 Lab. For use by the Arista Training Team.'
     name: 'Training - Level 3 Exam 2'
     title: 'Training Level 3 Exam 2'
-    disk_size: 300
+    disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level4:
     dev:
@@ -790,12 +1031,13 @@ topologies:
         ram: 64
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 32
               ram: 64
             branch: nested/2020.2
             orderable: false
-            image: base-training-l4-ceos-c2020-2-3-20220111
+            image: base-veos-training-l4-2021-3-20230206-203233
             eos:
               - 4.25.1F
               - 4.26.0F
@@ -804,15 +1046,17 @@ topologies:
         ram: 90
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
             branch: nested/2021.3
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
+            image: base-veos-training-l4-2021-3-20230314-153844
             eos:
               - 4.27.2F
           2021.3.0.e6:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
@@ -826,21 +1070,60 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2021.3.0:
+          2022.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
-            branch: 2021.3-3.14
+            branch: 2022.3-3.19-l1-3
             orderable: true
-            image: base-training-l4-e4-27-2f-c2021-3-0-20221018
+            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
             eos:
-              - 4.27.2F
+              - 4.29.1F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4'
     title: 'Training Level 4 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
+  training-level4-v2:
+    dev:
+      veos:
+        cpu: 60
+        ram: 90
+        cvp:
+          2022.3.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2022.3
+            orderable: true
+            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
+            eos:
+              - 4.29.1F
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2022.3.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: 2022.3-3.19-l1-3
+            orderable: true
+            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
+            eos:
+              - 4.29.1F
+    desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 4 v2'
+    title: 'Training Level 4 Lab'
+    disk_size: 500
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level4-exam:
     dev:
@@ -849,12 +1132,13 @@ topologies:
         ram: 90
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
             branch: nested/2021.3
             orderable: true
-            image: base-veos-training-l4-exam-2021-3-20221130-161201
+            image: base-veos-training-l4-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     prod:
@@ -863,20 +1147,21 @@ topologies:
         ram: 64
         cvp:
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 90
             branch: 2021.3-3.9
             orderable: true
-            image: base-veos-training-l4-exam-2021-3-20221130-161201
+            image: base-veos-training-l4-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 Exam'
     title: 'Training Level 4 Exam'
-    disk_size: 300
+    disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
   training-level5:
     dev:
@@ -885,6 +1170,7 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
@@ -895,12 +1181,13 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
             branch: nested/2021.3
             orderable: true
-            image: base-training-l5-ceos-c2021-3-0-20220905
+            image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
     prod:
@@ -909,30 +1196,32 @@ topologies:
         ram: 72
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
             branch: v2020.2-20220404a
             orderable: false
-            image: base-training-l5-ceos-c2021-3-0-20220830-2
+            image: base-ceos-training-l5-2021-3-20230206-203421
             eos:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 48
               ram: 72
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l5-ceos-c2021-3-0-20220905
+            image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
     desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 5'
     title: 'Training Level 5 Lab'
-    disk_size: 500
+    disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins,lab_status, lab_grading]
     labguides: self
   training-level7:
     dev:
@@ -941,6 +1230,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -951,20 +1241,32 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
             branch: nested/2021.3
             orderable: true
-            image: base-training-l7-ceos-c2021-3-0-20220914
+            image: base-ceos-training-l7-2021-3-20230224-151013
             eos:
               - 4.27.2F
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 80
+            branch: nested/2022.3
+            orderable: true
+            image: base-ceos-training-l7-2022-3-20230925-151013
+            eos:
+              - 4.30.1F
     prod:
       ceos:
         cpu: 40
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -975,12 +1277,13 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
-            branch: 2021.3-3.14
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l7-ceos-c2021-3-0-20220914
+            image: base-ceos-training-l7-2021-3-20230331-110651
             eos:
               - 4.27.2F
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
@@ -988,7 +1291,7 @@ topologies:
     title: 'Training Level 7 Lab'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins,lab_status, lab_grading]
     labguides: self
   training-level7-part3:
     dev:
@@ -997,6 +1300,7 @@ topologies:
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1007,20 +1311,32 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
             branch: nested/2021.3
             orderable: true
-            image: base-training-l7-part3-ceos-c2021-3-0-20220923
+            image: base-ceos-training-l7-part-3-2021-3-20230224-151013
             eos:
               - 4.27.2F
+          2022.3.1:
+            schema: 1
+            resources:
+              cpu: 40
+              ram: 70
+            branch: nested/2022.3
+            orderable: true
+            image: base-ceos-training-l7-part-3-2022-3-20230926-151013
+            eos:
+              - 4.30.1F
     prod:
       ceos:
         cpu: 40
         ram: 70
         cvp:
           2020.2.3:
+            schema: 1
             resources:
               cpu: 40
               ram: 70
@@ -1031,12 +1347,13 @@ topologies:
               - 4.25.1F
               - 4.26.0F
           2021.3.0:
+            schema: 1
             resources:
               cpu: 60
               ram: 80
-            branch: 2021.3-3.9
+            branch: 2021.3-3.17
             orderable: true
-            image: base-training-l7-ceos-c2021-3-0-20220914
+            image: base-ceos-training-l7-part-3-2021-3-20230331-110651
             eos:
               - 4.27.2F
     desc: 'Level 7 - Part 3 Training Lab. For use by the Arista Training Team.'
@@ -1044,84 +1361,108 @@ topologies:
     title: 'Training Level 7 - Part 3 Lab'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins,lab_status, lab_grading]
     labguides: self
-  dmf-lab-controller:
-    dmf-controller : true
+  training-level-1-3-container-labs:
     dev:
-      dmf:
-        cpu: 8
-        ram: 32
+      ceos:
+        cpu: 72
+        ram: 150
         cvp:
-          2020.2.3:
+          2022.3.1:
+            schema: 1
             resources:
-              cpu: 8
-              ram: 32
-            branch: nested/2020.2
+              cpu: 48
+              ram: 110
+            branch: nested/2022.3
             orderable: true
-            image: dmf-controller
+            image: level-1-3-container-labs-2022-3
             eos:
-              - 4.25.1F
-              - 4.26.0F
+              - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: level-1-3-container-labs-2023-2
+            eos:
+              - 4.30.1F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 20
+              ram: 40
+              disk: 300
+              image: dual-topo-training-level-1-3-eos
+            resources_cvp:
+              cpu: 28
+              ram: 36
+              disk: 300
+              image: dual-topo-training-level-1-3-cvp
+            branch: nested/2023.2
+            image: dual-topo-training-level-1-3-eos
+            orderable: true
+            eos:
+              - 4.30.0F 
     prod:
-      dmf:
-        cpu: 8
-        ram: 32
+      ceos:
+        cpu: 60
+        ram: 110
         cvp:
-          2020.2.3:
+          2022.3.1:
+            schema: 1
             resources:
-              cpu: 8
-              ram: 32
-            branch: 2021.3-3.5
+              cpu: 48
+              ram: 64
+            branch: v2022.3-20230922a
             orderable: true
-            image: dmf-controller
+            image: level-1-3-container-labs-2022-3
             eos:
-              - 4.25.1F
-              - 4.26.0F
-    desc: 'DMF lab for controller'
-    name: 'DMF lab for controller'
-    title: 'DMF lab for controller'
-    disk_size: 415
+              - 4.27.2F
+    desc: 'Training Level 1-3 Container labs'
+    name: 'Training Level 1-3 Container labs'
+    title: 'Training Level 1-3 Container labs'
+    disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
-  dmf-lab-main-machine:
-    dmf-lab-machine : true
+  training-level-1-3-cisco-labs:
     dev:
-      dmf:
-        cpu: 8
-        ram: 32
+      ceos:
+        cpu: 40
+        ram: 110
         cvp:
-          2020.2.3:
+          2022.3.1:
+            schema: 1
             resources:
-              cpu: 8
-              ram: 32
-            branch: nested/2020.2
+              cpu: 48
+              ram: 110
+            branch: nested/2022.3
             orderable: true
-            image: dmf-lab
+            image: level-1-3-cisco-labs-2022-3
             eos:
-              - 4.25.1F
-              - 4.26.0F
+              - 4.27.2F
     prod:
-      dmf:
-        cpu: 8
-        ram: 32
+      ceos:
+        cpu: 60
+        ram: 110
         cvp:
-          2020.2.3:
+          2022.3.1:
+            schema: 1
             resources:
-              cpu: 8
-              ram: 32
-            branch: 2021.3-3.5
+              cpu: 48
+              ram: 64
+            branch: v2022.3-20230922a
             orderable: true
-            image: dmf-lab
+            image: level-1-3-container-labs-2022-3
             eos:
-              - 4.25.1F
-              - 4.26.0F
-    desc: 'DMF lab for Main Machine'
-    name: 'DMF lab for Main Machine'
-    title: 'DMF lab for Main Machine'
-    disk_size: 100
+              - 4.27.2F
+    desc: 'Training Level 1-3 cisco labs'
+    name: 'Training Level 1-3 cisco labs'
+    title: 'Training Level 1-3 cisco labs'
+    disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins]
+    disable_links: [labguides, jenkins, lab_grading]
     labguides: self
-  
