@@ -274,10 +274,10 @@ nodes:
           neighborPort: Ethernet7
           port: Ethernet6
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/4
+          neighborPort: Ethernet4
           port: Ethernet8
         - neighborDevice: CiscoS1
-          neighborPort: Ethernet1/3
+          neighborPort: Ethernet3
           port: Ethernet7
 
 
@@ -304,10 +304,10 @@ nodes:
           neighborPort: Ethernet8
           port: Ethernet6
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/4
+          neighborPort: Ethernet4
           port: Ethernet8
         - neighborDevice: CiscoS1
-          neighborPort: Ethernet1/4
+          neighborPort: Ethernet4
           port: Ethernet7
   - host1:
       ip_addr: 192.168.0.51
@@ -354,32 +354,32 @@ nodes:
       sys_mac: 00:1c:73:f5:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/5
+          neighborPort: Ethernet5
           port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/5
+          neighborPort: Ethernet5
           port: Ethernet2
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/6
+          neighborPort: Ethernet6
           port: Ethernet3
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/6
+          neighborPort: Ethernet6
           port: Ethernet4
   - host10:
       ip_addr: 192.168.0.56
       sys_mac: 00:1c:73:f6:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/7
+          neighborPort: Ethernet7
           port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/7
+          neighborPort: Ethernet7
           port: Ethernet2
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/8
+          neighborPort: Ethernet8
           port: Ethernet3
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/8
+          neighborPort: Ethernet8
           port: Ethernet4
 
 servers:
@@ -437,17 +437,17 @@ additional_clab_nodes:
       sys_mac: 00:1c:73:d3:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/3
-          port: Ethernet1/1
+          neighborPort: Ethernet3
+          port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/3
-          port: Ethernet1/2
+          neighborPort: Ethernet3
+          port: Ethernet2
         - neighborDevice: borderleaf1
           neighborPort: Ethernet7
-          port: Ethernet1/3
+          port: Ethernet3
         - neighborDevice: borderleaf2
           neighborPort: Ethernet7
-          port: Ethernet1/4
+          port: Ethernet4
   - CiscoL1:
       kind : vr-n9kv
       image_name: "gcr.io/atd-testdrivetraining-dev/vr-n9kv:9.3.3"
@@ -456,29 +456,29 @@ additional_clab_nodes:
       sys_mac: 00:1c:73:a1:c6:01
       neighbors:
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/1
-          port: Ethernet1/1
+          neighborPort: Ethernet1
+          port: Ethernet1
         - neighborDevice: CiscoL2
-          neighborPort: Ethernet1/2
-          port: Ethernet1/2
+          neighborPort: Ethernet2
+          port: Ethernet2
         - neighborDevice: CiscoS1
-          neighborPort: Ethernet1/1
-          port: Ethernet1/3
+          neighborPort: Ethernet1
+          port: Ethernet3
         - neighborDevice: borderleaf1
           neighborPort: Ethernet8
-          port: Ethernet1/4
+          port: Ethernet4
         - neighborDevice: host9
           neighborPort: Ethernet1
-          port: Ethernet1/5
+          port: Ethernet5
         - neighborDevice: host9
           neighborPort: Ethernet3
-          port: Ethernet1/6
+          port: Ethernet6
         - neighborDevice: host10
           neighborPort: Ethernet1
-          port: Ethernet1/7
+          port: Ethernet7
         - neighborDevice: host10
           neighborPort: Ethernet3
-          port: Ethernet1/8
+          port: Ethernet8
   - CiscoL2:
       kind : vr-n9kv
       image_name: "gcr.io/atd-testdrivetraining-dev/vr-n9kv:9.3.3"
@@ -487,28 +487,28 @@ additional_clab_nodes:
       sys_mac: 00:1c:73:a2:c6:01
       neighbors:
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/1
-          port: Ethernet1/1
+          neighborPort: Ethernet1
+          port: Ethernet1
         - neighborDevice: CiscoL1
-          neighborPort: Ethernet1/2
-          port: Ethernet1/2
+          neighborPort: Ethernet2
+          port: Ethernet2
         - neighborDevice: CiscoS1
-          neighborPort: Ethernet1/2
-          port: Ethernet1/3
+          neighborPort: Ethernet2
+          port: Ethernet3
         - neighborDevice: borderleaf2
           neighborPort: Ethernet8
-          port: Ethernet1/4
+          port: Ethernet4
         - neighborDevice: host9
           neighborPort: Ethernet2
-          port: Ethernet1/5
+          port: Ethernet5
         - neighborDevice: host9
           neighborPort: Ethernet4
-          port: Ethernet1/6
+          port: Ethernet6
         - neighborDevice: host10
           neighborPort: Ethernet2
-          port: Ethernet1/7
+          port: Ethernet7
         - neighborDevice: host10
           neighborPort: Ethernet4
-          port: Ethernet1/8
+          port: Ethernet8
 
 
