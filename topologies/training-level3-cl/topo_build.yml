@@ -323,3 +323,4 @@ servers:
           neighborPort: Ethernet12
           port: Ethernet2
 additional_ssh_nodes:
+additional_clab_nodes:
