@@ -22,10 +22,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet3
           port: Ethernet5
-        - neighborDevice: boderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet3
           port: Ethernet6
-        - neighborDevice: boderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet3
           port: Ethernet7
   - spine2:
@@ -47,10 +47,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet4
           port: Ethernet5
-        - neighborDevice: boderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet4
           port: Ethernet6
-        - neighborDevice: boderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet4
           port: Ethernet7
   - spine3:
@@ -69,10 +69,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet5
           port: Ethernet5
-        - neighborDevice: boderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet5
           port: Ethernet6
-        - neighborDevice: boderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet5
           port: Ethernet7
   - leaf1:
@@ -199,14 +199,14 @@ nodes:
         # - neighborDevice: server4
         #   neighborPort: Ethernet2
         #   port: Ethernet12
-  - boderleaf1:
+  - borderleaf1:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
       neighbors:
-        - neighborDevice: boderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: boderleaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -218,14 +218,14 @@ nodes:
         - neighborDevice: spine3
           neighborPort: Ethernet6
           port: Ethernet5
-  - boderleaf2:
+  - borderleaf2:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
       neighbors:
-        - neighborDevice: boderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: boderleaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
