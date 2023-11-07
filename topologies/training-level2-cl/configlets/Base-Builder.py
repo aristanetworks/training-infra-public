@@ -58,7 +58,6 @@ print 'hostname %s' % hostname
 print '!'
 print 'interface Management 0'
 print '  ip address %s/%s' % ( IPaddress, mask )
-print '  no lldp transmit'
 print '!'
 if ServiceRouting:
  print 'service routing protocols model multi-agent'

@@ -2,7 +2,6 @@ hostname borderleaf2
 !
 interface Management 0
   ip address 192.168.0.26/24
-  no lldp transmit
 !
 service routing protocols model multi-agent
 !

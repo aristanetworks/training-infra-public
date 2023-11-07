@@ -61,7 +61,6 @@ interface Ethernet4
 !
 interface Management0
    ip address 192.168.0.52/24
-   no lldp transmit
 !
 interface Vlan101
    ip address 192.168.101.2/24

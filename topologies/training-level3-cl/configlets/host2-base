@@ -4,7 +4,6 @@ spanning-tree mode none
 !
 interface Management 0
   ip address 192.168.0.52/24
-  no lldp transmit
 !
 ip route 0.0.0.0/0 192.168.0.1
 !

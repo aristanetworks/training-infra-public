@@ -70,7 +70,6 @@ interface Loopback0
 !
 interface Management0
    ip address 192.168.0.23/24
-   no lldp transmit
 !
 interface Vlan103
    no autostate

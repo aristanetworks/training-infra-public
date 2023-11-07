@@ -75,7 +75,6 @@ interface Ethernet6
 !
 interface Management1
    ip address 192.168.0.23/24
-   no lldp transmit
 !
 ip routing
 !
