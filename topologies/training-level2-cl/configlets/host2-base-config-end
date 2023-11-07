@@ -61,7 +61,7 @@ interface Ethernet3
 !
 interface Ethernet4
 !
-interface Management1
+interface Management0
    ip address 192.168.0.52/24
    no lldp transmit
    no lldp receive
@@ -70,8 +70,8 @@ ip routing
 !
 ip route 0.0.0.0/0 192.168.0.1
 !
-ntp server 192.168.0.1 iburst source Management1
+ntp server 192.168.0.1 iburst source Management0
 !
-ip radius source-interface Management1
+ip radius source-interface Management0
 !
 end

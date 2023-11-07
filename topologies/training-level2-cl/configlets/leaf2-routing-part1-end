@@ -70,7 +70,7 @@ interface Ethernet6
 interface Loopback0
    ip address 10.12.12.12/32
 !
-interface Management1
+interface Management0
    ip address 192.168.0.22/24
    no lldp transmit
    no lldp receive
@@ -86,9 +86,9 @@ ip prefix-list local-SVI
 !
 ip route 0.0.0.0/0 192.168.0.1
 !
-ntp server 192.168.0.1 iburst source Management1
+ntp server 192.168.0.1 iburst source Management0
 !
-ip radius source-interface Management1
+ip radius source-interface Management0
 !
 route-map redist-SVI permit 10
    match ip address prefix-list local-SVI

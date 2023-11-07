@@ -72,7 +72,7 @@ interface Ethernet5
 interface Loopback1
    ip address 172.16.0.1/32
 !
-interface Management1
+interface Management0
    ip address 192.168.0.11/24
    no lldp transmit
    no lldp receive
@@ -81,9 +81,9 @@ ip routing
 !
 ip route 0.0.0.0/0 192.168.0.1
 !
-ntp server 192.168.0.1 iburst source Management1
+ntp server 192.168.0.1 iburst source Management0
 !
-ip radius source-interface Management1
+ip radius source-interface Management0
 !
 router ospf 1
    router-id 172.16.0.1
