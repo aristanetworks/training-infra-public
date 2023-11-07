@@ -12,8 +12,8 @@ cvp_info:
     Borderleaf:
       parent: Tenant
       nodes:
-      - border-leaf1
-      - border-leaf2
+      - borderleaf1
+      - borderleaf2
     Spine:
       parent: Tenant
       nodes:

@@ -22,10 +22,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet3
           port: Ethernet5
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet3
           port: Ethernet6
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet3
           port: Ethernet7
   - spine2:
@@ -47,10 +47,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet4
           port: Ethernet5
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet4
           port: Ethernet6
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet4
           port: Ethernet7
   - spine3:
@@ -69,10 +69,10 @@ nodes:
         - neighborDevice: leaf4
           neighborPort: Ethernet5
           port: Ethernet5
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet5
           port: Ethernet6
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet5
           port: Ethernet7
   - leaf1:
@@ -199,14 +199,14 @@ nodes:
         # - neighborDevice: server4
         #   neighborPort: Ethernet2
         #   port: Ethernet12
-  - border-leaf1:
+  - borderleaf1:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
       neighbors:
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: border-leaf2
+        - neighborDevice: borderleaf2
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -218,14 +218,14 @@ nodes:
         - neighborDevice: spine3
           neighborPort: Ethernet6
           port: Ethernet5
-  - border-leaf2:
+  - borderleaf2:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
       neighbors:
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: border-leaf1
+        - neighborDevice: borderleaf1
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1
@@ -270,57 +270,5 @@ nodes:
           neighborPort: Ethernet7
           port: Ethernet4
 servers:
-  - server1:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.41
-      sys_mac: 00:1c:73:e1:c6:01
-      neighbors:
-        - neighborDevice: leaf1
-          neighborPort: Ethernet11
-          port: Ethernet1
-        - neighborDevice: leaf2
-          neighborPort: Ethernet11
-          port: Ethernet2
-  - server2:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.42
-      sys_mac: 00:1c:73:e2:c6:01
-      neighbors:
-        - neighborDevice: leaf1
-          neighborPort: Ethernet12
-          port: Ethernet2
-        - neighborDevice: leaf2
-          neighborPort: Ethernet12
-          port: Ethernet1
-  - server3:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.43
-      sys_mac: 00:1c:73:e3:c6:01
-      neighbors:
-        - neighborDevice: leaf3
-          neighborPort: Ethernet11
-          port: Ethernet1
-        - neighborDevice: leaf3
-          neighborPort: Ethernet12
-          port: Ethernet2
-  - server4:
-      ami_name: "cloud-deploy-generic-CentOS-8-8.2.2004"
-      size: "t2.medium"
-      type: generic
-      ip_addr: 192.168.0.44
-      sys_mac: 00:1c:73:e4:c6:01
-      neighbors:
-        - neighborDevice: leaf4
-          neighborPort: Ethernet11
-          port: Ethernet1
-        - neighborDevice: leaf4
-          neighborPort: Ethernet12
-          port: Ethernet2
 additional_ssh_nodes:
 additional_clab_nodes:
