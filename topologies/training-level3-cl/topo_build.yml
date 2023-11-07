@@ -100,12 +100,6 @@ nodes:
         - neighborDevice: host1
           neighborPort: Ethernet3
           port: Ethernet7
-        # - neighborDevice: server1
-        #   neighborPort: Ethernet1
-        #   port: Ethernet11
-        # - neighborDevice: server2
-        #   neighborPort: Ethernet2
-        #   port: Ethernet12
   - leaf2:
       ip_addr: 192.168.0.22
       sys_mac: 00:1c:73:c2:c6:01
@@ -131,12 +125,6 @@ nodes:
         - neighborDevice: host1
           neighborPort: Ethernet4
           port: Ethernet7
-        # - neighborDevice: server1
-        #   neighborPort: Ethernet2
-        #   port: Ethernet11
-        # - neighborDevice: server2
-        #   neighborPort: Ethernet1
-        #   port: Ethernet12
   - leaf3:
       ip_addr: 192.168.0.23
       sys_mac: 00:1c:73:c3:c6:01
@@ -162,12 +150,6 @@ nodes:
         - neighborDevice: host2
           neighborPort: Ethernet3
           port: Ethernet7
-        # - neighborDevice: server3
-        #   neighborPort: Ethernet1
-        #   port: Ethernet11
-        # - neighborDevice: server3
-        #   neighborPort: Ethernet2
-        #   port: Ethernet12
   - leaf4:
       ip_addr: 192.168.0.24
       sys_mac: 00:1c:73:c4:c6:01
@@ -193,12 +175,6 @@ nodes:
         - neighborDevice: host2
           neighborPort: Ethernet4
           port: Ethernet7
-        # - neighborDevice: server4
-        #   neighborPort: Ethernet1
-        #   port: Ethernet11
-        # - neighborDevice: server4
-        #   neighborPort: Ethernet2
-        #   port: Ethernet12
   - borderleaf1:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
