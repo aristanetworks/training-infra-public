@@ -64,7 +64,6 @@ interface Ethernet5
 interface Management0
    ip address 192.168.0.11/24
    no lldp transmit
-   no lldp receive
 !
 ip access-list default-with-snmp
    10 permit icmp any any

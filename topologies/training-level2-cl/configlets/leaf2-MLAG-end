@@ -97,7 +97,6 @@ interface Ethernet6
 interface Management0
    ip address 192.168.0.22/24
    no lldp transmit
-   no lldp receive
 !
 interface Vlan4094
    description MLAG PEER LINK

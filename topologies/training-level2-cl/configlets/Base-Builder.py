@@ -59,7 +59,6 @@ print '!'
 print 'interface Management 0'
 print '  ip address %s/%s' % ( IPaddress, mask )
 print '  no lldp transmit'
-print '  no lldp receive'
 print '!'
 if ServiceRouting:
  print 'service routing protocols model multi-agent'
