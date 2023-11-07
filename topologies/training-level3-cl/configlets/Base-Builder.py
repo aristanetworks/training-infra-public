@@ -66,7 +66,7 @@ elif serial == 'CE0B31805130945E3CE40B060E9E636D':
 # Generate and print config - Ignore the service routing command if not needed
 print 'hostname %s' % hostname
 print '!'
-print 'interface Management 1'
+print 'interface Management 0'
 print '  ip address %s/%s' % ( IPaddress, mask )
 print '  no lldp transmit'
 print '  no lldp receive'
