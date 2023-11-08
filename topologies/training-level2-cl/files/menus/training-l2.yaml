@@ -1,0 +1,170 @@
+---
+    lab_list:
+      reset:
+        additional_commands: 
+          - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
+        description: "Reset All Devices to Base Lab (reset)"
+    labconfiglets:
+      reset:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      STP-Start:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      STP-Troubleshoot:
+        spine1:
+          - "spine1-base"
+          - "TroubleSTP-Start-Spine1"
+        spine2:
+          - "spine2-base"
+          - "TroubleSTP-Start-Spine2"
+        spine3:
+          - "spine3-base"
+          - "TroubleSTP-Start-Spine3"
+        spine4:
+          - "spine4-base"
+          - "TroubleSTP-Start-Spine4"
+        leaf1:
+          - "leaf1-base"
+          - "TroubleSTP-Start-Leaf1"
+        leaf2:
+          - "leaf2-base"
+          - "TroubleSTP-Start-Leaf2"
+        leaf3:
+          - "leaf3-base"
+          - "TroubleSTP-Start-Leaf3"
+        leaf4:
+          - "leaf4-base"
+          - "TroubleSTP-Start-Leaf4"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      MLAG-Start:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      MLAG-Troubleshooting:
+        spine1:
+          - "spine1-base"
+          - "TroubleMLAG-Spine1"
+        spine2:
+          - "spine2-base"
+          - "TroubleMLAG-Spine2"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+          - "TroubleMLAG-Leaf1"
+        leaf2:
+          - "leaf2-base"
+          - "TroubleMLAG-Leaf2"
+        leaf3:
+          - "leaf3-base"
+          - "TroubleMLAG-Leaf3"
+        leaf4:
+          - "leaf4-base"
+          - "TroubleMLAG-Leaf4"
+        host1:
+          - "host1-base"
+          - "TroubleMLAG-Host1"
+        host2:
+          - "host2-base"
+          - "TroubleMLAG-Host2"
+        host3:
+          - "host3-base"
+          - "TroubleMLAG-Host3"
+        host4:
+          - "host4-base"
+          - "TroubleMLAG-Host4"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"

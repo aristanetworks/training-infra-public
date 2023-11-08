@@ -1,0 +1,118 @@
+ !
+ vlan 10
+ vlan 20
+
+ !
+interface Port-Channel20
+  description Leaf 1 and Leaf 2 MLAG PortChannel 20 to Spine MLAG
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10,20
+  mlag 20
+  no shut
+
+
+interface Ethernet3
+  channel-group 20 mode active
+
+
+interface Ethernet4
+  channel-group 20  mode active
+
+vlan 4094
+name MLAG
+trunk group MLAGVLAN
+
+spanning-tree mode mstp
+no spanning-tree vlan-id 4094
+
+ip virtual-router mac-address 001c.7300.0098
+
+interface Vlan4094
+ip address 172.16.40.2/24
+no autostate
+
+interface Port-Channel200
+description MLAG Peer Link
+switchport
+switchport mode trunk
+switchport trunk group MLAGVLAN
+no shut
+
+interface Ethernet1
+description MLAG Peer Link Member
+channel-group 200 mode active
+
+
+interface Ethernet2
+description MLAG Peer Link Member
+channel-group 200 mode active
+
+
+mlag configuration
+domain-id MLAGLeaf1Leaf2
+local-interface Vlan4094
+peer-address 172.16.40.1
+peer-link Port-Channel200
+primary-priority 20
+heartbeat-interval 2500
+
+ip access-list default-control-plane-acl-new
+      10 permit icmp any any
+      20 permit ip any any tracked
+      30 permit udp any any eq bfd ttl eq 255
+      40 permit udp any any eq bfd-echo ttl eq 254
+      50 permit udp any any eq multihop-bfd micro-bfd sbfd
+      60 permit udp any eq sbfd any eq sbfd-initiator
+      70 permit ospf any any
+      80 permit tcp any any eq ssh telnet www snmp bgp https msdp ldp netconf-ssh gnmi
+      90 permit udp any any eq bootps bootpc ntp snmp ptp-event ptp-general rip ldp
+      120 permit vrrp any any
+      130 permit ahp any any
+      140 permit pim any any
+      150 permit igmp any any
+      160 permit tcp any any range 5900 5910
+      170 permit tcp any any range 50000 50100
+      180 permit udp any any range 51000 51100
+      190 permit tcp any any eq 3333
+      200 permit tcp any any eq nat ttl eq 255
+      210 permit tcp any eq bgp any
+      220 permit rsvp any any
+      230 permit tcp any any eq 9340
+      240 permit tcp any any eq 9559
+      250 permit udp any any eq 8503
+      260 permit udp any any eq lsp-ping
+      270 permit udp any eq lsp-ping any
+
+
+system control-plane
+   ip access-group default-control-plane-acl-new in
+   ip access-group default-control-plane-acl-new vrf MGMT in
+
+ vlan 10
+
+interface Port-Channel1
+  description MLAG Connection to Host1
+  switchport
+  switchport mode access
+  switchport access vlan 10
+  mlag 1
+  no shut
+
+interface Ethernet7
+  description LACP Connection to Host 1
+  channel-group 1 mode active
+  
+ vlan 20
+ !
+interface Port-Channel2
+  description MLAG Connection to Host2
+  switchport
+  switchport mode access
+  switchport access vlan 20
+  mlag 2
+  no shut
+
+interface Ethernet9
+  description LACP Connection to Host 2
+  channel-group 2 mode active
