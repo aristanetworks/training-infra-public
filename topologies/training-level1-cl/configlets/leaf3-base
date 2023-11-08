@@ -1,11 +1,13 @@
 hostname leaf3
 !
 interface Management 0
-   ip address 192.168.0.23/24
-!
+  vrf MGMT
+  ip address 192.168.0.23/24
+
 service routing protocols model multi-agent
 !
-ip route 0.0.0.0/0 192.168.0.1
+dns domain arista.lab
 !
-ip routing
+ip routing vrf MGMT
 !
+ip route vrf MGMT 0.0.0.0/0 192.168.0.1
