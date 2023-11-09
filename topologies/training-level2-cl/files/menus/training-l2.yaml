@@ -1,9 +1,15 @@
 ---
     lab_list:
       reset:
-        additional_commands: 
-          - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
         description: "Reset All Devices to Base Lab (reset)"
+      STP-Start:
+        description: "Start the STP Lab"
+      STP-Troubleshooting:
+        description: "Start the STP troubleshooting lab"
+      MLAG-Start:
+        description: "Start the MLAG Lab"
+      MLAG-Troubleshooting:
+        description: "Start the MLAG Troubleshooting lab"
     labconfiglets:
       reset:
         spine1:
@@ -63,7 +69,7 @@
           - "borderleaf1-base"
         borderleaf2:
           - "borderleaf2-base"
-      STP-Troubleshoot:
+      STP-Troubleshooting:
         spine1:
           - "spine1-base"
           - "TroubleSTP-Start-Spine1"
