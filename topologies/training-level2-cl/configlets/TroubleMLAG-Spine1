@@ -1,0 +1,117 @@
+!
+spanning-tree mode mst
+
+spanning-tree mst configuration
+  instance 0 vlan 1-4094
+  spanning-tree mst 0 root primary
+  
+vlan 10
+vlan 20
+vlan 30
+vlan 40
+
+interface Port-Channel10
+  description Spine 1 and Spine 2 MLAG PortChannel 10 to Leaf 1 and Leaf 2 MLAG
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10,20
+  mlag 10
+  no shut
+
+interface Ethernet3
+ channel-group 10 mode active
+
+
+interface Ethernet4
+ channel-group 10  mode active
+
+
+interface Ethernet7
+ shutdown
+
+interface Ethernet8
+ shutdown
+ 
+
+interface Port-Channel30
+   description Spine 1 and SPine 2 MLAG PortChannel 30 to Leaf 3 and Leaf 4 MLAG
+   switchport
+   switchport mode trunk
+   switchport trunk allowed vlan 30,40
+   mlag 30
+   no shut
+
+interface Ethernet5
+   channel-group 30 mode active
+
+
+interface Ethernet6
+   channel-group 30  mode active  
+  
+   
+
+
+ vlan 4094
+  name MLAG
+  trunk group MLAGVLAN
+
+ spanning-tree mode mstp
+ no spanning-tree vlan-id 4094
+
+ ip virtual-router mac-address 001c.7300.0099
+
+interface Vlan4094
+  ip address 172.16.30.1/30
+  no autostate
+
+interface Port-Channel200
+  description MLAG Peer Link
+  switchport
+  switchport mode trunk
+  switchport trunk group MLAGVLAN
+
+interface Ethernet1
+  description MLAG Peer Link Member
+  channel-group 200 mode active
+
+
+interface Ethernet2
+  description MLAG Peer Link Member
+  channel-group 200 mode active
+
+
+mlag configuration
+  domain-id MLAGSpine1Spine2
+  local-interface Vlan4094
+  peer-address 172.16.30.2
+  peer-link Port-Channel200
+  primary-priority 10
+
+vlan 10
+vlan 20
+vlan 30
+vlan 40
+
+ip routing
+
+ip virtual-router mac-address 001c.7300.0099
+
+interface vlan 10
+   ip address 192.168.10.1/24
+   ip virtual-router address 192.168.10.254
+   no autostate
+
+interface vlan 20
+   ip address 192.168.20.1/24
+   ip virtual-router address 192.168.20.254
+   no autostate
+
+interface vlan 30
+   ip address 192.168.30.1/24
+   ip virtual-router address 192.168.30.254
+   no autostate
+
+interface vlan 40
+   ip address 192.168.40.1/24
+   ip virtual-router address 192.168.40.254
+   no autostate
