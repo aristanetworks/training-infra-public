@@ -11,7 +11,7 @@
       MLAG-Troubleshooting:
         description: "Start TROUBLESHOOTING MLAG LAB"
       Routing-Start:
-        description: "ROUTING BGP LAB"
+        description: "Start ROUTING BGP LAB"
       routing-troubleshooting:
         description: "Start TROUBLESHOOTING ROUTING BGP LAB"
       OSPF-Start:
