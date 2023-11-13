@@ -15,7 +15,7 @@
       OSPF-Start:
         description: "Routing OSPF Lab"
       NSSA-Start:
-        description: "Routing MultiArea OSPF"
+        description: "Routing MultiArea OSPF Lab"
       ACL-Start:
         description: "ACL Lab"
       ACL-Troubleshoot:
