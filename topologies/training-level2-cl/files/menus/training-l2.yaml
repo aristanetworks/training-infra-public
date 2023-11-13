@@ -3,23 +3,27 @@
       reset:
         description: "Reset All Devices to Base Lab (reset)"
       STP-Start:
-        description: "STP Lab"
+        description: "Start STP LAB"
       STP-Troubleshooting:
-        description: "Troubleshooting STP Lab"
+        description: "Start TROUBLESHOOTING STP LAB"
       MLAG-Start:
-        description: "MLAG Bowtie Lab"
+        description: "Start MLAG BOWTIE LAB"
       MLAG-Troubleshooting:
-        description: "Troubleshooting MLAG Lab"
+        description: "Start TROUBLESHOOTING MLAG LAB"
       Routing-Start:
-        description: "Routing BGP Lab"
+        description: "ROUTING BGP LAB"
+      routing-troubleshooting:
+        description: "Start TROUBLESHOOTING ROUTING BGP LAB"
       OSPF-Start:
-        description: "Routing OSPF Lab"
-      NSSA-Start:
-        description: "Routing MultiArea OSPF Lab"
+        description: "Start ROUTING OSPF LAB"
+      OSPF-MA-Start:
+        description: "Start ROUTING MULTIAREA OSPF LAB"
       ACL-Start:
-        description: "ACL Lab"
+        description: "Start ACL LAB"
       ACL-Troubleshoot:
-        description: "Troubleshooting ACL Lab"
+        description: "Start TROUBLESHOOTING ACL LAB"
+      NSSA-Start:
+        description: "Start BONUS LAB OSPF NSSA"
     labconfiglets:
       reset:
         spine1:
@@ -359,3 +363,81 @@
         borderleaf2:
           - "borderleaf2-base"
           - "TroubleACL-Start-BorderLeaf2"
+      routing-troubleshooting:
+        spine1:
+          - "spine1-base"
+          - "TroubleBGP-Spine1"
+        spine2:
+          - "spine2-base"
+          - "TroubleBGP-Spine2"
+        spine3:
+          - "spine3-base"
+          - "TroubleBGP-Spine3"
+        spine4:
+          - "spine4-base"
+          - "TroubleBGP-Spine4"
+        leaf1:
+          - "leaf1-base"
+          - "TroubleBGP-Start-Leaf1"
+        leaf2:
+          - "leaf2-base"
+          - "TroubleBGP-Start-Leaf2"
+        leaf3:
+          - "leaf3-base"
+          - "TroubleBGP-Start-Leaf3"
+        leaf4:
+          - "leaf4-base"
+          - "TroubleBGP-Leaf4"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "TroubleBGP-BorderLeaf1"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "TroubleBGP-BorderLeaf2"
+      OSPF-MA-Start:
+        spine1:
+          - "spine1-base"
+          - "Spine1-OSPFMultiArea-Start"
+        spine2:
+          - "spine2-base"
+          - "Spine2-OSPFMultiArea-Start"
+        spine3:
+          - "spine3-base"
+          - "Spine3-OSPFMultiArea-Start"
+        spine4:
+          - "spine4-base"
+          - "Spine4-OSPFMultiArea-Start"
+        leaf1:
+          - "leaf1-base"
+          - "Leaf1-OSPFMultiaArea-Start"
+        leaf2:
+          - "leaf2-base"
+          - "Leaf2-OSPFMultiaArea-Start"
+        leaf3:
+          - "leaf3-base"
+          - "Leaf3-OSPFMultiaArea-Start"
+        leaf4:
+          - "leaf4-base"
+          - "Leaf4-OSPFMultiaArea-Start"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "BorderLeaf1-OSPFMultiArea-Start"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "BorderLeaf2-OSPFMultiArea-Start"
