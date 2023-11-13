@@ -3,23 +3,23 @@
       reset:
         description: "Reset All Devices to Base Lab (reset)"
       STP-Start:
-        description: "Start the STP Lab"
+        description: "STP Lab"
       STP-Troubleshooting:
-        description: "Load the MLAG troubleshooting configs"
+        description: "Troubleshooting STP Lab"
       MLAG-Start:
-        description: "Start the MLAG Lab"
+        description: "MLAG Bowtie Lab"
       MLAG-Troubleshooting:
-        description: "Load the MLAG troubleshooting configs"
+        description: "Troubleshooting MLAG Lab"
       Routing-Start:
-        description: "Start the routing lab"
+        description: "Routing BGP Lab"
       OSPF-Start:
-        description: "Start the OSPF lab"
+        description: "Routing OSPF Lab"
       NSSA-Start:
-        description: "Start the NSSA lab"
+        description: "Routing MultiArea OSPF"
       ACL-Start:
-        description: "Start the ACL lab"
+        description: "ACL Lab"
       ACL-Troubleshoot:
-        description: "Load the ACL troubleshooting configs"
+        description: "Troubleshooting ACL Lab"
     labconfiglets:
       reset:
         spine1:
