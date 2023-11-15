@@ -1,9 +1,13 @@
 ---
     lab_list:
       reset:
-        additional_commands: 
-          - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
         description: "Reset All Devices to Base Lab (reset)"
+      l2evpn:
+        description: "Start L2EVPN LAB"
+      l3vpn:
+        description: "Start L3EVPN LAB"
+      multicast:
+        description: "Start MULTICAST LAB"
     labconfiglets:
       reset:
         spine1:
@@ -12,8 +16,6 @@
           - "spine2-base"
         spine3:
           - "spine3-base"
-        spine4:
-          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
@@ -30,3 +32,105 @@
           - "borderleaf1-base"
         borderleaf2:
           - "borderleaf2-base"
+      l2evpn:
+        spine1:
+          - "spine1-base"
+          - "Spine-1-VXLAN-Begin"
+        spine2:
+          - "spine2-base"
+          - "Spine-2-VXLAN-Begin"
+        spine3:
+          - "spine3-base"
+          - "Spine-3-VXLAN-Begin"
+        leaf1:
+          - "leaf1-base"
+          - "Leaf-1-VXLAN-Begin"
+        leaf2:
+          - "leaf2-base"
+          - "Leaf-2-VXLAN-Begin"
+        leaf3:
+          - "leaf3-base"
+          - "leaf-3-VXLAN-Begin"
+        leaf4:
+          - "leaf4-base"
+          - "leaf-4-VXLAN-Begin"
+        host1:
+          - "host1-base"
+          - "Host-1-VXLAN-Begin"
+        host2:
+          - "host2-base"
+          - "Host-2-VXLAN-Begin"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "Borderleaf-1-VXLAN-Begin"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "Borderleaf-2-VXLAN-Begin"
+      l3evpn:
+        spine1:
+          - "spine1-base"
+          - "Spine-1-L2EVPN-Begin"
+        spine2:
+          - "spine2-base"
+          - "Spine-2-L2EVPN-Begin"
+        spine3:
+          - "spine3-base"
+          - "Spine-3-L2EVPN-Begin"
+        leaf1:
+          - "leaf1-base"
+          - "Leaf-1-L2EVPN-Begin"
+        leaf2:
+          - "leaf2-base"
+          - "Leaf-2-L2EVPN-Begin"
+        leaf3:
+          - "leaf3-base"
+          - "Leaf-3-L2EVPN-Begin"
+        leaf4:
+          - "leaf4-base"
+          - "Leaf-4-L2EVPN-Begin"
+        host1:
+          - "host1-base"
+          - "Host-1-L2EVPN-Begin"
+        host2:
+          - "host2-base"
+          - "Host-2-L2EVPN-Begin"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "Borderleaf-1-L2EVPN-Begin"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "Borderleaf-2-L2EVPN-Begin"
+      multicast:
+        spine1:
+          - "spine1-base"
+          - "Spine-1-L3EVPN-Begin"
+        spine2:
+          - "spine2-base"
+          - "Spine-2-L3EVPN-Begin"
+        spine3:
+          - "spine3-base"
+          - "Spine-3-L3EVPN-Begin"
+        leaf1:
+          - "leaf1-base"
+          - "Leaf-1-L3EVPN-Begin"
+        leaf2:
+          - "leaf2-base"
+          - "Leaf-2-L3EVPN-Begin"
+        leaf3:
+          - "leaf3-base"
+          - "Leaf-3-L3EVPN-Begin"
+        leaf4:
+          - "leaf4-base"
+          - "Leaf-4-L3EVPN-Begin"
+        host1:
+          - "host1-base"
+          - "Host-1-L3EVPN-Begin"
+        host2:
+          - "host2-base"
+          - "Host-2-L3EVPN-Begin"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "Borderleaf-1-L3EVPN-Begin"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "Borderleaf-2-L3EVPN-Begin"
