@@ -1051,7 +1051,7 @@ topologies:
               cpu: 60
               ram: 90
             branch: nested/2021.3
-            orderable: true
+            orderable: false
             image: base-veos-training-l4-2021-3-20230314-153844
             eos:
               - 4.27.2F
@@ -1065,6 +1065,16 @@ topologies:
             image: base-training-l4-e4-27-1f-c2021-3-0-e6-20220131
             eos:
               - 4.27.1F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            eos:
+              - 4.30.1F              
     prod:
       veos:
         cpu: 32
@@ -1076,10 +1086,20 @@ topologies:
               cpu: 60
               ram: 90
             branch: 2022.3-3.19-l1-3
-            orderable: true
+            orderable: false
             image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
             eos:
               - 4.29.1F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: 2023.2-11.14-l4
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            eos:
+              - 4.30.1F                   
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4'
     title: 'Training Level 4 Lab'
@@ -1099,10 +1119,20 @@ topologies:
               cpu: 60
               ram: 90
             branch: nested/2022.3
-            orderable: true
+            orderable: false
             image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
             eos:
               - 4.29.1F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            eos:
+              - 4.30.1F    
     prod:
       veos:
         cpu: 32
@@ -1114,10 +1144,20 @@ topologies:
               cpu: 60
               ram: 90
             branch: 2022.3-3.19-l1-3
-            orderable: true
+            orderable: false
             image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
             eos:
               - 4.29.1F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: 2023.2-11.14-l4
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            eos:
+              - 4.30.1F 
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 v2'
     title: 'Training Level 4 Lab'
