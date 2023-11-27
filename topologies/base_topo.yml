@@ -558,6 +558,23 @@ topologies:
             image: base-veos-training-l1-2021-3-20230315-110300
             eos:
               - 4.27.2F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 300
+              image: dual-topo-training-level-1-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 300
+              image: dual-topo-training-level-1-cvp
+            branch: nested/2023.2-dual
+            image: dual-topo-training-level-1-eos
+            orderable: true
+            eos:
+              - 4.30.0F 
     prod:
       veos:
         cpu: 32
@@ -712,6 +729,23 @@ topologies:
             image: base-veos-training-l2-2021-3-20230314-153844
             eos:
               - 4.27.2F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 300
+              image: dual-topo-training-level-2-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 300
+              image: dual-topo-training-level-2-cvp
+            branch: nested/2023.2-dual
+            image: dual-topo-training-level-2-eos
+            orderable: true
+            eos:
+              - 4.30.0F 
     prod:
       veos:
         cpu: 32
