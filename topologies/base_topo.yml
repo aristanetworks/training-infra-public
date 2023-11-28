@@ -420,7 +420,7 @@ topologies:
               cpu: 32
               ram: 64
             branch: nested/2021.3
-            orderable: true
+            orderable: false
             image: base-veos-training-ntc-2021-3-20230112-105848
             eos:
               - 4.27.2F
@@ -445,7 +445,7 @@ topologies:
               cpu: 32
               ram: 64
             branch: 2021.3-3.15
-            orderable: true
+            orderable: false
             image: base-veos-training-l1-exam-2021-3-20221130-161201
             eos:
               - 4.27.2F
