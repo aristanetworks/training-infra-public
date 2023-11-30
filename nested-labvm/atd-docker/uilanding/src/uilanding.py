@@ -299,7 +299,10 @@ def getEventStatus(instanceName, instanceZone):
     Function to get the currnet status of an instance.
     """
     try:
-        response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
+        if SCHEMA == 2:
+            response = requests.get(FUNC_STATE + "?function=state&instance={0}-eos&zone={1}".format(instanceName, instanceZone))
+        else:
+            response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
         return(response.json())
     except ValueError:
         pS("Value Error retrieving status for {0}".format(instanceName))
