@@ -1,4 +1,4 @@
-Alan 101
+vlan 101
 
 interface Ethernet1
    shutdown
