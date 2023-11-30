@@ -65,7 +65,10 @@ FUNC_STATE = 'https://us-central1-{0}.cloudfunctions.net/atd-state'.format(PROJE
 NAME = host_yaml['name']
 ZONE = host_yaml['zone']
 TOPO = host_yaml['topology']
-
+if 'schema' in host_yaml:
+    SCHEMA = host_yaml['schema']
+else:
+    SCHEMA = 1
 # Add a check for the title parameter for legacy deployment catches
 if 'title' in host_yaml:
     TITLE = host_yaml['title']
@@ -299,7 +302,10 @@ def getEventStatus(instanceName, instanceZone):
     Function to get the currnet status of an instance.
     """
     try:
-        response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
+        if SCHEMA == 2:
+            response = requests.get(FUNC_STATE + "?function=state&instance={0}-eos&zone={1}".format(instanceName, instanceZone))
+        else:
+            response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
         return(response.json())
     except ValueError:
         pS("Value Error retrieving status for {0}".format(instanceName))
