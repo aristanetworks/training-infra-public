@@ -65,7 +65,10 @@ FUNC_STATE = 'https://us-central1-{0}.cloudfunctions.net/atd-state'.format(PROJE
 NAME = host_yaml['name']
 ZONE = host_yaml['zone']
 TOPO = host_yaml['topology']
-
+if 'schema' in host_yaml:
+    SCHEMA = host_yaml['schema']
+else:
+    SCHEMA = 1
 # Add a check for the title parameter for legacy deployment catches
 if 'title' in host_yaml:
     TITLE = host_yaml['title']
