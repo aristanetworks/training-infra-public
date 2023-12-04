@@ -31,9 +31,9 @@
         host2:
           - "host2-base"
         host3:
-          - "host1-base"
+          - "host3-base"
         host4:
-          - "host2-base"
+          - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
         borderleaf2:
@@ -46,7 +46,7 @@
         spine3:
           - "spine3-base"
         spine4:
-          - "spine3-base"
+          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
@@ -60,9 +60,9 @@
         host2:
           - "host2-base"
         host3:
-          - "host1-base"
+          - "host3-base"
         host4:
-          - "host2-base"
+          - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
         borderleaf2:
@@ -75,7 +75,7 @@
         spine3:
           - "spine3-base"
         spine4:
-          - "spine3-base"
+          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
@@ -89,9 +89,9 @@
         host2:
           - "host2-base"
         host3:
-          - "host1-base"
+          - "host3-base"
         host4:
-          - "host2-base"
+          - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
         borderleaf2:
@@ -104,7 +104,7 @@
         spine3:
           - "spine3-base"
         spine4:
-          - "spine3-base"
+          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
@@ -118,9 +118,9 @@
         host2:
           - "host2-base"
         host3:
-          - "host1-base"
+          - "host3-base"
         host4:
-          - "host2-base"
+          - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
         borderleaf2:
