@@ -4,7 +4,7 @@
         description: "Reset All Devices to Base Lab (reset)"
       l2evpn:
         description: "Start L2EVPN LAB"
-      l3vpn:
+      l3evpn:
         description: "Start L3EVPN LAB"
       multicast:
         description: "Start MULTICAST LAB"
