@@ -32,8 +32,15 @@ topology:
       coords: "599,20,778,101"
       ip: "192.168.0.26"
     Host1:
-      coords: "184,669,362,756"
+      coords: "29,675,212,765"
       ip: "192.168.0.51"
     Host2:
-      coords: "753,673,928,751"
+      coords: "319,673,498,754"
       ip: "192.168.0.52"
+
+<map name="image-map">
+    <area target="" alt="Host1" title="Host1" href="192.168.0.21" coords="29,675,212,765" shape="rect">
+    <area target="" alt="Host2" title="Host2" href="192.168.0.22" coords="319,673,498,754" shape="rect">
+    <area target="" alt="Host3" title="Host3" href="192.168.0.23" coords="781,760,599,675" shape="rect">
+    <area target="" alt="Host4" title="Host4" href="192.168.0.24" coords="876,673,1056,757" shape="rect">
+</map>
