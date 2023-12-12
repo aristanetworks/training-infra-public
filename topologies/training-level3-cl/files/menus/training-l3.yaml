@@ -17,7 +17,7 @@
         spine3:
           - "spine3-base"
         spine4:
-          - "spine3-base"
+          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
