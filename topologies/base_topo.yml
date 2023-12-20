@@ -1591,7 +1591,7 @@ topologies:
             image: level-1-cl-2023-2
             eos:
               - 4.30.0F
-         2023.2.0-dual:
+          2023.2.0-dual:
             schema: 2
             resources_eos:
               cpu: 48
