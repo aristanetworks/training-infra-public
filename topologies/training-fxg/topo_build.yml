@@ -123,7 +123,7 @@ nodes:
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: Server-12
-          neighborPort: Ethernet3
+          neighborPort: Ethernet1
           port: Ethernet3
 servers:
   - Server-1:
