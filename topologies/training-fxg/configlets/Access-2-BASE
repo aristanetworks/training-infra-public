@@ -1,6 +1,5 @@
 hostname Access-2
 !
-spanning-tree mode none
 !
 interface Management 0
   vrf MGMT
