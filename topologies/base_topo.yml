@@ -1344,6 +1344,23 @@ topologies:
             image: base-ceos-training-l7-2023-2-4301
             eos:
               - 4.30.1F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-cvp
+            branch: nested/2023.2-dual
+            image: dual-topo-training-level-7-eos
+            orderable: true
+            eos:
+              - 4.30.1F               
     prod:
       ceos:
         cpu: 40
@@ -1423,7 +1440,24 @@ topologies:
             orderable: true
             image: base-ceos-training-l7-part-3-2023-2-4301
             eos:
-              - 4.30.1F              
+              - 4.30.1F    
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-part3-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-part3-cvp
+            branch: nested/2023.2-dual
+            image: dual-topo-training-level-7-part3-eos
+            orderable: true
+            eos:
+              - 4.30.1F 
     prod:
       ceos:
         cpu: 40
