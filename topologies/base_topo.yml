@@ -1383,7 +1383,7 @@ topologies:
               cpu: 60
               ram: 80
             branch: 2021.3-3.17
-            orderable: true
+            orderable: false
             image: base-ceos-training-l7-2021-3-20230331-110651
             eos:
               - 4.27.2F
@@ -1497,7 +1497,7 @@ topologies:
               cpu: 60
               ram: 80
             branch: 2021.3-3.17
-            orderable: true
+            orderable: false
             image: base-ceos-training-l7-part-3-2021-3-20230331-110651
             eos:
               - 4.27.2F
