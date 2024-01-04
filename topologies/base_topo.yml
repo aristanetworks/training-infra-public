@@ -574,7 +574,7 @@ topologies:
             image: dual-topo-training-level-1-eos
             orderable: true
             eos:
-              - 4.30.0F 
+              - 4.30.1F 
     prod:
       veos:
         cpu: 32
@@ -745,7 +745,7 @@ topologies:
             image: dual-topo-training-level-2-eos
             orderable: true
             eos:
-              - 4.30.0F 
+              - 4.30.1F 
     prod:
       veos:
         cpu: 32
@@ -1387,6 +1387,23 @@ topologies:
             image: base-ceos-training-l7-2021-3-20230331-110651
             eos:
               - 4.27.2F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 100
+              image: dual-topo-training-level-7-cvp
+            branch: v2023.2-dual-03012024
+            image: dual-topo-training-level-7-eos
+            orderable: true
+            eos:
+              - 4.30.1F  
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 7'
     title: 'Training Level 7 Lab'
@@ -1484,6 +1501,23 @@ topologies:
             image: base-ceos-training-l7-part-3-2021-3-20230331-110651
             eos:
               - 4.27.2F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-7-part3-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 100
+              image: dual-topo-training-level-7-part3-cvp
+            branch: v2023.2-dual-03012024
+            image: dual-topo-training-level-7-part3-eos
+            orderable: true
+            eos:
+              - 4.30.1F               
     desc: 'Level 7 - Part 3 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 7 - Part 3'
     title: 'Training Level 7 - Part 3 Lab'
@@ -1533,7 +1567,7 @@ topologies:
             image: dual-topo-training-level-1-3-eos
             orderable: false
             eos:
-              - 4.30.0F 
+              - 4.30.1F 
     prod:
       ceos:
         cpu: 60
@@ -1549,6 +1583,23 @@ topologies:
             image: level-1-3-container-labs-2022-3
             eos:
               - 4.27.2F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-1-3-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 100
+              image: dual-topo-training-level-1-3-cvp
+            branch: v2023.2-dual-03012024
+            image: dual-topo-training-level-1-3-eos
+            orderable: false
+            eos:
+              - 4.30.1F               
     desc: 'Training Level 1-3 Container labs'
     name: 'Training Level 1-3 Container labs'
     title: 'Training Level 1-3 Container labs'
@@ -1571,7 +1622,7 @@ topologies:
             orderable: true
             image: level-1-3-cisco-labs-2022-3
             eos:
-              - 4.30.0F
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
@@ -1586,7 +1637,7 @@ topologies:
             orderable: true
             image: level-1-3-container-labs-2022-3
             eos:
-              - 4.30.0F
+              - 4.30.1F
     desc: 'Training Level 1-3 cisco labs'
     name: 'Training Level 1-3 cisco labs'
     title: 'Training Level 1-3 cisco labs'
@@ -1609,7 +1660,7 @@ topologies:
             orderable: true
             image: level-1-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
@@ -1624,7 +1675,7 @@ topologies:
             orderable: true
             image: level-1-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
           2023.2.0-dual:
             schema: 2
             resources_eos:
@@ -1637,11 +1688,11 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-1-cvp
-            branch: nested/2023.2-dual
+            branch: v2023.2-dual-03012024
             image: dual-topo-training-level-1-eos
             orderable: true
             eos:
-              - 4.30.0F 
+              - 4.30.1F 
     desc: 'Training Level - 1 (NEW)'
     name: 'Training Level - 1'
     title: 'Training Level - 1'
@@ -1664,7 +1715,7 @@ topologies:
             orderable: true
             image: level-2-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
@@ -1679,7 +1730,24 @@ topologies:
             orderable: true
             image: level-2-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 50
+              image: dual-topo-training-level-2-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 100
+              image: dual-topo-training-level-2-cvp
+            branch: v2023.2-dual-03012024
+            image: dual-topo-training-level-2-eos
+            orderable: true
+            eos:
+              - 4.30.1F               
     desc: 'Training Level - 2 (NEW)'
     name: 'Training Level - 2'
     title: 'Training Level - 2'
@@ -1702,7 +1770,7 @@ topologies:
             orderable: true
             image: level-3-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
@@ -1717,7 +1785,7 @@ topologies:
             orderable: true
             image: level-3-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     desc: 'Training Level - 3 (NEW)'
     name: 'Training Level - 3'
     title: 'Training Level - 3'
@@ -1740,7 +1808,7 @@ topologies:
             orderable: true
             image: training-fxg-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     prod:
       ceos:
         cpu: 60
@@ -1755,7 +1823,7 @@ topologies:
             orderable: false
             image: training-fxg-cl-2023-2
             eos:
-              - 4.30.0F
+              - 4.30.1F
     desc: 'Training FXG'
     name: 'Training FXG'
     title: 'Training FXG'
