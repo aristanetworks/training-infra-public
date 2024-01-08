@@ -1672,7 +1672,7 @@ topologies:
               cpu: 48
               ram: 64
             branch: v2023.2-0103024
-            orderable: false
+            orderable: true
             image: level-1-cl-2023-2
             eos:
               - 4.30.1F
@@ -1690,7 +1690,7 @@ topologies:
               image: dual-topo-training-level-1-cvp
             branch: v2023.2-dual-03012024
             image: dual-topo-training-level-1-eos
-            orderable: true
+            orderable: false
             eos:
               - 4.30.1F 
     desc: 'Training Level - 1 (NEW)'
@@ -1727,7 +1727,7 @@ topologies:
               cpu: 48
               ram: 64
             branch: v2023.2-0103024
-            orderable: false
+            orderable: true
             image: level-2-cl-2023-2
             eos:
               - 4.30.1F
@@ -1745,7 +1745,7 @@ topologies:
               image: dual-topo-training-level-2-cvp
             branch: v2023.2-dual-03012024
             image: dual-topo-training-level-2-eos
-            orderable: true
+            orderable: false
             eos:
               - 4.30.1F               
     desc: 'Training Level - 2 (NEW)'
@@ -1799,7 +1799,7 @@ topologies:
               cpu: 48
               ram: 64
             branch: v2023.2-0103024
-            orderable: false
+            orderable: true
             image: level-3-cl-2023-2
             eos:
               - 4.30.1F
@@ -1817,7 +1817,7 @@ topologies:
               image: dual-topo-training-level-3-cvp
             branch: v2023.2-dual-03012024
             image: dual-topo-training-level-3-eos
-            orderable: true
+            orderable: false
             eos:
               - 4.30.1F         
     desc: 'Training Level - 3 (NEW)'
