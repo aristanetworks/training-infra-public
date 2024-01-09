@@ -1671,7 +1671,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch:  v2023.2-0109024
+            branch:  v2023.2-0109024v2
             orderable: true
             image: level-1-cl-2023-2
             eos:
