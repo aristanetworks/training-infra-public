@@ -1,8 +1,6 @@
 ---
     lab_list:
       reset:
-        additional_commands: 
-          - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
         description: "Reset All Devices to Base Lab (reset)"
     labconfiglets:
       reset:
@@ -26,6 +24,10 @@
           - "host1-base"
         host2:
           - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
         borderleaf2:
