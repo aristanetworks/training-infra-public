@@ -287,13 +287,13 @@ def getUptime(instanceIP):
         if instance_data['status'] == 'init':
             instance_data['runtime'] = int(TOPO_DATA['labels']['runtime'])
         else:
-            instance_data['runtime'] = 8
+            instance_data['runtime'] = 12
         return(instance_data)
     except:
         return({
             'boottime': 0,
             'uptime': 0,
-            'runtime': 8,
+            'runtime': 12,
             'status': 'init'
         })
 
