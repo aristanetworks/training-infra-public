@@ -1129,7 +1129,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: 2023.2-11.14-l4
+            branch: v2023.2-0115024
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20231116
             eos:
@@ -1399,7 +1399,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-7-cvp
-            branch: v2023.2-dual-03012024
+            branch: v2023.2-dual-0115024
             image: dual-topo-training-level-7-eos
             orderable: true
             eos:
@@ -1513,7 +1513,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-7-part3-cvp
-            branch: v2023.2-dual-03012024
+            branch: v2023.2-dual-0115024
             image: dual-topo-training-level-7-part3-eos
             orderable: true
             eos:
@@ -1595,7 +1595,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-1-3-cvp
-            branch: v2023.2-dual-03012024
+            branch: v2023.2-dual-0115024
             image: dual-topo-training-level-1-3-eos
             orderable: false
             eos:
@@ -1671,7 +1671,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch:  v2023.2-0109024v2
+            branch:  v2023.2-0115024
             orderable: true
             image: level-1-cl-2023-2
             eos:
@@ -1726,7 +1726,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch:  v2023.2-0109024
+            branch:  v2023.2-0115024
             orderable: true
             image: level-2-cl-2023-2
             eos:
@@ -1743,7 +1743,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-2-cvp
-            branch: v2023.2-dual-03012024
+            branch: v2023.2-dual-0115024
             image: dual-topo-training-level-2-eos
             orderable: false
             eos:
@@ -1798,7 +1798,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch:  v2023.2-0109024
+            branch:  v2023.2-0115024
             orderable: true
             image: level-3-cl-2023-2
             eos:
@@ -1815,7 +1815,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-3-cvp
-            branch: v2023.2-dual-03012024
+            branch: v2023.2-dual-0115024
             image: dual-topo-training-level-3-eos
             orderable: false
             eos:
