@@ -99,14 +99,14 @@ services:
       - atd_nginx
   labguides:
     container_name: atd-labguides
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides:1.0.1
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
-      - /root/labguides/web/:/root/labguides/web/:rw
+      - /opt/labguides/web/:/root/labguides/web/:rw
     networks:
       - atd_nginx
   freerad:
