@@ -4,7 +4,8 @@ echo "Starting atdStartup"
 
 TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
-LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$TOPO.labguide_zipfile_url)
+PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
+LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.labguide_zipfile_url)
 IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
 LABGUIDE_FILENAME="${url_parts[-1]}"
 
