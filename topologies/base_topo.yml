@@ -1105,6 +1105,7 @@ topologies:
               cpu: 60
               ram: 90
             branch: nested/2023.2
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20240119
             eos:
@@ -1132,6 +1133,7 @@ topologies:
             branch: v2023.2-0115024
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20231116
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz            
             eos:
               - 4.30.1F                   
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -1163,6 +1165,7 @@ topologies:
               cpu: 60
               ram: 90
             branch: nested/2023.2
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz             
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20240119
             eos:
@@ -1188,6 +1191,7 @@ topologies:
               cpu: 60
               ram: 90
             branch: v2023.2-0115024
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz             
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20231116
             eos:
@@ -1657,6 +1661,7 @@ topologies:
               cpu: 48
               ram: 110
             branch: nested/2023.2
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L1.tar.gz             
             orderable: true
             image: level-1-cl-2023-2-01172024
             eos:
@@ -1672,6 +1677,7 @@ topologies:
               cpu: 48
               ram: 64
             branch:  v2023.2-0115024
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L1.tar.gz             
             orderable: true
             image: level-1-cl-2023-2
             eos:
@@ -1712,6 +1718,7 @@ topologies:
               cpu: 48
               ram: 110
             branch: nested/2023.2
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L2.tar.gz             
             orderable: true
             image: level-2-cl-2023-2-01172024
             eos:
@@ -1727,6 +1734,7 @@ topologies:
               cpu: 48
               ram: 64
             branch:  v2023.2-0115024
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L2.tar.gz             
             orderable: true
             image: level-2-cl-2023-2
             eos:
@@ -1767,6 +1775,7 @@ topologies:
               cpu: 48
               ram: 110
             branch: nested/2023.2
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L3.tar.gz             
             orderable: true
             image: level-3-cl-2023-2-01172024
             eos:
@@ -1799,6 +1808,7 @@ topologies:
               cpu: 48
               ram: 64
             branch:  v2023.2-0115024
+            labguide_file_url : gs://topology_deploy_files/lab-guide-zips/L3.tar.gz             
             orderable: true
             image: level-3-cl-2023-2
             eos:
