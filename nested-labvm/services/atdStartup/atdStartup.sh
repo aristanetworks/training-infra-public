@@ -4,6 +4,26 @@ echo "Starting atdStartup"
 
 TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
+LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$TOPO.labguide_zipfile_url)
+IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
+LABGUIDE_FILENAME="${url_parts[-1]}"
+
+LABGUIDE_DIRECTORY="/opt/labguides/web/"
+if [ ! -d "$LABGUIDE_DIRECTORY" ]; then
+  mkdir -p "$LABGUIDE_DIRECTORY"
+  echo "Directory created: $LABGUIDE_DIRECTORY"
+fi
+if [ -e "${LABGUIDE_DIRECTORY}${LABGUIDE_FILENAME}" ]; then
+  echo "File ${LABGUIDE_FILENAME} already exists. Nothing to do."
+else
+  # Remove all files in the target directory
+  rm -rf "${LABGUIDE_DIRECTORY}"*
+  # Download the file from the source URL to the target directory
+  gsutil cp "${LABGUIDE_FILENAME_URL}" "${LABGUIDE_DIRECTORY}"
+  cd $LABGUIDE_DIRECTORY
+  tar -xzf "${LABGUIDE_FILENAME}"
+  echo "File ${LABGUIDE_FILENAME} downloaded to ${LABGUIDE_DIRECTORY}"
+fi
 
 if [ "$(cat /etc/atd/ACCESS_INFO.yaml | grep eos_type)" ]
 then
