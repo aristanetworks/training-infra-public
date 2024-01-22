@@ -12,10 +12,10 @@
           - "Router-2-BASE"
         Core-1:
           - "Core-1-BASE"
-        Core-1:
+        Core-2:
           - "Core-2-BASE"
         Access-1:
-          - "Access-1-BADE"
+          - "Access-1-BASE"
         Access-2:
           - "Access-2-BASE"
 
