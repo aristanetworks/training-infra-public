@@ -141,7 +141,7 @@ nodes:
         port: Ethernet1
   - host-12:
     ip_addr: 192.168.0.43
-      sys_mac: 00:1c:73:e3:c6:01
+    sys_mac: 00:1c:73:e3:c6:01
     neighbors:
       - neighborDevice: Access-2
         neighborPort: Ethernet3
