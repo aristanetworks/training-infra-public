@@ -1840,7 +1840,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: training-fxg-cl-2023-2
+            image: training-fxg-cl-veos-2023-2
             eos:
               - 4.30.1F
     prod:
@@ -1855,7 +1855,7 @@ topologies:
               ram: 64
             branch: nested/2023.2
             orderable: false
-            image: training-fxg-cl-2023-2
+            image: training-fxg-cl-veos-2023-2
             eos:
               - 4.30.1F
     desc: 'Training FXG'
