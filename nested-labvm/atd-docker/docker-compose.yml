@@ -111,7 +111,7 @@ services:
       - atd_nginx
   syslog:
     container_name: atd-syslog
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
