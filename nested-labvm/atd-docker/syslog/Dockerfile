@@ -4,7 +4,6 @@ ENV DEBIAN_FRONTEND noninteractive
 
 ADD ./src/rsyslog.list /etc/apt/sources.list.d/rsyslog.list
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0F6DD8135234BF2B
-RUN adduser --disabled-password --home /home/arista --gecos "" arista
 RUN apt-get update && \
     apt-get install -y rsyslog
 
