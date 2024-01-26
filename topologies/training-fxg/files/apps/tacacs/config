@@ -1,20 +1,20 @@
-key = "COOKBOOK"
-group = limited {
-   default service = deny
-}
-user = fedexuser {
-    # default service = permit
-    login = clear fedexuser
-    # member = limited
-    service = shell {
-      set priv-lvl = 15
-      cmd = show {
-        deny running-config
-        permit .*
+ key = "COOKBOOK"
+
+# user: fedexuser login password: fedexuser
+
+ user = fedexuser {
+     login = clear fedexuser
+     service = shell {
+       set priv-lvl = 15
+       cmd = show {
+         deny running-config
+         permit .*
      }
    }
-}
-user = fedex {
-    default service = permit
-    login = clear arista
-}
+ }
+
+# user: fedex login password: arista
+ user = fedex {
+     default service = permit
+     login = clear arista
+ }
