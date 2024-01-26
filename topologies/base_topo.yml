@@ -1673,7 +1673,7 @@ topologies:
               ram: 64
             branch:  v2023.2-0126024
             orderable: true
-            image: level-1-cl-2023-2
+            image: level-1-cl-2023-2-01172024
             eos:
               - 4.30.1F
           2023.2.0-dual:
@@ -1728,7 +1728,7 @@ topologies:
               ram: 64
             branch:  v2023.2-0126024
             orderable: true
-            image: level-2-cl-2023-2
+            image: level-2-cl-2023-2-01172024
             eos:
               - 4.30.1F
           2023.2.0-dual:
@@ -1800,7 +1800,7 @@ topologies:
               ram: 64
             branch:  v2023.2-0126024
             orderable: true
-            image: level-3-cl-2023-2
+            image: level-3-cl-2023-2-01172024
             eos:
               - 4.30.1F
           2023.2.0-dual:
