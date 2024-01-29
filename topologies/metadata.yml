@@ -2,7 +2,7 @@ topologies:
   atd-testdrivetraining-dev:
     training-level-1-cl:
       labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L1.tar.gz 
-      latest_branch_name : nested/2023.2
+      latest_branch_name : nested-release
     training-level-2-cl:
       labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L2.tar.gz 
     training-level-3-cl:
