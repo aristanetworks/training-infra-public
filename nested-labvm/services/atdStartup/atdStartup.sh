@@ -6,6 +6,13 @@ TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.labguide_zipfile_url)
+LATEST_BRANCH_NAME=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.latest_branch_name)
+if [ $? -eq 0 ]; then
+  sed -i "/atd-public-branch/catd-public-branch: $LATEST_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
+  echo "changing branch name to $LATEST_BRANCH_NAME"
+else
+    echo "not changing any branch name"
+fi
 IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
 LABGUIDE_FILENAME="${url_parts[-1]}"
 
