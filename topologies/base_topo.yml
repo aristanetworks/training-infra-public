@@ -1041,6 +1041,16 @@ topologies:
             eos:
               - 4.25.1F
               - 4.26.0F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-4301-20240119
+            eos:
+              - 4.30.1F   
       veos:
         cpu: 60
         ram: 90
@@ -1065,16 +1075,7 @@ topologies:
             image: base-training-l4-e4-27-1f-c2021-3-0-e6-20220131
             eos:
               - 4.27.1F
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l4-v2-2023-2-4301-20240119
-            eos:
-              - 4.30.1F              
+           
     prod:
       veos:
         cpu: 32
@@ -1123,6 +1124,9 @@ topologies:
             image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
             eos:
               - 4.29.1F
+      ceos:
+        cpu: 60
+        ram: 90
           2023.2.0:
             schema: 1
             resources:
