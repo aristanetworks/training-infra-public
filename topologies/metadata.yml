@@ -5,7 +5,7 @@ topologies:
     training-level-2-cl:
       labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L2.tar.gz 
     training-level-3-cl:
-      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L3.tar.gz 
+      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L3_01302022.tar.gz
     training-level4:
       labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz 
     training-level4-v2:
