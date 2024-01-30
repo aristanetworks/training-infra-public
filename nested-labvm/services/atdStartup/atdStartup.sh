@@ -1,15 +1,26 @@
 #!/bin/bash
 
 echo "Starting atdStartup"
-
+sudo curl -o /etc/atd/base_topo.yml https://raw.githubusercontent.com/aristanetworks/training-infra-public/nested-release/topologies/base_topo.yml
 TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
+CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
+CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
+EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
+if [ "$EOS_TYPE" == "container-labs" ]; then
+    EOS_TYPE="ceos"
+fi
 LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.labguide_zipfile_url)
-LATEST_BRANCH_NAME=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.latest_branch_name)
+if [ "$PROJECT" == "atd-testdrivetraining-prod" ]; then
+    PROJECT="prod"
+else
+    PROJECT="dev"
+fi
+NEW_BRANCH_NAME=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.dev.$EOS_TYPE.cvp.$CVP_VER_MOD.branch)
 if [ $? -eq 0 ]; then
-  sed -i "/atd-public-branch/catd-public-branch: $LATEST_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
-  echo "changing branch name to $LATEST_BRANCH_NAME"
+  sed -i "/atd-public-branch/catd-public-branch: $NEW_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
+  echo "changing branch name to $NEW_BRANCH_NAME"
 else
     echo "not changing any branch name"
 fi
