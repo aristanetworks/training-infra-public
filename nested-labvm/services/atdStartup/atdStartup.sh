@@ -17,7 +17,7 @@ if [ "$PROJECT" == "atd-testdrivetraining-prod" ]; then
 else
     PROJECT="dev"
 fi
-NEW_BRANCH_NAME=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.dev.$EOS_TYPE.cvp.$CVP_VER_MOD.branch)
+NEW_BRANCH_NAME=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.$PROJECT.$EOS_TYPE.cvp.$CVP_VER_MOD.branch)
 if [ $? -eq 0 ]; then
   sed -i "/atd-public-branch/catd-public-branch: $NEW_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
   echo "changing branch name to $NEW_BRANCH_NAME"
