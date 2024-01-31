@@ -1868,7 +1868,7 @@ topologies:
               cpu: 48
               ram: 64
             branch: nested/2023.2
-            orderable: false
+            orderable: true
             image: training-fxg-cl-veos-2023-2
             eos:
               - 4.30.1F
