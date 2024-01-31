@@ -1630,13 +1630,13 @@ topologies:
           2023.2.0-dual:
             schema: 2
             resources_eos:
-              cpu: 48
-              ram: 110
+              cpu: 20
+              ram: 40
               disk: 50
               image: dual-topo-training-level-1-eos
             resources_cvp:
               cpu: 48
-              ram: 110
+              ram: 70
               disk: 100
               image: dual-topo-training-level-1-cvp
             branch: nested/2023.2-dual
@@ -1702,13 +1702,13 @@ topologies:
           2023.2.0-dual:
             schema: 2
             resources_eos:
-              cpu: 48
-              ram: 110
+              cpu: 20
+              ram: 40
               disk: 50
               image: dual-topo-training-level-2-eos
             resources_cvp:
               cpu: 48
-              ram: 110
+              ram: 70
               disk: 100
               image: dual-topo-training-level-2-cvp
             branch: nested/2023.2-dual
@@ -1774,13 +1774,13 @@ topologies:
           2023.2.0-dual:
             schema: 2
             resources_eos:
-              cpu: 48
-              ram: 110
+              cpu: 20
+              ram: 40
               disk: 50
               image: dual-topo-training-level-3-eos
             resources_cvp:
               cpu: 48
-              ram: 110
+              ram: 70
               disk: 100
               image: dual-topo-training-level-3-cvp
             branch: nested/2023.2-dual
