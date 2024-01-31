@@ -5,18 +5,18 @@ interface Management1
   vrf MGMT
   ip address 192.168.0.41/24
 !
-vlan 40
+vlan 14
 !
-interface Vlan40
+interface Vlan14
    ip address 14.0.0.11/24
 !
 interface Ethernet 1
   switchport
   switchport mode access
-  switchport access vlan 40
+  switchport access vlan 14
 !
 ip routing
-ip route 0.0.0.0/0 14.0.0.1
+ip route 0.0.0.0/0 14.0.0.254
 !
 dns domain arista.lab
 !
