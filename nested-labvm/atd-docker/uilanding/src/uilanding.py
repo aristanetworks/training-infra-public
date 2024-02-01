@@ -332,15 +332,15 @@ class LabHandler(tornado.web.RequestHandler):
         selected_lab_option = self.get_argument('lab_value')
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}')
-        print(container_output)
-        log_file = open('log.txt','w')
-        log_file.write(str(container_output.output.decode("utf-8")))
-        log_file.close()
-        with open("log.txt", "r") as txt_file:
-            response =  txt_file.readlines()
+        login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}', detach=True)
+        # print(container_output)
+        # log_file = open('log.txt','w')
+        # log_file.write(str(container_output.output.decode("utf-8")))
+        # log_file.close()
+        # with open("log.txt", "r") as txt_file:
+        #     response =  txt_file.readlines()
         self.write({
-            'response':response
+            'response':'Configuration is being applied. Check in CVP that all tasks have been applied'
         })
 
 class LabStausHandler(tornado.web.RequestHandler):

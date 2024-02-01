@@ -1,0 +1,23 @@
+topologies:
+  atd-testdrivetraining-dev:
+    training-level-1-cl:
+      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L1.tar.gz 
+    training-level-2-cl:
+      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L2.tar.gz 
+    training-level-3-cl:
+      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L3_01302022.tar.gz
+    training-level4:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz 
+    training-level4-v2:
+      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L4.tar.gz 
+  atd-testdrivetraining-prod:
+    training-level-1-cl:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L1_01252024.tar.gz
+    training-level-2-cl:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L2_01222024.tar.gz
+    training-level-3-cl:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L3_01302022.tar.gz
+    training-level4:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L4_01222024.tar.gz
+    training-level4-v2:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L4_01222024.tar.gz
