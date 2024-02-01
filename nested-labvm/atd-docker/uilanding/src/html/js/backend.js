@@ -117,11 +117,11 @@ document.getElementById("labBtn").addEventListener("click", function () {
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
         if (res.response) {
-            output = ''
-            res.response.forEach(element => {
-                output = output + element
-            });
-            document.getElementById('apiResponse').textContent = output
+            // output = ''
+            // res.response.forEach(element => {
+            //     output = output + element
+            // });
+            document.getElementById('apiResponse').textContent = res.response
             document.getElementById('loader').style.display = 'none'
 
         }

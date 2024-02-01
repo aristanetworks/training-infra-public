@@ -1,9 +1,48 @@
 #!/bin/bash
 
 echo "Starting atdStartup"
-
+sudo curl -o /etc/atd/base_topo.yml https://raw.githubusercontent.com/aristanetworks/training-infra-public/nested-release/topologies/base_topo.yml
 TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
+PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
+CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
+CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
+EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
+if [ "$EOS_TYPE" == "container-labs" ]; then
+    EOS_TYPE="ceos"
+fi
+LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.labguide_zipfile_url)
+if [ "$PROJECT" == "atd-testdrivetraining-prod" ]; then
+    PROJECT="prod"
+else
+    PROJECT="dev"
+fi
+NEW_BRANCH_NAME=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.$PROJECT.$EOS_TYPE.cvp.$CVP_VER_MOD.branch)
+if [ $? -eq 0 ]; then
+  sed -i "/atd-public-branch/catd-public-branch: $NEW_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
+  echo "changing branch name to $NEW_BRANCH_NAME"
+else
+    echo "not changing any branch name"
+fi
+IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
+LABGUIDE_FILENAME="${url_parts[-1]}"
+
+LABGUIDE_DIRECTORY="/opt/labguides/web/"
+if [ ! -d "$LABGUIDE_DIRECTORY" ]; then
+  mkdir -p "$LABGUIDE_DIRECTORY"
+  echo "Directory created: $LABGUIDE_DIRECTORY"
+fi
+if [ -e "${LABGUIDE_DIRECTORY}${LABGUIDE_FILENAME}" ]; then
+  echo "File ${LABGUIDE_FILENAME} already exists. Nothing to do."
+else
+  # Remove all files in the target directory
+  rm -rf "${LABGUIDE_DIRECTORY}"*
+  # Download the file from the source URL to the target directory
+  gsutil cp "${LABGUIDE_FILENAME_URL}" "${LABGUIDE_DIRECTORY}"
+  cd $LABGUIDE_DIRECTORY
+  tar -xzf "${LABGUIDE_FILENAME}"
+  echo "File ${LABGUIDE_FILENAME} downloaded to ${LABGUIDE_DIRECTORY}"
+fi
 
 if [ "$(cat /etc/atd/ACCESS_INFO.yaml | grep eos_type)" ]
 then
