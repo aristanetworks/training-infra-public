@@ -99,20 +99,28 @@
       multicast:
         spine1:
           - "spine1-base"
+          - "Spine1-Multicast-Start"
         spine2:
           - "spine2-base"
+          - "Spine2-Multicast-Start"
         spine3:
           - "spine3-base"
+          - "Spine3-Multicast-Start"
         spine4:
           - "spine4-base"
+          - "Spine4-Multicast-Start"
         leaf1:
           - "leaf1-base"
+          - "Leaf1-Multicast-Start"
         leaf2:
           - "leaf2-base"
+          - "Leaf2-Multicast-Start"
         leaf3:
           - "leaf3-base"
+          - "Leaf3-Multicast-Start"
         leaf4:
           - "leaf4-base"
+          - "Leaf4-Multicast-Start"
         host1:
           - "host1-base"
         host2:
@@ -123,5 +131,7 @@
           - "host4-base"
         borderleaf1:
           - "borderleaf1-base"
+          - "BorderLeaf1-Multicast-Start"
         borderleaf2:
           - "borderleaf2-base"
+          - "BorderLeaf2-Multicast-Start"
