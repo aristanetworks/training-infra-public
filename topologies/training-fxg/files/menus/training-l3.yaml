@@ -18,4 +18,12 @@
           - "Access-1-BASE"
         Access-2:
           - "Access-2-BASE"
+        Host-1:
+          - "Host-1-BASE"
+        Host-11:
+          - "Host-11-BASE"
+        Host-12:
+          - "Host-12-BASE"
+
+
 
