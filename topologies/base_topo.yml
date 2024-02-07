@@ -558,6 +558,16 @@ topologies:
             image: base-veos-training-l1-2021-3-20230315-110300
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l1-2023-2-4301-20240207
+            eos:
+              - 4.30.1F               
     prod:
       veos:
         cpu: 32
@@ -654,6 +664,16 @@ topologies:
             image: base-veos-training-l1-exam-2-2021-3-20230622-101922
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l1-exam-2-2023-2-4301-20240207
+            eos:
+              - 4.30.1F                 
     prod:
       veos:
         cpu: 32
@@ -712,6 +732,16 @@ topologies:
             image: base-veos-training-l2-2021-3-20230314-153844
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l2-2023-2-4301-20240207
+            eos:
+              - 4.30.1F                
     prod:
       veos:
         cpu: 32
@@ -788,6 +818,16 @@ topologies:
             image: base-veos-training-l2-exam-2-2021-3-20230621-093455
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l2-exam-2-2023-2-4301-20240207
+            eos:
+              - 4.30.1F  
     prod:
       veos:
         cpu: 40
@@ -876,6 +916,16 @@ topologies:
             image: base-veos-training-l3-2022-3-1-4291-20230214-130205
             eos:
               - 4.29.1F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l3-2023-2-4301-20240207
+            eos:
+              - 4.30.1F  
     prod:
       veos:
         cpu: 36
@@ -944,6 +994,16 @@ topologies:
             image: base-veos-training-l3-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l3-exam-2023-2-4301-20240207
+            eos:
+              - 4.30.1F               
     prod:
       veos:
         cpu: 36
@@ -1002,6 +1062,16 @@ topologies:
             image: base-veos-training-l3-2-2021-3-20230206-214313
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l3-2-2023-2-4301-20240207
+            eos:
+              - 4.30.1F  
     prod:
       veos:
         cpu: 40
@@ -1181,6 +1251,16 @@ topologies:
             image: base-veos-training-l4-exam-2021-3-20230206-214313
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-exam-2023-2-4301-20240207
+            eos:
+              - 4.30.1F
     prod:
       veos:
         cpu: 32
