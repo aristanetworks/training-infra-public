@@ -13,7 +13,7 @@ interface Vlan13
 interface Ethernet 1
   switchport
   switchport mode access
-  switchport access vlan 12
+  switchport access vlan 13
 !
 ip routing
 !
