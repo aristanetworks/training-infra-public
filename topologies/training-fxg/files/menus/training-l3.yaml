@@ -30,4 +30,12 @@
         Wan-1:
           - "Wan-1-BASE"
           - "Wan-1-OSPF"
-          
+        Router-1:
+        Router-2:
+        Core-1:
+        Core-2:
+        Access-1:
+        Access-2:
+        host-1:
+        host-11:
+        host-12:
