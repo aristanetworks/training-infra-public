@@ -596,7 +596,7 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 54
+              cpu: 56
               ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
