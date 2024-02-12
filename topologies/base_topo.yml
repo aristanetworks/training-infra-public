@@ -596,8 +596,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 54
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l1-2023-2-4301-20240207
@@ -712,8 +712,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l1-exam-2-2023-2-4301-20240207
@@ -780,8 +780,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 56
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l2-2023-2-4301-20240207
@@ -876,8 +876,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l2-exam-2-2023-2-4301-20240207
@@ -1004,8 +1004,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l3-2023-2-4301-20240207
@@ -1082,8 +1082,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l3-exam-2023-2-4301-20240207
@@ -1150,8 +1150,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l3-2-2023-2-4301-20240207
@@ -1349,8 +1349,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 88
             branch:  v2023.2-0207024.2
             orderable: true
             image: base-veos-training-l4-exam-2023-2-4301-20240207
