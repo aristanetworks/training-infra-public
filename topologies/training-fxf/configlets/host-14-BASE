@@ -1,23 +1,23 @@
-hostname host-11
+hostname host-14
 !
 !
 interface Management1
   vrf MGMT
-  ip address 192.168.0.42/24
+  ip address 192.168.0.43/24
 !
-vlan 11
+vlan 14
 !
-interface Vlan11
-   ip address 11.0.0.11/24
+interface Vlan14
+   ip address 14.0.0.11/24
 !
 interface Ethernet 1
   switchport
   switchport mode access
-  switchport access vlan 11
+  switchport access vlan 14
 !
 ip routing
 !
-ip route 0.0.0.0/0 11.0.0.1
+ip route 0.0.0.0/0 14.0.0.1
 !
 dns domain arista.lab
 !
