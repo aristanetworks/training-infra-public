@@ -113,30 +113,26 @@ nodes:
        - neighborDevice: Server-14
          neighborPort: Ethernet1
          port: Ethernet3
-servers:
- - Server-1:
-     image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
-     ip_addr: 192.168.0.101
-     port : 6001
-     neighbors:
-       - neighborDevice: Wan-1
-         neighborPort: Ethernet3
-         port: Ethernet1
- - Server-12:
-     image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
-     ip_addr: 192.168.0.102
-     port : 6002
-     neighbors:
-       - neighborDevice: Access-1
-         neighborPort: Ethernet3
-         port: Ethernet1
- - Server-14:
-     image_name: "gcr.io/atd-testdrivetraining-dev/hosts-gui/host1:latest"
-     ip_addr: 192.168.0.103
-     port : 6003
-     neighbors:
-       - neighborDevice: Access-2
-         neighborPort: Ethernet3
-         port: Ethernet1
+  - host-1:
+      ip_addr: 192.168.0.41
+      sys_mac: 00:1c:73:e1:c6:01
+      neighbors:
+        - neighborDevice: Wan-1
+          neighborPort: Ethernet3
+          port: Ethernet1
+  - host-11:
+      ip_addr: 192.168.0.42
+      sys_mac: 00:1c:73:e2:c6:01
+      neighbors:
+        - neighborDevice: Access-1
+          neighborPort: Ethernet3
+          port: Ethernet1
+  - host-12:
+      ip_addr: 192.168.0.43
+      sys_mac: 00:1c:73:e3:c6:01
+      neighbors:
+        - neighborDevice: Access-2
+          neighborPort: Ethernet3
+          port: Ethernet1
 additional_ssh_nodes:
 additional_clab_nodes:

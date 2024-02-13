@@ -1,32 +1,26 @@
 ---
     lab_list:
       reset:
-        additional_commands: 
-          - "bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
         description: "Reset All Devices to Base Lab (reset)"
     labconfiglets:
       reset:
-        spine1:
-          - "spine1-base"
-        spine2:
-          - "spine2-base"
-        spine3:
-          - "spine3-base"
-        spine4:
-          - "spine4-base"
-        leaf1:
-          - "leaf1-base"
-        leaf2:
-          - "leaf2-base"
-        leaf3:
-          - "leaf3-base"
-        leaf4:
-          - "leaf4-base"
-        host1:
-          - "host1-base"
-        host2:
-          - "host2-base"
-        borderleaf1:
-          - "borderleaf1-base"
-        borderleaf2:
-          - "borderleaf2-base"
+        Wan-1:
+          - "Wan-1-BASE"
+        Router-1:
+          - "Router-1-BASE"
+        Router-2:
+          - "Router-2-BASE"
+        Core-1:
+          - "Core-1-BASE"
+        Core-2:
+          - "Core-2-BASE"
+        Access-1:
+          - "Access-1-BASE"
+        Access-2:
+          - "Access-2-BASE"
+        host-1:
+          - "host-1-BASE"
+        host-11:
+          - "host-11-BASE"
+        host-12:
+          - "host-12-BASE"

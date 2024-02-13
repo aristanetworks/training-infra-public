@@ -1,0 +1,26 @@
+hostname host-11
+!
+!
+interface Management1
+  vrf MGMT
+  ip address 192.168.0.42/24
+!
+vlan 11
+!
+interface Vlan11
+   ip address 11.0.0.11/24
+!
+interface Ethernet 1
+  switchport
+  switchport mode access
+  switchport access vlan 11
+!
+ip routing
+!
+ip route 0.0.0.0/0 11.0.0.1
+!
+dns domain arista.lab
+!
+ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 192.168.0.1

@@ -1,0 +1,27 @@
+router ospf 1
+   router-id 1.1.1.7
+   passive-interface default
+   no passive-interface Ethernet1
+   no passive-interface Ethernet2
+   no passive-interface Vlan14
+   network 10.0.0.16/30 area 0.0.0.1
+   network 10.0.0.20/30 area 0.0.0.1
+   network 14.0.0.0/24 area 0.0.0.0
+   default-information originate always
+
+
+  interface Vlan14
+   no autostate
+   ip address 14.0.0.254/24
+   ip ospf area 0.0.0.0
+
+  interface Ethernet 1
+    description OSPF Area 1 to Router-1
+    ip ospf network point-to-point
+    ip ospf area 0.0.0.1
+
+
+  interface Ethernet 2
+    description OSPF Area 1 to Router-2
+    ip ospf network point-to-point
+    ip ospf area 0.0.0.1
