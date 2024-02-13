@@ -14,7 +14,7 @@ nodes:
        - neighborDevice: Router-2
          neighborPort: Ethernet1
          port: Ethernet2
-       - neighborDevice: Server-1
+       - neighborDevice: host-1
          neighborPort: Ethernet1
          port: Ethernet3
  - Router-1:
@@ -97,7 +97,7 @@ nodes:
        - neighborDevice: Core-2
          neighborPort: Ethernet2
          port: Ethernet2
-       - neighborDevice: Server-12
+       - neighborDevice: host-12
          neighborPort: Ethernet1
          port: Ethernet3
  - Access-2:
@@ -110,24 +110,24 @@ nodes:
        - neighborDevice: Core-1
          neighborPort: Ethernet2
          port: Ethernet2
-       - neighborDevice: Server-14
+       - neighborDevice: host-14
          neighborPort: Ethernet1
          port: Ethernet3
-  - host-1:
+ - host-1:
       ip_addr: 192.168.0.41
       sys_mac: 00:1c:73:e1:c6:01
       neighbors:
         - neighborDevice: Wan-1
           neighborPort: Ethernet3
           port: Ethernet1
-  - host-11:
+ - host-12:
       ip_addr: 192.168.0.42
       sys_mac: 00:1c:73:e2:c6:01
       neighbors:
         - neighborDevice: Access-1
           neighborPort: Ethernet3
           port: Ethernet1
-  - host-12:
+ - host-14:
       ip_addr: 192.168.0.43
       sys_mac: 00:1c:73:e3:c6:01
       neighbors:
