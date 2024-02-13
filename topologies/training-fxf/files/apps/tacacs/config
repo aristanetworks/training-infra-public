@@ -1,0 +1,20 @@
+ key = "COOKBOOK"
+
+# user: fedexuser login password: fedexuser
+
+ user = fedexuser {
+     login = clear fedexuser
+     service = shell {
+       set priv-lvl = 15
+       cmd = show {
+         deny running-config
+         permit .*
+     }
+   }
+ }
+
+# user: fedex login password: arista
+ user = fedex {
+     default service = permit
+     login = clear arista
+ }
