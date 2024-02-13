@@ -1,8 +1,7 @@
 hostname Core-1
 !
-
 !
-interface Management 0
+interface Management1
   vrf MGMT
   ip address 192.168.0.21/24
 
