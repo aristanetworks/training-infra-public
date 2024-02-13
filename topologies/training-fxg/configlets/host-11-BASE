@@ -1,5 +1,6 @@
 hostname host-11
 !
+no spanning-tree vlan-id 11
 !
 interface Management1
   vrf MGMT
