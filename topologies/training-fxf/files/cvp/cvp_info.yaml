@@ -9,6 +9,9 @@ cvp_info:
       - Core-2
       - Access-1
       - Access-2
+      - host-1-BASE
+      - host-12-BASE
+      - host-14-BASE
   snapshots:
   configlets:
     containers:
