@@ -10,6 +10,7 @@ vlan 13
 !
 interface Vlan13
    ip address 13.0.0.11/24
+   no autostate
 !
 interface Ethernet 1
   switchport
