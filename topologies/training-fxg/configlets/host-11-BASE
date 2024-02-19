@@ -9,7 +9,8 @@ interface Management1
 vlan 11
 !
 interface Vlan11
-   ip address 11.0.0.11/24
+   ip address 11.0.0.11/24]
+   no autostate
 !
 interface Ethernet 1
   switchport
