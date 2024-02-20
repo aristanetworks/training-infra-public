@@ -1,5 +1,6 @@
 hostname host-14
 !
+no spanning-tree vlan-id 14
 !
 interface Management1
   vrf MGMT
@@ -9,6 +10,7 @@ vlan 14
 !
 interface Vlan14
    ip address 14.0.0.11/24
+   no autostate
 !
 interface Ethernet 1
   switchport
@@ -17,7 +19,7 @@ interface Ethernet 1
 !
 ip routing
 !
-ip route 0.0.0.0/0 14.0.0.1
+ip route 0.0.0.0/0 14.0.0.254
 !
 dns domain arista.lab
 !
