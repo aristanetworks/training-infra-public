@@ -2027,7 +2027,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0220024
+            branch: v2023.2-0220024-1
             orderable: true
             image: training-fxg-cl-veos-2023-2
             eos:
