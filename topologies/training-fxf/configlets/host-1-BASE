@@ -1,5 +1,6 @@
 hostname host-1
 !
+no spanning-tree vlan-id 14
 !
 interface Management1
   vrf MGMT
@@ -9,6 +10,7 @@ vlan 14
 !
 interface Vlan14
    ip address 14.0.0.11/24
+    no autostate
 !
 interface Ethernet 1
   switchport
