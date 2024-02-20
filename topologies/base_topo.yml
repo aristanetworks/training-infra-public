@@ -1812,8 +1812,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024
             orderable: true
             image: level-1-cl-2023-2-01172024
@@ -1884,8 +1884,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024
             orderable: true
             image: level-2-cl-2023-2-01172024
@@ -1956,8 +1956,8 @@ topologies:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 64
+              cpu: 60
+              ram: 80
             branch:  v2023.2-0207024
             orderable: true
             image: level-3-cl-2023-2-01172024
