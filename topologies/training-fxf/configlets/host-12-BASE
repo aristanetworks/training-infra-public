@@ -1,5 +1,6 @@
 hostname host-12
 !
+no spanning-tree vlan-id 13
 !
 interface Management1
   vrf MGMT
@@ -7,17 +8,18 @@ interface Management1
 !
 vlan 12
 !
-interface Vlan12
-   ip address 11.0.0.12/24
+interface Vlan13
+   ip address 13.0.0.11/24
+   no autostate
 !
 interface Ethernet 1
   switchport
   switchport mode access
-  switchport access vlan 12
+  switchport access vlan 13
 !
 ip routing
 !
-ip route 0.0.0.0/0 12.0.0.1
+ip route 0.0.0.0/0 13.0.0.1
 !
 dns domain arista.lab
 !
