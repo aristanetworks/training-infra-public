@@ -22,6 +22,7 @@ topology:
     Wan-1: 
       coords: "312,158,484,251"
       ip: "192.168.0.11"
+  servers:
     Server-1:
       coords: "339,38,469,127"
       ip: "192.168.0.41"
