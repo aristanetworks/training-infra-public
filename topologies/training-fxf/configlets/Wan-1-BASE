@@ -1,11 +1,24 @@
 hostname Wan-1
 !
+vlan 11
+!
 !
 interface Management1
   vrf MGMT
   ip address 192.168.0.11/24
-
-
+!
+interface vlan 11
+  ip address 11.0.0.254/24
+  no autostate
+!
+interface Ethernet 3
+  switchport 
+  switchport mode access
+  switch port access vlan 11
+  no shut
+  spanning-tree portfast
+!
+ip routing
 !
 dns domain arista.lab
 !
