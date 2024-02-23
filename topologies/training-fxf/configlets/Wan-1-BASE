@@ -1,7 +1,7 @@
 hostname Wan-1
 !
 vlan 11
-!
+name VLAN-11-11.0.0.0/24
 !
 interface Management1
   vrf MGMT
@@ -15,8 +15,8 @@ interface Ethernet 3
   switchport 
   switchport mode access
   switch port access vlan 11
-  no shut
   spanning-tree portfast
+  no shut
 !
 ip routing
 !
