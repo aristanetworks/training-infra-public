@@ -14,7 +14,7 @@ interface vlan 11
 interface Ethernet 3
   switchport 
   switchport mode access
-  switch port access vlan 11
+  switchport access vlan 11
   no shut
   spanning-tree portfast
 !
