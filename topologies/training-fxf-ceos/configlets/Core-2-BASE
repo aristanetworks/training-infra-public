@@ -1,0 +1,14 @@
+hostname Core-2
+!
+!
+interface Management1
+  vrf MGMT
+  ip address 192.168.0.22/24
+
+
+!
+dns domain arista.lab
+!
+ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 192.168.0.1

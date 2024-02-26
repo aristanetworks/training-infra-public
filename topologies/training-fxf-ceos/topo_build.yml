@@ -1,0 +1,138 @@
+host_cpu: 4
+cvp_cpu: 32
+cvp_ram: 42
+cvp_nodes: 1
+veos_cpu: 2
+nodes:
+ - Wan-1:
+     ip_addr: 192.168.0.11
+     sys_mac: 00:1c:73:b1:c6:01
+     neighbors:
+       - neighborDevice: Router-1
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Router-2
+         neighborPort: Ethernet1
+         port: Ethernet2
+       - neighborDevice: host-1
+         neighborPort: Ethernet1
+         port: Ethernet3
+ - Router-1:
+     ip_addr: 192.168.0.12
+     sys_mac: 00:1c:73:b2:c6:01
+     neighbors:
+       - neighborDevice: Wan-1
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Core-1
+         neighborPort: Ethernet5
+         port: Ethernet2
+       - neighborDevice: Router-2
+         neighborPort: Ethernet3
+         port: Ethernet3
+       - neighborDevice: Router-2
+         neighborPort: Ethernet4
+         port: Ethernet4
+ - Router-2:
+     ip_addr: 192.168.0.13
+     sys_mac: 00:1c:73:b3:c6:01
+     neighbors:
+       - neighborDevice: Wan-1
+         neighborPort: Ethernet2
+         port: Ethernet1
+       - neighborDevice: Core-2
+         neighborPort: Ethernet5
+         port: Ethernet2
+       - neighborDevice: Router-1
+         neighborPort: Ethernet3
+         port: Ethernet3
+       - neighborDevice: Router-1
+         neighborPort: Ethernet4
+         port: Ethernet4
+ - Core-1:
+     ip_addr: 192.168.0.21
+     sys_mac: 00:1c:73:c1:c6:01
+     neighbors:
+       - neighborDevice: Access-1
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Access-2
+         neighborPort: Ethernet2
+         port: Ethernet2
+       - neighborDevice: Core-2
+         neighborPort: Ethernet3
+         port: Ethernet3
+       - neighborDevice: Core-2
+         neighborPort: Ethernet4
+         port: Ethernet4
+       - neighborDevice: Router-1
+         neighborPort: Ethernet2
+         port: Ethernet5
+ - Core-2:
+     ip_addr: 192.168.0.22
+     sys_mac: 00:1c:73:c2:c6:01
+     neighbors:
+       - neighborDevice: Access-2
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Access-1
+         neighborPort: Ethernet2
+         port: Ethernet2
+       - neighborDevice: Core-1
+         neighborPort: Ethernet3
+         port: Ethernet3
+       - neighborDevice: Core-1
+         neighborPort: Ethernet4
+         port: Ethernet4
+       - neighborDevice: Router-2
+         neighborPort: Ethernet2
+         port: Ethernet5
+ - Access-1:
+     ip_addr: 192.168.0.23
+     sys_mac: 00:1c:73:c3:c6:01
+     neighbors:
+       - neighborDevice: Core-1
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Core-2
+         neighborPort: Ethernet2
+         port: Ethernet2
+       - neighborDevice: host-12
+         neighborPort: Ethernet1
+         port: Ethernet3
+ - Access-2:
+     ip_addr: 192.168.0.24
+     sys_mac: 00:1c:73:c4:c6:01
+     neighbors:
+       - neighborDevice: Core-2
+         neighborPort: Ethernet1
+         port: Ethernet1
+       - neighborDevice: Core-1
+         neighborPort: Ethernet2
+         port: Ethernet2
+       - neighborDevice: host-14
+         neighborPort: Ethernet1
+         port: Ethernet3
+ - host-1:
+      ip_addr: 192.168.0.41
+      sys_mac: 00:1c:73:e1:c6:01
+      neighbors:
+        - neighborDevice: Wan-1
+          neighborPort: Ethernet3
+          port: Ethernet1
+ - host-12:
+      ip_addr: 192.168.0.42
+      sys_mac: 00:1c:73:e2:c6:01
+      neighbors:
+        - neighborDevice: Access-1
+          neighborPort: Ethernet3
+          port: Ethernet1
+ - host-14:
+      ip_addr: 192.168.0.43
+      sys_mac: 00:1c:73:e3:c6:01
+      neighbors:
+        - neighborDevice: Access-2
+          neighborPort: Ethernet3
+          port: Ethernet1
+additional_ssh_nodes:
+additional_clab_nodes:
