@@ -1,7 +1,7 @@
 hostname Access-1
 !
 !
-interface Management1
+interface Management0
   vrf MGMT
   ip address 192.168.0.23/24
 
