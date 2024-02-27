@@ -1,7 +1,11 @@
 hostname Wan-1
 !
 vlan 11
+   name VLAN-11-11.0.0.0/24
 !
+switchport default mode routed
+!
+spanning-tree mode none
 !
 interface Management0
   vrf MGMT
@@ -11,12 +15,25 @@ interface vlan 11
   ip address 11.0.0.254/24
   no autostate
 !
+!
+interface Ethernet1
+   no switchport
+   ip address 172.28.138.1/20
+!
+interface Ethernet2
+   no switchport
+   ip address 172.28.144.1/20
+!
+!
 interface Ethernet 3
   switchport 
   switchport mode access
   switchport access vlan 11
-  no shut
   spanning-tree portfast
+  no shut
+!
+interface Loopback0
+   ip address 1.1.1.7/24
 !
 ip routing
 !
