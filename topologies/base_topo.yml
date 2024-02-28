@@ -2091,7 +2091,7 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins, lab_grading]
     labguides: self
-  training-avd:
+  training-level-avd:
     dev:
       ceos:
         cpu: 40
