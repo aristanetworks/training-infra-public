@@ -72,8 +72,7 @@ fi
 
 # Update the base configlets for ceos/veos mgmt numbering
 
-if [ $EOS_TYPE == 'ceos' ]
-then
+if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
     sed -i 's/Management1/Management0/g' /opt/atd/topologies/$TOPO/configlets/*
 fi
 
