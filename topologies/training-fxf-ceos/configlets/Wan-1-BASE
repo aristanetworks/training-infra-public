@@ -6,6 +6,27 @@ spanning-tree mode mstp
 !
 vlan 11
 !
+interface Loopback0
+   ip address 1.1.1.7/32
+!
+interface Management0
+   vrf MGMT
+   ip address 192.168.0.11/24
+!
+interface Management0
+  vrf MGMT
+  ip address 192.168.0.11/24
+!
+ip routing
+!
+dns domain arista.lab
+
+management api http-commands
+   no shutdown
+   !
+   vrf MGMT
+      no shutdown
+!
 interface Ethernet1
    description L3 Link to Wan-1 E1
    no switchport
@@ -16,30 +37,36 @@ interface Ethernet2
    ip address 172.28.144.1/20
 !
 interface Ethernet3
-   switchport
    switchport access vlan 11
+   switchport
    spanning-tree portfast
 !
 interface Loopback0
    ip address 1.1.1.7/32
 !
-interface Management0
-   vrf MGMT
-   ip address 192.168.0.11/24
 !
 interface Vlan11
    no autostate
    ip address 11.0.0.254/24
 !
-interface Management0
-  vrf MGMT
-  ip address 192.168.0.11/24
-!
 ip routing
-!
-dns domain arista.lab
-!
 ip routing vrf MGMT
 !
+ip route 0.0.0.0/0 172.28.138.5 20
+ip route 0.0.0.0/0 172.28.144.5 21
+ip route 12.0.0.0/24 172.28.138.5 20
+ip route 12.0.0.0/24 172.28.144.5 21
+ip route 14.0.0.0/24 172.28.144.5 20
+ip route 14.0.0.0/24 172.28.138.5 21
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
 !
+ntp server vrf MGMT 192.168.0.1 iburst source Management0
+!
+ip radius source-interface Management0
+!
+management telnet
+   no shutdown
+!
+
+management ssh
+   no shutdown
