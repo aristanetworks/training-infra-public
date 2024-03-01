@@ -43,3 +43,24 @@ ip routing vrf MGMT
 !
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
 !
+ip routing
+ip routing vrf MGMT
+!
+ip route 0.0.0.0/0 172.28.138.5 20
+ip route 0.0.0.0/0 172.28.144.5 21
+ip route 12.0.0.0/24 172.28.138.5 20
+ip route 12.0.0.0/24 172.28.144.5 21
+ip route 14.0.0.0/24 172.28.144.5 20
+ip route 14.0.0.0/24 172.28.138.5 21
+ip route vrf MGMT 0.0.0.0/0 192.168.0.1
+!
+!
+ip radius source-interface Management0
+!
+management telnet
+   no shutdown
+!
+!
+management ssh
+   no shutdown
+!
