@@ -1,27 +1,57 @@
 hostname Wan-1
+dns domain arista.lab
+!
+transceiver qsfp default-mode 4x10G
+!
+service routing protocols model multi-agent
+spanning-tree mode mstp
 !
 vlan 11
 !
 !
-interface Management1
-  vrf MGMT
-  ip address 192.168.0.11/24
+management api http-commands
+   no shutdown
+   !
+   vrf MGMT
+      no shutdown
+
 !
-interface vlan 11
-  ip address 11.0.0.254/24
-  no autostate
 !
-interface Ethernet 3
-  switchport 
-  switchport mode access
-  switch port access vlan 11
-  no shut
-  spanning-tree portfast
+interface Ethernet1
+   description L3 Link to Wan-1 E1
+   no switchport
+   ip address 172.28.138.1/20
+!
+interface Ethernet2
+   no switchport
+   ip address 172.28.144.1/20
+!
+interface Ethernet3
+   switchport access vlan 11
+   switchport
+   spanning-tree portfast
+!
+interface Loopback0
+   ip address 1.1.1.7/32
+!
+!
+interface Vlan11
+   no autostate
+   ip address 11.0.0.254/24
 !
 ip routing
-!
-dns domain arista.lab
-!
 ip routing vrf MGMT
 !
+ip route 0.0.0.0/0 172.28.138.5 20
+ip route 0.0.0.0/0 172.28.144.5 21
+ip route 12.0.0.0/24 172.28.138.5 20
+ip route 12.0.0.0/24 172.28.144.5 21
+ip route 14.0.0.0/24 172.28.144.5 20
+ip route 14.0.0.0/24 172.28.138.5 21
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
+!
+!
+management telnet
+   no shutdown
+!
+
