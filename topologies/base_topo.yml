@@ -2000,7 +2000,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: training-fxg-cl-2023-2
+            image: training-fxg-clab-cl-2023-2-20240301
             eos:
               - 4.30.1F
       veos:
