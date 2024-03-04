@@ -2117,7 +2117,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0208024
+            branch: v2023.2-0304024
             orderable: true
             image: base-veos-training-avd-2023-2-4301-20240212
             eos:
