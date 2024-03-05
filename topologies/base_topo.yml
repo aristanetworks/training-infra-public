@@ -2018,7 +2018,7 @@ topologies:
             eos:
               - 4.30.1F
     prod:
-      veos:
+      ceos:
         cpu: 60
         ram: 110
         cvp:
@@ -2027,9 +2027,9 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0220024-1
+            branch: v2023.2-0305024
             orderable: true
-            image: training-fxg-cl-veos-2023-2
+            image: training-fxg-clab-cl-2023-2-20240301
             eos:
               - 4.30.1F
     desc: 'Training FXG'
@@ -2070,7 +2070,7 @@ topologies:
             eos:
               - 4.30.1F
     prod:
-      veos:
+      ceos:
         cpu: 60
         ram: 110
         cvp:
@@ -2079,9 +2079,9 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0214024
+            branch: v2023.2-0305024
             orderable: true
-            image: training-fxf-cl-veos-2023-2-20230214
+            image: training-fxf-cl-ceos-2023-2-20240227
             eos:
               - 4.30.1F
     desc: 'Training FXF'
