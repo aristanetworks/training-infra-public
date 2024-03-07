@@ -28,10 +28,6 @@ alias intdesc
 !
 schedule interfacestatus interval 2 timeout 1 max-log-files 30 command show int status
 !
-daemon TerminAttr
-   exec /usr/bin/TerminAttr -ingestgrpcurl=192.168.0.5:9910 -taillogs -ingestauth=key,atd-lab -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent
-   no shutdown
-!
 event-monitor
 !
 transceiver qsfp default-mode 4x10G
