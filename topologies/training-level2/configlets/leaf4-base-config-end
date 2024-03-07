@@ -26,10 +26,7 @@ alias intdesc
    30 desc %2
    40 exit
 !
-daemon TerminAttr
-   exec /usr/bin/TerminAttr -ingestgrpcurl=192.168.0.5:9910 -taillogs -ingestauth=key,atd-lab -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent
-   no shutdown
-!
+
 transceiver qsfp default-mode 4x10G
 !
 service routing protocols model multi-agent
