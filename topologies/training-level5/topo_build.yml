@@ -345,10 +345,10 @@ nodes:
         - neighborDevice: spine3-DC1
           neighborPort: Ethernet6
           port: Ethernet5
-        - neighborDevice: core1-isp1
+        - neighborDevice: core1-ISP1
           neighborPort: Ethernet10
           port: Ethernet10
-        - neighborDevice: core1-isp2
+        - neighborDevice: core1-ISP2
           neighborPort: Ethernet11
           port: Ethernet11
           # Connection to DCI
@@ -383,10 +383,10 @@ nodes:
           neighborPort: Ethernet7
           port: Ethernet5
 
-        - neighborDevice: core2-isp1
+        - neighborDevice: core2-ISP1
           neighborPort: Ethernet10
           port: Ethernet10
-        - neighborDevice: core2-isp2
+        - neighborDevice: core2-ISP2
           neighborPort: Ethernet11
           port: Ethernet11
           # Connection to DCI
@@ -552,10 +552,10 @@ nodes:
         - neighborDevice: spine3-DC2
           neighborPort: Ethernet6
           port: Ethernet5
-        - neighborDevice: core1-isp2
+        - neighborDevice: core1-ISP2
           neighborPort: Ethernet10
           port: Ethernet10
-        - neighborDevice: core1-isp1
+        - neighborDevice: core1-ISP1
           neighborPort: Ethernet11
           port: Ethernet11
           # Connection to DCI
@@ -587,10 +587,10 @@ nodes:
         - neighborDevice: spine3-DC2
           neighborPort: Ethernet7
           port: Ethernet5
-        - neighborDevice: core2-isp2
+        - neighborDevice: core2-ISP2
           neighborPort: Ethernet10
           port: Ethernet10
-        - neighborDevice: core2-isp1
+        - neighborDevice: core2-ISP1
           neighborPort: Ethernet11
           port: Ethernet11
           # Connection to DCI
@@ -786,7 +786,7 @@ nodes:
       ip_addr: 192.168.0.71
       sys_mac: 00:1c:73:11:c6:01
       neighbors:
-        - neighborDevice: core2-isp1
+        - neighborDevice: core2-ISP1
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: internet
@@ -803,7 +803,7 @@ nodes:
       ip_addr: 192.168.0.72
       sys_mac: 00:1c:73:12:c6:01
       neighbors:
-        - neighborDevice: core1-isp1
+        - neighborDevice: core1-ISP1
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: internet
@@ -821,7 +821,7 @@ nodes:
       ip_addr: 192.168.0.73
       sys_mac: 00:1c:73:13:c6:01
       neighbors:
-        - neighborDevice: core2-isp2
+        - neighborDevice: core2-ISP2
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: internet
@@ -838,7 +838,7 @@ nodes:
       ip_addr: 192.168.0.74
       sys_mac: 00:1c:73:14:c6:01
       neighbors:
-        - neighborDevice: core1-isp2
+        - neighborDevice: core1-ISP2
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: internet
@@ -856,16 +856,16 @@ nodes:
       ip_addr: 192.168.0.75
       sys_mac: 00:1c:73:15:c6:01
       neighbors:
-        - neighborDevice: core1-isp1
+        - neighborDevice: core1-ISP1
           neighborPort: Ethernet2
           port: Ethernet1
-        - neighborDevice: core2-isp1
+        - neighborDevice: core2-ISP1
           neighborPort: Ethernet2
           port: Ethernet2
-        - neighborDevice: core1-isp2
+        - neighborDevice: core1-ISP2
           neighborPort: Ethernet2
           port: Ethernet3
-        - neighborDevice: core2-isp2
+        - neighborDevice: core2-ISP2
           neighborPort: Ethernet2
           port: Ethernet4
         - neighborDevice: SW1-DC3
