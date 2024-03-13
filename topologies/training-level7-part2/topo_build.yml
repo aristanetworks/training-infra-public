@@ -426,7 +426,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet12
         - neighborDevice: OOB-DC1
-          neighborPort: Ethernet9
+          neighborPort: Ethernet10
           port: Ethernet15
 
 
