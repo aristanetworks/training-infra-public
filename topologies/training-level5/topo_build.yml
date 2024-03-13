@@ -782,7 +782,7 @@ nodes:
           port: Ethernet2
 
 # ISP1
-  - core1-isp1:
+  - core1-ISP1:
       ip_addr: 192.168.0.71
       sys_mac: 00:1c:73:11:c6:01
       neighbors:
@@ -799,7 +799,7 @@ nodes:
           neighborPort: Ethernet11
           port: Ethernet11
 
-  - core2-isp1:
+  - core2-ISP1:
       ip_addr: 192.168.0.72
       sys_mac: 00:1c:73:12:c6:01
       neighbors:
@@ -817,7 +817,7 @@ nodes:
           port: Ethernet11
 
 # ISP2
-  - core1-isp2:
+  - core1-ISP2:
       ip_addr: 192.168.0.73
       sys_mac: 00:1c:73:13:c6:01
       neighbors:
@@ -834,7 +834,7 @@ nodes:
           neighborPort: Ethernet11
           port: Ethernet11
 
-  - core2-isp2:
+  - core2-ISP2:
       ip_addr: 192.168.0.74
       sys_mac: 00:1c:73:14:c6:01
       neighbors:
