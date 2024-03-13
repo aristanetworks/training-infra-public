@@ -963,7 +963,7 @@ nodes:
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: borderleaf2-DC2
-          neighborPort: Ethernet12
+          neighborPort: Ethernet10
           port: Ethernet2
         - neighborDevice: borderleaf1-DC2
           neighborPort: Ethernet12
@@ -1027,7 +1027,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet1
         - neighborDevice: P3
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet2
         - neighborDevice: spine1-DC3
           neighborPort: Ethernet7
