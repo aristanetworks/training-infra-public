@@ -211,7 +211,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet7
 
-   - spine2-DC3:
+  - spine2-DC3:
       ip_addr: 192.168.0.78
       sys_mac: 00:1c:73:18:c6:01
       neighbors:
