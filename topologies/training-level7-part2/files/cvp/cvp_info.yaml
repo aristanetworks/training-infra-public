@@ -69,30 +69,25 @@ cvp_info:
     Provider Network:
       parent: Tenant
       nodes:
-    ISP1:
+    ISP:
       parent: "Provider Network"
       nodes:
-      - core1-isp1
-      - core2-isp1
-    ISP2:
-      parent: "Provider Network"
-      nodes:
-      - core1-isp2
-      - core2-isp2
-    Internet:
-      parent: "Provider Network"
-      nodes:
-      - internet
+      - PE11
+      - PE12
+      - PE21
+      - PE22
+      - PE31
+      - P1
+      - P2
+      - P3
+      - P4
+      - RR
     OOB:
       parent: Tenant
       nodes:
       - OOB-DC1
       - OOB-DC2
       - OOB-CORE
-    DCI:
-      parent: Tenant
-      nodes:
-      - DCI
   snapshots:
   configlets:
     containers:
@@ -162,24 +157,26 @@ cvp_info:
       host2-DC3:
       - host2-DC3-BASE
       - host2-DC3-START
-      core1-isp1:
-      - core1-ISP1-BASE
-      - core1-ISP1-START
-      core2-isp1:
-      - core2-ISP1-BASE
-      - core2-ISP1-START
-      core1-isp2:
-      - core1-ISP2-BASE
-      - core1-ISP2-START
-      core2-isp2:
-      - core2-ISP2-BASE
-      - core2-ISP2-START
-      internet:
-      - internet-BASE
-      - internet-START
-      DCI:
-      - DCI-BASE
-      - DCI-START
+      PE11:
+      - PE11-BASE
+      PE12:
+      - PE12-BASE
+      PE21:
+      - PE21-BASE
+      PE22:
+      - PE22-BASE
+      PE31:
+      - PE31-BASE
+      P1:
+      - P1-BASE
+      P2:
+      - P2-BASE
+      P3:
+      - P3-BASE
+      P4:
+      - P4-BASE
+      RR:
+      - RR-BASE
       OOB-CORE:
       - OOB-CORE-BASE
       OOB-DC1:
