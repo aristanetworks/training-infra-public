@@ -211,7 +211,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet7
 
-   - spine2-DC3:
+  - spine2-DC3:
       ip_addr: 192.168.0.78
       sys_mac: 00:1c:73:18:c6:01
       neighbors:
@@ -386,10 +386,10 @@ nodes:
         - neighborDevice: spine3-DC1
           neighborPort: Ethernet6
           port: Ethernet5
-        - neighborDevice: PE11
+        - neighborDevice: PE12
           neighborPort: Ethernet2
           port: Ethernet10
-        - neighborDevice: PE12
+        - neighborDevice: PE11
           neighborPort: Ethernet2
           port: Ethernet12
         - neighborDevice: OOB-DC1
@@ -419,13 +419,16 @@ nodes:
         - neighborDevice: spine3-DC1
           neighborPort: Ethernet7
           port: Ethernet5
-          # Connection to DCI
+        - neighborDevice: PE12
+          neighborPort: Ethernet3
+          port: Ethernet10
         - neighborDevice: PE11
           neighborPort: Ethernet3
           port: Ethernet12
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet10
           port: Ethernet15
+
 
 # Leafs DC2
   - leaf1-DC2:
@@ -582,11 +585,11 @@ nodes:
         - neighborDevice: spine3-DC2
           neighborPort: Ethernet6
           port: Ethernet5
-        - neighborDevice: PE21
-          neighborPort: Ethernet3
-          port: Ethernet10
         - neighborDevice: PE22
-          neighborPort: Ethernet3
+          neighborPort: Ethernet2
+          port: Ethernet10
+        - neighborDevice: PE21
+          neighborPort: Ethernet2
           port: Ethernet12
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet9
@@ -614,10 +617,10 @@ nodes:
           neighborPort: Ethernet7
           port: Ethernet5
         - neighborDevice: PE22
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet10
         - neighborDevice: PE21
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet12
         - neighborDevice: OOB-DC2
           neighborPort: Ethernet10
@@ -850,183 +853,193 @@ nodes:
           neighborPort: Ethernet1
           port: Ethernet2
 
-# WAN-DC1-Side
+# SR-Domain 1
   - PE11:
       ip_addr: 192.168.0.91
       sys_mac: 00:1c:73:91:c6:01
       neighbors:
         - neighborDevice: P1
-          neighborPort: Ethernet1
+          neighborPort: Ethernet2
           port: Ethernet1
         - neighborDevice: borderleaf1-DC1
-          neighborPort: Ethernet10
+          neighborPort: Ethernet12
           port: Ethernet2
         - neighborDevice: borderleaf2-DC1
           neighborPort: Ethernet12
           port: Ethernet3
-        - neighborDevice: P2
-          neighborPort: Ethernet3
+        - neighborDevice: RR1
+          neighborPort: Ethernet4
           port: Ethernet4
-        - neighborDevice: RR
-          neighborPort: Ethernet1
-          port: Ethernet5
+
 
   - PE12:
       ip_addr: 192.168.0.92
       sys_mac: 00:1c:73:92:c6:01
       neighbors:
-        - neighborDevice: P2
+        - neighborDevice: P1
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: borderleaf1-DC1
-          neighborPort: Ethernet12
+          neighborPort: Ethernet10
           port: Ethernet2
         - neighborDevice: borderleaf2-DC1
           neighborPort: Ethernet10
           port: Ethernet3
-        - neighborDevice: RR
-          neighborPort: Ethernet2
+        - neighborDevice: RR1
+          neighborPort: Ethernet3
           port: Ethernet4
-        - neighborDevice: P1
-          neighborPort: Ethernet5
-          port: Ethernet5
+
 
   - P1:
       ip_addr: 192.168.0.93
       sys_mac: 00:1c:73:93:c6:01
       neighbors:
-        - neighborDevice: P1
+        - neighborDevice: PE12
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: P3
-          neighborPort: Ethernet2
-          port: Ethernet2
-        - neighborDevice: P31
+        - neighborDevice: PE11
           neighborPort: Ethernet1
-          port: Ethernet3
-        - neighborDevice: P2
-          neighborPort: Ethernet4
-          port: Ethernet4
-        - neighborDevice: PE12
-          neighborPort: Ethernet5
-          port: Ethernet5
-        - neighborDevice: RR
+          port: Ethernet2
+        - neighborDevice: ASBR1
           neighborPort: Ethernet3
-          port: Ethernet6
+          port: Ethernet3
+        - neighborDevice: RR1
+          neighborPort: Ethernet2
+          port: Ethernet4
 
-  - P2:
+
+  - ASBR1:
       ip_addr: 192.168.0.94
       sys_mac: 00:1c:73:94:c6:01
       neighbors:
-        - neighborDevice: PE12
+        - neighborDevice: ASBR2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: P4
-          neighborPort: Ethernet2
+        - neighborDevice: ASBR3
+          neighborPort: Ethernet1
           port: Ethernet2
-        - neighborDevice: PE11
-          neighborPort: Ethernet4
+        - neighborDevice: PE1
+          neighborPort: Ethernet3
           port: Ethernet3
+        - neighborDevice: RR1
+          neighborPort: Ethernet1
+          port: Ethernet4
+
+  - RR1:
+      ip_addr: 192.168.0.41
+      sys_mac: 00:1c:73:41:c6:01
+      neighbors:
+        - neighborDevice: ASBR1
+          neighborPort: Ethernet4
+          port: Ethernet1
         - neighborDevice: P1
           neighborPort: Ethernet4
-          port: Ethernet4
-        - neighborDevice: RR
+          port: Ethernet2
+        - neighborDevice: PE12
           neighborPort: Ethernet4
-          port: Ethernet5
+          port: Ethernet3
+        - neighborDevice: PE11
+          neighborPort: Ethernet4
+          port: Ethernet4
 
-# WAN-DC2-Side
+# SR-Domain-2
   - PE21:
       ip_addr: 192.168.0.95
       sys_mac: 00:1c:73:95:c6:01
       neighbors:
-        - neighborDevice: P3
+        - neighborDevice: PE2
           neighborPort: Ethernet1
-          port: Ethernet1
-        - neighborDevice: borderleaf2-DC2
-          neighborPort: Ethernet12
           port: Ethernet2
         - neighborDevice: borderleaf1-DC2
-          neighborPort: Ethernet10
+          neighborPort: Ethernet12
+          port: Ethernet2
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet12
           port: Ethernet3
-        - neighborDevice: P4
-          neighborPort: Ethernet3
+        - neighborDevice: RR2
+          neighborPort: Ethernet4
           port: Ethernet4
-        - neighborDevice: RR
-          neighborPort: Ethernet5
-          port: Ethernet5
+
 
   - PE22:
       ip_addr: 192.168.0.96
       sys_mac: 00:1c:73:96:c6:01
       neighbors:
-        - neighborDevice: P4
+        - neighborDevice: P2
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: borderleaf2-DC2
-          neighborPort: Ethernet12
-          port: Ethernet2
         - neighborDevice: borderleaf1-DC2
-          neighborPort: Ethernet12
+          neighborPort: Ethernet10
+          port: Ethernet2
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet10
           port: Ethernet3
-        - neighborDevice: RR
-          neighborPort: Ethernet6
+        - neighborDevice: RR2
+          neighborPort: Ethernet3
           port: Ethernet4
-        - neighborDevice: P3
-          neighborPort: Ethernet5
-          port: Ethernet5
 
-  - P3:
+
+  - ASBR2:
       ip_addr: 192.168.0.97
       sys_mac: 00:1c:73:97:c6:01
       neighbors:
-        - neighborDevice: PE21
+        - neighborDevice: ASBR1
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: PE1
+        - neighborDevice: ASBR3
           neighborPort: Ethernet2
           port: Ethernet2
-        - neighborDevice: PE31
-          neighborPort: Ethernet2
+        - neighborDevice: P2
+          neighborPort: Ethernet3
           port: Ethernet3
-        - neighborDevice: P4
-          neighborPort: Ethernet4
+        - neighborDevice: RR2
+          neighborPort: Ethernet1
           port: Ethernet4
-        - neighborDevice: PE22
-          neighborPort: Ethernet5
-          port: Ethernet5
-        - neighborDevice: RR
-          neighborPort: Ethernet7
-          port: Ethernet6
 
-  - P4:
+  - P2:
       ip_addr: 192.168.0.98
       sys_mac: 00:1c:73:98:c6:01
       neighbors:
         - neighborDevice: PE22
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: P2
-          neighborPort: Ethernet2
-          port: Ethernet2
         - neighborDevice: PE21
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: ASBR2
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: RR2
+          neighborPort: Ethernet2
+          port: Ethernet4
+
+  - RR2:
+      ip_addr: 192.168.0.42
+      sys_mac: 00:1c:73:42:c6:01
+      neighbors:
+        - neighborDevice: ASBR2
+          neighborPort: Ethernet4
+          port: Ethernet1
+        - neighborDevice: P2
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: PE22
           neighborPort: Ethernet4
           port: Ethernet3
-        - neighborDevice: P4
+        - neighborDevice: PE21
           neighborPort: Ethernet4
           port: Ethernet4
-        - neighborDevice: RR
-          neighborPort: Ethernet8
-          port: Ethernet5
 
-# WAN-DC3-Side
+
+# SR-Domain-3
   - PE31:
       ip_addr: 192.168.0.99
       sys_mac: 00:1c:73:99:c6:01
       neighbors:
-        - neighborDevice: P1
+        - neighborDevice: ASBR3
           neighborPort: Ethernet3
           port: Ethernet1
-        - neighborDevice: P3
+        - neighborDevice: RR3
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: spine1-DC3
@@ -1035,44 +1048,33 @@ nodes:
         - neighborDevice: spine2-DC3
           neighborPort: Ethernet7
           port: Ethernet4
-        - neighborDevice: RR
-          neighborPort: Ethernet9
-          port: Ethernet5
 
-
-# WAN RR
-  - RR:
+  - ASBR3:
       ip_addr: 192.168.0.90
       sys_mac: 00:1c:73:90:c6:01
       neighbors:
-        - neighborDevice: PE11
-          neighborPort: Ethernet5
+        - neighborDevice: ASBR1
+          neighborPort: Ethernet2
           port: Ethernet1
-        - neighborDevice: PE12
-          neighborPort: Ethernet4
+        - neighborDevice: ASBR2
+          neighborPort: Ethernet2
           port: Ethernet2
-        - neighborDevice: P1
-          neighborPort: Ethernet6
-          port: Ethernet3
-        - neighborDevice: P2
-          neighborPort: Ethernet5
-          port: Ethernet4
-        - neighborDevice: PE21
-          neighborPort: Ethernet5
-          port: Ethernet5
-        - neighborDevice: PE22
-          neighborPort: Ethernet4
-          port: Ethernet6
-        - neighborDevice: P3
-          neighborPort: Ethernet6
-          port: Ethernet7
-        - neighborDevice: P4
-          neighborPort: Ethernet5
-          port: Ethernet8
         - neighborDevice: PE31
-          neighborPort: Ethernet5
-          port: Ethernet9
+          neighborPort: Ethernet1
+          port: Ethernet3
 
+
+  - RR3:
+      ip_addr: 192.168.0.43
+      sys_mac: 00:1c:73:43:c6:01
+      neighbors:
+        - neighborDevice: ASBR3
+          neighborPort: Ethernet4
+          port: Ethernet1
+        - neighborDevice: PE31
+          neighborPort: Ethernet2
+          port: Ethernet2
+  
 
 
 
