@@ -1429,7 +1429,7 @@ topologies:
         cpu: 80
         ram: 110
         cvp:
-          2020.2.3:
+          2023.2.0:
             schema: 1
             resources:
               cpu: 80
@@ -1444,7 +1444,7 @@ topologies:
         cpu: 80
         ram: 110
         cvp:
-          2020.2.3:
+          2023.2.0:
             schema: 1
             resources:
               cpu: 80
