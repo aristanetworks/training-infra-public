@@ -1,0 +1,10 @@
+service routing protocols model multi-agent
+!
+hostname ASBR3
+!
+interface Management0
+   vrf MGMT
+   ip address  192.168.0.90/24
+!
+ip routing
+!
