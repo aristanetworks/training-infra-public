@@ -1422,7 +1422,7 @@ topologies:
               cpu: 48
               ram: 72
             branch: 2021.3-3.17
-            orderable: true
+            orderable: false
             image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
@@ -1430,9 +1430,9 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: false
+              ram: 80
+            branch: v2023.2-0314024
+            orderable: true
             image: base-ceos-training-l5-2023-2-4301-20240314
             eos:
               - 4.30.1F
