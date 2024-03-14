@@ -1390,6 +1390,16 @@ topologies:
             image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l5-2023-2-4301-20240314
+            eos:
+              - 4.30.1F
     prod:
       ceos:
         cpu: 36
@@ -1416,6 +1426,16 @@ topologies:
             image: base-ceos-training-l5-2021-3-20230314-162836
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: false
+            image: base-ceos-training-l5-2023-2-4301-20240314
+            eos:
+              - 4.30.1F
     desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 5'
     title: 'Training Level 5 Lab'
