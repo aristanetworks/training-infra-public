@@ -2214,7 +2214,7 @@ topologies:
     title: 'AVD - Arista Validated Design'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading]
+    disable_links: [jenkins, lab_grading]
     labguides: self
   training-level-cvp:
     dev:
