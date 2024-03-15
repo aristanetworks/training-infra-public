@@ -2216,3 +2216,41 @@ topologies:
     access: standard
     disable_links: [labguides, jenkins, lab_grading]
     labguides: self
+  training-level-cvp:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-cvp-2023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: nested/2023.2
+            orderable: false
+            image: base-veos-training-cvp-2023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    desc: 'CVP - CloudVision Portal'
+    name: 'CVP - CloudVision Portal'
+    title: 'CVP - CloudVision Portal'
+    disk_size: 300
+    access: standard
+    disable_links: [labguides, jenkins, lab_grading]
+    labguides: self
