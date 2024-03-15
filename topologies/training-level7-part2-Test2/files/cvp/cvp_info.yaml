@@ -70,7 +70,7 @@ cvp_info:
       parent: Tenant
       nodes:
     SR-Domain1:
-      parent: "SR-Domain1"
+      parent: Tenant
       nodes:
       - ASBR1
       - RR1
@@ -78,7 +78,7 @@ cvp_info:
       - PE12
       - P1
     SR-Domain2:
-      parent: "SR-Domain2"
+      parent: Tenant
       nodes:
        - ASBR2
        - RR2
@@ -86,7 +86,7 @@ cvp_info:
        - PE22
        - P2
     SR-Domain3:
-      parent: "SR-Domain3"
+      parent: Tenant
       nodes:
        - ASBR3
        - RR3
