@@ -2242,8 +2242,8 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: nested/2023.2
-            orderable: false
+            branch: v2023.2-0315024
+            orderable: true
             image: base-veos-training-cvp-2023-2-4301-20240315
             eos:
               - 4.30.1F
@@ -2252,5 +2252,43 @@ topologies:
     title: 'CVP - CloudVision Portal'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading]
+    disable_links: [ jenkins, lab_grading]
+    labguides: self
+  training-level1-me:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l1-me-2023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0315024
+            orderable: true
+            image: base-veos-training-l1-me-2023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    desc: 'Level 1 Media and Entertainment Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 1 ME'
+    title: 'Training Level 1 Lab Media and Entertainment'
+    disk_size: 300
+    access: standard
+    disable_links: [ jenkins, lab_grading]
     labguides: self
