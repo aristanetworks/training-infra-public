@@ -2292,3 +2292,41 @@ topologies:
     access: standard
     disable_links: [ jenkins, lab_grading]
     labguides: self
+  training-level7-part2-Test2:
+    dev:
+      ceos:
+        cpu: 80
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0315024
+            orderable: false
+            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240315
+            eos:
+              - 4.30.1F
+    desc: 'Level 7 part-2 Test -2 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 1 ME'
+    title: 'Level 7 part-2 Test -2'
+    disk_size: 300
+    access: standard
+    disable_links: [ jenkins, lab_grading]
+    labguides: self
