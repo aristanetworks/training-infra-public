@@ -1,15 +1,23 @@
 topologies:
   atd-testdrivetraining-dev:
     training-level-1-cl:
-      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L1_02062024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L1_02062024.tar.gz
     training-level-2-cl:
-      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L2_03122024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L2_03122024.tar.gz
     training-level-3-cl:
-      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L3_03122024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L3_03122024.tar.gz
     training-level4:
-      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L4.tar.gz 
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L4_01222024.tar.gz
     training-level4-v2:
-      labguide_zipfile_url :  gs://topology_deploy_files/lab-guide-zips/L4.tar.gz 
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L4_01222024.tar.gz
+    training-level5:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L5_01222024.tar.gz
+    training-level-cvp:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/cvp_03182024.tar.gz
+    training-level-avd:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/avd_03182024.tar.gz
+    training-level1-me:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/me_03182024.tar.gz
   atd-testdrivetraining-prod:
     training-level-1-cl:
       labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L1_02062024.tar.gz
@@ -21,3 +29,11 @@ topologies:
       labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L4_01222024.tar.gz
     training-level4-v2:
       labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L4_01222024.tar.gz
+    training-level5:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L5_01222024.tar.gz
+    training-level-cvp:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/cvp_03182024.tar.gz
+    training-level-avd:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/avd_03182024.tar.gz
+    training-level1-me:
+      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/me_03182024.tar.gz
