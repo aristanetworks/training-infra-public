@@ -2324,7 +2324,7 @@ topologies:
             eos:
               - 4.30.1F
     desc: 'Level 7 part-2 Test -2 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1 ME'
+    name: 'Training - Level 7 part-2 Test -2'
     title: 'Level 7 part-2 Test -2'
     disk_size: 300
     access: standard
