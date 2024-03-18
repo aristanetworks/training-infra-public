@@ -34,6 +34,6 @@ topologies:
     training-level-cvp:
       labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/cvp_03182024.tar.gz
     training-level-avd:
-      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/avd_03182024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/avd_03182024.tar.gz
     training-level1-me:
-      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/me_03182024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/me_03182024.tar.gz
