@@ -1456,7 +1456,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-l7-part-2-2023-2-4301
+            image: base-ceos-training-l7-part-2-2023-2-4301-20240319
             eos:
               - 4.30.1F
     prod:
@@ -1471,7 +1471,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: false
-            image: base-ceos-training-l7-part-2-2023-2-4301
+            image: base-ceos-training-l7-part-2-2023-2-4301-20240319
             eos:
               - 4.30.1F
     desc: 'Level 7 Training Lab Part 2. For use by the Arista Training Team.'
@@ -1640,7 +1640,7 @@ topologies:
               ram: 80
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-l7-part-3-2023-2-4301
+            image: base-ceos-training-l7-part-3-2023-2-4301-20240319
             eos:
               - 4.30.1F    
           2023.2.0-dual:
@@ -2305,7 +2305,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240315
+            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240319
             eos:
               - 4.30.1F
     prod:
@@ -2320,7 +2320,7 @@ topologies:
               ram: 64
             branch: v2023.2-0315024
             orderable: false
-            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240315
+            image: base-ceos-training-l7-part-2-test-22023-2-4301-20240319
             eos:
               - 4.30.1F
     desc: 'Level 7 part-2 Test -2 Training Lab. For use by the Arista Training Team.'
