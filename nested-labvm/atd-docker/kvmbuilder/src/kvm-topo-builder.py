@@ -202,7 +202,7 @@ def main(uargs):
     if 'cvp_ram' in FILE_BUILD:
         cvp_ram_count = FILE_BUILD['cvp_ram'] * 1024
     else:
-        cvp_ram_count = 22 * 1024
+        cvp_ram_count = 32 * 1024
     if cvp_node_count == 1:
         CVP_CPU_START = int(host_cpu_count / 2)
         CVP_CPUS = getCPUs(CVP_CPU_START, cvp_cpu_count)
