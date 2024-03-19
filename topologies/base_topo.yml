@@ -1212,7 +1212,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-4301-20240119
+            image: base-veos-training-l4-v2-2023-2-20240319
             eos:
               - 4.30.1F              
     prod:
@@ -1237,7 +1237,7 @@ topologies:
               ram: 90
             branch: v2023.2-0319024
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            image: base-veos-training-l4-v2-2023-2-20240319
             eos:
               - 4.30.1F                   
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -1270,7 +1270,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-4301-20240119
+            image: base-veos-training-l4-v2-2023-2-20240319
             eos:
               - 4.30.1F    
     prod:
@@ -1295,7 +1295,7 @@ topologies:
               ram: 90
             branch: v2023.2-0319024
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-4301-20231116
+            image: base-veos-training-l4-v2-2023-2-20240319
             eos:
               - 4.30.1F 
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
