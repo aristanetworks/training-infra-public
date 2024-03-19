@@ -1235,7 +1235,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: v2023.2-0207024
+            branch: v2023.2-0319024
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20231116
             eos:
@@ -1293,7 +1293,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: v2023.2-0207024
+            branch: v2023.2-0319024
             orderable: true
             image: base-veos-training-l4-v2-2023-2-4301-20231116
             eos:
@@ -1431,7 +1431,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch: v2023.2-0314024
+            branch: v2023.2-0319024
             orderable: true
             image: base-ceos-training-l5-2023-2-4301-20240314
             eos:
@@ -1441,7 +1441,7 @@ topologies:
     title: 'Training Level 5 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins,lab_status, lab_grading]
+    disable_links: [jenkins,lab_status, lab_grading]
     labguides: self
   training-level7-part2:
     dev:
@@ -2204,7 +2204,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0304024
+            branch: v2023.2-0319024
             orderable: true
             image: base-veos-training-avd-2023-2-4301-20240212
             eos:
@@ -2242,7 +2242,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0315024
+            branch: v2023.2-0319024
             orderable: true
             image: base-veos-training-cvp-2023-2-4301-20240315
             eos:
@@ -2280,7 +2280,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0315024
+            branch: v2023.2-0319024
             orderable: true
             image: base-veos-training-l1-me-2023-2-4301-20240315
             eos:
