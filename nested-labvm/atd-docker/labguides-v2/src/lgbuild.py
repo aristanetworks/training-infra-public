@@ -101,7 +101,8 @@ def add_lab(module,lab_count):
         file=name+'.rst'
         caption=''
     #write out
-    if lab_count>0: caption=str('Lab '+str(lab_count)+' - '+caption)
+    if lab_count>0: 
+        if 'exam' not in build['index']['name'].lower(): caption=str('Lab '+str(lab_count)+' - '+caption) 
     toc=str("\n.. toctree::\n   :hidden:\n   :maxdepth: 1\n   :caption: "+caption+"\n\n")
     write_to_index(index_file,toc)
     if type(file)==list:
