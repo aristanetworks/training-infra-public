@@ -109,6 +109,21 @@ services:
       - /opt/labguides/web/:/root/labguides/web/:rw
     networks:
       - atd_nginx
+
+  labguides-v2:
+    container_name: atd-labguides-v2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.1
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /etc/atd:/etc/atd:ro
+      - /opt/atd:/opt/atd:ro
+      - /opt/labguides/web/:/html/:rw
+      - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
+    networks:
+      - atd_nginx
+
   syslog:
     container_name: atd-syslog
     image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1

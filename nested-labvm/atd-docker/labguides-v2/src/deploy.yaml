@@ -1,0 +1,7 @@
+repo_base: "github.com/sdn-pros/"
+dest_dir: "/html"
+deploy:
+  name: deploy
+  file: None
+  repo: lgdeploy.git
+  branch: main

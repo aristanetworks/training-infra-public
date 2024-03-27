@@ -1,0 +1,7 @@
+Sphinx==6.2.1
+furo==2023.5.20
+myst-parser==1.0.0
+sphinxcontrib-images==0.9.4
+sphinx-copybutton==0.5.2
+sphinxcontrib-video==0.2.0
+GitPython==3.1.14
