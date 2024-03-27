@@ -8,15 +8,19 @@ from git import Repo
 import requests
 
 
-git_ssh_identity_file = os.path.join(os.getcwd(),'github_sdn-pros.rsa')
-git_ssh_cmd = 'ssh -o "StrictHostKeyChecking no" -i %s' % git_ssh_identity_file
 
 with open(os.path.join(os.getcwd(),'deploy.yaml')) as f: deploy_data=yaml.safe_load(f)
 repo_base=deploy_data['repo_base']
 build={}
 build.update({"dest_dir":deploy_data['dest_dir']})
 build.update({"deploy":{"name":deploy_data['deploy']['name'],"file":deploy_data['deploy']['file'],"repo":repo_base+deploy_data['deploy']['repo'],"branch":deploy_data['deploy']['branch']}})
-
+metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/attributes/github_sdnpros_pat_key"
+headers = {"Metadata-Flavor": "Google"}
+response = requests.get(metadata_url, headers=headers)
+if response.status_code == 200:
+    github_key= response.text.strip()
+else:
+    print("Failed to retrieve GitHub PAT Key:", response.status_code)
 
 
 git_dir=(os.path.join(os.getcwd(), 'git'))
@@ -56,21 +60,10 @@ def merge():
                 move_item(os.path.join(git_dir, src))
     rmtree (git_dir)
 
-def get_github_token():
-    metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/attributes/github_sdnpros_pat_key"
-    headers = {"Metadata-Flavor": "Google"}
-    response = requests.get(metadata_url, headers=headers)
-    if response.status_code == 200:
-        return (response.text.strip())
-    else:
-        print("Failed to retrieve GitHub PAT Key:", response.status_code)
 
 def git(item):
-    github_key = get_github_token()
     git_repo_url = f'https://lab-guide-device:{github_key}@{item["repo"]}'
     Repo.clone_from(git_repo_url, git_dir)
-    #Repo.clone_from(item['repo'], git_dir, branch=item['branch'], env=dict(GIT_SSH_COMMAND=git_ssh_cmd))
-
 
 def build_index(index):
     name=index.split(':')[0]
