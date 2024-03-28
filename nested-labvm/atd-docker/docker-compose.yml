@@ -113,7 +113,7 @@ services:
   labguides-v2:
     container_name: atd-labguides-v2
     image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.2
-    restart: always
+    restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
