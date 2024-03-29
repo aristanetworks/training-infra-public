@@ -565,7 +565,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l1-2023-2-4301-20240207
+            image: base-veos-training-l1-2023-2-4301-20240329
             eos:
               - 4.30.1F               
     prod:
@@ -598,9 +598,9 @@ topologies:
             resources:
               cpu: 56
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l1-2023-2-4301-20240207
+            image: base-veos-training-l1-2023-2-4301-20240329
             eos:
               - 4.30.1F                 
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -681,7 +681,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l1-exam-2-2023-2-4301-20240207
+            image: base-veos-training-l1-exam-2-2023-2-4301-20240329
             eos:
               - 4.30.1F                 
     prod:
@@ -714,9 +714,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l1-exam-2-2023-2-4301-20240207
+            image: base-veos-training-l1-exam-2-2023-2-4301-20240329
             eos:
               - 4.30.1F   
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -759,7 +759,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l2-2023-2-4301-20240207
+            image: base-veos-training-l2-2023-2-4301-20240329
             eos:
               - 4.30.1F                
     prod:
@@ -782,9 +782,9 @@ topologies:
             resources:
               cpu: 56
               ram: 80
-            branch: v2023.2-0214024
+            branch: v2023.2-0329024
             orderable: true
-            image: base-veos-training-l2-2023-2-4301-20240207
+            image: base-veos-training-l2-2023-2-4301-20240329
             eos:
               - 4.30.1F 
     desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
@@ -855,7 +855,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l2-exam-2-2023-2-4301-20240207
+            image: base-veos-training-l2-exam-2-2023-2-4301-20240329
             eos:
               - 4.30.1F  
     prod:
@@ -878,9 +878,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l2-exam-2-2023-2-4301-20240207
+            image: base-veos-training-l2-exam-2-2023-2-4301-20240329
             eos:
               - 4.30.1F  
     desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
@@ -963,7 +963,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l3-2023-2-4301-20240207
+            image: base-veos-training-l3-2023-2-4301-20240329
             eos:
               - 4.30.1F  
     prod:
@@ -1006,9 +1006,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l3-2023-2-4301-20240207
+            image: base-veos-training-l3-2023-2-4301-20240329
             eos:
               - 4.30.1F
     desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
@@ -1051,7 +1051,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l3-exam-2023-2-4301-20240207
+            image: base-veos-training-l3-exam-2023-2-4301-20240329
             eos:
               - 4.30.1F               
     prod:
@@ -1084,9 +1084,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l3-exam-2023-2-4301-20240207
+            image: base-veos-training-l3-exam-2023-2-4301-20240329
             eos:
               - 4.30.1F
     desc: 'Level 3 Training Exam Lab. For use by the Arista Training Team.'
@@ -1129,7 +1129,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l3-2-2023-2-4301-20240207
+            image: base-veos-training-l3-2-2023-2-4301-20240329
             eos:
               - 4.30.1F  
     prod:
@@ -1152,9 +1152,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l3-2-2023-2-4301-20240207
+            image: base-veos-training-l3-2-2023-2-4301-20240329
             eos:
               - 4.30.1F 
     desc: 'Level 3 Training Exam 2 Lab. For use by the Arista Training Team.'
@@ -1212,7 +1212,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-20240319
+            image: base-veos-training-l4-v2-2023-2-20240329
             eos:
               - 4.30.1F              
     prod:
@@ -1235,9 +1235,9 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: v2023.2-0319024
+            branch: v2023.2-0329024
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-20240319
+            image: base-veos-training-l4-v2-2023-2-20240329
             eos:
               - 4.30.1F                   
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -1270,7 +1270,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-20240319
+            image: base-veos-training-l4-v2-2023-2-20240329
             eos:
               - 4.30.1F    
     prod:
@@ -1293,9 +1293,9 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: v2023.2-0319024
+            branch: v2023.2-0329024
             orderable: true
-            image: base-veos-training-l4-v2-2023-2-20240319
+            image: base-veos-training-l4-v2-2023-2-20240329
             eos:
               - 4.30.1F 
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -1328,7 +1328,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l4-exam-2023-2-4301-20240207
+            image: base-veos-training-l4-exam-2023-2-4301-20240329
             eos:
               - 4.30.1F
     prod:
@@ -1351,9 +1351,9 @@ topologies:
             resources:
               cpu: 60
               ram: 88
-            branch:  v2023.2-0214024
+            branch:  v2023.2-0329024
             orderable: true
-            image: base-veos-training-l4-exam-2023-2-4301-20240207
+            image: base-veos-training-l4-exam-2023-2-4301-20240329
             eos:
               - 4.30.1F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
@@ -1397,7 +1397,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-l5-2023-2-4301-20240314
+            image: base-ceos-training-l5-2023-2-4301-20240329
             eos:
               - 4.30.1F
     prod:
@@ -1431,9 +1431,9 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch: v2023.2-0319024
+            branch: v2023.2-0329024
             orderable: true
-            image: base-ceos-training-l5-2023-2-4301-20240314
+            image: base-ceos-training-l5-2023-2-4301-20240329
             eos:
               - 4.30.1F
     desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
@@ -2267,7 +2267,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l1-me-2023-2-4301-20240315
+            image: base-veos-training-l1-me-2023-2-4301-20240329
             eos:
               - 4.30.1F
     prod:
@@ -2280,9 +2280,9 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0319024
+            branch: v2023.2-0329024
             orderable: true
-            image: base-veos-training-l1-me-2023-2-4301-20240315
+            image: base-veos-training-l1-me-2023-2-4301-20240329
             eos:
               - 4.30.1F
     desc: 'Level 1 Media and Entertainment Training Lab. For use by the Arista Training Team.'
