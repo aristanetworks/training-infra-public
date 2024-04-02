@@ -1,0 +1,1111 @@
+host_cpu: 4
+cvp_cpu: 24
+cvp_ram: 32
+cvp_nodes: 1
+veos_cpu: 2
+nodes:
+# Spines DC1
+  - spine1-DC1:
+      ip_addr: 192.168.0.11
+      sys_mac: 00:1c:73:b1:c6:01
+      neighbors:
+          # connection to spine2
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+          # connections to leafs
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet3
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet2
+          port: Ethernet15
+
+  - spine2-DC1:
+      ip_addr: 192.168.0.12
+      sys_mac: 00:1c:73:b2:c6:01
+      neighbors:
+        # connection to spine2
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+          # connections to leafs
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet4
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet3
+          port: Ethernet15
+
+  - spine3-DC1:
+      ip_addr: 192.168.0.13
+      sys_mac: 00:1c:73:b3:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet5
+          port: Ethernet2
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet5
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet5
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet4
+          port: Ethernet15
+
+# Spines DC2
+
+  - spine1-DC2:
+      ip_addr: 192.168.0.14
+      sys_mac: 00:1c:73:b4:c6:01
+      neighbors:
+          # connection to spine2
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+          # connections to leafs
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet3
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet2
+          port: Ethernet15
+
+  - spine2-DC2:
+      ip_addr: 192.168.0.15
+      sys_mac: 00:1c:73:b5:c6:01
+      neighbors:
+        # connection to spine2
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+          # connections to leafs
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet4
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet3
+          port: Ethernet15
+
+  - spine3-DC2:
+      ip_addr: 192.168.0.16
+      sys_mac: 00:1c:73:b6:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet5
+          port: Ethernet2
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet5
+          port: Ethernet5
+          # connections to border-leafs
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet5
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet4
+          port: Ethernet15
+
+# Spines DC3
+  - spine1-DC3:
+      ip_addr: 192.168.0.77
+      sys_mac: 00:1c:73:17:c6:01
+      neighbors:
+        - neighborDevice: spine2-DC3
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: spine2-DC3
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: PE31
+          neighborPort: Ethernet3
+          port: Ethernet7
+
+  - spine2-DC3:
+      ip_addr: 192.168.0.78
+      sys_mac: 00:1c:73:18:c6:01
+      neighbors:
+        - neighborDevice: spine1-DC3
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: spine1-DC3
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: PE31
+          neighborPort: Ethernet4
+          port: Ethernet7
+
+# Leafs DC1
+  - leaf1-DC1:
+      ip_addr: 192.168.0.21
+      sys_mac: 00:1c:73:c1:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet2
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet2
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host1-DC1
+          neighborPort: Ethernet1
+          port: Ethernet6
+        - neighborDevice: host1-DC1
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet5
+          port: Ethernet15
+
+
+  - leaf2-DC1:
+      ip_addr: 192.168.0.22
+      sys_mac: 00:1c:73:c2:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet3
+          port: Ethernet5
+        # connections to host-switches
+        - neighborDevice: host1-DC1
+          neighborPort: Ethernet2
+          port: Ethernet6
+        - neighborDevice: host1-DC1
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet6
+          port: Ethernet15
+
+
+  - leaf3-DC1:
+      ip_addr: 192.168.0.23
+      sys_mac: 00:1c:73:c3:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet4
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host2-DC1
+          neighborPort: Ethernet1
+          port: Ethernet6
+        - neighborDevice: host2-DC1
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet7
+          port: Ethernet15
+
+
+  - leaf4-DC1:
+      ip_addr: 192.168.0.24
+      sys_mac: 00:1c:73:c4:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet5
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host2-DC1
+          neighborPort: Ethernet2
+          port: Ethernet6
+        - neighborDevice: host2-DC1
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet8
+          port: Ethernet15
+
+
+  # Border-leafs
+  - borderleaf1-DC1:
+      ip_addr: 192.168.0.25
+      sys_mac: 00:1c:73:c5:c6:01
+      neighbors:
+          # connections to Border-leafs
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: PE11
+          neighborPort: Ethernet2
+          port: Ethernet10
+        - neighborDevice: PE12
+          neighborPort: Ethernet2
+          port: Ethernet12
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet9
+          port: Ethernet15
+
+
+
+  - borderleaf2-DC1:
+      ip_addr: 192.168.0.26
+      sys_mac: 00:1c:73:c6:c6:01
+      neighbors:
+          # connections to Border-leafs
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet7
+          port: Ethernet5
+        - neighborDevice: PE12
+          neighborPort: Ethernet3
+          port: Ethernet10
+        - neighborDevice: PE11
+          neighborPort: Ethernet3
+          port: Ethernet12
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet10
+          port: Ethernet15
+
+
+# Leafs DC2
+  - leaf1-DC2:
+      ip_addr: 192.168.0.31
+      sys_mac: 00:1c:73:d1:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet2
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet2
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host1-DC2
+          neighborPort: Ethernet1
+          port: Ethernet6
+        - neighborDevice: host1-DC2
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet5
+          port: Ethernet15
+
+
+  - leaf2-DC2:
+      ip_addr: 192.168.0.32
+      sys_mac: 00:1c:73:d2:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet3
+          port: Ethernet5
+        # connections to host-switches
+        - neighborDevice: host1-DC2
+          neighborPort: Ethernet2
+          port: Ethernet6
+        - neighborDevice: host1-DC2
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet6
+          port: Ethernet15
+
+
+  - leaf3-DC2:
+      ip_addr: 192.168.0.33
+      sys_mac: 00:1c:73:d3:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet4
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host2-DC2
+          neighborPort: Ethernet1
+          port: Ethernet6
+        - neighborDevice: host2-DC2
+          neighborPort: Ethernet3
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet7
+          port: Ethernet15
+
+
+  - leaf4-DC2:
+      ip_addr: 192.168.0.34
+      sys_mac: 00:1c:73:d4:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet5
+          port: Ethernet5
+          # connections to host-switches
+        - neighborDevice: host2-DC2
+          neighborPort: Ethernet2
+          port: Ethernet6
+        - neighborDevice: host2-DC2
+          neighborPort: Ethernet4
+          port: Ethernet7
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet8
+          port: Ethernet15
+
+
+  # Border-leafs
+  - borderleaf1-DC2:
+      ip_addr: 192.168.0.35
+      sys_mac: 00:1c:73:d5:c6:01
+      neighbors:
+          # connections to Borderleafs
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: PE21
+          neighborPort: Ethernet3
+          port: Ethernet10
+        - neighborDevice: PE22
+          neighborPort: Ethernet3
+          port: Ethernet12
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet9
+          port: Ethernet15
+
+  - borderleaf2-DC2:
+      ip_addr: 192.168.0.36
+      sys_mac: 00:1c:73:d6:c6:01
+      neighbors:
+          # connections to Borderleafs
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet2
+          port: Ethernet2
+          # connections to spines
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet7
+          port: Ethernet5
+        - neighborDevice: PE22
+          neighborPort: Ethernet2
+          port: Ethernet10
+        - neighborDevice: PE21
+          neighborPort: Ethernet2
+          port: Ethernet12
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet10
+          port: Ethernet15
+
+# Leafs DC3
+  - leaf1-DC3:
+      ip_addr: 192.168.0.80
+      sys_mac: 00:1c:73:20:c6:01
+      neighbors:
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: spine1-DC3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: spine2-DC3
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: host1-DC3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: host2-DC3
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+  - leaf2-DC3:
+      ip_addr: 192.168.0.81
+      sys_mac: 00:1c:73:21:c6:01
+      neighbors:
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: spine2-DC3
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: spine1-DC3
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: host2-DC3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: host1-DC3
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+# Hosts DC1
+  - host1-DC1:
+      ip_addr: 192.168.0.51
+      sys_mac: 00:1c:73:f1:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet6
+          port: Ethernet2
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet11
+          port: Ethernet15
+
+  - host2-DC1:
+      ip_addr: 192.168.0.52
+      sys_mac: 00:1c:73:f2:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet6
+          port: Ethernet2
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet12
+          port: Ethernet15
+
+# Hosts DC2
+  - host1-DC2:
+      ip_addr: 192.168.0.53
+      sys_mac: 00:1c:73:f3:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet6
+          port: Ethernet2
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet11
+          port: Ethernet15
+
+  - host2-DC2:
+      ip_addr: 192.168.0.54
+      sys_mac: 00:1c:73:f4:c6:01
+      neighbors:
+          # connections to leafs
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet6
+          port: Ethernet2
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet12
+          port: Ethernet15
+
+# OOB
+  - OOB-DC1:
+      ip_addr: 192.168.0.62
+      sys_mac: 00:1c:73:02:c6:01
+      neighbors:
+        - neighborDevice: OOB-CORE
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine1-DC1
+          neighborPort: Ethernet15
+          port: Ethernet2
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet15
+          port: Ethernet3
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet15
+          port: Ethernet4
+        - neighborDevice: leaf1-DC1
+          neighborPort: Ethernet15
+          port: Ethernet5
+        - neighborDevice: leaf2-DC1
+          neighborPort: Ethernet15
+          port: Ethernet6
+        - neighborDevice: leaf3-DC1
+          neighborPort: Ethernet15
+          port: Ethernet7
+        - neighborDevice: leaf4-DC1
+          neighborPort: Ethernet15
+          port: Ethernet8
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet15
+          port: Ethernet9
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet15
+          port: Ethernet10
+        - neighborDevice: host1-DC1
+          neighborPort: Ethernet15
+          port: Ethernet11
+        - neighborDevice: host2-DC1
+          neighborPort: Ethernet15
+          port: Ethernet12
+
+  - OOB-DC2:
+      ip_addr: 192.168.0.63
+      sys_mac: 00:1c:73:03:c6:01
+      neighbors:
+        - neighborDevice: OOB-CORE
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: spine1-DC2
+          neighborPort: Ethernet15
+          port: Ethernet2
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet15
+          port: Ethernet3
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet15
+          port: Ethernet4
+        - neighborDevice: leaf1-DC2
+          neighborPort: Ethernet15
+          port: Ethernet5
+        - neighborDevice: leaf2-DC2
+          neighborPort: Ethernet15
+          port: Ethernet6
+        - neighborDevice: leaf3-DC2
+          neighborPort: Ethernet15
+          port: Ethernet7
+        - neighborDevice: leaf4-DC2
+          neighborPort: Ethernet15
+          port: Ethernet8
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet15
+          port: Ethernet9
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet15
+          port: Ethernet10
+        - neighborDevice: host1-DC2
+          neighborPort: Ethernet15
+          port: Ethernet11
+        - neighborDevice: host2-DC2
+          neighborPort: Ethernet15
+          port: Ethernet12
+
+  - OOB-CORE:
+      ip_addr: 192.168.0.61
+      sys_mac: 00:1c:73:04:c6:01
+      neighbors:
+        - neighborDevice: OOB-DC1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: OOB-DC2
+          neighborPort: Ethernet1
+          port: Ethernet2
+
+# WAN-DC1-Side
+  - PE11:
+      ip_addr: 192.168.0.91
+      sys_mac: 00:1c:73:91:c6:01
+      neighbors:
+        - neighborDevice: P1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet10
+          port: Ethernet2
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet12
+          port: Ethernet3
+        - neighborDevice: P2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet1
+          port: Ethernet5
+
+  - PE12:
+      ip_addr: 192.168.0.92
+      sys_mac: 00:1c:73:92:c6:01
+      neighbors:
+        - neighborDevice: P2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf1-DC1
+          neighborPort: Ethernet12
+          port: Ethernet2
+        - neighborDevice: borderleaf2-DC1
+          neighborPort: Ethernet10
+          port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet2
+          port: Ethernet4
+        - neighborDevice: P1
+          neighborPort: Ethernet5
+          port: Ethernet5
+
+  - P1:
+      ip_addr: 192.168.0.93
+      sys_mac: 00:1c:73:93:c6:01
+      neighbors:
+        - neighborDevice: PE11
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: P3
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE31
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: P2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: PE12
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: RR
+          neighborPort: Ethernet3
+          port: Ethernet6
+
+  - P2:
+      ip_addr: 192.168.0.94
+      sys_mac: 00:1c:73:94:c6:01
+      neighbors:
+        - neighborDevice: PE12
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: P4
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE11
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: P1
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet4
+          port: Ethernet5
+
+# WAN-DC2-Side
+  - PE21:
+      ip_addr: 192.168.0.95
+      sys_mac: 00:1c:73:95:c6:01
+      neighbors:
+        - neighborDevice: P3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet12
+          port: Ethernet2
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet10
+          port: Ethernet3
+        - neighborDevice: P4
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet5
+          port: Ethernet5
+
+  - PE22:
+      ip_addr: 192.168.0.96
+      sys_mac: 00:1c:73:96:c6:01
+      neighbors:
+        - neighborDevice: P4
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: borderleaf2-DC2
+          neighborPort: Ethernet10
+          port: Ethernet2
+        - neighborDevice: borderleaf1-DC2
+          neighborPort: Ethernet12
+          port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: P3
+          neighborPort: Ethernet5
+          port: Ethernet5
+
+  - P3:
+      ip_addr: 192.168.0.97
+      sys_mac: 00:1c:73:97:c6:01
+      neighbors:
+        - neighborDevice: PE21
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: P1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE31
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: P4
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: PE22
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: RR
+          neighborPort: Ethernet7
+          port: Ethernet6
+
+  - P4:
+      ip_addr: 192.168.0.98
+      sys_mac: 00:1c:73:98:c6:01
+      neighbors:
+        - neighborDevice: PE22
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: P2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE21
+          neighborPort: Ethernet4
+          port: Ethernet3
+        - neighborDevice: P3
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet8
+          port: Ethernet5
+
+# WAN-DC3-Side
+  - PE31:
+      ip_addr: 192.168.0.99
+      sys_mac: 00:1c:73:99:c6:01
+      neighbors:
+        - neighborDevice: P1
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: P3
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: spine1-DC3
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: spine2-DC3
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet9
+          port: Ethernet5
+
+
+# WAN RR
+  - RR:
+      ip_addr: 192.168.0.90
+      sys_mac: 00:1c:73:90:c6:01
+      neighbors:
+        - neighborDevice: PE11
+          neighborPort: Ethernet5
+          port: Ethernet1
+        - neighborDevice: PE12
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: P1
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: P2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: PE21
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: PE22
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: P3
+          neighborPort: Ethernet6
+          port: Ethernet7
+        - neighborDevice: P4
+          neighborPort: Ethernet5
+          port: Ethernet8
+        - neighborDevice: PE31
+          neighborPort: Ethernet5
+          port: Ethernet9
+
+
+
+
+# Hosts DC3
+  - host1-DC3:
+      ip_addr: 192.168.0.82
+      sys_mac: 00:1c:73:22:c6:01
+      neighbors:
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+  - host2-DC3:
+      ip_addr: 192.168.0.83
+      sys_mac: 00:1c:73:23:c6:01
+      neighbors:
+        - neighborDevice: leaf2-DC3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf1-DC3
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+# CVX
+  # - CVX:
+  #     ip_addr: 192.168.0.4
+  #     sys_mac: 00:1c:73:a4:c6:01
+  #     neighbors: []
+additional_ssh_nodes:
