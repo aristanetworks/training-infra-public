@@ -55,7 +55,7 @@ hostname GW11
 !
 interface Management0
    vrf MGMT
-   ip address 192.168.0.71/24
+   ip address 192.168.0.91/24
 !
 ip routing
 !

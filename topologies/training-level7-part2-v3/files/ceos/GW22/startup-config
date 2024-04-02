@@ -55,7 +55,7 @@ hostname GW22
 !
 interface Management0
    vrf MGMT
-   ip address 192.168.0.74/24
+   ip address 192.168.0.96/24
 !
 ip routing
 !

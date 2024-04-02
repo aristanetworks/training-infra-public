@@ -51,11 +51,11 @@ management api http-commands
 !
 service routing protocols model multi-agent
 !
-hostname GW12
+hostname P1
 !
 interface Management0
    vrf MGMT
-   ip address 192.168.0.92/24
+   ip address 192.168.0.93/24
 !
 ip routing
 !
