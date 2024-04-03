@@ -115,8 +115,7 @@ nodes:
         - neighborDevice: GW22
           neighborPort: Ethernet6
           port: Ethernet7
-=
-
+          
   - spine2-DC2:
       ip_addr: 192.168.0.15
       sys_mac: 00:1c:73:b5:c6:01
