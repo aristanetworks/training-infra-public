@@ -205,7 +205,7 @@ nodes:
           neighborPort: Ethernet4
           port: Ethernet1
         - neighborDevice: GW31
-          neighborPort: Ethernet6
+          neighborPort: Ethernet7
           port: Ethernet2
         - neighborDevice: spine1-DC3
           neighborPort: Ethernet3
