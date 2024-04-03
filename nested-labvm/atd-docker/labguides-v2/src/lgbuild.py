@@ -1,7 +1,7 @@
 #!/bin/env python3
 
 
-import os, sys, json, yaml 
+import os, sys, yaml
 from shutil import move, rmtree
 from subprocess import call
 from git import Repo
@@ -22,6 +22,7 @@ if response.status_code == 200:
 else:
     print("Failed to retrieve GitHub PAT Key:", response.status_code)
 
+lab_count=0
 
 git_dir=(os.path.join(os.getcwd(), 'git'))
 if os.path.exists(git_dir): rmtree(git_dir)
@@ -44,9 +45,13 @@ def write_to_index(index_file,text):
 
 def move_item(src):
     dest=src.replace(git_dir+os.path.sep,build_dir+os.path.sep)
-    print ("Merging file - src = ", src, ": dest = ", dest)
     if os.path.isfile(src):
-        move(src,dest)
+        if os.path.isfile(dest):
+            print ("Skipping file - dest = ", dest, " - already exists")
+            os.remove(src)
+        else:
+            print ("Merging file - src = ", src, ": dest = ", dest)
+            move(src,dest)
     else:
         if not os.path.exists(dest): os.mkdir(dest)
         for subsrc in os.listdir(src):
@@ -83,8 +88,9 @@ def build_index(index):
     merge()
 
 
-def add_lab(module,lab_count):
-    #git repo
+def add_lab(module):
+    global lab_count
+    #clone the repo
     name=module.split(':')[0]
     repo=repo_base+name+".git"
     if len(module.split(':'))>1:
@@ -92,32 +98,49 @@ def add_lab(module,lab_count):
     else:
         branch="main"
     git({'repo':repo,'branch':branch,})
-    #metadata file
+
+    #read metadata file
     try:
         with open(os.path.join(git_dir,'metadata.yaml')) as f: metadata=yaml.safe_load(f)
         file=metadata['file']
+        if type(file)!=list: file=[file]
         caption=metadata['caption']
     except:
         file=name+'.rst'
         caption=''
+
+    #remove duplicates
+    for duplicate in file:
+        for already_there in build['files']:
+            if duplicate.lower()==already_there.lower():
+                print ("Skipping TOC entry - ", duplicate)
+                os.remove(os.path.join(git_dir,duplicate))
+                file.pop(file.index(duplicate))
+                if len(file)>0:duplicate=file[0]
+
     #write out
-    if lab_count>0: 
-        if 'exam' not in build['index']['name'].lower(): caption=str('Lab '+str(lab_count)+' - '+caption) 
-    toc=str("\n.. toctree::\n   :hidden:\n   :maxdepth: 1\n   :caption: "+caption+"\n\n")
-    write_to_index(index_file,toc)
-    if type(file)==list:
+    if len(file)>0:
+        if lab_count>0:
+            if 'exam' not in build['index']['name'].lower(): caption=str('Lab '+str(lab_count)+' - '+caption)
+        toc=str("\n.. toctree::\n   :hidden:\n   :maxdepth: 1\n   :caption: "+caption+"\n\n")
+        print ("Adding TOC section - ",caption)
+        write_to_index(index_file,toc)
         for element in file:
+            print ("Adding TOC entry - ",element)
             write_to_index(index_file,"   "+element+'\n')
+    #merge
+        merge()
     else:
-        write_to_index(index_file,"   "+file+'\n')
-#merge
-    merge()
+        print ("Skipping TOC section - ", caption)
+        lab_count-=1
+        print ("Reduced lab_count to ",lab_count)
+        rmtree (git_dir)
 
 
 if __name__ == '__main__':
     try:
         ACCESS_INFO=load_ACCESS_INFO()
-        if type(ACCESS_INFO['labguides_modules']) != 'list': raise()
+        if type(ACCESS_INFO['labguides_modules']) != list: raise()
         if len(ACCESS_INFO['labguides_modules'])<2: raise()
     except:
         sys.exit(0)
@@ -125,7 +148,7 @@ if __name__ == '__main__':
     merge()
     build_index(list.pop(ACCESS_INFO['labguides_modules'],0))
     index_file=os.path.join(build_dir,build['index']['file'])
-    lab_count=0
+    build.update({'files':[build['index']['file']]})
     for module in ACCESS_INFO['labguides_modules']:
         if 'labaccess' not in module.lower(): lab_count+=1
         add_lab(module,lab_count)
