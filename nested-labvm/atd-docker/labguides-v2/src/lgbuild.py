@@ -151,6 +151,6 @@ if __name__ == '__main__':
     build.update({'files':[build['index']['file']]})
     for module in ACCESS_INFO['labguides_modules']:
         if 'labaccess' not in module.lower(): lab_count+=1
-        add_lab(module,lab_count)
+        add_lab(module)
     call(['make', '-C', build_dir,'html'])
     rmtree (build_dir)
