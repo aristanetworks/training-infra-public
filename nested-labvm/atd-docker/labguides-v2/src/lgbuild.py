@@ -115,7 +115,12 @@ def add_lab(module,lab_count):
 
 
 if __name__ == '__main__':
-    ACCESS_INFO=load_ACCESS_INFO()
+    try:
+        ACCESS_INFO=load_ACCESS_INFO()
+        if type(ACCESS_INFO['labguides_modules']) != 'list': raise()
+        if len(ACCESS_INFO['labguides_modules'])<2: raise()
+    except:
+        sys.exit(0)
     git(build['deploy'])
     merge()
     build_index(list.pop(ACCESS_INFO['labguides_modules'],0))
