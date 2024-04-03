@@ -194,9 +194,7 @@ nodes:
         - neighborDevice: leaf2-DC3
           neighborPort: Ethernet6
           port: Ethernet6
-        - neighborDevice: GW31
-          neighborPort: Ethernet3
-          port: Ethernet7
+
 
   - spine2-DC3:
       ip_addr: 192.168.0.78
@@ -220,9 +218,7 @@ nodes:
         - neighborDevice: leaf1-DC3
           neighborPort: Ethernet6
           port: Ethernet6
-        - neighborDevice: GW31
-          neighborPort: Ethernet4
-          port: Ethernet7
+  
 
 # Leafs DC1
   - leaf1-DC1:
