@@ -2330,3 +2330,117 @@ topologies:
     access: standard
     disable_links: [ jenkins, lab_grading]
     labguides: self
+  training-level7-part2-v3:
+    dev:
+      ceos:
+        cpu: 80
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l7-part-2-v3-2023-2-4301-20240403
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0315024
+            orderable: false
+            image: base-ceos-training-l7-part-2-v3-2023-2-4301-20240403
+            eos:
+              - 4.30.1F
+    desc: 'Level 7 part-2 V3 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 7 part-2 V3'
+    title: 'Level 7 part-2 V3'
+    disk_size: 300
+    access: standard
+    disable_links: [ jenkins, lab_grading]
+    labguides: self
+    training-level-1-mini-1:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l1-mini-1-2023-2-4301-20240403-123354-image
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0319024
+            orderable: false
+            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
+            eos:
+              - 4.30.1F
+    desc: 'Level 1 mini-1 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 1 mini-1'
+    title: 'Training Level 1 Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading]
+    labguides: self
+    training-level-1-mini-2:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0319024
+            orderable: false
+            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
+            eos:
+              - 4.30.1F
+    desc: 'Level 1 mini-2 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 1 mini-2'
+    title: 'Training Level 1 Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading]
+    labguides: self
