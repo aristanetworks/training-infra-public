@@ -1,0 +1,94 @@
+!
+router ospf 1
+   router-id 192.168.255.13
+   max-lsa 12000
+!
+!
+interface Loopback0
+   ip address 192.168.255.13/32
+   ip ospf area 0.0.0.0
+!
+interface Loopback1
+   ip address 192.168.255.111/32
+   ip ospf area 0.0.0.0
+!
+interface Ethernet1
+ shutdown
+!
+interface Ethernet2
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.12
+!
+interface Ethernet3
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.12
+!
+interface Ethernet4
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.34
+!
+interface Ethernet5
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.34
+!
+interface Ethernet6
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.0
+!
+interface Ethernet7
+   no switchport
+   ip address unnumbered Loopback0
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.0
+
+router bgp 65110
+
+   router-id 192.168.255.13
+   no bgp default ipv4-unicast
+
+   neighbor EVPN-LEAFS12 peer group
+   neighbor EVPN-LEAFS12 remote-as 65012
+   neighbor EVPN-LEAFS12 ebgp-multihop 3
+   neighbor EVPN-LEAFS12 send-community standard extended
+   neighbor EVPN-LEAFS12 maximum-routes 12000
+   neighbor 192.168.255.21 peer group EVPN-LEAFS12
+   neighbor 192.168.255.21 description DC1-EVPN-LEAF1
+   neighbor 192.168.255.22 peer group EVPN-LEAFS12
+   neighbor 192.168.255.22 description DC1-EVPN-LEAF2
+   
+   neighbor EVPN-LEAFS34 peer group
+   neighbor EVPN-LEAFS34 remote-as 65034
+   neighbor EVPN-LEAFS34 ebgp-multihop 3
+   neighbor EVPN-LEAFS34 send-community standard extended
+   neighbor EVPN-LEAFS34 maximum-routes 12000
+   neighbor 192.168.255.23 peer group EVPN-LEAFS34
+   neighbor 192.168.255.23 description DC1-EVPN-LEAF3
+   neighbor 192.168.255.24 peer group EVPN-LEAFS34
+   neighbor 192.168.255.24 description DC1-EVPN-LEAF4
+
+   redistribute connected
+   !
+   address-family evpn
+  
+      neighbor EVPN-LEAFS12 activate
+      neighbor EVPN-LEAFS12 next-hop-unchanged
+      
+      neighbor EVPN-LEAFS34 activate
+      neighbor EVPN-LEAFS34 next-hop-unchanged
+   !
+   address-family ipv4
+      network 192.168.255.13/32
+      
+      no neighbor EVPN-LEAFS12 activate
+      no neighbor EVPN-LEAFS34 activate
+     
