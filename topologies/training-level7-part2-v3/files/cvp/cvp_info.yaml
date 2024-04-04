@@ -86,8 +86,10 @@ cvp_info:
     netelements:
       leaf1-DC1:
       - leaf1-DC1-BASE
+      - leaf1-DC1-PRECONFIG
       leaf2-DC1:
       - leaf2-DC1-BASE
+      - leaf2-DC1-PRECONFIG
       leaf3-DC1:
       - leaf3-DC1-BASE
       leaf4-DC1:
