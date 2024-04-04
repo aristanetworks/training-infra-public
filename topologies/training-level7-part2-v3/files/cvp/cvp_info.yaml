@@ -86,18 +86,25 @@ cvp_info:
     netelements:
       leaf1-DC1:
       - leaf1-DC1-BASE
+      - leaf1-DC1-PRECONFIG
       leaf2-DC1:
       - leaf2-DC1-BASE
+      - leaf2-DC1-PRECONFIG
       leaf3-DC1:
       - leaf3-DC1-BASE
+      - leaf3-DC1-PRECONFIG
       leaf4-DC1:
       - leaf4-DC1-BASE
+      - leaf4-DC1-PRECONFIG
       spine1-DC1:
       - spine1-DC1-BASE
+      - spine1-DC1-PRECONFIG
       spine2-DC1:
       - spine2-DC1-BASE
+      - spine2-DC1-PRECONFIG
       spine3-DC1:
       - spine3-DC1-BASE
+      - spine3-DC1-PRECONFIG
       host1-DC1:
       - host1-DC1-BASE
       - host1-DC1-START
