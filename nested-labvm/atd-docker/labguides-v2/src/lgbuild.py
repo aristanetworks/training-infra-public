@@ -68,7 +68,8 @@ def merge():
 
 def git(item):
     git_repo_url = f'https://lab-guide-device:{github_key}@{item["repo"]}'
-    Repo.clone_from(git_repo_url, git_dir)
+    Repo.clone_from(git_repo_url, git_dir, branch=item["branch"])
+
 
 def build_index(index):
     name=index.split(':')[0]
@@ -97,7 +98,7 @@ def add_lab(module):
         branch=module.split(':')[1]
     else:
         branch="main"
-    git({'repo':repo,'branch':branch,})
+    git({'repo':repo,'branch':branch})
 
     #read metadata file
     try:
