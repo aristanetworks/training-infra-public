@@ -92,8 +92,10 @@ cvp_info:
       - leaf2-DC1-PRECONFIG
       leaf3-DC1:
       - leaf3-DC1-BASE
+      - leaf3-DC1-PRECONFIG
       leaf4-DC1:
       - leaf4-DC1-BASE
+      - leaf4-DC1-PRECONFIG
       spine1-DC1:
       - spine1-DC1-BASE
       spine2-DC1:
