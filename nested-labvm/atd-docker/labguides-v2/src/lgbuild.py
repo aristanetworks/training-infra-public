@@ -8,12 +8,13 @@ from git import Repo
 import requests
 
 
-
 with open(os.path.join(os.getcwd(),'deploy.yaml')) as f: deploy_data=yaml.safe_load(f)
 repo_base=deploy_data['repo_base']
 build={}
 build.update({"dest_dir":deploy_data['dest_dir']})
 build.update({"deploy":{"name":deploy_data['deploy']['name'],"file":deploy_data['deploy']['file'],"repo":repo_base+deploy_data['deploy']['repo'],"branch":deploy_data['deploy']['branch']}})
+
+
 metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/attributes/github_sdnpros_pat_key"
 headers = {"Metadata-Flavor": "Google"}
 response = requests.get(metadata_url, headers=headers)
@@ -21,6 +22,7 @@ if response.status_code == 200:
     github_key= response.text.strip()
 else:
     print("Failed to retrieve GitHub PAT Key:", response.status_code)
+
 
 lab_count=0
 
@@ -68,7 +70,14 @@ def merge():
 
 def git(item):
     git_repo_url = f'https://lab-guide-device:{github_key}@{item["repo"]}'
-    Repo.clone_from(git_repo_url, git_dir, branch=item["branch"])
+    try:
+        clone=Repo.clone_from(git_repo_url, git_dir, branch=item["branch"])
+    except:
+        clone=False
+    if not clone:
+        print ('Failed to clone repo ', item["repo"], ' : Branch ',item["branch"])
+        rmtree (build_dir)
+        sys.exit(0)
 
 
 def build_index(index):
