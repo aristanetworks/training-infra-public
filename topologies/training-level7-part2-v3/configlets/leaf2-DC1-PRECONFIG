@@ -145,12 +145,15 @@ router bgp 65012
    no bgp default ipv4-unicast
    router-id 192.168.255.22
    redistribute connected
+   
    neighbor AS65151 peer group
    neighbor EVPN-SPINES peer group
    neighbor EVPN-SPINES remote-as 65110
    neighbor EVPN-SPINES ebgp-multihop 3
    neighbor EVPN-SPINES send-community standard extended
    neighbor EVPN-SPINES maximum-routes 12000
+   neighbor EVPN-SPINES update-source Loopback0
+   
    neighbor 192.168.255.11 peer group EVPN-SPINES
    neighbor 192.168.255.11 description DC1-EVPN-SPINE1
    neighbor 192.168.255.12 peer group EVPN-SPINES
