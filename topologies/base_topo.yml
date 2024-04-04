@@ -2368,7 +2368,7 @@ topologies:
     access: standard
     disable_links: [ jenkins, lab_grading]
     labguides: self
-    training-level-1-mini-1:
+  training-level-1-mini-1:
     dev:
       ceos:
         cpu: 40
@@ -2406,7 +2406,7 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading]
     labguides: self
-    training-level-1-mini-2:
+  training-level-1-mini-2:
     dev:
       ceos:
         cpu: 40
