@@ -18,25 +18,25 @@ interface Ethernet2
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.0
 !
 interface Ethernet3
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.0
 !
 interface Ethernet4
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet5
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet6
    no switchport
@@ -62,21 +62,24 @@ router bgp 65110
    neighbor EVPN-LEAFS12 ebgp-multihop 3
    neighbor EVPN-LEAFS12 send-community standard extended
    neighbor EVPN-LEAFS12 maximum-routes 12000
+   neighbor EVPN-LEAFS12 update-source Loopback0
+   
    neighbor 192.168.255.21 peer group EVPN-LEAFS12
    neighbor 192.168.255.21  description DC1-EVPN-LEAF1
    neighbor 192.168.255.22 peer group EVPN-LEAFS12
    neighbor 192.168.255.22  description DC1-EVPN-LEAF2
 
    neighbor EVPN-LEAFS34 peer group
-   neighbor EVPN-LEAFS34 description DC1-EVPN-LEAFS34
    neighbor EVPN-LEAFS34 remote-as 65034
    neighbor EVPN-LEAFS34 ebgp-multihop 3
    neighbor EVPN-LEAFS34 send-community standard extended
    neighbor EVPN-LEAFS34 maximum-routes 12000
+   neighbor EVPN-LEAFS34 update-source Loopback0
+   
    neighbor 192.168.255.23 peer group EVPN-LEAFS34
-   neighbor 192.168.255.23  description DC1-EVPN-LEAF3
+   neighbor 192.168.255.23 description DC1-EVPN-LEAF3
    neighbor 192.168.255.24 peer group EVPN-LEAFS34
-   neighbor 192.168.255.24  description DC1-EVPN-LEAF4
+   neighbor 192.168.255.24 description DC1-EVPN-LEAF4
    !
    address-family evpn
       neighbor EVPN-LEAFS12 activate
@@ -86,7 +89,7 @@ router bgp 65110
       neighbor EVPN-LEAFS34 next-hop-unchanged
    !
    address-family ipv4
-      network 192.168.255.12/32
+
       
       no neighbor EVPN-LEAFS12 activate
       no neighbor EVPN-LEAFS34 activate
