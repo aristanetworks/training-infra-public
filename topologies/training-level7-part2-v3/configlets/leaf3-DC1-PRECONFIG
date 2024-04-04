@@ -6,11 +6,11 @@ router ospf 1
 !
 interface Loopback0
    ip address 192.168.255.23/32
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Loopback1
    ip address 192.168.255.134/32
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Port-Channel1
    switchport mode trunk
@@ -23,7 +23,7 @@ interface Vlan4094
    ip address 10.10.0.49/30
    no autostate
 !
-ip virtual-router mac-address de:ad:be:ef:fa:cd
+ip virtual-router mac-address de:ad:be:ef:fa:de
 !
 !
 mlag configuration
@@ -84,19 +84,19 @@ interface Ethernet3
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet4
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet5
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet6
    channel-group 10 mode active
@@ -126,8 +126,7 @@ interface Vlan111
    ip address virtual 172.16.111.254/24
 !
 interface Vlan112
-   ip address 172.16.112.23/24
-   ip virtual-router address 172.16.112.254
+   ip  address virtual 172.16.112.254/24
 !
 interface Vlan113
    ip address virtual 172.16.113.254/24
@@ -142,11 +141,14 @@ router bgp 65034
    no bgp default ipv4-unicast
    router-id 192.168.255.23
    redistribute connected
+   
    neighbor EVPN-SPINES peer group
    neighbor EVPN-SPINES remote-as 65110
    neighbor EVPN-SPINES ebgp-multihop 3
    neighbor EVPN-SPINES send-community standard extended
    neighbor EVPN-SPINES maximum-routes 12000
+   neighbor EVPN-SPINES update-source Loopback0
+   
    neighbor 192.168.255.11 peer group EVPN-SPINES
    neighbor 192.168.255.11 description DC1-EVPN-SPINE1
    neighbor 192.168.255.12 peer group EVPN-SPINES
