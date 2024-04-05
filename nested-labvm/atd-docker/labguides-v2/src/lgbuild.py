@@ -154,6 +154,11 @@ if __name__ == '__main__':
         if len(ACCESS_INFO['labguides_modules'])<2: raise()
     except:
         sys.exit(0)
+    try:
+        if 'lgdeploy' in ACCESS_INFO['labguides_modules'][0]:
+            build['deploy']['branch']=ACCESS_INFO['labguides_modules'].pop(0).split(':')[1]
+    except:
+        print('Could not set branch name for lgdeploy repo, using default')
     git(build['deploy'])
     merge()
     build_index(list.pop(ACCESS_INFO['labguides_modules'],0))
