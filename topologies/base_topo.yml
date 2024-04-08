@@ -2394,8 +2394,8 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0319024
-            orderable: false
+            branch: v2023.2-0408024
+            orderable: true
             image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
             eos:
               - 4.30.1F
@@ -2432,8 +2432,8 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0319024
-            orderable: false
+            branch: v2023.2-0408024
+            orderable: true
             image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
             eos:
               - 4.30.1F
