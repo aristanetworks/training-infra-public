@@ -97,4 +97,11 @@ spanning-tree mst configuration
    instance 1 vlan  15-19
    instance 2 vlan  130-134
 
-spanning-tree mst 0-2 root primary
+
+
+spanning-tree mode mstp
+no spanning-tree vlan-id 4094
+spanning-tree mst 0 priority 61440
+spanning-tree mst 1 priority 8192
+spanning-tree mst 2 priority 16384
+spanning-tree mst configuration
