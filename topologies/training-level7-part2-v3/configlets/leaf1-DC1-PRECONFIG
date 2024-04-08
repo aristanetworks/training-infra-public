@@ -5,11 +5,11 @@ router ospf 1
 !
 interface Loopback0
    ip address 192.168.255.21/32
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.0
 !
 interface Loopback1
    ip address 192.168.255.112/32
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.0
 !
 vlan 10
    name VLAN10
@@ -72,14 +72,14 @@ interface Ethernet4
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.0
 
 !
 interface Ethernet5
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.12
+   ip ospf area 0.0.0.o
    pim ipv4 sparse-mode
 !
 interface Ethernet15
