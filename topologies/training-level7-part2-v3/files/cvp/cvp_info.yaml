@@ -165,11 +165,15 @@ cvp_info:
       RR:
       - RR-BASE
       spine1-DC3:
-      - spine1-DC3-BASE
+       - spine1-DC3-BASE
+       - spine1-DC3-PRECONFIG
       spine2-DC3:
-      - spine2-DC3-BASE
+       - spine2-DC3-BASE
+       - spine2-DC3-PRECONFIG
       leaf1-DC3:
       - leaf1-DC3-BASE
+      - leaf1-DC3-PRECONFIG
       leaf2-DC3:
       - leaf2-DC3-BASE
+      - leaf2-DC3-PRECONFIG
 
