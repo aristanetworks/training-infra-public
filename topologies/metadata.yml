@@ -20,7 +20,7 @@ topologies:
       labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/me_03182024.tar.gz
     training-level-1-mini-1:
       labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L1-Teaser-Fundamentals_04082024.tar.gz 
-    training-level-1-mini-1:
+    training-level-1-mini-2:
       labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L1-Teaser-Management_04082024.tar.gz
   atd-testdrivetraining-prod:
     training-level-1-cl:
@@ -42,6 +42,6 @@ topologies:
     training-level1-me:
       labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/me_03182024.tar.gz
     training-level-1-mini-1:
-      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L1-Teaser-Fundamentals_04082024.tar.gz 
-    training-level-1-mini-1:
-      labguide_zipfile_url : gs://topology_deploy_files/lab-guide-zips/L1-Teaser-Management_04082024.tar.gz
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L1-Teaser-Fundamentals_04082024.tar.gz 
+    training-level-1-mini-2:
+      labguide_zipfile_url : gs://topology_deploy_files_prod/lab-guide-zips/L1-Teaser-Management_04082024.tar.gz
