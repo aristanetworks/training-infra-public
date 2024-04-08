@@ -2,6 +2,8 @@ int loopback 0
    ip address 192.168.255.81/32
 
 
+
+
 vlan 15
 name VLAN15
 
@@ -35,7 +37,9 @@ name VLAN134
 vlan 4094
    trunk group mlag-peer
 
+spanning-tree mode mstp
 no spanning-tree vlan-id 4094
+
 
 interface Eth1
     mtu 9214
@@ -98,10 +102,3 @@ spanning-tree mst configuration
    instance 2 vlan  130-134
 
 
-
-spanning-tree mode mstp
-no spanning-tree vlan-id 4094
-spanning-tree mst 0 priority 61440
-spanning-tree mst 1 priority 8192
-spanning-tree mst 2 priority 16384
-spanning-tree mst configuration
