@@ -1,6 +1,7 @@
 int loopback 0
    ip address 192.168.255.80/32
 
+
 vlan 15
 name VLAN15
 
@@ -34,6 +35,9 @@ name VLAN134
 
 vlan 4094
    trunk group mlag-peer
+
+
+spanning-tree mode mstp
 
 no spanning-tree vlan-id 4094
 
