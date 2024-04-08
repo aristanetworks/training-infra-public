@@ -23,7 +23,7 @@ interface Vlan4094
    ip address 10.10.0.49/30
    no autostate
 !
-ip virtual-router mac-address de:ad:be:ef:fa:de
+ip virtual-router mac-address de:ad:be:ef:fa:dd
 !
 !
 mlag configuration
