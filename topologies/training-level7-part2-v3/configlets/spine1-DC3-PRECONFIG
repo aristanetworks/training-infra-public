@@ -114,7 +114,7 @@ vlan 19
 name VLAN19
 
 
-ip virtual-router mac-address dead.face.bedf
+ip virtual-router mac-address dead.face.bede
 
 interface VLAN15
 ip address virtual 172.16.15.254/24
