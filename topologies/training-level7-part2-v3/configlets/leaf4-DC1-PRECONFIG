@@ -1,6 +1,6 @@
 !
 router ospf 1
-   router-id 192.168.255.23
+   router-id 192.168.255.24
    max-lsa 12000
 !
 interface Loopback0
@@ -88,13 +88,13 @@ interface Ethernet4
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet5
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.34
+   ip ospf area 0.0.0.0
 !
 interface Ethernet6
    channel-group 10 mode active
