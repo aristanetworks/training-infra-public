@@ -1,0 +1,118 @@
+int loopback 0
+   ip address 192.168.255.78/32
+   
+
+interface Loopback1
+   ip address 192.168.255.123/32
+
+vlan 15-19,130-134
+
+vlan 4094
+   trunk group mlag-peer
+
+no spanning-tree vlan-id 4094   
+   
+interface Vlan4094
+   ip address 10.10.0.50/30
+      no autostate
+   
+
+int ethernet 3 - 4
+   no shutdown
+   no ip address
+   switchport
+   channel-group 1 mode active
+   
+   
+int ethernet 5-6
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+   
+interface Port-Channel10
+   switchport
+   mtu 9214
+   switchport mode trunk
+   switchport trunk allowed vlan 15-19,130-134   
+   no shutdown
+   mlag 10
+
+
+interface Port-Channel1
+   switchport
+   switchport mode trunk
+   switchport trunk group mlag-peer
+   mtu 9214
+   no shutdown
+
+interface vlan 4094
+    no shutdown
+    ip address 10.10.0.50/30   
+
+mlag configuration
+   domain-id mlag1
+   local-interface Vlan4094
+   peer-address 10.10.0.49
+   peer-link Port-Channel1 
+   
+   
+
+ip virtual-router mac-address dead.face.bede
+
+interface VLAN15
+ip address virtual 172.16.15.254/24
+no shutdown
+
+interface VLAN16
+ip address virtual 172.16.16.254/24
+no shutdown
+
+interface VLAN17
+ip address virtual 172.16.17.254/24
+no shutdown
+
+interface VLAN18
+ip address virtual 172.16.18.254/24
+no shutdown
+
+interface VLAN19
+ip address virtual 172.16.19.254/24
+no shutdown
+
+interface VLAN130
+ip address virtual 172.16.130.254/24
+no shutdown
+
+interface VLAN131
+ip address virtual 172.16.131.254/24
+no shutdown
+
+interface VLAN132
+ip address virtual 172.16.132.254/24
+no shutdown
+
+interface VLAN133
+ip address virtual 172.16.133.254/24
+no shutdown
+
+interface VLAN134
+ip address virtual 172.16.134.254/24
+no shutdown
+
+
+interface vlan 15-19,130-134
+   mtu 9214
+
+
+spanning-tree mode mstp
+no spanning-tree mst configuration
+spanning-tree mst configuration
+   instance 0 vlan  1
+   instance 1 vlan  15-19
+   instance 2 vlan  130-134
+
+spanning-tree mst 0-2  root primary
+      
+
+    
