@@ -107,14 +107,4 @@ no shutdown
 
 
 interface vlan 15-19,130-134
-   mtu 9214
-
-
-
-
-
-
-
-      
-
-    
+   mtu 9214    
