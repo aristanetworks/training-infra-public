@@ -36,17 +36,8 @@ name VLAN134
 vlan 4094
    trunk group mlag-peer
 
-
 spanning-tree mode mstp
-
 no spanning-tree vlan-id 4094
-
-spanning-tree mode mstp
-no spanning-tree mst configuration
-spanning-tree mst configuration
-   instance 0 vlan  1
-   instance 1 vlan  15-19
-   instance 2 vlan  130-134
 
 
 interface Eth1
@@ -59,7 +50,7 @@ interface Eth1
 interface Eth2
   mtu 9214
   switchport
-  switchport mode trunk
+  switchport mode access
   switchport access vlan 130
 
 int ethernet 3 - 4
@@ -87,7 +78,7 @@ mlag configuration
    local-interface Vlan4094
    peer-address 10.30.0.6
    peer-link Port-Channel1 
-   heartbeat-interval disabled
+
    
 interface port-Channel 10
     switchport
@@ -97,8 +88,6 @@ interface port-Channel 10
      mlag 10 
 
 int ethernet 5 - 6
-   no shutdown
-   no ip address
    switchport
    channel-group 10 mode active
    
