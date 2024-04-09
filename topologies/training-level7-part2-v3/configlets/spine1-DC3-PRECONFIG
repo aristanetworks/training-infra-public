@@ -11,18 +11,11 @@ vlan 4094
 
 no spanning-tree vlan-id 4094
 
-spanning-tree mode mstp
-
-no spanning-tree mst configuration
+spanning-tree mode mst
 
 spanning-tree mst configuration
-   instance 0 vlan  1
-   instance 1 vlan  15-19
-   instance 2 vlan  130-134
-
-spanning-tree mst 0  root primary
-spanning-tree mst 1 priority 61440
-spanning-tree mst 2 priority 61440
+  instance 0 vlan 1-4094
+  spanning-tree mst 0 root primary
 
 
 interface Vlan4094
@@ -159,16 +152,6 @@ no shutdown
 interface vlan 15-19,130-134
    mtu 9214
   
-
-spanning-tree mode mstp
-no spanning-tree mst configuration
-spanning-tree mst configuration
-   instance 0 vlan  1
-   instance 1 vlan  15-19
-   instance 2 vlan  130-134
-
-spanning-tree mst 0-2  root primary
-
 
 
 
