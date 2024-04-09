@@ -4,7 +4,7 @@ int ethernet 1
    no ip address
    switchport 
    switchport mode access 
-   switchport access vlan 130
+   switchport access vlan 15-19, 130-134
 
 int ethernet 2
    mtu 9098
