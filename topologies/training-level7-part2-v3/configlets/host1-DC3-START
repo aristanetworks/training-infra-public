@@ -11,8 +11,8 @@ int ethernet 2
    no shutdown
    no ip address
    switchport 
-   switchport mode trunk 
-   switchport trunk allowed vlan 130
+   switchport mode access
+   switchport access vlan 130
 
 
 int loopback 0
