@@ -2478,7 +2478,7 @@ topologies:
     desc: 'Labguides test Lab. For use by the Arista Training Team.'
     name: 'Labguides test Lab'
     title: 'Labguides test Lab'
-    disk_size: 300
+    disk_size: 50
     access: standard
     disable_links: [jenkins, lab_grading]
     labguides: self
