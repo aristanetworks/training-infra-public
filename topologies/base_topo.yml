@@ -1094,7 +1094,7 @@ topologies:
     title: 'Training Level 3 Exam'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins, lab_grading]
+    disable_links: [jenkins, lab_grading]
     labguides: self
   training-level3-2:
     dev:
