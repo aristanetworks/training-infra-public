@@ -1,0 +1,41 @@
+@import url("https://use.typekit.net/vgg8lsy.css");
+@import url("https://kit.fontawesome.com/be2f0b0e50.css");
+
+:root {
+  --primary-color: #071c35;
+  --secondary-color: #fbb500;
+  --neon-green: #78d82c;
+  --light-purple: #dae0fe;
+  --blue: #4c5cae;
+  --navy-blue: #051431;
+  --red: #e30909;
+  --proxima: "proxima-nova", sans-serif;
+  --bold: 700;
+  --semibold: 600;
+  --medium: 500;
+  --regular: 400;
+  --light: 300;
+}
+
+body * :not(i) {
+  font-family: var(--proxima) !important;
+}
+body {
+  font-family: var(--proxima);
+  background: var(--navy-blue);
+}
+.button {
+  padding: 10px 25px;
+  display: inline-block;
+  background-color: var(--secondary-color);
+  color: #000;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 4.8px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.button:hover {
+  background: #ffc52f;
+  color: #000;
+}

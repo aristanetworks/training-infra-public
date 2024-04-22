@@ -1,0 +1,32 @@
+h1 {
+  color: #fff;
+  font-size: 50px;
+  font-weight: var(--semibold);
+}
+h2 {
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 800;
+  color: var(--secondary-color);
+  text-transform: uppercase;
+}
+h2.h3 {
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 800;
+  color: var(--secondary-color);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+@media screen and (min-width: 40em) and (max-width: 63.9375em) {
+  h1 {
+    font-size: 34px;
+  }
+}
+
+@media screen and (max-width: 39.9375em) {
+  h1 {
+    font-size: 24px;
+  }
+}

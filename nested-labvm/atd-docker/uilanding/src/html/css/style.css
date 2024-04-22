@@ -76,3 +76,320 @@
     text-decoration: none;
     cursor: pointer;
   }
+  
+  .button-big {
+    padding: 15px 14px;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 200px;
+  }
+  .button-big.green {
+    border-color: var(--neon-green);
+    background-color: var(--neon-green);
+  }
+  .button-big.green:hover {
+    background-color: #5aaa1b;
+  }
+  .button-big.red {
+    background-color: transparent;
+    border-color: var(--red);
+    color: #fff;
+    border-width: 3px;
+  }
+  .button-big.red:hover {
+    background-color: var(--red);
+  }
+  .button + .button {
+    margin-left: 10px;
+  }
+  .hero-section {
+    position: relative;
+    padding: 85px 0 125px;
+    background-color: #071c35;
+    background-image: url(../images/hero-bg.png);
+    background-size: contain;
+    background-position: bottom right;
+    background-repeat: no-repeat;
+  }
+  .hero-section h1 {
+    margin-bottom: 50px;
+  }
+  .hero-section .grid-container {
+    position: relative;
+    z-index: 2;
+  }
+  .hero-section::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(
+      270deg,
+      rgba(7, 28, 53, 0) 34.38%,
+      rgba(7, 28, 53, 0.4) 47.49%,
+      rgba(7, 28, 53, 0.8) 58.45%,
+      #071c35 76.25%
+    );
+  }
+  .border-box {
+    padding: 15px 0;
+    border-right: 1px dashed var(--secondary-color);
+  }
+  .border-box:last-child {
+    border-right: 0;
+  }
+  .white-box {
+    padding: 89px;
+    background-color: #fff;
+    border: 3px solid #fbb400;
+  }
+  .tile {
+    padding: 6px 10px;
+    color: var(--primary-color);
+    font-weight: 900;
+  }
+  .tile.green {
+    background-color: var(--neon-green);
+    text-transform: uppercase;
+  }
+  .tile-border {
+    padding: 6px 14px;
+    color: var(--red);
+    border: 1px solid var(--red);
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+  }
+  .tile-border.green {
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+  }
+  .tile-border.green .dot {
+    background-color: var(--neon-green);
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    background-color: var(--red);
+    border-radius: 100%;
+    display: inline-block;
+    margin-left: 10px;
+  }
+  
+  .big-text {
+    font-size: 35px;
+    line-height: 38px;
+    font-style: normal;
+    font-weight: 600;
+    color: #fff;
+  }
+  h2.m-b-10,
+  h3.m-b-10 {
+    margin-bottom: 10px;
+  }
+  
+  .topology--box {
+    background: var(--primary-color);
+    border: 1px solid var(--secondary-color);
+    padding: 34px 45px;
+    text-align: center;
+    max-width: 600px;
+    margin: auto;
+    margin-top: -64px;
+    position: relative;
+    margin-bottom: 40px;
+  }
+  .topology--information {
+    margin: 20px 0;
+  }
+  .topology--information label {
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 800;
+    color: var(--secondary-color);
+    text-transform: uppercase;
+  }
+  .topology--information .border-box {
+    margin-top: 30px;
+  }
+  .label-value {
+    color: #fff;
+  }
+  .topology--function {
+    margin-top: 40px;
+  }
+  
+  .copy {
+    color: var(--secondary-color);
+    margin-left: 8px;
+    font-size: 20px;
+  }
+  .copy:hover {
+    color: var(--secondary-color);
+  }
+  .topology-overview {
+    margin-bottom: 50px;
+  }
+  .topology-overview h2 {
+    color: #000;
+    margin-bottom: 50px;
+  }
+  .circuit-container {
+    position: relative;
+  }
+  .circuit {
+    position: absolute;
+    z-index: -1;
+    width: 30%;
+    height: 485px;
+    background: url(../images/simple-frame.svg);
+    background-repeat: repeat;
+    background-size: cover;
+  }
+  .circuit.top {
+    top: 375px;
+  }
+  .circuit.right {
+    right: 0;
+  }
+  .circuit.bottom {
+    bottom: 100px;
+  }
+  .circuit.left {
+    left: 0;
+    background-position: right;
+  }
+  .topology-note {
+    margin: 35px auto 55px;
+    color: var(--light-purple);
+    text-align: center;
+    font-size: 18px;
+    line-height: 24px;
+  }
+  
+  .dashboard .header-right {
+    margin-top: 50px;
+    text-align: right;
+  }
+  .box-value-status {
+    margin-top: 40px;
+  }
+  .dashboard .topology--box {
+    margin-top: -124px;
+  }
+  .dashboard .topology--box h2 {
+    margin-bottom: 30px;
+  }
+  .dashboard .label-row {
+    padding: 10px 0;
+    border-bottom: 0.5px dashed var(--secondary-color);
+    max-width: 350px;
+  }
+  .label-list {
+    margin-top: 50px;
+  }
+  .dashboard .label-row label {
+    display: inline-block;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: normal;
+    text-transform: uppercase;
+    color: var(--secondary-color);
+    margin-right: 10px;
+  }
+  .dashboard .topology-note {
+    text-align: left;
+    font-size: 16px;
+    max-width: 486px;
+    margin: 20px 0 0 0;
+  }
+  
+  .dashboard .circuit {
+    top: 150px;
+  }
+  .topoloty-time {
+    color: #fff;
+    font-weight: 500;
+  }
+  .topoloty-time label {
+    font-weight: 400 !important;
+  }
+  .dashboard h1 {
+    margin-bottom: 30px;
+  }
+  
+  @media screen and (min-width: 40em) and (max-width: 63.9375em) {
+    .white-box {
+      padding: 40px 50px;
+    }
+    .dashboard .label-row {
+      margin: auto;
+    }
+    .dashboard .topology--function {
+      text-align: center;
+    }
+    .dashboard .topology-note {
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .topoloty-time {
+      text-align: center;
+    }
+    .dashboard .topology--box {
+      margin: 20px auto;
+    }
+  }
+  
+  @media screen and (max-width: 39.9375em) {
+    .border-box {
+      border: 0;
+      position: relative;
+    }
+    .border-box::after {
+      content: "";
+      display: block;
+      border-bottom: 1px dashed var(--secondary-color);
+      margin: 10px auto 0;
+      padding: 20px 0 0;
+      width: 300px;
+    }
+    .topology--information .border-box {
+      margin-top: 0;
+    }
+    .button + .button {
+      margin-left: 0;
+    }
+    .white-box {
+      padding: 40px 20px;
+    }
+    .dashboard .header-right {
+      text-align: center;
+    }
+    .dashboard .hero-section {
+      text-align: center;
+      padding-bottom: 40px;
+    }
+    .dashboard .label-row {
+      margin: auto;
+    }
+    .dashboard .topology--function {
+      text-align: center;
+    }
+    .dashboard .topology-note {
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .topoloty-time {
+      text-align: center;
+    }
+    .dashboard .topology--box {
+      margin: 20px auto;
+    }
+  }
+  

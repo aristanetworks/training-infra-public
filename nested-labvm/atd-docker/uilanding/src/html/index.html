@@ -1,240 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Arista ATD Lab">
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arista {{ topo_title }}</title>
+    <link rel="stylesheet" href="css/foundation.min.css" />
+    <script src="js/atd-ws.js"></script>    
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/typography.css" />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/home.css" />
+  </head>
+  <body>
+    <header></header>
 
-    <!-- Bootstrap core CSS -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <script src="js/atd-ws.js"></script>
-    <script> var currentHostname = window.location.hostname; </script>
-    <!-- Custom styles for this template -->
-    <link href="css/simple-sidebar.css" rel="stylesheet">
-    <link href="css/style.css" rel="stylesheet">
-</head>
+    <main>
+      <!-------Index with sidebar-->
 
-<body>
-    <div id="loader" style="display: none;">
-    <div id="spinner">
-        <img  src="./images/loading.gif" alt="Description when image is not found" width="100" height="100">
-        </div>
-    </div>
-    <div id="wrapper" class="toggled">
-
-        <!-- Sidebar -->
-        <div id="sidebar-wrapper">
-            <ul class="sidebar-nav">
-                <br>
-                <img src="images/logotransparent.png" class="arista-logo">
-                <hr class="hr">
-                <li>
-                    <a style="color: white;cursor: pointer;" id="home"  target="_blank">Home</a>
-                </li>
-                {% if "labguides" not in disable_links %}
-                <li>
-                    <a href="{{ labguides }}" target="_blank">Lab Guides</a> <!-- <a href="/labguides/ATD.pdf" target="_blank">(PDF)</a>-->
-                </li>
-                {% end %}
-                {% if "console" not in disable_links %}
-                <li>
-                    <a href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
-                     
-                </li>
-                {% end %}
-                {% if "cvp" not in disable_links %}
-                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)" >
-                    <a href="/cv" target="_blank" id="CvpStatus" >CVP</a>
+      <div class="bg-pattern"></div>
+      <div class="grid-container full">
+        <div class="grid-x">
+          <header></header>
+          <aside
+            id="sidebar"
+            class="cell small-12 medium-12 large-3 left-sidebar"
+          >
+            <div class="site-sidebar">
+              <div class="nav-menu">
+                <a href="index.html" class="site-sidebar__logo"
+                  ><img src="images/arista.svg" alt="Arista-logo"
+                /></a>
+                <div class="menu-icon hide-for-large">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <nav class="site-navigation">
+                <ul>
+                  <li>
+                    <a
+                      data-id="home"
+                      class="site-sidebar__item menu-click current-page"
+                      >Home</a
+                    >
+                  </li>
+                  {% if "labguides" not in disable_links %}
+                  <li>
+                    <a
+                      data-id="lab-guides"
+                      class="site-sidebar__item menu-click" target="_blank" href="{{ labguides }}"
+                      >Lab Guides</a
+                    >
+                  </li>
+                  {% end %}
+                  {% if "console" not in disable_links %}
+                  <li>
+                    <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank"> Switch Access </a>
+                  </li>
+                  {% end %}
+                  {% if "cvp" not in disable_links %}
+                  <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)">
+                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>
                     <span id="tooltiptext">CVP is Starting, Please wait</span>
-                </li>
-                <li id="cvpLoaded">
-                    <a href="/cv" target="_blank" >CVP</a>                
-                </li>
-                {% end %}
-                {% if "ide" not in disable_links %}
-                <li>
-                    <a href="/coder" target="_blank">Programmability IDE</a>
-                </li>
-                {% end %}
-                {% if "webui" not in disable_links %}
-                <li>
-                    <a href="/firefox" target="_blank">WebUI</a>
-                </li>
-                {% end %}
-               
-                {% if "jenkins" not in disable_links %}
-                <li>
-                    <a href="/jenkins" target="_blank">Jenkins</a>
-                </li>
-                {% end %}
-                {% if "lab_menu" not in disable_links %}
-                <li>
-                    <a style="color: white;cursor: pointer;" id="labMenu"  target="_blank">Lab Menu</a>
-                </li>
-                {% end %}
-                <li>
-                    <a style="color: white;cursor: pointer;" id="myBtn"  target="_blank">Passwords</a>
-                </li>
-              {% if "lab_status" not in disable_links %}
-                <li>
-                    <a style="color: white;cursor: pointer;" id="labStaus"  target="_blank">Lab Status</a>
-                </li>
-                {% end %}
-            </ul>
-        </div>
-        <!-- /#sidebar-wrapper -->
+                  </li>
+                  <li id="cvpLoaded">
+                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>                
+                 </li>
+                  {% end %}
+                  {% if "ide" not in disable_links %}
+                  <li>
+                    <a class="site-sidebar__item menu-click" href="/coder" target="_blank">
+                      Programmability IDE</a
+                    >
+                  </li>
+                  {% end %}
+                  {% if "webui" not in disable_links %}
 
-        <!-- Page Content -->
-        <div id="page-content-wrapper">
-            <div class="container-fluid">
-                <div id="mainContent">
-                <h1>Arista {{ topo_title }}</h1>
+                  <li><a class="site-sidebar__item menu-click" href="/firefox" target="_blank" >WebUI</a></li>
+                  {% end %}
+                  {% if "lab_menu" not in disable_links %}
+                  <li>
+                    <a class="site-sidebar__item menu-click" data-id="lab-menu" id="labMenu"  target="_blank"
+                      >Lab Menu</a
+                    >
+                  </li>
+                  {% end %}
+                  <li>
+                    <a class="site-sidebar__item" data-open="passwords-popup" id="myBtn"  target="_blank"
+                      >Passwords</a
+                    >
+                  </li>
+                  {% if "lab_status" not in disable_links %}
+                  <li>
+                    <a
+                      class="site-sidebar__item menu-click"
+                      data-id="lab-status" id="labStaus"  target="_blank"
+                      >Lab Status</a
+                    >
+                  </li>
+                  {% end %}
+                </ul>
+              </nav>
+            </div>
+          </aside>
+          <main class="cell small-12 medium-12 large-9 right-panel">
+            <div id="home" class="panel active">
+              <h1>Arista {{ topo_title }}</h1>
+              <div class="common-note">
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
-                <br><br>
-                <h4>Time Remaining: <span id="countdown_timer">00:00:00</span></h4>
-                <br />
-                <h2>Topology</h2>
-                Click on a device to access CLI.
-                <br />
-                <img src="topo/atd-topo.png" usemap="#image_map">
-                <map name="image_map">
-                    {% for node in NODES %}
-                    {% if node == "CVP" %}
-                        <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/cv" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
-                    {% else %}
-                        <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/ssh/host/{{ escape(NODES[node]['ip']) }}" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
-                    {% end %}
-                    {% end %}
-                    {% for gui_url in zip(GUI_URLS,SERVERS) %}
-                        <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
-                    {% end %}
-                </map>
-                <br /><br />
-                {% if topo_cvp %}
-                    <span id="cvp_info"></span>
-                    <br /><br />
-                {% end %}
-                
-
-                <br>
+              </div>
+              <div class="icon-div">
+                <div class="icon"><i class="fa-regular fa-clock"></i></div>
+                <div class="icon-detail">
+                  <h2>Time Remaining</h2>
+                  <time>11:49:17</time>
+                </div>
+              </div>
+              <!---==============-->
+              <section class="topology">
+                <div class="topology-overview">
+                  <div class="white-box text-center">
+                    <h2>Click on a device to access CLI.</h2>
+                    <img src="topo/atd-topo.png" usemap="#image_map" />
+                    <map name="image_map">
+                        {% for node in NODES %}
+                        {% if node == "CVP" %}
+                            <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/cv" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
+                        {% else %}
+                            <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/ssh/host/{{ escape(NODES[node]['ip']) }}" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
+                        {% end %}
+                        {% end %}
+                        {% for gui_url in zip(GUI_URLS,SERVERS) %}
+                            <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
+                        {% end %}
+                    </map>
+                  </div>
+                </div>
+              </section>
             </div>
-            <div id="labMenuDiv" style="display: none;">
-            <h2>Lab Menu</h2>
-           
-            <div id="statistics-table">
+            <!-------------------------------------------------------------------------------->
+            <div id="lab-menu" class="panel">
+              <h1>Lab Menu</h1>
+              <div class="lab-buttons">
                 {% for key, value in menu_options.items() %}
-                <input type="radio" name="lab" value="{{key}}" /> {{value}}<br />
+                <a class="lab-button">
+                  <div class="dot"></div>
+                  <span>{{value}}</span>
+                </a>
                 {% end %}
               </div>
-              <button id="labBtn">Start Lab</button>
-              <p id="cvpStatus"></p>
-              <p id="apiResponse"></p>              
-            </div>
-            
-            <div id="labStatusContent" style="display: none;">
-                <h2>Lab Status</h2>
-                <table id="labStatusByApi" style="width: 600px;" >
-                  </table>
-                  <br>
-                  <p id="lastUpdated" ></p>
-                  <div id="resetLabs" >
-                    
-                  </div>
-                  <div id="resetOkMSG">
-
-                  </div>
-            </div>
-
-            <div id="labGradingData" style="display: none;">
-              <table style="width: 600px;">
-                <thead>
-                  <th>
-                    Lab
-                  </th>
-                  <th>
-                    Completed
-                  </th>
-                </thead>
-                  <tr>
-                    <td>Ip</td>
-                    <td style="color: green;">Yes</td>
-                  </tr>
-                  <tr>
-                    <td>BGP</td>
-                    <td style="color: green;">Yes</td>
-                  </tr>
-                  <tr>
-                    <td>VXLAN</td>
-                    <td style="color: red;font-weight: bold;">No
-                    <br>
-                      <p style="color: black;">
-                        Comments: issues with rm
-                      </p>
-                  </td>
-                  
-                  </tr>
-                  <tr>
-                    <td>EVP (L2)</td>
-                    <td style="color: green;">Yes</td>
-                  </tr>                  
-                </table>
-                <div style="
-                text-align: center;
-                margin-top: 8px;">
-                <button style="
-                padding: 10px 20px;
-                border-radius: 20px;
-                border: none;
-                background-color: blue;
-                color: white;
-                font-size: 16px;">
-                  Grade
-                </button>
+              <a class="button" id="labBtn">Start Lab</a>
+              <div class="lab-note" id="cvpStatus">
               </div>
-          </div>
+              <div class="lab-note" id="apiResponse">
+                </div>
             </div>
+            <!-------------------------------------------------------------------------------------->
+            <div id="lab-status" class="panel">
+              <h1>Lab Status</h1>
+              <div class="table-responsive small-table">
+                <table id="labStatusByApi" class="responsive-card-table unstriped">
+                  </tbody>
+                </table>
+              </div>
+              <div class="lab-note">
+                <b>Last updated: </b>3/27/2024 10:05:40 AM
+              </div>
+              <div class="lab-note">
+                Please <a>Click Here</a> to reset failed switches
+              </div>
             </div>
+          </main>
         </div>
-        <!-- /#page-content-wrapper -->
-        <div id="myModal" class="modal">
-            <!-- Modal content -->
-            <div class="modal-content">
-                <div style="
-                display: flex;
-                justify-content: space-between;
-            ">
-            <div>
-            <h2>Usernames and Passwords</h2>
-            Use the following usernames and passwords to access the ATD:
-            <br>
-            <br>
-            </div>
-           
-            <span class="close">×</span>
-            </div>
-              <table class="table table-striped">
-                <thead> <tr> <th>Device</th> <th>Username</th> <th>Password</th> </tr> </thead>
-                <tbody> 
-                  <tr><td>Lab Credentials</td> <td>arista</td> <td>{{ ARISTA_PWD }}</td> </tr>
-                  <tr><td>Programmability IDE</td> <td></td><td>{{ ARISTA_PWD }}</td></tr>
-                  <tr><td>WebUI</td> <td></td><td>@rista1</td></tr>
-                </tbody> </table>
-            </div>
-          </div>
-    </div>
-    <!-- /#wrapper -->
+      </div>
 
+      <div class="large reveal pw-popup" id="passwords-popup" data-reveal>
+        <button
+          class="close-button"
+          data-close
+          aria-label="Close reveal"
+          type="button"
+        >
+          <span aria-hidden="true">Close</span>
+        </button>
+        <h3>Usernames and Passwords</h3>
+        <h4>Use the following usernames and passwords to access the ATD:</h4>
+        <div class="table-responsive">
+          <table class="responsive-card-table unstriped">
+            <thead>
+              <tr>
+                <th>Device</th>
+                <th>Username</th>
+                <th>Password</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Credentials</td>
+                <td>arista</td>
+                <td><span>{{ ARISTA_PWD }}</span></td>
+              </tr>
+              <tr>
+                <td>Programmability IDE</td>
+                <td></td>
+                <td>{{ ARISTA_PWD }}</td>
+              </tr>
+              <tr>
+                <td>WebUI</td>
+                <td></td>
+                <td>@rista1</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <footer></footer>
+    <script src="js/jquery-3.7.1.min.js"></script>
+
+    <script src="js/foundation.min.js"></script>
+
+    <script src="js/script.js"></script>
     <!-- Bootstrap core JavaScript -->
-    <script src="js/jquery.min.js"></script>
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script src="js/backend.js"></script>
-
-
-</body>
-
+  </body>
 </html>
