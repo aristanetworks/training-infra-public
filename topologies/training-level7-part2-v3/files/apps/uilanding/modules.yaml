@@ -70,8 +70,8 @@ topology:
     spine1-DC3: "748,253,859,335"
       coords: 
       ip: "192.168.0.77"
-    spine2-DC3: "905,255,1006,335"
-      coords: 
+    spine2-DC3: 
+      coords: "905,255,1006,335"
       ip: "192.168.0.78"
     leaf1-DC3: "762,134,859,213"
       coords: 
