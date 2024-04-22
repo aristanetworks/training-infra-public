@@ -13,21 +13,21 @@ if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
 $('#labMenu').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'block'
+    document.getElementById('lab-menu').style.display = 'block'
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
     clearInterval(labStatusInterval)
 });
 $('#home').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
+    document.getElementById('lab-menu').style.display = 'none'
     document.getElementById('mainContent').style.display = 'block'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'none'
     clearInterval(labStatusInterval)
 })
 $('#labStaus').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
+    document.getElementById('lab-menu').style.display = 'none'
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'block'
     document.getElementById('labGradingData').style.display = 'none'
@@ -39,7 +39,7 @@ $('#labStaus').click(function (event) {
     )
 })
 $('#labGrading').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
+    document.getElementById('lab-menu').style.display = 'none'
     document.getElementById('mainContent').style.display = 'none'
     document.getElementById('labStatusContent').style.display = 'none'
     document.getElementById('labGradingData').style.display = 'block'
