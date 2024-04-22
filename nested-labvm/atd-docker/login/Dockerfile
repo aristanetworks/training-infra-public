@@ -11,7 +11,7 @@ RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.5/fixuid-0.
 RUN apt update && \
     apt install -y openssh-server vim sudo screen libvirt-clients libvirt-dev
 
-RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib
+RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib google-cloud-storage
 
 RUN mkdir /var/run/sshd
 
