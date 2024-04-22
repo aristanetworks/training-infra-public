@@ -67,8 +67,8 @@ topology:
     host2-DC2:
       coords: "1540,1520,1646,1594"
       ip: "192.168.0.54"  
-    spine1-DC3: "748,253,859,335"
-      coords: 
+    spine1-DC3: 
+      coords: "748,253,859,335"
       ip: "192.168.0.77"
     spine2-DC3: 
       coords: "905,255,1006,335"
