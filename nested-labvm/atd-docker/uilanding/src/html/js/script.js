@@ -7,9 +7,27 @@ $(document).ready(function () {
     $("#main").show();
   });
   $(".menu-click").click(function () {
-    $(".panel").hide();
+
     $id = $(this).data("id");
+    $id.addClass("current-page");
+    if ($id == "lab-status" || $id == "lab-menu") {
+      $(".panel").hide();
+      
+    } else {
+      $(".panel").show();
+    }
+    if ($id == "lab-status") {
+      getLabStatus()
+      labStatusInterval = setInterval(
+        () => {
+          getLabStatus()
+        }, 30000
+      )
+    } else {
+      clearInterval(labStatusInterval)
+    }
     $("#" + $id).show();
+    
   });
   $(document).foundation();
 });

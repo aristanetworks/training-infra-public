@@ -12,6 +12,7 @@ resetRequestSubmittedTime = localStorage.getItem('resetRequestSubmittedTime')
 if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
+
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'
 //     document.getElementById('mainContent').style.display = 'none'
@@ -76,11 +77,13 @@ function getLabStatus() {
                 let labStatus = document.createElement("td");
                 labStatus.innerHTML = values[1];
                 if (values[1].indexOf("Ok") >= 0) {
-                    labStatus.style.color = "green"
+                    //labStatus.style.color = "green"
+                    labStatus.classList.add("switch", "green");
                 } else {
                     failedSwitches.push(values[0])
-                    labStatus.style.color = "red"
-                    labStatus.style.fontWeight = "bold"
+                    // labStatus.style.color = "red"
+                    // labStatus.style.fontWeight = "bold"
+                    labStatus.classList.add("switch", "red");
                     labStatus.innerHTML = values[1];
                 }
                 row.appendChild(labName);
