@@ -43,7 +43,7 @@ interface vlan 4094
    no autostate
 
 spanning-tree mode mstp
-no spanning-tree vlan-id 4094
+
 
 
 interface Ethernet 1
