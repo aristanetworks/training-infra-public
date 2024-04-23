@@ -40,7 +40,7 @@ interface vlan 4094
     ip address 10.30.0.6/30
     
 spanning-tree mode mstp
-no spanning-tree vlan-id 4094
+
 
 
 interface Eth1
