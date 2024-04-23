@@ -61,7 +61,7 @@ RUN chmod +x /usr/local/bin/localGrading.py
 
 RUN chmod +x /usr/local/bin/saveRunning.py
 
-RUN chmod +x usr/local/bin/uploadRunningConfigs.py
+RUN chmod +x /usr/local/bin/uploadRunningConfigs.py
 
 RUN mkdir /usr/local/bin/ConfigureTopology
 
