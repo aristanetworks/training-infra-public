@@ -35,6 +35,10 @@ name VLAN134
 vlan 4094
    trunk group mlag-peer
 
+interface vlan 4094
+    no shutdown
+    ip address 10.30.0.6/30
+    
 spanning-tree mode mstp
 no spanning-tree vlan-id 4094
 
@@ -46,48 +50,9 @@ interface Eth1
     switchport mode trunk
     switchport trunk allowed vlan 15-19,130-134
 
-interface Eth2
+interface Ethernet 2
    mtu 9214
    switchport
    switchport mode access
    switchport access vlan 130
    
-   int ethernet 3 - 4
-   no shutdown
-   no ip address
-   switchport
-   channel-group 1 mode active
-
-
-interface Port-Channel1
-   mtu 9214
-   switchport mode trunk
-   switchport trunk group mlag-peer
-   no shutdown
-
-interface vlan 4094
-    no shutdown
-    ip address 10.30.0.6/30
-
-ip virtual-router mac-address de:ad:be:ef:fa:be
-
-mlag configuration
-   domain-id mlag1
-   local-interface Vlan4094
-   peer-address 10.30.0.5
-   peer-link Port-Channel1 
-
-   
-interface port-Channel 10
-    switchport
-    mtu 9214
-    switchport mode trunk 
-    switchport trunk allowed vlan 15-19,130-134
-    mlag 10 
-
-int ethernet 5 - 6
-   switchport
-   channel-group 10 mode active
-
-
-
