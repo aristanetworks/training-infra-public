@@ -45,6 +45,8 @@ COPY src/saveRunning.py /usr/local/bin
 
 COPY src/qa-steps.py /usr/local/bin
 
+COPY src/uploadRunningConfigs.py /usr/local/bin
+
 RUN chmod +x /usr/local/bin/lab_status.py
 
 RUN chmod +x /usr/local/bin/login.py
@@ -58,6 +60,8 @@ RUN chmod +x /usr/local/bin/uploadExam.py
 RUN chmod +x /usr/local/bin/localGrading.py
 
 RUN chmod +x /usr/local/bin/saveRunning.py
+
+RUN chmod +x usr/local/bin/uploadRunningConfigs.py
 
 RUN mkdir /usr/local/bin/ConfigureTopology
 
