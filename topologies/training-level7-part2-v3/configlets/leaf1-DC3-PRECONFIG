@@ -36,18 +36,24 @@ name VLAN134
 vlan 4094
    trunk group mlag-peer
 
+
+interface vlan 4094
+   no shutdown
+   ip address 10.30.0.5/30
+   no autostate
+
 spanning-tree mode mstp
 no spanning-tree vlan-id 4094
 
 
-interface Eth1
+interface Ethernet 1
    mtu 9214
    switchport
    switchport mode trunk
    switchport trunk allowed vlan 15-19,130-134
 
 
-interface Eth2
+interface Ethernet 2
   mtu 9214
   switchport
   switchport mode access
