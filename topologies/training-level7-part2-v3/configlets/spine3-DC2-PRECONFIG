@@ -1,6 +1,12 @@
+
 !
 interface Loopback0
    ip address 192.168.255.16/32
+
+!
+! interface Ethernet1
+!   description DO NOT configure this missing interface
+!   shutdown
 !
 interface Ethernet2
    no switchport
@@ -20,11 +26,11 @@ interface Ethernet5
 !
 interface Ethernet6
    no switchport
-   ip address 10.21.0.10/30
+   ip address 10.116.21.1/30
 !
 interface Ethernet7
    no switchport
-   ip address 10.21.0.22/30
+   ip address 10.116.22.1/30
 !
 interface Ethernet15
 !
