@@ -1,60 +1,75 @@
-int loopback 0
-   ip address 192.168.255.80/32
 
+
+interface Loopback0
+   ip address 192.168.255.31/32
 
 vlan 15
-name VLAN15
-
+   name VLAN15
+!
 vlan 16
-name VLAN16
-
+   name VLAN16
+!
 vlan 17
-name VLAN17
-
+   name VLAN17
+!
 vlan 18
-name VLAN18
-
+   name VLAN18
+!
 vlan 19
-name VLAN19
-
-vlan 130
-name VLAN130
-
-vlan 131
-name VLAN131
-
-vlan 132
-name VLAN132
-
-vlan 133
-name VLAN133
-
-vlan 134
-name VLAN134
-
-
-vlan 4094
-   trunk group mlag-peer
-
-
-interface vlan 4094
-   no shutdown
-   ip address 10.30.0.5/30
-   no autostate
-
-spanning-tree mode mstp
-
-
-
-interface Ethernet 1
-   mtu 9214
-   switchport
+   name VLAN19
+!
+vlan 20
+   name VLAN20
+!
+vlan 21
+   name VLAN21
+!
+vlan 22
+   name VLAN22
+!
+vlan 23
+   name VLAN23
+!
+vlan 24
+   name VLAN24
+!
+!
+interface Port-Channel10
+   switchport trunk allowed vlan 14-24
    switchport mode trunk
-   switchport trunk allowed vlan 15-19,130-134
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0000:0000:3132
+      route-target import 00:00:00:00:31:32
+   lacp system-id 0000.0000.3132
+   mlag 10
+!
+interface Ethernet1
+   shutdown
+!
+interface Ethernet2
+   shutdown
+!
+interface Ethernet3
+   no switchport
+   ip address 10.20.0.1/30
 
+!
+interface Ethernet4
+   no switchport
+   ip address 10.20.0.5/30
 
-interface Ethernet 2
-  mtu 9214
-  switchport
-  switchport mode access
-  switchport access vlan 130
+!
+interface Ethernet5
+   no switchport
+   ip address 10.20.0.9/30
+
+!
+interface Ethernet6
+   channel-group 10 mode active
+!
+interface Ethernet7
+   channel-group 10 mode active
+!
+interface Ethernet15
+!
