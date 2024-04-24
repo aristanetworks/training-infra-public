@@ -1,0 +1,84 @@
+!
+interface Loopback0
+   ip address 192.168.255.33/32
+!
+vlan 15
+   name VLAN15
+!
+vlan 16
+   name VLAN16
+!
+vlan 17
+   name VLAN17
+!
+vlan 18
+   name VLAN18
+!
+vlan 19
+   name VLAN19
+!
+vlan 120
+   name VLAN120
+!
+vlan 121
+   name VLAN121
+!
+vlan 122
+   name VLAN122
+!
+vlan 123
+   name VLAN123
+!
+vlan 124
+   name VLAN124
+!
+vlan 4094
+   trunk group mlag-peer
+!
+interface Vlan4094
+   ip address 10.20.0.53/30
+   no autostate
+!
+
+interface Port-Channel1
+   switchport mode trunk
+   switchport trunk group mlag-peer
+!
+interface Port-Channel10
+   switchport trunk allowed vlan 14-19,120-124
+   switchport mode trunk
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0000:0000:3334
+      route-target import 00:00:00:00:33:34
+   lacp system-id 0000.0000.3334
+   mlag 10
+!
+interface Ethernet1
+   channel-group 1 mode active
+!
+interface Ethernet2
+   channel-group 1 mode active
+!
+interface Ethernet3
+   no switchport
+   ip address 10.20.0.25/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.20.0.29/30
+
+!
+interface Ethernet5
+   no switchport
+   ip address 10.20.0.33/30
+
+!
+interface Ethernet6
+   channel-group 10 mode active
+!
+interface Ethernet7
+   channel-group 10 mode active
+!
+interface Ethernet15
+!
