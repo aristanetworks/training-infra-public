@@ -31,19 +31,8 @@ vlan 123
 !
 vlan 124
    name VLAN124
-!
-vlan 4094
-   trunk group mlag-peer
-!
-!
-interface Vlan4094
-   ip address 10.20.0.54/30
-   no autostate
-!
 
-interface Port-Channel1
-   switchport mode trunk
-   switchport trunk group mlag-peer
+
 !
 interface Port-Channel10
    switchport trunk allowed vlan 14-19,120-124
@@ -56,20 +45,19 @@ interface Port-Channel10
    mlag 10
 !
 interface Ethernet1
-   channel-group 1 mode active
+   shut
 !
 interface Ethernet2
-   channel-group 1 mode active
+   shut
 !
 interface Ethernet3
    no switchport
    ip address 10.20.0.37/30
-   pim ipv4 sparse-mode
+
 !
 interface Ethernet4
    no switchport
    ip address 10.20.0.41/30
-   pim ipv4 sparse-mode
 !
 interface Ethernet5
    no switchport
