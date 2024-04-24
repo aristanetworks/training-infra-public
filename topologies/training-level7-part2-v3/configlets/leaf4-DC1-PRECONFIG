@@ -1,4 +1,8 @@
 !
+
+ip virtual-router mac-address de:ad:be:ef:fa:ce
+!
+
 router ospf 1
    router-id 192.168.255.24
    max-lsa 12000
@@ -21,9 +25,7 @@ vlan 4094
 interface Vlan4094
    ip address 10.10.0.50/30
    no autostate
-!
-ip virtual-router mac-address de:ad:be:ef:fa:dd
-!
+
 !
 mlag configuration
    domain-id mlag2
@@ -133,7 +135,7 @@ interface Vlan114
    ip address virtual 172.16.114.254/24
 
 !
-ip virtual-router mac-address de:ad:be:ef:fa:de
+
 
 !
 !
