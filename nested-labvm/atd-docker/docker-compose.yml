@@ -121,6 +121,7 @@ services:
       - /opt/atd:/opt/atd:ro
       - /opt/labguides/web/:/html/:rw
       - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
+      - /home/arista/arista-dir/menus/:/menus/:rw
     networks:
       - atd_nginx
 
