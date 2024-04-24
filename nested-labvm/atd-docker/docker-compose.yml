@@ -85,7 +85,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.16
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.17
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -112,7 +112,7 @@ services:
 
   labguides-v2:
     container_name: atd-labguides-v2
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1

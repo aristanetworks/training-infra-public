@@ -381,8 +381,14 @@ if __name__ == "__main__":
         'login_url': "/login"
     }
     print ("Waiting for labguides-done.txt file existance to start the server")
-    while not os.path.exists(default_menu_file_generated_flag):
-        os.remove(default_menu_file_generated_flag)
+    while True:
+        if os.path.exists(default_menu_file_generated_flag):
+            print("Deleting labguides-done.txt file to start the server")
+            os.remove(default_menu_file_generated_flag)
+            break
+        else:
+            print("labguides-done.txt file does not exist yet, waiting for 1 sec")
+            sleep(1)
 
     app = tornado.web.Application([
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
