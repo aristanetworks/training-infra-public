@@ -3,8 +3,8 @@ interface Loopback0
    ip address 192.168.255.14/32
 !
 interface Ethernet1
-   no switchport
-   ip address 10.21.0.25/30
+  shut
+  
 !
 interface Ethernet2
    no switchport
@@ -24,11 +24,11 @@ interface Ethernet5
 !
 interface Ethernet6
    no switchport
-   ip address 10.21.0.2/30
+   ip address 10.114.21.1/30
 !
 interface Ethernet7
    no switchport
-   ip address 10.21.0.14/30
+   ip address 10.114.22.1/30
 !
 interface Ethernet15
 !
