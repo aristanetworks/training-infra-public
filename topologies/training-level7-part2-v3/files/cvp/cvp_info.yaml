@@ -125,10 +125,13 @@ cvp_info:
       - leaf4-DC2-PRECONFIG
       spine1-DC2:
       - spine1-DC2-BASE
+      - spine1-DC2-PRECONFIG
       spine2-DC2:
       - spine2-DC2-BASE
+      - spine2-DC2-PRECONFIG
       spine3-DC2:
       - spine3-DC2-BASE
+      - spine3-DC2-PRECONFIG
       host1-DC2:
       - host1-DC2-BASE
       - host1-DC2-START
