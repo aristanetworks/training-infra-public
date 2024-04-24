@@ -14,6 +14,7 @@ import json
 import docker
 import urllib3
 import traceback
+import os
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -28,6 +29,7 @@ ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
 # Open yaml for the default yaml and read what file to lookup for default menu
+default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
 default_menu_file = open(MENU_BASE_PATH+'default.yaml')
 default_menu_info = YAML().load(default_menu_file)
 default_menu_file.close()
@@ -378,6 +380,10 @@ if __name__ == "__main__":
         'cookie_secret': genCookieSecret(),
         'login_url': "/login"
     }
+    print ("Waiting for labguides-done.txt file existance to start the server")
+    while not os.path.exists(default_menu_file_generated_flag):
+        os.remove(default_menu_file_generated_flag)
+
     app = tornado.web.Application([
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
