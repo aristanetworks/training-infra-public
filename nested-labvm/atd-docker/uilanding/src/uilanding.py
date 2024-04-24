@@ -30,6 +30,15 @@ MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
 # Open yaml for the default yaml and read what file to lookup for default menu
 default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
+print ("Waiting for labguides-done.txt file existance to start the server")
+while True:
+    if os.path.exists(default_menu_file_generated_flag):
+        print("Deleting labguides-done.txt file to start the server")
+        os.remove(default_menu_file_generated_flag)
+        break
+    else:
+        print("labguides-done.txt file does not exist yet, waiting for 1 sec")
+        sleep(1)
 default_menu_file = open(MENU_BASE_PATH+'default.yaml')
 default_menu_info = YAML().load(default_menu_file)
 default_menu_file.close()
@@ -380,15 +389,6 @@ if __name__ == "__main__":
         'cookie_secret': genCookieSecret(),
         'login_url': "/login"
     }
-    print ("Waiting for labguides-done.txt file existance to start the server")
-    while True:
-        if os.path.exists(default_menu_file_generated_flag):
-            print("Deleting labguides-done.txt file to start the server")
-            os.remove(default_menu_file_generated_flag)
-            break
-        else:
-            print("labguides-done.txt file does not exist yet, waiting for 1 sec")
-            sleep(1)
 
     app = tornado.web.Application([
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
