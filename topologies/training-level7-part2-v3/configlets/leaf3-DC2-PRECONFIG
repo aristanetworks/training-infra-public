@@ -1,9 +1,9 @@
-vrf instance tenant-a
-ip routing vrf tenant-a
-!
 !
 interface Loopback0
    ip address 192.168.255.33/32
+!
+vlan 14
+   name VLAN14
 !
 vlan 15
    name VLAN15
@@ -35,7 +35,6 @@ vlan 123
 vlan 124
    name VLAN124
 !
-
 !
 interface Port-Channel10
    switchport trunk allowed vlan 14-19,120-124
@@ -45,7 +44,7 @@ interface Port-Channel10
       identifier 0000:0000:0000:0000:3334
       route-target import 00:00:00:00:33:34
    lacp system-id 0000.0000.3334
-   mlag 10
+   
 !
 interface Ethernet1
    shut
@@ -75,4 +74,5 @@ interface Ethernet7
    channel-group 10 mode active
 !
 interface Ethernet15
+    shut
 !
