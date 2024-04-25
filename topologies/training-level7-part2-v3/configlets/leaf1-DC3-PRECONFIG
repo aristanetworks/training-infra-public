@@ -1,7 +1,7 @@
 
 
 interface Loopback0
-   ip address 192.168.255.31/32
+   ip address 192.168.255.80/32
 
 vlan 15
    name VLAN15
@@ -33,6 +33,24 @@ vlan 23
 vlan 24
    name VLAN24
 !
+
+vlan 130
+name VLAN130
+
+vlan 131
+name VLAN131
+
+vlan 132
+name VLAN132
+
+vlan 133
+name VLAN133
+
+vlan 134
+name VLAN134
+
+
+spanning-tree mode mstp
 !
 interface Port-Channel10
    switchport trunk allowed vlan 14-24
