@@ -1,3 +1,6 @@
+int loopback 0
+   ip address 192.168.255.54/32
+   
 vrf instance OOB
 ip routing vrf OOB
 interface Ethernet15
@@ -8,13 +11,15 @@ interface Ethernet15
 ip route vrf OOB 0.0.0.0/0 192.168.2.254
 
 
-int ethernet 1 - 4
+int ethernet 1 - 2
    no shutdown
    no ip address
    switchport
    channel-group 10 mode active
-int loopback 0
-   ip address 192.168.255.54/32
+
+int ethernet 3 - 4
+ shut
+ 
 
 interface port-Channel 10
    no shut
@@ -102,6 +107,7 @@ no shutdown
 interface VLAN15
 vrf VLAN15
 ip address 172.16.15.54/24
+no autostate
 no shutdown
 
 interface VLAN16
