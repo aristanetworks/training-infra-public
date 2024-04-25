@@ -1,25 +1,17 @@
-vrf instance OOB
-ip routing vrf OOB
-interface Ethernet15
-   vrf OOB
-   no shutdown 
-   no switchport 
-   ip address 192.168.1.51/24
-ip route vrf OOB 0.0.0.0/0 192.168.1.254
-
-
+!
+int loopback 0
+   ip address 192.168.255.51/32
+!
 int ethernet 1 - 4
    no shutdown
    no ip address
    switchport
    channel-group 10 mode active
-int loopback 0
-   ip address 192.168.255.51/32
-
+!
 interface port-Channel 10
    no shut
    switchport mode trunk 
-
+!
 vlan 10
 name VLAN10
 
@@ -50,7 +42,6 @@ name VLAN18
 vlan 19
 name VLAN19
 
-
 vrf instance VLAN10
 vrf instance VLAN11
 vrf instance VLAN12
@@ -61,7 +52,6 @@ vrf instance VLAN16
 vrf instance VLAN17
 vrf instance VLAN18
 vrf instance VLAN19
-
 
 ip routing vrf VLAN10
 ip routing vrf VLAN11
@@ -77,51 +67,61 @@ ip routing vrf VLAN19
 interface VLAN10
 vrf VLAN10
 ip address 172.16.10.51/24
+no autostate
 no shutdown
 
 interface VLAN11
 vrf VLAN11
 ip address 172.16.11.51/24
+no autostate
 no shutdown
 
 interface VLAN12
 vrf VLAN12
 ip address 172.16.12.51/24
+no autostate
 no shutdown
 
 interface VLAN13
 vrf VLAN13
 ip address 172.16.13.51/24
+no autostate
 no shutdown
 
 interface VLAN14
 vrf VLAN14
 ip address 172.16.14.51/24
+no autostate
 no shutdown
 
 interface VLAN15
 vrf VLAN15
 ip address 172.16.15.51/24
+no autostate
 no shutdown
 
 interface VLAN16
 vrf VLAN16
 ip address 172.16.16.51/24
+no autostate
 no shutdown
 
 interface VLAN17
 vrf VLAN17
 ip address 172.16.17.51/24
+no autostate
 no shutdown
 
 interface VLAN18
 vrf VLAN18
 ip address 172.16.18.51/24
+no autostate
 no shutdown
 
 interface VLAN19
 vrf VLAN19
 ip address 172.16.19.51/24
+no autostate
 no shutdown
 
 ip route vrf VLAN10 0.0.0.0/0 172.16.10.254
