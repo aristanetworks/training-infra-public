@@ -32,13 +32,7 @@ name VLAN133
 vlan 134
 name VLAN134
 
-vlan 4094
-   trunk group mlag-peer
 
-interface vlan 4094
-    no shutdown
-    ip address 10.30.0.6/30
-    
 spanning-tree mode mstp
 
 
