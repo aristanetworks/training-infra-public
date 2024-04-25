@@ -67,7 +67,7 @@ interface Ethernet6
    channel-group 10 mode active
 !
 interface Ethernet7
-   channel-group 10 mode active
+   shut
 !
 interface Ethernet15 
   shut
