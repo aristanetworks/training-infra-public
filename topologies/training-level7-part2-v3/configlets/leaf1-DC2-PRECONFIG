@@ -3,6 +3,9 @@
 interface Loopback0
    ip address 192.168.255.31/32
 !
+vlan 14
+   name VLAN14
+!
 vlan 15
    name VLAN15
 !
@@ -32,18 +35,9 @@ vlan 23
 !
 vlan 24
    name VLAN24
-!
-vlan 4094
-   trunk group mlag-peer
-!
-interface Vlan4094
-   ip address 10.20.0.49/30
-   no autostate
-!
-interface Port-Channel1
-   switchport mode trunk
-   switchport trunk group mlag-peer
-!
+
+
+
 interface Port-Channel10
    switchport trunk allowed vlan 14-24
    switchport mode trunk
@@ -52,29 +46,28 @@ interface Port-Channel10
       identifier 0000:0000:0000:0000:3132
       route-target import 00:00:00:00:31:32
    lacp system-id 0000.0000.3132
-   mlag 10
+
 !
+
 interface Ethernet1
-   channel-group 1 mode active
-!
+   shut
 interface Ethernet2
-   channel-group 1 mode active
+  shut
 !
 interface Ethernet3
    no switchport
    ip address 10.20.0.1/30
-   pim ipv4 sparse-mode
+
 !
 interface Ethernet4
    no switchport
    ip address 10.20.0.5/30
-   pim ipv4 sparse-mode
+
 !
 interface Ethernet5
    no switchport
    ip address 10.20.0.9/30
-   pim ipv4 sparse-mode
-!
+
 interface Ethernet6
    channel-group 10 mode active
 !
@@ -82,4 +75,5 @@ interface Ethernet7
    channel-group 10 mode active
 !
 interface Ethernet15
+   shut
 !
