@@ -30,5 +30,4 @@ interface Ethernet7
    ip address 10.115.22.1/30
 !
 interface Ethernet15
-  shut
 !
