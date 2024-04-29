@@ -1,21 +1,6 @@
 int loopback 0
-   ip address 192.168.255.80/32
+   ip address 192.168.255.81/32
 
-
-vlan 130
-name VLAN130
-
-vlan 131
-name VLAN131
-
-vlan 132
-name VLAN132
-
-vlan 133
-name VLAN133
-
-vlan 134
-name VLAN134
 
 vlan 15
 name VLAN15
@@ -32,64 +17,37 @@ name VLAN18
 vlan 19
 name VLAN19
 
+vlan 130
+name VLAN130
 
-interface Eth1
-   switchport trunk allowed vlan 15-19,130-134
-   switchport mode trunk
-   spanning-tree  portfast edge
+vlan 131
+name VLAN131
 
-interface Eth2
-   switchport access vlan 130
-   switchport mode access
+vlan 132
+name VLAN132
 
-int ethernet 3 - 4
-   no shutdown
-   no ip address
-   switchport
-   channel-group 1 mode active
+vlan 133
+name VLAN133
 
-vlan 4094
-   trunk group mlag-peer
+vlan 134
+name VLAN134
 
-no spanning-tree vlan-id 4094
 
-interface Port-Channel1
-   switchport mode trunk
-   switchport trunk group mlag-peer
-   no shutdown
-
-interface vlan 4094
-    no shutdown
-    ip address 10.30.0.5/30
-
-mlag configuration
-   domain-id mlag1
-   local-interface Vlan4094
-   peer-address 10.30.0.6
-   peer-link Port-Channel1 
-   
-   
-interface port-Channel 10
-    mlag 10 
-    switchport mode trunk 
-    switchport trunk allowed vlan 15-19,130-134
-
-int ethernet 5 - 6
-   no shutdown
-   no ip address
-   switchport
-   channel-group 10 mode active
-   
 spanning-tree mode mstp
 
 
 
+interface Eth1
+    mtu 9214
+    switchport 
+    no switchport mode access
+    switchport mode trunk
+    switchport trunk allowed vlan 15-19,130-134
+    spanning-tree portfast edge
 
-interface Ethernet1
+interface Ethernet 2
    mtu 9214
-interface Ethernet2
-   mtu 9214
-interface Port-Channel1
-   mtu 9214
-interface Port-Channel10
-   mtu 9214
+   switchport
+   switchport mode access
+   switchport access vlan 130
+   
