@@ -1,38 +1,6 @@
-
-
-interface Loopback0
+int loopback 0
    ip address 192.168.255.80/32
 
-vlan 15
-   name VLAN15
-!
-vlan 16
-   name VLAN16
-!
-vlan 17
-   name VLAN17
-!
-vlan 18
-   name VLAN18
-!
-vlan 19
-   name VLAN19
-!
-vlan 20
-   name VLAN20
-!
-vlan 21
-   name VLAN21
-!
-vlan 22
-   name VLAN22
-!
-vlan 23
-   name VLAN23
-!
-vlan 24
-   name VLAN24
-!
 
 vlan 130
 name VLAN130
@@ -49,45 +17,79 @@ name VLAN133
 vlan 134
 name VLAN134
 
+vlan 15
+name VLAN15
 
-spanning-tree mode mstp
-!
-interface Port-Channel10
-   switchport trunk allowed vlan 14-24
+vlan 16
+name VLAN16
+
+vlan 17
+name VLAN17
+
+vlan 18
+name VLAN18
+
+vlan 19
+name VLAN19
+
+
+interface Eth1
+   switchport trunk allowed vlan 15-19,130-134
    switchport mode trunk
-   !
-   evpn ethernet-segment
-      identifier 0000:0000:0000:0000:3132
-      route-target import 00:00:00:00:31:32
-   lacp system-id 0000.0000.3132
-   mlag 10
-!
+   spanning-tree  portfast edge
+
+interface Eth2
+   switchport access vlan 130
+   switchport mode access
+
+int ethernet 3 - 4
+   no shutdown
+   no ip address
+   switchport
+   channel-group 1 mode active
+
+vlan 4094
+   trunk group mlag-peer
+
+no spanning-tree vlan-id 4094
+
+interface Port-Channel1
+   switchport mode trunk
+   switchport trunk group mlag-peer
+   no shutdown
+
+interface vlan 4094
+    no shutdown
+    ip address 10.30.0.5/30
+
+mlag configuration
+   domain-id mlag1
+   local-interface Vlan4094
+   peer-address 10.30.0.6
+   peer-link Port-Channel1 
+   
+   
+interface port-Channel 10
+    mlag 10 
+    switchport mode trunk 
+    switchport trunk allowed vlan 15-19,130-134
+
+int ethernet 5 - 6
+   no shutdown
+   no ip address
+   switchport
+   channel-group 10 mode active
+   
+spanning-tree mode mstp
+
+
+
+
 interface Ethernet1
-   shutdown
-!
+   mtu 9214
 interface Ethernet2
-   shutdown
-!
-interface Ethernet3
-   no switchport
-   ip address 10.20.0.1/30
-
-!
-interface Ethernet4
-   no switchport
-   ip address 10.20.0.5/30
-
-!
-interface Ethernet5
-   no switchport
-   ip address 10.20.0.9/30
-
-!
-interface Ethernet6
-   channel-group 10 mode active
-!
-interface Ethernet7
-   channel-group 10 mode active
-!
-interface Ethernet15
-!
+   mtu 9214
+interface Port-Channel1
+   mtu 9214
+interface Port-Channel10
+   mtu 9214
