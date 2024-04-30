@@ -109,6 +109,45 @@ services:
       - /opt/labguides/web/:/root/labguides/web/:rw
     networks:
       - atd_nginx
+  labguides-v2:
+    container_name: atd-labguides-v2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
+    restart: on-failure
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /etc/atd:/etc/atd:ro
+      - /opt/atd:/opt/atd:ro
+      - /opt/labguides/web/:/html/:rw
+      - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
+      - /home/arista/arista-dir/menus/:/menus/:rw
+    networks:
+      - atd_nginx
+
+  syslog:
+    container_name: atd-syslog
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /home/arista/arista-dir/apps/syslog/:/var/log/remote/:rw
+    ports:
+      - "1514:1514"
+      - "1514:1514/udp"
+    networks:
+      - atd_nginx
+  tacacs:
+    container_name: atd-tacacs
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_tacacs:1.0.0
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /home/arista/arista-dir/apps/tacacs/config:/etc/tac_plus/tac_user.cfg:ro
+      - /home/arista/arista-dir/apps/tacacs/tac.log:/var/log/tac_plus.log:rw
+    ports:
+      - "49:49"
   freerad:
     container_name: atd-freeradius
     image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:1.0.0

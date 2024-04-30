@@ -1,47 +1,46 @@
-#!/usr/bin/env python3
+#!/bin/bash
 
-import tornado.ioloop
-import tornado.web
-from datetime import datetime
+# while [ $(cat /etc/atd/ACCESS_INFO.yaml | shyaml get-value login_info.jump_host.pw) == 'REPLACE_PWD' ]
+# do
+#     echo "Password has not been updated yet. sleeping..."
+#     sleep 10
+# done
 
-PORT = 80
-BASE_PATH = '/root/labguides/web/'
+# TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | shyaml get-value topology)
+# ARISTA_PWD=$(cat /etc/atd/ACCESS_INFO.yaml | shyaml get-value login_info.jump_host.pw)
+# EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
 
+# # Clean up previous stuff to make sure it's current
+# #rm -rf /home/arista/labguides/build
 
-class labguideRequestHandler(tornado.web.RequestHandler):
-    def get(self):
-        if not self.current_user:
-            self.redirect('/login')
-            return()
-        else:
-            pS(str(self.request.uri))
-            self.render(
-                BASE_PATH + 'index.html'
-            )
+# cp -r /opt/atd/topologies/$TOPO/labguides/* /root/labguides/
 
-# ===============================
-# Utility Functions
-# ===============================
+# # Update the Arista user password for connecting to the labvm
+# find /root/labguides/source/*  -type f -print0 | xargs -0 sed -i "s/{REPLACE_PWD}/$ARISTA_PWD/g"
 
+# if [ $EOS_TYPE == 'ceos' ]
+# then
+#   find /root/labguides/source/*  -type f -print0 | xargs -0 sed -i "s/Management1/Management0/g"
+# fi
 
-def pS(mtype):
-    """
-    Function to send output from service file to Syslog
-    """
-    cur_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mmes = "\t" + mtype
-    print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
+# # chown -R arista:arista /home/arista/labguides/src/
 
+# # Build the lab guides html files
+# cd /root/labguides/
+# make html
+# sphinx-build -b latex source build
 
-if __name__ == "__main__":
-    app = tornado.web.Application([
-        (r'/labguides', labguideRequestHandler),
-        (r'/labguides/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH}),
-    ])
-    app.listen(PORT)
-    print('*** Websocket Server Started on {} ***'.format(PORT))
-    try:
-        tornado.ioloop.IOLoop.instance().start()
-    except KeyboardInterrupt:
-        tornado.ioloop.IOLoop.instance().stop()
-        print("*** Websocked Server Stopped ***")
+# # Build the lab guides PDF
+# make latexpdf LATEXOPTS=-interaction=nonstopmode
+
+# rm -r /root/labguides/web/*
+
+# # Put the new HTML and PDF in the proper directories
+# mv /root/labguides/build/latex/ATD.pdf /root/labguides/web/
+# mv /root/labguides/build/html/* /root/labguides/web/ 
+
+# echo Labguide build complete
+
+cd /root
+
+python labguides.py
