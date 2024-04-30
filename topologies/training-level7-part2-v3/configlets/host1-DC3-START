@@ -60,8 +60,7 @@ vrf instance VLAN133
 vrf instance VLAN134
 
 ip routing vrf VLAN15
-ip routing vrf VLAN16
-ip routing vrf VLAN17
+ip routing vrf tenant-a
 ip routing vrf VLAN18
 ip routing vrf VLAN19
 ip routing vrf VLAN130
