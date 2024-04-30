@@ -66,7 +66,6 @@ vrf instance VLAN24
 
 ip routing vrf VLAN15
 ip routing vrf tenant-a
-ip routing vrf tenant-a
 ip routing vrf VLAN18
 ip routing vrf VLAN19
 ip routing vrf VLAN20
@@ -77,7 +76,7 @@ ip routing vrf VLAN24
 
 
 interface VLAN15
-vrf tenant-a
+vrf VLAN15
 ip address 172.16.15.53/24
 no autostate
 no shutdown
