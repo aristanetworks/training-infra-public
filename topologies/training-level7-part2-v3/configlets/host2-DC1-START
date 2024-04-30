@@ -44,8 +44,7 @@ name VLAN19
 
 
 vrf instance VLAN15
-vrf instance VLAN16
-vrf instance VLAN17
+vrf instance tenant-a
 vrf instance VLAN18
 vrf instance VLAN19
 vrf instance VLAN110
@@ -92,13 +91,13 @@ no autostate
 no shutdown
 
 interface VLAN16
-vrf VLAN16
+vrf tenant-a
 ip address 172.16.16.52/24
 no autostate
 no shutdown
 
 interface VLAN17
-vrf VLAN17
+vrf tenant-a
 ip address 172.16.17.52/24
 no autostate
 no shutdown
@@ -116,8 +115,7 @@ no autostate
 no shutdown
 
 ip routing vrf VLAN15
-ip routing vrf VLAN16
-ip routing vrf VLAN17
+ip routing vrf tenant-a
 ip routing vrf VLAN18
 ip routing vrf VLAN19
 ip routing vrf VLAN110
@@ -128,8 +126,8 @@ ip routing vrf VLAN114
 
 
 ip route vrf VLAN15 0.0.0.0/0 172.16.15.254
-ip route vrf VLAN16 0.0.0.0/0 172.16.16.254
-ip route vrf VLAN17 0.0.0.0/0 172.16.17.254
+ip route vrf tenant-a 172.16.16.0/24 172.16.16.254
+ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
 ip route vrf VLAN18 0.0.0.0/0 172.16.18.254
 ip route vrf VLAN19 0.0.0.0/0 172.16.19.254
 ip route vrf VLAN110 0.0.0.0/0 172.16.110.254
