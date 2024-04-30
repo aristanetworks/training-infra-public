@@ -38,7 +38,6 @@ spanning-tree mode mstp
 
 
 interface Eth1
-    mtu 9214
     switchport 
     no switchport mode access
     switchport mode trunk
@@ -46,7 +45,6 @@ interface Eth1
     spanning-tree portfast edge
 
 interface Ethernet 2
-   mtu 9214
    switchport
    switchport mode access
    switchport access vlan 130
