@@ -1,6 +1,6 @@
 !
 int loopback 0
-   ip address 192.168.255.51/32
+   ip address 192.168.255.52/32
 !
 int ethernet 1 - 4
    no shutdown
