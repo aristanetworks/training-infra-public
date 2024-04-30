@@ -1,0 +1,16 @@
+!
+int loop0
+ip address 192.168.100.6/32
+!
+int eth1
+no switchport
+ip address 172.16.56.6/24
+mtu 1500
+no shut
+!
+int eth2
+no switchport
+ip address 172.16.26.6/24
+mtu 1500
+no shut
+!
