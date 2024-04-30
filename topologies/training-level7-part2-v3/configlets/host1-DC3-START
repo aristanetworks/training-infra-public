@@ -3,7 +3,7 @@ int loopback 0
    ip address 192.168.255.82/32
 !   
 int ethernet 1
-  
+  mtu 9214
    no shutdown
    no ip address
    switchport 
@@ -11,7 +11,7 @@ int ethernet 1
    switchport trunk allowed vlan 15-19,130-134
 !
 int ethernet 2
- 
+ mtu 9214
    no shutdown
    no ip address
    switchport 
@@ -71,18 +71,21 @@ ip routing vrf VLAN134
 
 
 interface VLAN15
+mtu 9214
 vrf VLAN15
 ip address 172.16.15.82/24
 no autostate
 no shutdown
 
 interface VLAN16
+mtu 9214
 vrf tenant-a
 ip address 172.16.16.82/24
 no autostate
 no shutdown
 
 interface VLAN17
+mtu 9214
 vrf tenant-a
 ip address 172.16.17.82/24
 no autostate
