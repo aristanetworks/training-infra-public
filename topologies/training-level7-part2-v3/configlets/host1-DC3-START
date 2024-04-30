@@ -11,7 +11,7 @@ int ethernet 1
    switchport trunk allowed vlan 15-19,130-134
 !
 int ethernet 2
-   
+ 
    no shutdown
    no ip address
    switchport 
@@ -50,8 +50,7 @@ vlan 134
 name VLAN134
 
 vrf instance VLAN15
-vrf instance VLAN16
-vrf instance VLAN17
+vrf instance tenant-a
 vrf instance VLAN18
 vrf instance VLAN19
 vrf instance VLAN130
@@ -79,13 +78,13 @@ no autostate
 no shutdown
 
 interface VLAN16
-vrf VLAN16
+vrf tenant-a
 ip address 172.16.16.82/24
 no autostate
 no shutdown
 
 interface VLAN17
-vrf VLAN17
+vrf tenant-a
 ip address 172.16.17.82/24
 no autostate
 no shutdown
@@ -142,5 +141,5 @@ no shutdown
 
 ip route vrf VLAN130 0.0.0.0/0 172.16.130.254
 ip route vrf VLAN15 0.0.0.0/0 172.16.15.254
-ip route vrf VLAN16 0.0.0.0/0 172.16.16.254
-ip route vrf VLAN17 0.0.0.0/0 172.16.17.254
+ip route vrf tenant-a 172.16.16.0/24 172.16.16.254
+ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
