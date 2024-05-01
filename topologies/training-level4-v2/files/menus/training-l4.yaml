@@ -432,7 +432,7 @@
       L3EVPN-T5:
         A1:
           - a1-BASE
-          -A1-ELAN-EVPN-L2
+          - A1-ELAN-EVPN-L2
         B1:
           - b1-BASE
           - B1-ELAN-EVPN-L2
