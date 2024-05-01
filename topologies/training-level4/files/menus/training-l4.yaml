@@ -1,6 +1,38 @@
     lab_list:
       reset:
         description: "Reset All Devices to Base Lab (reset)"
+      CPNR:
+        description: "Start The - Configure Provider Network Reachability Lab"
+      MPLS-LDP:
+        description: "Start The - Enable MPLS nad LDP Lab"
+      ISIS-SR:
+        description: "Start The - ISIS Segment Routing Lab"
+      SR-TE:
+        description: "Start The - Segment Routing Traffic Engineering Lab"
+      SR-TE-Policy:
+        description: "Start The - Segment Routing Traffic Engineering Policy Lab"
+      Steering-TE-Policy:
+        description: "Start The - Steering Traffic into a Traffic Engineering Policy Lab"
+      MP-BGP-L3EVPN:
+        description: "Start The - Multiprotocol BGP L3VPN Lab"
+      E-Line-LDP:
+        description: "Start The - E-Line Service with LDP Pseudowire Lab"
+      E-Line-EVPN-VPWS:
+        description: "Start The - E-Line Service with EVPN VPWS Lab"
+      E-LAN-EVPn-T2:
+        description: "Start The - E-LAN Service with EVPN Type 2 Lab"
+      L3EVPN-T5:
+        description: "Start The - L3VPN Service with EVPN Type 5 Lab"
+      TS-L3EVPN:
+        description: "Start The - Troubleshooting L3VPN Data Plane Lab"
+      Sytesm-Tunnel-RIB:
+        description: "Start The - System Tunnel RIB Lab"
+      Tunnel-RIB-Path:
+        description: "Start The - Tunnel RIB Path Selection Lab"
+      Color-steering-SR-TE:
+        description: "Start The - Color Steering with SR-TE Lab"
+      DCI:
+        description: "Start The - Data Center Interconnect Lab"
     labconfiglets:
       reset:
         A1:
@@ -27,3 +59,583 @@
           - p5-BASE
         P6:
           - p6-BASE
+      CPNR:
+        A1:
+          - a1-BASE
+          - A1-IP
+        B1:
+          - b1-BASE
+          - B1-IP
+        C1:
+          - c1-BASE
+          - C1-IP
+        A2:
+          - a2-BASE
+          - A2-IP
+        B2:
+          - b2-BASE
+          - B2-IP
+        C2:
+          - c2-BASE
+          - C2-IP
+        PE1:
+          - pe1-BASE
+          - PE1-IP
+        PE2:
+          - pe2-BASE
+          - PE2-IP
+        P3:
+          - p3-BASE
+          - P3-IP
+        P4:
+          - p4-BASE
+          - P4-IP
+        P5:
+          - p5-BASE
+          - P5-IP
+        P6:
+          - p6-BASE
+          - P6-IP
+      MPLS-LDP:
+        A1:
+          - a1-BASE
+          - A1-ISIS
+        B1:
+          - b1-BASE
+          - B1-ISIS
+        C1:
+          - c1-BASE
+          - C1-ISIS
+        A2:
+          - a2-BASE
+          - A2-ISIS
+        B2:
+          - b2-BASE
+          - B2-ISIS
+        C2:
+          - c2-BASE
+          - C2-ISIS
+        PE1:
+          - pe1-BASE
+          - PE1-ISIS
+        PE2:
+          - pe2-BASE
+          - PE2-ISIS
+        P3:
+          - p3-BASE
+          - P3-ISIS
+        P4:
+          - p4-BASE
+          - P4-ISIS
+        P5:
+          - p5-BASE
+          - P5-ISIS
+        P6:
+          - p6-BASE
+          - P6-ISIS
+      ISIS-SR:
+        A1:
+          - a1-BASE
+          - A1-LDP
+        B1:
+          - b1-BASE
+          - B1-LDP
+        C1:
+          - c1-BASE
+          - C1-LDP
+        A2:
+          - a2-BASE
+          - A2-LDP
+        B2:
+          - b2-BASE
+          - B2-LDP
+        C2:
+          - c2-BASE
+          - C2-LDP
+        PE1:
+          - pe1-BASE
+          - PE1-LDP
+        PE2:
+          - pe2-BASE
+          - PE2-LDP
+        P3:
+          - p3-BASE
+          - P3-LDP
+        P4:
+          - p4-BASE
+          - P4-LDP
+        P5:
+          - p5-BASE
+          - P5-LDP
+        P6:
+          - p6-BASE
+          - P6-LDP
+      SR-TE:
+        A1:
+          - a1-BASE
+          - A1-ISIS-SR
+        B1:
+          - b1-BASE
+          - B1-ISIS-SR
+        C1:
+          - c1-BASE
+          - C1-ISIS-SR
+        A2:
+          - a2-BASE
+          - A2-ISIS-SR
+        B2:
+          - b2-BASE
+          - B2-ISIS-SR
+        C2:
+          - c2-BASE
+          - C2-ISIS-SR
+        PE1:
+          - pe1-BASE
+          - PE1-ISIS-SR
+        PE2:
+          - pe2-BASE
+          - PE2-ISIS-SR
+        P3:
+          - p3-BASE
+          - P3-ISIS-SR
+        P4:
+          - p4-BASE
+          - P4-ISIS-SR
+        P5:
+          - p5-BASE
+          - P5-ISIS-SR
+        P6:
+          - p6-BASE
+          - P6-ISIS-SR
+      SR-TE-Policy:
+        A1:
+          - a1-BASE
+          - A1-ROUTER-TE
+        B1:
+          - b1-BASE
+          - B1-ROUTER-TE
+        C1:
+          - c1-BASE
+          - C1-ROUTER-TE
+        A2:
+          - a2-BASE
+          - A2-ROUTER-TE
+        B2:
+          - b2-BASE
+          - B2-ROUTER-TE
+        C2:
+          - c2-BASE
+          - C2-ROUTER-TE
+        PE1:
+          - pe1-BASE
+          - PE1-ROUTER-TE
+        PE2:
+          - pe2-BASE
+          - PE2-ROUTER-TE
+        P3:
+          - p3-BASE
+          - P3-ROUTER-TE
+        P4:
+          - p4-BASE
+          - P4-ROUTER-TE
+        P5:
+          - p5-BASE
+          - P5-ROUTER-TE
+        P6:
+          - p6-BASE
+          - P6-ROUTER-TE
+      Steering-TE-Policy:
+        A1:
+          - a1-BASE
+          - A1-SR-TE-POLICY
+        B1:
+          - b1-BASE
+          - B1-SR-TE-POLICY
+        C1:
+          - c1-BASE
+          - C1-SR-TE-POLICY
+        A2:
+          - a2-BASE
+          - A2-SR-TE-POLICY
+        B2:
+          - b2-BASE
+          - B2-SR-TE-POLICY
+        C2:
+          - c2-BASE
+          - C2-SR-TE-POLICY
+        PE1:
+          - pe1-BASE
+          - PE1-SR-TE-POLICY
+        PE2:
+          - pe2-BASE
+          - PE2-SR-TE-POLICY
+        P3:
+          - p3-BASE
+          - P3-SR-TE-POLICY
+        P4:
+          - p4-BASE
+          - P4-SR-TE-POLICY
+        P5:
+          - p5-BASE
+          - P5-SR-TE-POLICY
+        P6:
+          - p6-BASE
+          - P6-SR-TE-POLICY
+      MP-BGP-L3EVPN:
+        A1:
+          - a1-BASE
+          - A1-TRAFFIC-STEERING
+        B1:
+          - b1-BASE
+          - B1-TRAFFIC-STEERING
+        C1:
+          - c1-BASE
+          - C1-TRAFFIC-STEERING
+        A2:
+          - a2-BASE
+          - A2-TRAFFIC-STEERING
+        B2:
+          - b2-BASE
+          - B2-TRAFFIC-STEERING
+        C2:
+          - c2-BASE
+          - C2-TRAFFIC-STEERING
+        PE1:
+          - pe1-BASE
+          - PE1-TRAFFIC-STEERING
+        PE2:
+          - pe2-BASE
+          - PE2-TRAFFIC-STEERING
+        P3:
+          - p3-BASE
+          - P3-TRAFFIC-STEERING
+        P4:
+          - p4-BASE
+          - P4-TRAFFIC-STEERING
+        P5:
+          - p5-BASE
+          - P5-TRAFFIC-STEERING
+        P6:
+          - p6-BASE
+          - P6-TRAFFIC-STEERING
+      E-Line-LDP:
+        A1:
+          - a1-BASE
+          - A1-L3-VPN
+        B1:
+          - b1-BASE
+          - B1-L3-VPN
+        C1:
+          - c1-BASE
+          - C1-L3-VPN
+        A2:
+          - a2-BASE
+          - A2-L3-VPN
+        B2:
+          - b2-BASE
+          - B2-L3-VPN
+        C2:
+          - c2-BASE
+          - C2-L3-VPN
+        PE1:
+          - pe1-BASE
+          - PE1-L3-VPN
+        PE2:
+          - pe2-BASE
+          - PE2-L3-VPN
+        P3:
+          - p3-BASE
+          - P3-L3-VPN
+        P4:
+          - p4-BASE
+          - P4-L3-VPN
+        P5:
+          - p5-BASE
+          - P5-L3-VPN
+        P6:
+          - p6-BASE
+          - P6-L3-VPN
+      E-Line-EVPN-VPWS:
+        A1:
+          - a1-BASE
+          - A1-E-LINE-LDP-PW
+        B1:
+          - b1-BASE
+          - B1-E-LINE-LDP-PW
+        C1:
+          - c1-BASE
+          - C1-E-LINE-LDP-PW
+        A2:
+          - a2-BASE
+          - A2-E-LINE-LDP-PW
+        B2:
+          - b2-BASE
+          - B2-E-LINE-LDP-PW
+        C2:
+          - c2-BASE
+          - C2-E-LINE-LDP-PW
+        PE1:
+          - pe1-BASE
+          - PE1-E-LINE-LDP-PW
+        PE2:
+          - pe2-BASE
+          - PE2-E-LINE-LDP-PW
+        P3:
+          - p3-BASE
+          - P3-E-LINE-LDP-PW
+        P4:
+          - p4-BASE
+          - P4-E-LINE-LDP-PW
+        P5:
+          - p5-BASE
+          - P5-E-LINE-LDP-PW
+        P6:
+          - p6-BASE
+          - P6-E-LINE-LDP-PW
+      E-LAN-EVPn-T2:
+        A1:
+          - a1-BASE
+          - A1-E-LINE-VPWS
+        B1:
+          - b1-BASE
+          - B1-E-LINE-VPWS
+        C1:
+          - c1-BASE
+          - C1-E-LINE-VPWS
+        A2:
+          - a2-BASE
+          - A2-E-LINE-VPWS
+        B2:
+          - b2-BASE
+          - B2-E-LINE-VPWS
+        C2:
+          - c2-BASE
+          - C2-E-LINE-VPWS
+        PE1:
+          - pe1-BASE
+          - PE1-E-LINE-VPWS
+        PE2:
+          - pe2-BASE
+          - PE2-E-LINE-VPWS
+        P3:
+          - p3-BASE
+          - P3-E-LINE-VPWS
+        P4:
+          - p4-BASE
+          - P4-E-LINE-VPWS
+        P5:
+          - p5-BASE
+          - P5-E-LINE-VPWS
+        P6:
+          - p6-BASE
+
+      L3EVPN-T5:
+        A1:
+          - a1-BASE
+          -A1-ELAN-EVPN-L2
+        B1:
+          - b1-BASE
+          - B1-ELAN-EVPN-L2
+        C1:
+          - c1-BASE
+          - C1-ELAN-EVPN-L2
+        A2:
+          - a2-BASE
+          - A2-ELAN-EVPN-L2
+        B2:
+          - b2-BASE
+          - B2-ELAN-EVPN-L2
+        C2:
+          - c2-BASE
+          - C2-ELAN-EVPN-L2
+        PE1:
+          - pe1-BASE
+          - PE1-ELAN-EVPN-L2
+        PE2:
+          - pe2-BASE
+          - PE2-ELAN-EVPN-L2
+        P3:
+          - p3-BASE
+          - P3-ELAN-EVPN-L2
+        P4:
+          - p4-BASE
+          - P4-ELAN-EVPN-L2
+        P5:
+          - p5-BASE
+          - P5-ELAN-EVPN-L2
+        P6:
+          - p6-BASE
+          - P6-ELAN-EVPN-L2
+      TS-L3EVPN:
+        A1:
+          - a1-BASE
+        B1:
+          - b1-BASE
+        C1:
+          - c1-BASE
+        A2:
+          - a2-BASE
+        B2:
+          - b2-BASE
+        C2:
+          - c2-BASE
+        PE1:
+          - pe1-BASE
+        PE2:
+          - pe2-BASE
+        P3:
+          - p3-BASE
+        P4:
+          - p4-BASE
+        P5:
+          - p5-BASE
+        P6:
+          - p6-BASE
+      Sytesm-Tunnel-RIB:
+        A1:
+          - a1-BASE
+          - A1-L3-EVPN
+        B1:
+          - b1-BASE
+          - B1-L3-EVPN
+        C1:
+          - c1-BASE
+          - C1-L3-EVPN
+        A2:
+          - a2-BASE
+          - A2-L3-EVPN
+        B2:
+          - b2-BASE
+          - B2-L3-EVPN
+        C2:
+          - c2-BASE
+          - C2-L3-EVPN
+        PE1:
+          - pe1-BASE
+          - PE1-L3-EVPN
+        PE2:
+          - pe2-BASE
+          - PE2-L3-EVPN
+        P3:
+          - p3-BASE
+          - P3-L3-EVPN
+        P4:
+          - p4-BASE
+          - P4-L3-EVPN
+        P5:
+          - p5-BASE
+          - P5-L3-EVPN
+        P6:
+          - p6-BASE
+          - P6-L3-EVPN
+      Tunnel-RIB-Path:
+        A1:
+          - a1-BASE
+          - A1-SYSTEM-TUNNEL-RIB
+        B1:
+          - b1-BASE
+          - B1-SYSTEM-TUNNEL-RIB
+        C1:
+          - c1-BASE
+          - C1-SYSTEM-TUNNEL-RIB
+        A2:
+          - a2-BASE
+          - A2-SYSTEM-TUNNEL-RIB
+        B2:
+          - b2-BASE
+          - B2-SYSTEM-TUNNEL-RIB
+        C2:
+          - c2-BASE
+          - C2-SYSTEM-TUNNEL-RIB
+        PE1:
+          - pe1-BASE
+          - PE1-SYSTEM-TUNNEL-RIB
+        PE2:
+          - pe2-BASE
+          - PE2-SYSTEM-TUNNEL-RIB
+        P3:
+          - p3-BASE
+          - P3-SYSTEM-TUNNEL-RIB
+        P4:
+          - p4-BASE
+          - P4-SYSTEM-TUNNEL-RIB
+        P5:
+          - p5-BASE
+          - P5-SYSTEM-TUNNEL-RIB
+        P6:
+          - p6-BASE
+          - P6-SYSTEM-TUNNEL-RIB
+      Color-steering-SR-TE:
+        A1:
+          - a1-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        B1:
+          - b1-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        C1:
+          - c1-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        A2:
+          - a2-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        B2:
+          - b2-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        C2:
+          - c2-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        PE1:
+          - pe1-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        PE2:
+          - pe2-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        P3:
+          - p3-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        P4:
+          - p4-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        P5:
+          - p5-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+        P6:
+          - p6-BASE
+          - A1-USER-DEFINED-TUNNEL-RIB
+      DCI:
+        A1:
+          - a1-BASE
+          - A1-COLOR-STEERING
+        B1:
+          - b1-BASE
+          - B1-COLOR-STEERING
+        C1:
+          - c1-BASE
+          - C1-COLOR-STEERING
+        A2:
+          - a2-BASE
+          - A2-COLOR-STEERING
+        B2:
+          - b2-BASE
+          - B2-COLOR-STEERING
+        C2:
+          - c2-BASE
+          - C2-COLOR-STEERING
+        PE1:
+          - pe1-BASE
+          - PE1-COLOR-STEERING
+        PE2:
+          - pe2-BASE
+          - PE2-COLOR-STEERING
+        P3:
+          - p3-BASE
+          - P3-COLOR-STEERING
+        P4:
+          - p4-BASE
+          - P4-COLOR-STEERING
+        P5:
+          - p5-BASE
+          - P5-COLOR-STEERING
+        P6:
+          - p6-BASE
+          - P6-COLOR-STEERING
