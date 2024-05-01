@@ -428,6 +428,7 @@
           - P5-E-LINE-VPWS
         P6:
           - p6-BASE
+          - P6-E-LINE-VPWS
 
       L3EVPN-T5:
         A1:
