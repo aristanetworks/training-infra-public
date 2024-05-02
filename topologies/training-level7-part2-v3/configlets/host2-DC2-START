@@ -15,7 +15,7 @@ interface port-Channel 10
    no shut
    switchport
    switchport mode trunk 
-   switchport trunk allowed vlan 15-19,120-124
+   switchport trunk allowed vlan 15-19
 
 !
 vlan 15
@@ -33,32 +33,11 @@ name VLAN18
 vlan 19
 name VLAN19
 
-vlan 120
-name VLAN120
-
-vlan 121
-name VLAN121
-
-vlan 122
-name VLAN122
-
-vlan 123
-name VLAN123
-
-vlan 124
-name VLAN124
-
-
 
 vrf instance VLAN15
 vrf instance tenant-a
 vrf instance VLAN18
 vrf instance VLAN19
-vrf instance VLAN120
-vrf instance VLAN121
-vrf instance VLAN122
-vrf instance VLAN123
-vrf instance VLAN124
 
 
 ip routing vrf VLAN15
@@ -66,11 +45,7 @@ ip routing vrf tenant-a
 ip routing vrf VLAN18
 ip routing vrf VLAN19
 
-ip routing vrf VLAN120
-ip routing vrf VLAN121
-ip routing vrf VLAN122
-ip routing vrf VLAN123
-ip routing vrf VLAN124
+
 
 
 interface VLAN15
@@ -103,44 +78,9 @@ ip address 172.16.19.54/24
 no autostate
 no shutdown
 
-interface VLAN120
-vrf VLAN120
-ip address 172.16.120.54/24
-no shutdown
-
-interface VLAN121
-vrf VLAN121
-ip address 172.16.121.54/24
-no autostate
-no shutdown
-
-interface VLAN122
-vrf VLAN122
-ip address 172.16.122.54/24
-no autostate
-no shutdown
-
-interface VLAN123
-vrf VLAN123
-ip address 172.16.123.54/24
-no autostate
-no shutdown
-
-interface VLAN124
-vrf VLAN124
-ip address 172.16.124.54/24
-no autostate
-no shutdown
-
-
 ip route vrf VLAN15 0.0.0.0/0 172.16.15.254
 ip route vrf tenant-a 172.16.16.0/24 172.16.16.254
 ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
 ip route vrf VLAN18 0.0.0.0/0 172.16.18.254
 ip route vrf VLAN19 0.0.0.0/0 172.16.19.254
-ip route vrf VLAN120 0.0.0.0/0 172.16.120.254
-ip route vrf VLAN121 0.0.0.0/0 172.16.121.254
-ip route vrf VLAN122 0.0.0.0/0 172.16.122.254
-ip route vrf VLAN123 0.0.0.0/0 172.16.123.254
-ip route vrf VLAN124 0.0.0.0/0 172.16.124.254
 
