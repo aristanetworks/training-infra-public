@@ -1,8 +1,7 @@
 interface Loopback0
    ip address 192.168.255.32/32
 !
-vlan 14
-   name VLAN14
+
 !
 vlan 15
    name VLAN15
@@ -19,24 +18,9 @@ vlan 18
 vlan 19
    name VLAN19
 !
-vlan 20
-   name VLAN20
-!
-vlan 21
-   name VLAN21
-!
-vlan 22
-   name VLAN22
-!
-vlan 23
-   name VLAN23
-!
-vlan 24
-   name VLAN24
-
 !
 interface Port-Channel10
-   switchport trunk allowed vlan 14-24
+   switchport trunk allowed vlan 15-19
    switchport mode trunk
    !
    evpn ethernet-segment
