@@ -13,20 +13,6 @@ interface Loopback1
    ip address 192.168.255.112/32
    ip ospf area 0.0.0.0
 !
-vlan 10
-   name VLAN10
-!
-vlan 11
-   name VLAN11
-!
-vlan 12
-   name VLAN12
-!
-vlan 13
-   name VLAN13
-!
-vlan 14
-   name VLAN14
 !
 vlan 15
    name VLAN15
@@ -95,21 +81,6 @@ interface Ethernet6
 !
 interface Ethernet7
    channel-group 10 mode active
-
-interface Vlan10
-   ip address virtual 172.16.10.254/24
-!
-interface Vlan11
-   ip address virtual 172.16.111.254/24
-!
-interface Vlan12
-   ip address  virtual 172.16.12.254/24
-!
-interface Vlan13
-   ip address virtual 172.16.13.254/24
-!
-interface Vlan14
-   ip address virtual 172.16.14.254/24
 !
 interface Vlan15
    ip address virtual 172.16.15.254/24
