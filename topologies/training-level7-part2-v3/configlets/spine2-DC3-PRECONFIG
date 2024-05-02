@@ -5,7 +5,7 @@ int loopback 0
 interface Loopback1
    ip address 192.168.255.123/32
 
-vlan 15-19,130-134
+vlan 15-19,130
 
 vlan 4094
    trunk group mlag-peer
