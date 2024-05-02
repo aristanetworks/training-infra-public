@@ -45,7 +45,7 @@ interface Port-Channel1
    switchport trunk group mlag-peer
 !
 interface Port-Channel10
-   switchport trunk allowed vlan 10-19
+   switchport trunk allowed vlan 15-19
    switchport mode trunk
    mlag 10
 !
