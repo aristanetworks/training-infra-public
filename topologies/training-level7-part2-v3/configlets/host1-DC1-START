@@ -89,6 +89,4 @@ router bgp 65151
          neighbor 172.16.11.21 activate
          neighbor 172.16.11.22 activate
 
-interface lo1
-   vrf VLAN11
-   ip address 172.16.220.51/24
+
