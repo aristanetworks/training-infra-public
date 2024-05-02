@@ -1,22 +1,6 @@
 !
 int loopback 0
    ip address 192.168.255.82/32
-!   
-int ethernet 1
-  mtu 9214
-   no shutdown
-   no ip address
-   switchport 
-   switchport mode trunk 
-   switchport trunk allowed vlan 15-19,130-134
-!
-int ethernet 2
- mtu 9214
-   no shutdown
-   no ip address
-   switchport 
-   switchport mode access
-   switchport access vlan 130
 !
 
 vlan 15
@@ -36,38 +20,37 @@ name VLAN19
 
 vlan 130
 name VLAN130
-
-vlan 131
-name VLAN131
-
-vlan 132
-name VLAN132
-
-vlan 133
-name VLAN133
-
-vlan 134
-name VLAN134
+!
+int ethernet 1
+  mtu 9214
+   no shutdown
+   no ip address
+   switchport 
+   switchport mode trunk 
+   switchport trunk allowed vlan 15-19
+!
+int ethernet 2
+ mtu 9214
+   no shutdown
+   no ip address
+   switchport 
+   switchport mode access
+   switchport access vlan 130
+!
 
 vrf instance VLAN15
 vrf instance tenant-a
 vrf instance VLAN18
 vrf instance VLAN19
 vrf instance VLAN130
-vrf instance VLAN131
-vrf instance VLAN132
-vrf instance VLAN133
-vrf instance VLAN134
+
 
 ip routing vrf VLAN15
 ip routing vrf tenant-a
 ip routing vrf VLAN18
 ip routing vrf VLAN19
 ip routing vrf VLAN130
-ip routing vrf VLAN131
-ip routing vrf VLAN132
-ip routing vrf VLAN133
-ip routing vrf VLAN134
+
 
 
 interface VLAN15
@@ -112,36 +95,10 @@ ip address 172.16.130.82/24
 no autostate
 no shutdown
 
-interface VLAN131
-mtu 9214
-vrf VLAN131
-ip address 172.16.131.82/24
-no autostate
-no shutdown
-
-interface VLAN132
-mtu 9214
-vrf VLAN132
-ip address 172.16.132.82/24
-no autostate
-no shutdown
-
-interface VLAN133
-mtu 9214
-vrf VLAN133
-ip address 172.16.133.82/24
-no autostate
-no shutdown
-
-interface VLAN134
-mtu 9214
-vrf VLAN134
-ip address 172.16.134.82/24
-no autostate
-no shutdown
-
-
 ip route vrf VLAN130 0.0.0.0/0 172.16.130.254
 ip route vrf VLAN15 0.0.0.0/0 172.16.15.254
 ip route vrf tenant-a 172.16.16.0/24 172.16.16.254
 ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
+ip route vrf VLAN18 0.0.0.0/0 172.16.18.254
+ip route vrf VLAN19 0.0.0.0/0 172.16.19.254
+ip route vrf VLAN130 0.0.0.0/0 172.16.130.254
