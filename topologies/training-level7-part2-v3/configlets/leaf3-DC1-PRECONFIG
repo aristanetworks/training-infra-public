@@ -49,21 +49,6 @@ vlan 18
 vlan 19
    name VLAN19
 !
-vlan 110
-   name VLAN110
-!
-vlan 111
-   name VLAN111
-!
-vlan 112
-   name VLAN112
-!
-vlan 113
-   name VLAN113
-!
-vlan 114
-   name VLAN114
-!
 !
 interface Port-Channel10
    switchport trunk allowed vlan 15-19,110-114
@@ -120,21 +105,6 @@ interface Vlan18
 interface Vlan19
    ip address virtual 172.16.19.254/24
 !
-interface Vlan110
-   ip address virtual 172.16.110.254/24
-!
-interface Vlan111
-   ip address virtual 172.16.111.254/24
-!
-interface Vlan112
-   ip  address virtual 172.16.112.254/24
-!
-interface Vlan113
-   ip address virtual 172.16.113.254/24
-!
-interface Vlan114
-   ip address virtual 172.16.114.254/24
-
 !
 
 !
