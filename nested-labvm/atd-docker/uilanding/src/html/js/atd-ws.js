@@ -114,7 +114,7 @@ function createWS(SOCK_URL) {
 function instanceCountdown(element, boot_time, runtime) {
     var el = document.getElementById(element);
     var countdown_string = '';
-    var count_style = 'black';
+    var count_style = 'white';
     if ( event_timer_ids.hasOwnProperty(element) ) {
         clearInterval(event_timer_ids[element]);
         delete event_timer_ids[element];

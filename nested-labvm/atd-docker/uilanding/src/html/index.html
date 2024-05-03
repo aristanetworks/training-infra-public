@@ -146,12 +146,13 @@
             <!-------------------------------------------------------------------------------->
             <div id="lab-menu" class="panel">
               <h1>Lab Menu</h1>
-              <div class="lab-buttons">
+              <div class="lab-buttons" >
                 {% for key, value in menu_options.items() %}
-                <a class="lab-button">
-                  <div class="dot"></div>
-                  <span>{{value}}</span>
-                </a>
+                <label>
+                    <div class="dot"></div>
+                    <input type="radio" name="lab" value="{{key}}" class="lab-button">
+                    <span>{{value}}</span>
+                </label>
                 {% end %}
               </div>
               <a class="button" id="labBtn">Start Lab</a>
