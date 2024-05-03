@@ -72,8 +72,7 @@ fi
 
 # Update the base configlets for ceos/veos mgmt numbering
 
-if [ $EOS_TYPE == 'ceos' ]
-then
+if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
     sed -i 's/Management1/Management0/g' /opt/atd/topologies/$TOPO/configlets/*
 fi
 
@@ -112,11 +111,12 @@ export ArGD=$(id -g arista)
 export AtID=$(id -u atdadmin)
 export AtGD=$(id -g atdadmin)
 
-/usr/local/bin/docker-compose up -d --remove-orphans --force-recreate
+docker compose up -d --remove-orphans --force-recreate
 
 echo 'y' | docker image prune
 
 systemctl restart sshd
+
 if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
 then
     bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
