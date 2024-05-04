@@ -75,16 +75,18 @@ function getLabStatus() {
                 values = item.split(',')
                 labName.innerHTML = values[0];
                 let labStatus = document.createElement("td");
-                labStatus.innerHTML = values[1];
+                let spanElement = document.createElement("span");
+               labStatus.appendChild(spanElement)
+                spanElement.textContent = values[1];
                 if (values[1].indexOf("Ok") >= 0) {
                     //labStatus.style.color = "green"
-                    labStatus.classList.add("switch", "green");
+                    spanElement.classList.add("switch", "green");
                 } else {
                     failedSwitches.push(values[0])
                     // labStatus.style.color = "red"
                     // labStatus.style.fontWeight = "bold"
-                    labStatus.classList.add("switch", "red");
-                    labStatus.innerHTML = values[1];
+                    spanElement.classList.add("switch", "red");
+                    spanElement.textContent = values[1];
                 }
                 row.appendChild(labName);
                 row.appendChild(labStatus);
