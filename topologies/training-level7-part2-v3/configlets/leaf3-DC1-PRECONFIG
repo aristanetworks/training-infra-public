@@ -90,21 +90,6 @@ interface Ethernet6
 interface Ethernet7
    channel-group 10 mode active
 !
-interface Vlan15
-   ip address virtual 172.16.15.254/24
-!
-interface Vlan16
-   ip address virtual 172.16.16.254/24
-!
-interface Vlan17
-   ip address virtual 172.16.17.254/24
-!
-interface Vlan18
-   ip address virtual 172.16.18.254/24
-!
-interface Vlan19
-   ip address virtual 172.16.19.254/24
-!
 !
 
 !
