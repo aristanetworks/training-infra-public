@@ -470,28 +470,40 @@
       TS-L3EVPN:
         A1:
           - a1-BASE
+          - A1-ELAN-EVPN-L2
         B1:
           - b1-BASE
+          - B1-ELAN-EVPN-L2
         C1:
           - c1-BASE
+          - C1-ELAN-EVPN-L2
         A2:
           - a2-BASE
+          - A2-ELAN-EVPN-L2
         B2:
           - b2-BASE
+          - B2-ELAN-EVPN-L2
         C2:
           - c2-BASE
+          - C2-ELAN-EVPN-L2
         PE1:
           - pe1-BASE
+          - PE1-ELAN-EVPN-L2
         PE2:
           - pe2-BASE
+          - PE2-ELAN-EVPN-L2
         P3:
           - p3-BASE
+          - P3-ELAN-EVPN-L2
         P4:
           - p4-BASE
+          - P4-ELAN-EVPN-L2
         P5:
           - p5-BASE
+          - P5-ELAN-EVPN-L2
         P6:
           - p6-BASE
+          - P6-ELAN-EVPN-L2
       Sytesm-Tunnel-RIB:
         A1:
           - a1-BASE
