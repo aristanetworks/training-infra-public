@@ -118,7 +118,7 @@ function getLabStatus() {
 
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = $('.lab-button.active').text().trim();
-    document.getElementById('loader').style.display = 'block'
+    // document.getElementById('loader').style.display = 'block'
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
         if (res.response) {
@@ -127,13 +127,13 @@ document.getElementById("labBtn").addEventListener("click", function () {
             //     output = output + element
             // });
             document.getElementById('apiResponse').textContent = res.response
-            document.getElementById('loader').style.display = 'none'
+            // document.getElementById('loader').style.display = 'none'
 
         }
     }).fail((err) => {
         console.log(err)
         document.getElementById('apiResponse').textContent = "Some thing went wrong"
-        document.getElementById('loader').style.display = 'none'
+        // document.getElementById('loader').style.display = 'none'
     })
 
 
