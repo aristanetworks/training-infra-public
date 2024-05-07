@@ -52,7 +52,7 @@ $(function() {
     $(this).addClass('active');
 
     // Print the button's text to the console
-    console.log($(this).text().trim());
+    console.log($(this).attr('id'));
 
     // Prevent default action if it's an anchor tag
     return false;

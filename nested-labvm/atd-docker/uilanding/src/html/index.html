@@ -62,7 +62,7 @@
                   {% end %}
                   {% if "cvp" not in disable_links %}
                   <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)">
-                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>
+                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" ><s>CVP</s></a>
                     <span id="tooltiptext">CVP is Starting, Please wait</span>
                   </li>
                   <li id="cvpLoaded">
@@ -149,11 +149,10 @@
               <h1>Lab Menu</h1>
               <div class="lab-buttons" >
                 {% for key, value in menu_options.items() %}
-                <label>
+                <a class="lab-button" id="{{key}}">
                     <div class="dot"></div>
-                    <input type="radio" name="lab" value="{{key}}" class="lab-button">
                     <span>{{value}}</span>
-                </label>
+                  </a>
                 {% end %}
               </div>
               <a class="button" id="labBtn">Start Lab</a>
