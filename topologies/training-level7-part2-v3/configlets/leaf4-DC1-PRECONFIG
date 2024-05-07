@@ -42,11 +42,6 @@ interface Port-Channel10
    mlag 10
 !
 
-interface Ethernet1
-   channel-group 1 mode active
-!
-interface Ethernet2
-   channel-group 1 mode active
 !
 interface Ethernet3
    no switchport
