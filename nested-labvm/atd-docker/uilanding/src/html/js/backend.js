@@ -117,7 +117,7 @@ function getLabStatus() {
 
 
 document.getElementById("labBtn").addEventListener("click", function () {
-    const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
+    const selected_lab_options = $('.lab-button.active').text().trim();
     document.getElementById('loader').style.display = 'block'
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
