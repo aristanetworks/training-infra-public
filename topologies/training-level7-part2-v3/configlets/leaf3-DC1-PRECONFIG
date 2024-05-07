@@ -37,7 +37,7 @@ interface Port-Channel10
    evpn ethernet-segment
       identifier 0033:3333:3333:3333:4444
    lacp system-id 1234.3333.4444
-   mlag 10
+   
 !
 !
 interface Ethernet3
