@@ -39,12 +39,6 @@ interface Port-Channel10
    lacp system-id 1234.3333.4444
    mlag 10
 !
-
-interface Ethernet1
-   channel-group 1 mode active
-!
-interface Ethernet2
-   channel-group 1 mode active
 !
 interface Ethernet3
    no switchport
