@@ -1,38 +1,20 @@
+!
+
 ip virtual-router mac-address de:ad:be:ef:fa:ce
+!
 
 router ospf 1
-   router-id 192.168.255.23
+   router-id 192.168.255.24
    max-lsa 12000
 !
-!
 interface Loopback0
-   ip address 192.168.255.23/32
+   ip address 192.168.255.24/32
    ip ospf area 0.0.0.0
 !
 interface Loopback1
    ip address 192.168.255.134/32
    ip ospf area 0.0.0.0
 !
-interface Port-Channel1
-   switchport mode trunk
-   switchport trunk group mlag-peer
-!
-vlan 4094
-   trunk group mlag-peer
-!
-interface Vlan4094
-   ip address 10.10.0.49/30
-   no autostate
-!
-
-!
-!
-mlag configuration
-   domain-id mlag2
-   heartbeat-interval disabled
-   local-interface Vlan4094
-   peer-address 10.10.0.50
-   peer-link Port-Channel1
 !
 vlan 15
    name VLAN15
@@ -70,7 +52,7 @@ interface Ethernet3
    no switchport
    ip address unnumbered Loopback0
    ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   ip ospf area 0.0.0.34
 !
 interface Ethernet4
    no switchport
@@ -91,12 +73,12 @@ interface Ethernet7
    channel-group 10 mode active
 !
 !
-
-!
 router bgp 65034
-   no bgp default ipv4-unicast
-   router-id 192.168.255.23
+
+
+   router-id 192.168.255.24
    redistribute connected
+   no bgp default ipv4-unicast
    
    neighbor EVPN-SPINES peer group
    neighbor EVPN-SPINES remote-as 65110
@@ -111,7 +93,9 @@ router bgp 65034
    neighbor 192.168.255.12 description DC1-EVPN-SPINE2
    neighbor 192.168.255.13 peer group EVPN-SPINES
    neighbor 192.168.255.13 description DC1-EVPN-SPINE3
+
    !
    address-family evpn
       neighbor EVPN-SPINES activate
-  
+ 
+
