@@ -15,24 +15,6 @@ interface Loopback1
    ip address 192.168.255.134/32
    ip ospf area 0.0.0.0
 !
-interface Port-Channel1
-   switchport mode trunk
-   switchport trunk group mlag-peer
-!
-vlan 4094
-   trunk group mlag-peer
-!
-interface Vlan4094
-   ip address 10.10.0.50/30
-   no autostate
-
-!
-mlag configuration
-   domain-id mlag2
-   heartbeat-interval disabled
-   local-interface Vlan4094
-   peer-address 10.10.0.49
-   peer-link Port-Channel1
 !
 vlan 15
    name VLAN15
