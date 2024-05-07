@@ -12,39 +12,40 @@ resetRequestSubmittedTime = localStorage.getItem('resetRequestSubmittedTime')
 if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
-$('#labMenu').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'block'
-    document.getElementById('mainContent').style.display = 'none'
-    document.getElementById('labStatusContent').style.display = 'none'
-    document.getElementById('labGradingData').style.display = 'none'
-    clearInterval(labStatusInterval)
-});
-$('#home').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
-    document.getElementById('mainContent').style.display = 'block'
-    document.getElementById('labStatusContent').style.display = 'none'
-    document.getElementById('labGradingData').style.display = 'none'
-    clearInterval(labStatusInterval)
-})
-$('#labStaus').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
-    document.getElementById('mainContent').style.display = 'none'
-    document.getElementById('labStatusContent').style.display = 'block'
-    document.getElementById('labGradingData').style.display = 'none'
-    getLabStatus()
-    labStatusInterval = setInterval(
-        () => {
-            getLabStatus()
-        }, 30000
-    )
-})
-$('#labGrading').click(function (event) {
-    document.getElementById('labMenuDiv').style.display = 'none'
-    document.getElementById('mainContent').style.display = 'none'
-    document.getElementById('labStatusContent').style.display = 'none'
-    document.getElementById('labGradingData').style.display = 'block'
-    clearInterval(labStatusInterval)
-})
+
+// $('#labMenu').click(function (event) {
+//     document.getElementById('lab-menu').style.display = 'block'
+//     document.getElementById('mainContent').style.display = 'none'
+//     document.getElementById('labStatusContent').style.display = 'none'
+//     document.getElementById('labGradingData').style.display = 'none'
+//     clearInterval(labStatusInterval)
+// });
+// $('#home').click(function (event) {
+//     document.getElementById('lab-menu').style.display = 'none'
+//     document.getElementById('mainContent').style.display = 'block'
+//     document.getElementById('labStatusContent').style.display = 'none'
+//     document.getElementById('labGradingData').style.display = 'none'
+//     clearInterval(labStatusInterval)
+// })
+// $('#labStaus').click(function (event) {
+//     document.getElementById('lab-menu').style.display = 'none'
+//     document.getElementById('mainContent').style.display = 'none'
+//     document.getElementById('labStatusContent').style.display = 'block'
+//     document.getElementById('labGradingData').style.display = 'none'
+//     getLabStatus()
+//     labStatusInterval = setInterval(
+//         () => {
+//             getLabStatus()
+//         }, 30000
+//     )
+// })
+// $('#labGrading').click(function (event) {
+//     document.getElementById('lab-menu').style.display = 'none'
+//     document.getElementById('mainContent').style.display = 'none'
+//     document.getElementById('labStatusContent').style.display = 'none'
+//     document.getElementById('labGradingData').style.display = 'block'
+//     clearInterval(labStatusInterval)
+// })
 
 $('#resetLabs').click((event) => {
     if (confirm('Please click ok to reset below switches \n-' + failedSwitches.join('\n-'))) {
@@ -74,14 +75,18 @@ function getLabStatus() {
                 values = item.split(',')
                 labName.innerHTML = values[0];
                 let labStatus = document.createElement("td");
-                labStatus.innerHTML = values[1];
+                let spanElement = document.createElement("span");
+               labStatus.appendChild(spanElement)
+                spanElement.textContent = values[1];
                 if (values[1].indexOf("Ok") >= 0) {
-                    labStatus.style.color = "green"
+                    //labStatus.style.color = "green"
+                    spanElement.classList.add("switch", "green");
                 } else {
                     failedSwitches.push(values[0])
-                    labStatus.style.color = "red"
-                    labStatus.style.fontWeight = "bold"
-                    labStatus.innerHTML = values[1];
+                    // labStatus.style.color = "red"
+                    // labStatus.style.fontWeight = "bold"
+                    spanElement.classList.add("switch", "red");
+                    spanElement.textContent = values[1];
                 }
                 row.appendChild(labName);
                 row.appendChild(labStatus);
@@ -112,8 +117,8 @@ function getLabStatus() {
 
 
 document.getElementById("labBtn").addEventListener("click", function () {
-    const selected_lab_options = document.querySelector('input[name="lab"]:checked').value;
-    document.getElementById('loader').style.display = 'block'
+    const selected_lab_options = $('.lab-button.active').text().trim();
+    // document.getElementById('loader').style.display = 'block'
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
         if (res.response) {
@@ -122,13 +127,13 @@ document.getElementById("labBtn").addEventListener("click", function () {
             //     output = output + element
             // });
             document.getElementById('apiResponse').textContent = res.response
-            document.getElementById('loader').style.display = 'none'
+            // document.getElementById('loader').style.display = 'none'
 
         }
     }).fail((err) => {
         console.log(err)
         document.getElementById('apiResponse').textContent = "Some thing went wrong"
-        document.getElementById('loader').style.display = 'none'
+        // document.getElementById('loader').style.display = 'none'
     })
 
 
