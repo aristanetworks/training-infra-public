@@ -1,8 +1,8 @@
     lab_list:
       reset:
-        description: "Reset All Devices to Base Lab (reset)"
+        description: "Reset All Devices to Base Lab (ATD-INFRA and Device-BASE configlets assigned to each device)"
       Start-of-Exam:
-        description: "Reset All Device to the Start of Level 7 Part 2 Exam"
+        description: "Reset All Device to the Start of the L7 Part 2 Exam"
     labconfiglets:
       reset:
         A1:
