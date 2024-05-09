@@ -29,270 +29,97 @@
           - p5-BASE
         P6:
           - p6-BASE
-      CPNR:
-        A1:
-          - a1-BASE
-          - A1-IP
-        B1:
-          - b1-BASE
-          - B1-IP
-        C1:
-          - c1-BASE
-          - C1-IP
-        A2:
-          - a2-BASE
-          - A2-IP
-        B2:
-          - b2-BASE
-          - B2-IP
-        C2:
-          - c2-BASE
-          - C2-IP
-        PE1:
-          - pe1-BASE
-          - PE1-IP
-        PE2:
-          - pe2-BASE
-          - PE2-IP
-        P3:
-          - p3-BASE
-          - P3-IP
-        P4:
-          - p4-BASE
-          - P4-IP
-        P5:
-          - p5-BASE
-          - P5-IP
-        P6:
-          - p6-BASE
-          - P6-IP
-      MPLS-LDP:
-        A1:
-          - a1-BASE
-          - A1-ISIS
-        B1:
-          - b1-BASE
-          - B1-ISIS
-        C1:
-          - c1-BASE
-          - C1-ISIS
-        A2:
-          - a2-BASE
-          - A2-ISIS
-        B2:
-          - b2-BASE
-          - B2-ISIS
-        C2:
-          - c2-BASE
-          - C2-ISIS
-        PE1:
-          - pe1-BASE
-          - PE1-ISIS
-        PE2:
-          - pe2-BASE
-          - PE2-ISIS
-        P3:
-          - p3-BASE
-          - P3-ISIS
-        P4:
-          - p4-BASE
-          - P4-ISIS
-        P5:
-          - p5-BASE
-          - P5-ISIS
-        P6:
-          - p6-BASE
-          - P6-ISIS
-      ISIS-SR:
-        A1:
-          - a1-BASE
-          - A1-LDP
-        B1:
-          - b1-BASE
-          - B1-LDP
-        C1:
-          - c1-BASE
-          - C1-LDP
-        A2:
-          - a2-BASE
-          - A2-LDP
-        B2:
-          - b2-BASE
-          - B2-LDP
-        C2:
-          - c2-BASE
-          - C2-LDP
-        PE1:
-          - pe1-BASE
-          - PE1-LDP
-        PE2:
-          - pe2-BASE
-          - PE2-LDP
-        P3:
-          - p3-BASE
-          - P3-LDP
-        P4:
-          - p4-BASE
-          - P4-LDP
-        P5:
-          - p5-BASE
-          - P5-LDP
-        P6:
-          - p6-BASE
-          - P6-LDP
-      SR-TE:
-        A1:
-          - a1-BASE
-          - A1-ISIS-SR
-        B1:
-          - b1-BASE
-          - B1-ISIS-SR
-        C1:
-          - c1-BASE
-          - C1-ISIS-SR
-        A2:
-          - a2-BASE
-          - A2-ISIS-SR
-        B2:
-          - b2-BASE
-          - B2-ISIS-SR
-        C2:
-          - c2-BASE
-          - C2-ISIS-SR
-        PE1:
-          - pe1-BASE
-          - PE1-ISIS-SR
-        PE2:
-          - pe2-BASE
-          - PE2-ISIS-SR
-        P3:
-          - p3-BASE
-          - P3-ISIS-SR
-        P4:
-          - p4-BASE
-          - P4-ISIS-SR
-        P5:
-          - p5-BASE
-          - P5-ISIS-SR
-        P6:
-          - p6-BASE
-          - P6-ISIS-SR
-      SR-TE-Policy:
-        A1:
-          - a1-BASE
-          - A1-ROUTER-TE
-        B1:
-          - b1-BASE
-          - B1-ROUTER-TE
-        C1:
-          - c1-BASE
-          - C1-ROUTER-TE
-        A2:
-          - a2-BASE
-          - A2-ROUTER-TE
-        B2:
-          - b2-BASE
-          - B2-ROUTER-TE
-        C2:
-          - c2-BASE
-          - C2-ROUTER-TE
-        PE1:
-          - pe1-BASE
-          - PE1-ROUTER-TE
-        PE2:
-          - pe2-BASE
-          - PE2-ROUTER-TE
-        P3:
-          - p3-BASE
-          - P3-ROUTER-TE
-        P4:
-          - p4-BASE
-          - P4-ROUTER-TE
-        P5:
-          - p5-BASE
-          - P5-ROUTER-TE
-        P6:
-          - p6-BASE
-          - P6-ROUTER-TE
-      Steering-TE-Policy:
-        A1:
-          - a1-BASE
-          - A1-SR-TE-POLICY
-        B1:
-          - b1-BASE
-          - B1-SR-TE-POLICY
-        C1:
-          - c1-BASE
-          - C1-SR-TE-POLICY
-        A2:
-          - a2-BASE
-          - A2-SR-TE-POLICY
-        B2:
-          - b2-BASE
-          - B2-SR-TE-POLICY
-        C2:
-          - c2-BASE
-          - C2-SR-TE-POLICY
-        PE1:
-          - pe1-BASE
-          - PE1-SR-TE-POLICY
-        PE2:
-          - pe2-BASE
-          - PE2-SR-TE-POLICY
-        P3:
-          - p3-BASE
-          - P3-SR-TE-POLICY
-        P4:
-          - p4-BASE
-          - P4-SR-TE-POLICY
-        P5:
-          - p5-BASE
-          - P5-SR-TE-POLICY
-        P6:
-          - p6-BASE
-          - P6-SR-TE-POLICY
-      MP-BGP-L3EVPN:
-        A1:
-          - a1-BASE
-          - A1-TRAFFIC-STEERING
-        B1:
-          - b1-BASE
-          - B1-TRAFFIC-STEERING
-        C1:
-          - c1-BASE
-          - C1-TRAFFIC-STEERING
-        A2:
-          - a2-BASE
-          - A2-TRAFFIC-STEERING
-        B2:
-          - b2-BASE
-          - B2-TRAFFIC-STEERING
-        C2:
-          - c2-BASE
-          - C2-TRAFFIC-STEERING
-        PE1:
-          - pe1-BASE
-          - PE1-TRAFFIC-STEERING
-        PE2:
-          - pe2-BASE
-          - PE2-TRAFFIC-STEERING
-        P3:
-          - p3-BASE
-          - P3-TRAFFIC-STEERING
-        P4:
-          - p4-BASE
-          - P4-TRAFFIC-STEERING
-        P5:
-          - p5-BASE
-          - P5-TRAFFIC-STEERING
-        P6:
-          - p6-BASE
-          - P6-TRAFFIC-STEERING
-      Start-of-Exam:
-        A1:
-          - a1-BASE
-          - A1-L3-VPN
-        B1:
-          - b1-BASE
-          - B1-L3-VPN
-        
+      exam-start:
+      leaf1-DC1:
+      - leaf1-DC1-BASE
+      - leaf1-DC1-PRECONFIG
+      leaf2-DC1:
+      - leaf2-DC1-BASE
+      - leaf2-DC1-PRECONFIG
+      leaf3-DC1:
+      - leaf3-DC1-BASE
+      - leaf3-DC1-PRECONFIG
+      leaf4-DC1:
+      - leaf4-DC1-BASE
+      - leaf4-DC1-PRECONFIG
+      spine1-DC1:
+      - spine1-DC1-BASE
+      - spine1-DC1-PRECONFIG
+      spine2-DC1:
+      - spine2-DC1-BASE
+      - spine2-DC1-PRECONFIG
+      spine3-DC1:
+      - spine3-DC1-BASE
+      - spine3-DC1-PRECONFIG
+      host1-DC1:
+      - host1-DC1-BASE
+      - host1-DC1-START
+      host2-DC1:
+      - host2-DC1-BASE
+      - host2-DC1-START
+      leaf1-DC2:
+      - leaf1-DC2-BASE
+      - leaf1-DC2-PRECONFIG
+      leaf2-DC2:
+      - leaf2-DC2-BASE
+      - leaf2-DC2-PRECONFIG
+      leaf3-DC2:
+      - leaf3-DC2-BASE
+      - leaf3-DC2-PRECONFIG
+      leaf4-DC2:
+      - leaf4-DC2-BASE
+      - leaf4-DC2-PRECONFIG
+      spine1-DC2:
+      - spine1-DC2-BASE
+      - spine1-DC2-PRECONFIG
+      spine2-DC2:
+      - spine2-DC2-BASE
+      - spine2-DC2-PRECONFIG
+      spine3-DC2:
+      - spine3-DC2-BASE
+      - spine3-DC2-PRECONFIG
+      host1-DC2:
+      - host1-DC2-BASE
+      - host1-DC2-START
+      host2-DC2:
+      - host2-DC2-BASE
+      - host2-DC2-START
+      host1-DC3:
+      - host1-DC3-BASE
+      - host1-DC3-START
+      host2-DC3:
+      - host2-DC3-BASE
+      - host2-DC3-START
+      GW11:
+      - GW11-BASE
+      GW12:
+      - GW12-BASE
+      GW21:
+      - GW21-BASE
+      GW22:
+      - GW22-BASE
+      GW31:
+      - GW31-BASE
+      P1:
+      - P1-BASE
+      P2:
+      - P2-BASE
+      P3:
+      - P3-BASE
+      P4:
+      - P4-BASE
+      RR:
+      - RR-BASE
+      spine1-DC3:
+       - spine1-DC3-BASE
+       - spine1-DC3-PRECONFIG
+      spine2-DC3:
+       - spine2-DC3-BASE
+       - spine2-DC3-PRECONFIG
+      leaf1-DC3:
+      - leaf1-DC3-BASE
+      - leaf1-DC3-PRECONFIG
+      leaf2-DC3:
+      - leaf2-DC3-BASE
+      - leaf2-DC3-PRECONFIG
+  
