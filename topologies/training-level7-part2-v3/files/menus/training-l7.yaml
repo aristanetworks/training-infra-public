@@ -73,7 +73,7 @@
       - leaf1-DC3-BASE
       leaf2-DC3:
       - leaf2-DC3-BASE
-      exam-start:
+    exam-start:
       leaf1-DC1:
       - leaf1-DC1-BASE
       - leaf1-DC1-PRECONFIG
