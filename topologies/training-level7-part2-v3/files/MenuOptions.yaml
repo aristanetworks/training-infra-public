@@ -3,9 +3,6 @@ options:
   reset:
   -   command: "/usr/local/bin/ConfigureTopology.py && bash /home/arista/Broadcaster/pushHostDefaultConfig.sh"
       description: "Reset All Devices to Base ATD (reset)"
-  exam-start:
-  -   command: "/usr/local/bin/ConfigureTopology.py -t exam-start"
-      description: "Start of L7 Part 2 Exam"
 labconfiglets:
   exam-start:
     leaf1-DC1:
