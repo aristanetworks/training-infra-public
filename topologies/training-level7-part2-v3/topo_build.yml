@@ -60,11 +60,17 @@ nodes:
         - neighborDevice: GW12
           neighborPort: Ethernet7
           port: Ethernet7
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet1
+          port: Ethernet8
 
   - spine3-DC1:
       ip_addr: 192.168.0.13
       sys_mac: 00:1c:73:b3:c6:01
       neighbors:
+        - neighborDevice: spine2-DC1
+          neighborPort: Ethernet8
+          port: Ethernet1
           # connections to leafs
         - neighborDevice: leaf1-DC1
           neighborPort: Ethernet5
@@ -143,12 +149,18 @@ nodes:
         - neighborDevice: GW22
           neighborPort: Ethernet7
           port: Ethernet7
+        - neighborDevice: spine3-DC2
+          neighborPort: Ethernet1
+          port: Ethernet8
 
 
   - spine3-DC2:
       ip_addr: 192.168.0.16
       sys_mac: 00:1c:73:b6:c6:01
       neighbors:
+        - neighborDevice: spine2-DC2
+          neighborPort: Ethernet8
+          port: Ethernet1
           # connections to leafs
         - neighborDevice: leaf1-DC2
           neighborPort: Ethernet5
@@ -279,6 +291,8 @@ nodes:
         - neighborDevice: host1-DC1
           neighborPort: Ethernet4
           port: Ethernet7
+        - neighborDevice: spine3-DC1
+          neighborPort: Ethernet1
 
 
   - leaf3-DC1:
