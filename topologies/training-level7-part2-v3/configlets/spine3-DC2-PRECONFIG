@@ -4,8 +4,7 @@ interface Loopback0
    ip address 192.168.255.16/32
 
 !
-! interface Ethernet1
-!   description DO NOT configure this missing interface
+! interface Ethernet1,8
 !   shutdown
 !
 interface Ethernet2
