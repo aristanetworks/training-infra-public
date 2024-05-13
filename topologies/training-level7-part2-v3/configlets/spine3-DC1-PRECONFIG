@@ -8,6 +8,9 @@ interface Loopback0
    ip address 192.168.255.13/32
    ip ospf area 0.0.0.0
 !
+!
+interface Ethernet1,8
+  shutdown
 
 !
 interface Ethernet2
