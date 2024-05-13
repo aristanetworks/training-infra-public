@@ -291,8 +291,6 @@ nodes:
         - neighborDevice: host1-DC1
           neighborPort: Ethernet4
           port: Ethernet7
-        - neighborDevice: spine3-DC1
-          neighborPort: Ethernet1
 
 
   - leaf3-DC1:
