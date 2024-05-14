@@ -4,9 +4,6 @@ int loopback 0
 interface Loopback1
    ip address 192.168.255.123/32
 
-interface Ethernet1,8
-  shutdown
-
 vlan 15-19,130
 
 vlan 4094
