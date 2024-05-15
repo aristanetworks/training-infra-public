@@ -65,13 +65,13 @@ cvp_info:
     ISP1:
       parent: "Provider Network"
       nodes:
-      - core1-isp1
-      - core2-isp1
+      - core1-ISP1
+      - core2-ISP1
     ISP2:
       parent: "Provider Network"
       nodes:
-      - core1-isp2
-      - core2-isp2
+      - core1-ISP2
+      - core2-ISP2
     Internet:
       parent: "Provider Network"
       nodes:
@@ -140,13 +140,13 @@ cvp_info:
       - host1-DC3-BASE
       SW1-DC3:
       - SW1-DC3-BASE
-      core1-isp1:
+      core1-ISP1:
       - core1-ISP1-BASE
-      core2-isp1:
+      core2-ISP1:
       - core2-ISP1-BASE
-      core1-isp2:
+      core1-ISP2:
       - core1-ISP2-BASE
-      core2-isp2:
+      core2-ISP2:
       - core2-ISP2-BASE
       internet:
       - internet-BASE
