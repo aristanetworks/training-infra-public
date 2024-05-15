@@ -117,7 +117,7 @@ function getLabStatus() {
 
 
 document.getElementById("labBtn").addEventListener("click", function () {
-    const selected_lab_options = $('.lab-button.active').text().trim();
+    const selected_lab_options = $('.lab-button.active').attr('id'); // Get the ID instead of text
     // document.getElementById('loader').style.display = 'block'
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
