@@ -2046,6 +2046,46 @@ topologies:
     access: standard
     disable_links: [ jenkins, lab_grading]
     labguides: self
+
+  training-level-5-cl:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l5-cl-2023-2-4301-20240516
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 80
+            branch:  v2023.2-0410024
+            orderable: true
+            image: base-ceos-training-l5-cl-2023-2-4301-20240516
+            eos:
+              - 4.30.1F       
+    desc: 'Training Level - 5 (NEW)'
+    name: 'Training Level - 5'
+    title: 'Training Level - 5'
+    disk_size: 300
+    access: standard
+    disable_links: [ jenkins, lab_grading]
+    labguides: self
+    
   training-fxg:
     dev:
       ceos:
