@@ -1,0 +1,137 @@
+---
+    lab_list:
+      reset:
+        description: "Reset All Devices to Base Lab (reset)"
+      l2evpn:
+        description: "Start L2EVPN LAB"
+      l3evpn:
+        description: "Start L3EVPN LAB"
+      multicast:
+        description: "Start MULTICAST LAB"
+    labconfiglets:
+      reset:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      l2evpn:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      l3evpn:
+        spine1:
+          - "spine1-base"
+        spine2:
+          - "spine2-base"
+        spine3:
+          - "spine3-base"
+        spine4:
+          - "spine4-base"
+        leaf1:
+          - "leaf1-base"
+        leaf2:
+          - "leaf2-base"
+        leaf3:
+          - "leaf3-base"
+        leaf4:
+          - "leaf4-base"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+        borderleaf2:
+          - "borderleaf2-base"
+      multicast:
+        spine1:
+          - "spine1-base"
+          - "Spine1-Multicast-Start"
+        spine2:
+          - "spine2-base"
+          - "Spine2-Multicast-Start"
+        spine3:
+          - "spine3-base"
+          - "Spine3-Multicast-Start"
+        spine4:
+          - "spine4-base"
+          - "Spine4-Multicast-Start"
+        leaf1:
+          - "leaf1-base"
+          - "Leaf1-Multicast-Start"
+        leaf2:
+          - "leaf2-base"
+          - "Leaf2-Multicast-Start"
+        leaf3:
+          - "leaf3-base"
+          - "Leaf3-Multicast-Start"
+        leaf4:
+          - "leaf4-base"
+          - "Leaf4-Multicast-Start"
+        host1:
+          - "host1-base"
+        host2:
+          - "host2-base"
+        host3:
+          - "host3-base"
+        host4:
+          - "host4-base"
+        borderleaf1:
+          - "borderleaf1-base"
+          - "BorderLeaf1-Multicast-Start"
+        borderleaf2:
+          - "borderleaf2-base"
+          - "BorderLeaf2-Multicast-Start"
