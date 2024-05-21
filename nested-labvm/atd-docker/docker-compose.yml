@@ -166,8 +166,6 @@ services:
     restart: always
     depends_on:
       - uilanding
-      - jenkins
-      - coder
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
