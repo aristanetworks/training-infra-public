@@ -2017,7 +2017,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0410024
+            branch:  v2023.2-0522024
             orderable: true
             image: level-3-cl-2023-2-01172024
             eos:
@@ -2090,7 +2090,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-0410024
+            branch:  v2023.2-0522024
             orderable: true
             image: base-ceos-training-l5-cl-2023-2-4301-20240516
             eos:
