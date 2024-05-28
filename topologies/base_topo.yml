@@ -2556,3 +2556,41 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading]
     labguides: self
+  training-level-x-cl:
+    dev:
+      ceos:
+        cpu: 4
+        ram: 8
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 4
+              ram: 8
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 4
+        ram: 8
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 4
+              ram: 8
+            branch: v2023.2-0528024
+            orderable: false
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F
+    desc: 'Level X Training Lab. For use by the Arista Training Team.'
+    name: 'Training Level X Lab'
+    title: 'Training Level X Lab'
+    disk_size: 50
+    access: standard
+    disable_links: [jenkins, lab_grading]
+    labguides: self
