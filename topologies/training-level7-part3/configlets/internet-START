@@ -46,7 +46,7 @@ ip radius source-interface Management0
 !
 router bgp 3
    neighbor DC3 peer group
-   neighbor DC3 remote-as 65230
+   neighbor DC3 remote-as 65300
    neighbor DC3 ebgp-multihop 3
    neighbor DC3 maximum-routes 12000
    neighbor ISP2 peer group
