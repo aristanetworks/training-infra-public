@@ -1,0 +1,28 @@
+
+  vlan 30
+
+interface Vlan30
+  ip address 192.168.30.10/24
+  no autostate
+
+interface Port-Channel1
+  description Connection to MLAG Leaf3-Leaf4
+  switchport
+  switchport mode access
+  switchport access vlan 30
+  no shut
+
+interface Ethernet1
+  description Connection to MLAG Leaf3
+  channel-group 1  mode active
+
+
+interface Ethernet2
+  description Connection to MLAG Leaf4
+  channel-group 1 mode active
+
+
+ip route 192.168.10.0/24 192.168.30.254
+ip route 192.168.20.0/24 192.168.30.254
+ip route 192.168.30.0/24 192.168.30.254
+ip route 192.168.40.0/24 192.168.30.254

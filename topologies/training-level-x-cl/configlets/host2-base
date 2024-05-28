@@ -1,0 +1,15 @@
+hostname host2
+!
+spanning-tree mode none
+!
+interface Management 0
+  vrf MGMT
+  ip address 192.168.0.52/24
+
+
+!
+dns domain arista.lab
+!
+ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 192.168.0.1

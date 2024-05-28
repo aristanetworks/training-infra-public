@@ -1,0 +1,57 @@
+vlan 101
+
+interface Ethernet1
+   shutdown
+!
+interface Ethernet2
+   shutdown
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.1.2/30
+!
+interface Ethernet4
+   no switchport
+   ip address 10.10.2.2/30
+!
+interface Ethernet5
+   no switchport
+   ip address 10.10.3.2/30
+!
+interface Ethernet6
+   no switchport
+   ip address 10.10.4.2/30
+!
+interface Ethernet7
+!
+interface Ethernet8
+!
+interface Ethernet9
+!
+interface Ethernet10
+!
+interface Loopback0
+   ip address 10.11.11.11/32
+!
+interface Vlan101
+   no autostate
+   ip address 172.16.101.1/24
+!
+ip routing
+!
+router bgp 65001
+   router-id 10.11.11.11
+   maximum-paths 4 ecmp 4
+   neighbor Spines peer group
+   neighbor Spines remote-as 65100
+   neighbor 10.10.1.1 peer group Spines
+   neighbor 10.10.1.1 description Spine1
+   neighbor 10.10.3.1 peer group Spines
+   neighbor 10.10.3.1 description Spine3
+   neighbor 10.10.4.1 peer group Spines
+   neighbor 10.10.4.1 description Spine4
+   neighbor 10.10.20.1 peer group Spines
+   neighbor 10.10.20.1 update-source Loopback0
+   neighbor 10.10.20.1 description Spine2
+   network 10.11.11.11/32
+!

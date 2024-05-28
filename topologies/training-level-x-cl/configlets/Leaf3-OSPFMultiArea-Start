@@ -1,0 +1,49 @@
+interface Ethernet1
+shutdown
+!
+interface Ethernet2
+shutdown
+!
+interface Ethernet3
+no switchport
+ip address 10.10.1.10/30
+ip ospf network point-to-point
+!
+interface Ethernet4
+no switchport
+ip address 10.10.2.10/30
+ip ospf network point-to-point
+!
+interface Ethernet5
+no switchport
+ip address 10.10.3.10/30
+ip ospf network point-to-point
+!
+interface Ethernet6
+no switchport
+ip address 10.10.4.10/30
+ip ospf network point-to-point
+!
+interface Ethernet7
+!
+interface Ethernet8
+!
+interface Ethernet9
+!
+interface Ethernet10
+!
+interface Loopback0
+ip address 10.13.13.13/32
+!
+!
+ip routing
+!
+router ospf 1
+router-id 10.13.13.13
+passive-interface default
+no passive-interface Ethernet3
+no passive-interface Ethernet4
+no passive-interface Ethernet5
+no passive-interface Ethernet6
+network 0.0.0.0/0 area 0.0.0.0
+max-lsa 12000
