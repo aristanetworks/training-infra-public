@@ -77,16 +77,5 @@ ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
 ip route vrf VLAN18 0.0.0.0/0 172.16.18.254
 ip route vrf VLAN19 0.0.0.0/0 172.16.19.254
 
-router bgp 65151
-   vrf VLAN11
-      neighbor 172.16.11.21 remote-as 65012
-      neighbor 172.16.11.21 maximum-routes 12000
-      neighbor 172.16.11.22 remote-as 65012
-      neighbor 172.16.11.22 maximum-routes 12000
-      redistribute connected
-      !
-      address-family ipv4
-         neighbor 172.16.11.21 activate
-         neighbor 172.16.11.22 activate
 
 
