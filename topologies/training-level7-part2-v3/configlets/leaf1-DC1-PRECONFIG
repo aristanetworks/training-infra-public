@@ -99,7 +99,6 @@ mlag configuration
 router bgp 65012
    no bgp default ipv4-unicast
    router-id 192.168.255.21
-   neighbor AS65151 peer group
    redistribute connected
    
    neighbor EVPN-SPINES peer group
