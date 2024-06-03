@@ -2598,8 +2598,8 @@ topologies:
             eos:
               - 4.30.1F
     desc: 'Level X Training Lab. For use by the Arista Training Team.'
-    name: 'Training Level X Lab'
-    title: 'Training Level X Lab'
+    name: 'Training Lab'
+    title: 'Training Lab'
     disk_size: 300
     access: standard
     disable_links: [jenkins, lab_grading]
