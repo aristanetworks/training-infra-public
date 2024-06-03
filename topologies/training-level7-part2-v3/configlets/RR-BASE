@@ -8,3 +8,6 @@ interface Management0
 !
 ip routing
 !
+interface Ethernet 2,6
+ shutdown
+!
