@@ -26,9 +26,5 @@ interface Ethernet6
    no switchport
    ip address 10.114.21.1/30
 !
-interface Ethernet7
-   no switchport
-   ip address 10.114.22.1/30
-!
 interface Ethernet15
 !
