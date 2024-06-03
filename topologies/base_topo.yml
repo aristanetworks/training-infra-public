@@ -2597,7 +2597,7 @@ topologies:
             image: base-ceos-training-lx-cl-2023-2-4301-20240528
             eos:
               - 4.30.1F
-    desc: 'Level X Training Lab. For use by the Arista Training Team.'
+    desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
     disk_size: 300
