@@ -2,7 +2,7 @@
 interface Loopback0
    ip address 192.168.255.14/32
 !
-interface Ethernet1
+interface Ethernet1,7
   shut
   
 !
