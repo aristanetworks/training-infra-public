@@ -2577,7 +2577,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: nested/2023.2
+            branch: nested/2024.1
             orderable: true
             image: base-ceos-training-lx-cl-2024-1-4301-20240531
             eos:
