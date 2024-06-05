@@ -2583,7 +2583,7 @@ topologies:
             eos:
               - 4.30.1F
     prod:
-      veos:
+      ceos:
         cpu: 60
         ram: 110
         cvp:
