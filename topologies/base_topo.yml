@@ -2583,6 +2583,20 @@ topologies:
             eos:
               - 4.30.1F
     prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0528024
+            orderable: false
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F
       ceos:
         cpu: 60
         ram: 110
@@ -2596,7 +2610,7 @@ topologies:
             orderable: true
             image: base-ceos-training-lx-cl-2023-2-4301-20240528
             eos:
-              - 4.30.1F
+              - 4.30.1F  
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
