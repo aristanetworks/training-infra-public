@@ -1,0 +1,48 @@
+
+int e1,2
+  shutdown
+
+int e3
+  no switchport
+  ip address 10.10.6.1/30
+  no shutdown
+
+int e4
+   no switchport
+   ip address 10.10.6.5/30
+   no shutdown
+
+int e5
+   no switchport
+   ip address 10.10.6.9/30
+   no shutdown
+
+int e6
+   no switchport
+   ip address 10.10.6.13/30
+   no shutdown
+
+int lo0
+  ip address 10.52.52.52/32
+
+ip routing
+
+router bgp 65500
+
+   router-id 10.52.52.52
+   maximum-paths 4 ecmp 4
+   neighbor Spines peer group
+   neighbor Spines remote-as 65100
+   neighbor Spines allowas-in 1
+   neighbor 10.10.6.2  peer group Spines
+   neighbor 10.10.6.6  peer group Spines
+   neighbor 10.10.6.10 peer group Spines
+   neighbor 10.10.6.14 peer group Spines
+
+   neighbor 10.10.6.2  description Spine1
+   neighbor 10.10.6.6  description Spine2
+   neighbor 10.10.6.10 description Spine3
+   neighbor 10.10.6.14 description Spine4
+
+   network 10.52.52.52/32
+   redistribute connected
