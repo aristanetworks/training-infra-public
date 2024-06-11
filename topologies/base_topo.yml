@@ -2582,6 +2582,23 @@ topologies:
             image: base-ceos-training-lx-cl-2024-1-4301-20240531
             eos:
               - 4.30.1F
+          2024.1.2-dual:
+            schema: 2
+            resources_eos:
+              cpu: 20
+              ram: 40
+              disk: 50
+              image: training-level-x-c2024-1-2-dual-ceos-20240610-eos
+            resources_cvp:
+              cpu: 48
+              ram: 70
+              disk: 100
+              image: training-level-x-c2024-1-2-dual-ceos-20240610-cvp
+            branch: nested/2024.1-dual
+            image: training-level-x-c2024-1-2-dual-ceos-20240610-eos
+            orderable: true
+            eos:
+              - 4.30.1F   
     prod:
       veos:
         cpu: 60
