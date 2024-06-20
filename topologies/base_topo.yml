@@ -2635,3 +2635,41 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading]
     labguides: self
+  training-level-x-cl-exam:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-lx-cl-exam-2023-2-4301-20240620
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0528024
+            orderable: false
+            image: base-ceos-training-lx-cl-exam-2023-2-4301-20240620
+            eos:
+              - 4.30.1F  
+    desc: 'Training Lab for Exam. For use by the Arista Training Team.'
+    name: 'Training Lab for Exam'
+    title: 'Training Lab for Exam'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading]
+    labguides: self
