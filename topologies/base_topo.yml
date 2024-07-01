@@ -1898,7 +1898,7 @@ topologies:
     desc: 'Training Level - 1 (NEW)'
     name: 'Training Level - 1'
     title: 'Training Level - 1'
-    disk_size: 300
+    disk_size: 900
     access: standard
     disable_links: [ jenkins, lab_grading]
     labguides: self
