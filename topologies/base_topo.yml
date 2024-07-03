@@ -1572,6 +1572,16 @@ topologies:
             image: base-ceos-training-l7-2021-3-20230331-110651
             eos:
               - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 80
+            branch: v2023.2-0714024
+            orderable: true
+            image: base-ceos-training-l7-2023-2-4301
+            eos:
+              - 4.30.1F
           2023.2.0-dual:
             schema: 2
             resources_eos:
