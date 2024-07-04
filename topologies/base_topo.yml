@@ -1594,7 +1594,7 @@ topologies:
               ram: 110
               disk: 100
               image: dual-topo-training-level-7-cvp
-            branch: v2023.2-dual-0115024
+            branch: v2023.2-dual-0704024
             image: dual-topo-training-level-7-eos
             orderable: true
             eos:
