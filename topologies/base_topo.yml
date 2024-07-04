@@ -1578,7 +1578,7 @@ topologies:
               cpu: 60
               ram: 80
             branch: v2023.2-0714024
-            orderable: true
+            orderable: false
             image: base-ceos-training-l7-2023-2-4301
             eos:
               - 4.30.1F
