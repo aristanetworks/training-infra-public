@@ -4,23 +4,99 @@
         description: "Reset All Devices to Base Lab (reset)"
     labconfiglets:
       reset:
-        spine1:
-          - "spine1-base"
-        spine2:
-          - "spine2-base"
-        leaf1:
-          - "leaf1-base"
-        leaf2:
-          - "leaf2-base"
-        leaf3:
-          - "leaf3-base"
-        leaf4:
-          - "leaf4-base"
-        host1:
-          - "host1-base"
-        host2:
-          - "host2-base"
-        host3:
-          - "host3-base"
-        borderleaf1:
-          - "borderleaf1-base"
+        P10:
+          - P10-BASE
+        P11:
+          - P11-BASE
+        PE1:
+          - PE1-BASE
+        ISP-1:
+          - ISP-1-BASE
+        Edge10:
+          - Edge10-BASE
+        Edge11:
+          - Edge11-BASE
+        Edge12:
+          - Edge12-BASE
+        Edge13:
+          - Edge13-BASE
+        Edge14:
+          - Edge14-BASE
+        Leaf11:
+          - Leaf11-BASE
+        Leaf12:
+          - Leaf12-BASE
+        H11:
+          - H11-BASE
+        H12: 
+          - H12-BASE
+        H13: 
+          - H13-BASE
+        H14:  
+          - H14-BASE
+        RR1:  
+          - RR1-BASE
+        RR2:  
+          - RR2-BASE
+        Edge20:  
+          - Edge20-BASE
+        Edge21: 
+          - Edge21-BASE
+        Edge22: 
+          - Edge22-BASE
+        Edge23:  
+          - Edge23-BASE
+        Edge24:  
+          - Edge24-BASE
+        H21: 
+          - H21-BASE
+        H22: 
+          - H22-BASEtxt
+        H23:  
+          - H23-BASE
+        H24:  
+          - H24-BASE
+        ISP-2: 
+          - ISP-2-BASE
+        Leaf21:  
+          - Leaf21-BASE
+        Leaf22:  
+          - Leaf22-BASE
+        P1:  
+          - P1-BASE
+        P2:  
+          - P2-BASE
+        P20:  
+          - P20-BASE
+        P21:  
+          - P21-BASE
+        RR3:  
+          - RR3-BASE
+        RR4:  
+          - RR4-BASE
+        ISP-3:  
+          - ISP-3-BASE
+        R1-P11:  
+          - R1-P11-BASE
+        R1-P12:  
+          - R1-P12-BASE
+        R2-P31: 
+          - R2-P31-BASE
+        R2-P32:  
+          - R2-P32-BASE
+        PE11:  
+          - PE11-BASE
+        PE12:  
+          - PE12-BASE
+        PE2:  
+          - PE2-BASE
+        PE21:  
+          - PE21-BASE
+        PE22:  
+          - PE22-BASE
+        RR:  
+          - RR-BASE
+        RR5:  
+          - RR5-BASE
+        RR6:  
+          - RR6-BASE
