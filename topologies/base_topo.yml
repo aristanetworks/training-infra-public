@@ -1604,7 +1604,7 @@ topologies:
     title: 'Training Level 7 Lab'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins,lab_status, lab_grading]
+    disable_links: [ jenkins,lab_status, lab_grading]
     labguides: self
   training-level7-part3:
     dev:
