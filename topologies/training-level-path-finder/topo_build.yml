@@ -694,7 +694,7 @@ nodes:
         - neighborDevice: R1-P12
           neighborPort: Ethernet2
           port: Ethernet3
-        - neighborDevice: P4
+        - neighborDevice: P2
           neighborPort: Ethernet4
           port: Ethernet4
         - neighborDevice: RR5
@@ -703,6 +703,9 @@ nodes:
         - neighborDevice: RR6
           neighborPort: Ethernet3
           port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet4
+          port: Ethernet7
  - PE12:
       ip_addr: 192.168.0.96
       sys_mac: 00:1c:73:36:c6:01
@@ -807,7 +810,7 @@ nodes:
           neighborPort: Ethernet3
           port: Ethernet2
         - neighborDevice: PE12
-          neighborPort: Ethernet2
+          neighborPort: Ethernet3
           port: Ethernet3
         - neighborDevice: P10
           neighborPort: Ethernet5
@@ -852,7 +855,7 @@ nodes:
       sys_mac: 00:1c:73:24:c6:01
       platform: cloudeos
       neighbors:
-        - neighborDevice: R2-P32
+        - neighborDevice: R2-P31
           neighborPort: Ethernet1
           port: Ethernet1
         - neighborDevice: PE21
