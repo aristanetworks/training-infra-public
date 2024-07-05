@@ -33,6 +33,7 @@ class vNODE():
         self.v_platform = v_platform
         self.intfs = {}
         self.portMappings(node_neighbors)
+        print(self.name, self.name_short, self.ip,self.sys_mac,self.intfs, self.v_platform)
 
     def portMappings(self,node_neighbors):
         """
@@ -227,6 +228,7 @@ def main(uargs):
             v_sys_mac = vdev[vdevn]['sys_mac'] # Get the system MAC address
         else:
             v_sys_mac = False
+        print(vdevn)
         if 'platform' in vdev[vdevn]:
             v_platform = vdev[vdevn]['platform']
         else:
@@ -332,9 +334,11 @@ def main(uargs):
         for vdev in VEOS_NODES:
             # Open base XML file
             if VEOS_NODES[vdev].v_platform == 'cloudeos':
+                print(f"Creating cloudeos for {vdev} and platforn {VEOS_NODES[vdev].v_platform}")
                 tree = ET.parse(BASE_XML_CLOUDEOS)
             else:
                 tree = ET.parse(BASE_XML_VEOS)
+                print(f"Creating veos for {vdev} and platforn {VEOS_NODES[vdev].v_platform}")
             root = tree.getroot()
             # Get to the device section and add interfaces
             xdev = root.find('./devices')
@@ -407,9 +411,11 @@ def main(uargs):
                     d_intf_counter += 1
             # Export/write of xml for node
             tree.write(DATA_OUTPUT + '{0}.xml'.format(vdev))
-            if v_platform == 'cloudeos' : 
+            if VEOS_NODES[vdev].v_platform == 'cloudeos' : 
+                print(f"Copying clouseos for {vdev} becasue platform is {v_platform}")
                 KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/cloud-eos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
             else:
+                print(f"Copying veos for {vdev} because platform is {v_platform}")
                 KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/veos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
             KOUT_LINES.append("sudo virsh define {0}.xml".format(vdev))
             KOUT_LINES.append("sudo virsh start {0}".format(vdev))
