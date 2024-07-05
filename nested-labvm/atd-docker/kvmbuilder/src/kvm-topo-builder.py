@@ -2,6 +2,7 @@
 
 from ruamel.yaml import YAML
 from os.path import isdir, exists, expanduser
+from os import makedirs
 from os import mkdir
 from time import sleep
 import argparse
@@ -14,6 +15,7 @@ REPO_TOPO = REPO_PATH + 'topologies/'
 AVAIL_TOPO = REPO_TOPO + 'available_topo.yaml'
 DATA_OUTPUT = expanduser('~/kvm/')
 BASE_XML_VEOS = expanduser('~/base.xml')
+BASE_XML_CLOUDEOS = expanduser('~/base_cloudeos.xml')
 BASE_XML_CVP = expanduser('~/base_cvp.xml')
 
 OVS_BRIDGES = []
@@ -23,11 +25,12 @@ KOUT_LINES = ['#!/bin/bash','']
 
 
 class vNODE():
-    def __init__(self, node_name, node_ip, node_mac, node_neighbors):
+    def __init__(self, node_name, node_ip, node_mac, node_neighbors,v_platform):
         self.name = node_name
         self.name_short = parseNames(node_name)['code']
         self.ip = node_ip
         self.sys_mac = node_mac
+        self.v_platform = v_platform
         self.intfs = {}
         self.portMappings(node_neighbors)
 
@@ -143,7 +146,7 @@ def destinationValidate(topo_tag):
     Function to check and create destination directory.
     """
     if not exists(DATA_OUTPUT):
-        mkdir(DATA_OUTPUT)
+        makedirs(DATA_OUTPUT)
 
 def createMac(dev_type, dev_id):
     """
@@ -215,16 +218,20 @@ def main(uargs):
             _node_start = int(_node_start + (cvp_cpu_count / 2))
         VEOS_CPU_START = _node_start
     VEOS_CPUS = getCPUs(VEOS_CPU_START)
-    NODES = FILE_BUILD['nodes']
+    NODES = FILE_BUILD['nodes'] # List of nodes
     DATA_OUTPUT += TOPO_TAG + "/"
     # Start to build out Node create and Network creation
-    for vdev in NODES:
+    for vdev in NODES: # Loop through each node
         vdevn = list(vdev.keys())[0]
         if 'sys_mac' in vdev[vdevn]:
-            v_sys_mac = vdev[vdevn]['sys_mac']
+            v_sys_mac = vdev[vdevn]['sys_mac'] # Get the system MAC address
         else:
             v_sys_mac = False
-        VEOS_NODES[vdevn] = vNODE(vdevn, vdev[vdevn]['ip_addr'], v_sys_mac, vdev[vdevn]['neighbors'])
+        if 'platform' in vdev[vdevn]:
+            v_platform = vdev[vdevn]['platform']
+        else:
+            v_platform = 'veos'
+        VEOS_NODES[vdevn] = vNODE(vdevn, vdev[vdevn]['ip_addr'], v_sys_mac, vdev[vdevn]['neighbors'],v_platform)
     # Output as script OVS Bridge creation
     createOVS(TOPO_TAG)
     # Output as script OVS Bridge deletion
@@ -324,7 +331,10 @@ def main(uargs):
         node_counter = 0
         for vdev in VEOS_NODES:
             # Open base XML file
-            tree = ET.parse(BASE_XML_VEOS)
+            if VEOS_NODES[vdev].v_platform == 'cloudeos':
+                tree = ET.parse(BASE_XML_CLOUDEOS)
+            else:
+                tree = ET.parse(BASE_XML_VEOS)
             root = tree.getroot()
             # Get to the device section and add interfaces
             xdev = root.find('./devices')
@@ -397,7 +407,10 @@ def main(uargs):
                     d_intf_counter += 1
             # Export/write of xml for node
             tree.write(DATA_OUTPUT + '{0}.xml'.format(vdev))
-            KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/veos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
+            if v_platform == 'cloudeos' : 
+                KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/cloud-eos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
+            else:
+                KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/veos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
             KOUT_LINES.append("sudo virsh define {0}.xml".format(vdev))
             KOUT_LINES.append("sudo virsh start {0}".format(vdev))
             KOUT_LINES.append("sudo virsh autostart {0}".format(vdev))
