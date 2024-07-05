@@ -685,23 +685,23 @@ nodes:
       sys_mac: 00:1c:73:34:c6:01
       platform: veos
       neighbors:
-        - neighborDevice: P10
+        - neighborDevice: P1
           neighborPort: Ethernet2
           port: Ethernet1
-        - neighborDevice: ISP-1
+        - neighborDevice: R1-P11
           neighborPort: Ethernet2
           port: Ethernet2
-        - neighborDevice: PE1
+        - neighborDevice: R1-P12
           neighborPort: Ethernet2
           port: Ethernet3
-        - neighborDevice: R1-P11
-          neighborPort: Ethernet5
+        - neighborDevice: P4
+          neighborPort: Ethernet4
           port: Ethernet4
-        - neighborDevice: R1-P12
-          neighborPort: Ethernet5
+        - neighborDevice: RR5
+          neighborPort: Ethernet4
           port: Ethernet5
-        - neighborDevice: ISP-3
-          neighborPort: Ethernet2
+        - neighborDevice: RR6
+          neighborPort: Ethernet3
           port: Ethernet6
  - PE12:
       ip_addr: 192.168.0.96
