@@ -15,7 +15,7 @@ nodes:
         - neighborDevice: PE1
           neighborPort: Ethernet3
           port: Ethernet2
-        - neighborDevice: ISP1
+        - neighborDevice: ISP-1
           neighborPort: Ethernet3
           port: Ethernet3
  - RR2:
@@ -29,7 +29,7 @@ nodes:
         - neighborDevice: PE1
           neighborPort: Ethernet4
           port: Ethernet2
-        - neighborDevice: ISP1
+        - neighborDevice: ISP-1
           neighborPort: Ethernet4
           port: Ethernet3
  - P10:
@@ -43,7 +43,7 @@ nodes:
         - neighborDevice: PE1
           neighborPort: Ethernet1
           port: Ethernet2
-        - neighborDevice: ISP1
+        - neighborDevice: ISP-1
           neighborPort: Ethernet4
           port: Ethernet3
         - neighborDevice: R1-P11
@@ -52,7 +52,7 @@ nodes:
         - neighborDevice: R1-P12
           neighborPort: Ethernet4
           port: Ethernet5
-        - neighborDevice: ISP3
+        - neighborDevice: ISP-3
           neighborPort: Ethernet1
           port: Ethernet6
  - P11:
@@ -75,7 +75,7 @@ nodes:
         - neighborDevice: R1-P12
           neighborPort: Ethernet5
           port: Ethernet5
-        - neighborDevice: ISP3
+        - neighborDevice: ISP-3
           neighborPort: Ethernet2
           port: Ethernet6
  - PE1:
@@ -590,7 +590,7 @@ nodes:
         - neighborDevice: R2-P31
           neighborPort: Ethernet6
           port: Ethernet6
-        - neighborDevice: R2-P31
+        - neighborDevice: R2-P32
           neighborPort: Ethernet6
           port: Ethernet7
  - RR:
@@ -622,7 +622,7 @@ nodes:
         - neighborDevice: PE22
           neighborPort: Ethernet5
           port: Ethernet8
-        - neighborDevice: R2-PE31
+        - neighborDevice: R2-P31
           neighborPort: Ethernet7
           port: Ethernet9
         - neighborDevice: R2-P32
@@ -639,21 +639,24 @@ nodes:
       sys_mac: 00:1c:73:31:c6:01
       platform: veos
       neighbors:
-        - neighborDevice: R1-P12
-          neighborPort: Ethernet7
+        - neighborDevice: P2
+          neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: R1-P11
-          neighborPort: Ethernet7
+        - neighborDevice: P11
+          neighborPort: Ethernet1
           port: Ethernet2
-        - neighborDevice: PE12
-          neighborPort: Ethernet5
+        - neighborDevice: PE21
+          neighborPort: Ethernet1
           port: Ethernet3
-        - neighborDevice: PE11
-          neighborPort: Ethernet7
+        - neighborDevice: PE12
+          neighborPort: Ethernet4
           port: Ethernet4
-        - neighborDevice: P1
-          neighborPort: Ethernet6
+        - neighborDevice: PE22
+          neighborPort: Ethernet4
           port: Ethernet5
+        - neighborDevice: RR
+          neighborPort: Ethernet5
+          port: Ethernet6
  - P2:
       ip_addr: 192.168.0.92
       sys_mac: 00:1c:73:32:c6:01
@@ -839,7 +842,7 @@ nodes:
           neighborPort: Ethernet4
           port: Ethernet4
         - neighborDevice: P21
-          neighborPort: Ethernet5
+          neighborPort: Ethernet4
           port: Ethernet5
         - neighborDevice: RR6
           neighborPort: Ethernet6
