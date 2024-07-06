@@ -80,7 +80,7 @@ nodes:
           port: Ethernet6
  - PE1:
       ip_addr: 192.168.0.15
-      sys_mac: 00:1c:73:34:c6:01
+      sys_mac: 00:1c:73:b5:c6:01
       platform: veos
       neighbors:
         - neighborDevice: P10
@@ -569,7 +569,7 @@ nodes:
           port: Ethernet7 
  - RR6:
       ip_addr: 192.168.0.74
-      sys_mac: 00:1c:73:16:c6:01
+      sys_mac: 00:1c:73:14:c6:01
       platform: cloudeos
       neighbors:
         - neighborDevice: ISP-3
