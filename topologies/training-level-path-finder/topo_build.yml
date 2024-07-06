@@ -79,7 +79,7 @@ nodes:
           neighborPort: Ethernet2
           port: Ethernet6
  - PE1:
-      ip_addr: 192.168.0.94
+      ip_addr: 192.168.0.15
       sys_mac: 00:1c:73:34:c6:01
       platform: veos
       neighbors:
@@ -568,7 +568,7 @@ nodes:
           neighborPort: Ethernet6
           port: Ethernet7 
  - RR6:
-      ip_addr: 192.168.0.76
+      ip_addr: 192.168.0.74
       sys_mac: 00:1c:73:16:c6:01
       platform: cloudeos
       neighbors:
