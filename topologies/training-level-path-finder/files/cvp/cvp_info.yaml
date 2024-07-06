@@ -5,60 +5,60 @@ cvp_info:
     Region1:
       parent: Tenant
       nodes:
-      - P10-BASE
-      - P11-BASE
-      - PE1-BASE
-      - ISP-1-BASE
-      - Edge10-BASE
-      - Edge11-BASE
-      - Edge12-BASE
-      - Edge13-BASE
-      - Edge14-BASE
-      - Leaf11-BASE
-      - Leaf12-BASE
-      - H11-BASE
-      - H12-BASE
-      - H13-BASE
-      - H14-BASE
-      - RR1-BASE
-      - RR2-BASE
+      - P10
+      - P11
+      - PE1
+      - ISP-1
+      - Edge10
+      - Edge11
+      - Edge12
+      - Edge13
+      - Edge14
+      - Leaf11
+      - Leaf12
+      - H11
+      - H12
+      - H13
+      - H14
+      - RR1
+      - RR2
     Region2:
       parent: Tenant
       nodes:
-      - Edge20-BASE
-      - Edge21-BASE
-      - Edge22-BASE
-      - Edge23-BASE
-      - Edge24-BASE
-      - H21-BASE
-      - H22-BASEtxt
-      - H23-BASE
-      - H24-BASE
-      - ISP-2-BASE
-      - Leaf21-BASE
-      - Leaf22-BASE
-      - P1-BASE
-      - P2-BASE
-      - P20-BASE
-      - P21-BASE
-      - RR3-BASE
-      - RR4-BASE
+      - Edge20
+      - Edge21
+      - Edge22
+      - Edge23
+      - Edge24
+      - H21
+      - H22
+      - H23
+      - H24
+      - ISP-2
+      - Leaf21
+      - Leaf22
+      - P1
+      - P2
+      - P20
+      - P21
+      - RR3
+      - RR4
     WAN:
       parent: Tenant
       nodes:
-      - ISP-3-BASE
-      - R1-P11-BASE
-      - R1-P12-BASE
-      - R2-P31-BASE
-      - R2-P32-BASE
-      - PE11-BASE
-      - PE12-BASE
-      - PE2-BASE
-      - PE21-BASE
-      - PE22-BASE
-      - RR-BASE
-      - RR5-BASE
-      - RR6-BASE
+      - ISP-3
+      - R1-P11
+      - R1-P12
+      - R2-P31
+      - R2-P32
+      - PE11
+      - PE12
+      - PE2
+      - PE21
+      - PE22
+      - RR
+      - RR5
+      - RR6
   snapshots:
   configlets:
     containers:
