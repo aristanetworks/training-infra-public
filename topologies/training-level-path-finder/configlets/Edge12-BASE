@@ -1,6 +1,6 @@
 service routing protocols model multi-agent
 !
-hostname Edge13
+hostname Edge12
 !
 interface Management 1
    vrf MGMT
