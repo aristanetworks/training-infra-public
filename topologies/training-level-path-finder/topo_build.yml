@@ -233,7 +233,7 @@ nodes:
  - Leaf11:
       ip_addr: 192.168.0.31
       sys_mac: 00:1c:73:d1:c6:01
-      platform: veos
+      platform: cloudeos
       neighbors:
         - neighborDevice: H11
           neighborPort: Ethernet1
@@ -250,7 +250,7 @@ nodes:
  - Leaf12:
       ip_addr: 192.168.0.32
       sys_mac: 00:1c:73:d2:c6:01
-      platform: veos
+      platform: cloudeos
       neighbors:
         - neighborDevice: H12
           neighborPort: Ethernet1
@@ -490,7 +490,7 @@ nodes:
  - Leaf21:
       ip_addr: 192.168.0.33
       sys_mac: 00:1c:73:d3:c6:01
-      platform: veos
+      platform: cloudeos
       neighbors:
         - neighborDevice: H21
           neighborPort: Ethernet1
@@ -507,7 +507,7 @@ nodes:
  - Leaf22:
       ip_addr: 192.168.0.34
       sys_mac: 00:1c:73:d4:c6:01
-      platform: veos
+      platform: cloudeos
       neighbors:
         - neighborDevice: H22
           neighborPort: Ethernet1
