@@ -1,0 +1,10 @@
+service routing protocols model multi-agent
+!
+hostname H22
+!
+interface Management 1
+   vrf MGMT
+   ip address  192.168.0.46/24
+!
+ip routing
+!

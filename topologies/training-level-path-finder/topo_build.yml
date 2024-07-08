@@ -1,0 +1,944 @@
+host_cpu: 4
+cvp_cpu: 32
+cvp_ram: 42
+cvp_nodes: 1
+veos_cpu: 2
+nodes:
+ - RR1:
+      ip_addr: 192.168.0.71
+      sys_mac: 00:1c:73:11:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: RR2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet3
+          port: Ethernet3
+ - RR2:
+      ip_addr: 192.168.0.72
+      sys_mac: 00:1c:73:12:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: RR1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet4
+          port: Ethernet3
+ - P10:
+      ip_addr: 192.168.0.51
+      sys_mac: 00:1c:73:f1:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P11
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet1
+          port: Ethernet6
+ - P11:
+      ip_addr: 192.168.0.52
+      sys_mac: 00:1c:73:f2:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P10
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE1
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet2
+          port: Ethernet6
+ - PE1:
+      ip_addr: 192.168.0.15
+      sys_mac: 00:1c:73:b5:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P10
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: P11
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: RR1
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: RR2
+          neighborPort: Ethernet2
+          port: Ethernet4
+        - neighborDevice: Edge10
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: Edge11
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: Edge12
+          neighborPort: Ethernet2
+          port: Ethernet7
+        - neighborDevice: Edge13
+          neighborPort: Ethernet2
+          port: Ethernet8
+        - neighborDevice: Edge14
+          neighborPort: Ethernet2
+          port: Ethernet9
+ - ISP-1:
+      ip_addr: 192.168.0.16
+      sys_mac: 00:1c:73:b6:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P10
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: P11
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: RR1
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: RR2
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: Edge10
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: Edge11
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: Edge12
+          neighborPort: Ethernet3
+          port: Ethernet7  
+        - neighborDevice: Edge13
+          neighborPort: Ethernet3
+          port: Ethernet8
+        - neighborDevice: Edge14
+          neighborPort: Ethernet3
+          port: Ethernet9        
+ - Edge10:
+      ip_addr: 192.168.0.10
+      sys_mac: 00:1c:73:b0:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Edge11
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge11
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: Leaf11
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: PE1
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet5
+          port: Ethernet5
+ - Edge11:
+      ip_addr: 192.168.0.11
+      sys_mac: 00:1c:73:b1:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Edge10
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge10
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: Leaf11
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: PE1
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: Leaf12
+          neighborPort: Ethernet3
+          port: Ethernet6
+ - Edge12:
+      ip_addr: 192.168.0.12
+      sys_mac: 00:1c:73:b2:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Leaf12
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet7
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: Leaf11
+          neighborPort: Ethernet4
+          port: Ethernet4
+ - Edge13:
+      ip_addr: 192.168.0.13
+      sys_mac: 00:1c:73:b3:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: H13
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet8
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet8
+          port: Ethernet3
+ - Edge14:
+      ip_addr: 192.168.0.14
+      sys_mac: 00:1c:73:b4:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: H14
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE1
+          neighborPort: Ethernet9
+          port: Ethernet2
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet9
+          port: Ethernet3
+ - Leaf11:
+      ip_addr: 192.168.0.31
+      sys_mac: 00:1c:73:d1:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: H11
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge10
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: Edge11
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: Edge12
+          neighborPort: Ethernet4
+          port: Ethernet4
+ - Leaf12:
+      ip_addr: 192.168.0.32
+      sys_mac: 00:1c:73:d2:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: H12
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge12
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: Edge11
+          neighborPort: Ethernet6
+          port: Ethernet3
+ - RR3:
+      ip_addr: 192.168.0.76
+      sys_mac: 00:1c:73:16:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: RR4
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet3
+          port: Ethernet3
+ - RR4:
+      ip_addr: 192.168.0.77
+      sys_mac: 00:1c:73:17:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: RR3
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet4
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet4
+          port: Ethernet3
+ - P20:
+      ip_addr: 192.168.0.53
+      sys_mac: 00:1c:73:f3:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P21
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet4
+          port: Ethernet6
+ - P21:
+      ip_addr: 192.168.0.54
+      sys_mac: 00:1c:73:f4:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P20
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE2
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet3
+          port: Ethernet6
+ - PE2:
+      ip_addr: 192.168.0.25
+      sys_mac: 00:1c:73:c5:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P20
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: P21
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: RR3
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: RR4
+          neighborPort: Ethernet2
+          port: Ethernet4
+        - neighborDevice: Edge20
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: Edge21
+          neighborPort: Ethernet4
+          port: Ethernet6
+        - neighborDevice: Edge22
+          neighborPort: Ethernet2
+          port: Ethernet7
+        - neighborDevice: Edge23
+          neighborPort: Ethernet2
+          port: Ethernet8
+        - neighborDevice: Edge24
+          neighborPort: Ethernet2
+          port: Ethernet9
+ - ISP-2:
+      ip_addr: 192.168.0.26
+      sys_mac: 00:1c:73:c6:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P20
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: P21
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: RR3
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: RR4
+          neighborPort: Ethernet3
+          port: Ethernet4
+        - neighborDevice: Edge20
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: Edge21
+          neighborPort: Ethernet5
+          port: Ethernet6
+        - neighborDevice: Edge22
+          neighborPort: Ethernet3
+          port: Ethernet7  
+        - neighborDevice: Edge23
+          neighborPort: Ethernet3
+          port: Ethernet8
+        - neighborDevice: Edge24
+          neighborPort: Ethernet3
+          port: Ethernet9        
+ - Edge20:
+      ip_addr: 192.168.0.20
+      sys_mac: 00:1c:73:c0:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Edge21
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge21
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: Leaf21
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: PE2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet5
+          port: Ethernet5
+ - Edge21:
+      ip_addr: 192.168.0.21
+      sys_mac: 00:1c:73:c1:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Edge20
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge20
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: Leaf21
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: PE2
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: Leaf22
+          neighborPort: Ethernet3
+          port: Ethernet6
+ - Edge22:
+      ip_addr: 192.168.0.22
+      sys_mac: 00:1c:73:c2:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: Leaf22
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet7
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet7
+          port: Ethernet3
+        - neighborDevice: Leaf21
+          neighborPort: Ethernet4
+          port: Ethernet4
+ - Edge23:
+      ip_addr: 192.168.0.23
+      sys_mac: 00:1c:73:c3:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: H23
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet8
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet8
+          port: Ethernet3
+ - Edge24:
+      ip_addr: 192.168.0.24
+      sys_mac: 00:1c:73:c4:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: H24
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE2
+          neighborPort: Ethernet9
+          port: Ethernet2
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet9
+          port: Ethernet3
+ - Leaf21:
+      ip_addr: 192.168.0.33
+      sys_mac: 00:1c:73:d3:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: H21
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge20
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: Edge21
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: Edge22
+          neighborPort: Ethernet4
+          port: Ethernet4
+ - Leaf22:
+      ip_addr: 192.168.0.34
+      sys_mac: 00:1c:73:d4:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: H22
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: Edge22
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: Edge21
+          neighborPort: Ethernet6
+          port: Ethernet3
+ - ISP-3:
+      ip_addr: 192.168.0.75
+      sys_mac: 00:1c:73:15:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: P10
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: P11
+          neighborPort: Ethernet6
+          port: Ethernet2
+        - neighborDevice: P21
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: P20
+          neighborPort: Ethernet6
+          port: Ethernet4
+        - neighborDevice: RR5
+          neighborPort: Ethernet1
+          port: Ethernet5
+        - neighborDevice: RR6
+          neighborPort: Ethernet1
+          port: Ethernet6
+ - RR5:
+      ip_addr: 192.168.0.73
+      sys_mac: 00:1c:73:13:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet5
+          port: Ethernet1
+        - neighborDevice: RR6
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE21
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: PE11
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet11
+          port: Ethernet5
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet6
+          port: Ethernet7 
+ - RR6:
+      ip_addr: 192.168.0.74
+      sys_mac: 00:1c:73:14:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet6
+          port: Ethernet1
+        - neighborDevice: RR5
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE11
+          neighborPort: Ethernet6
+          port: Ethernet3
+        - neighborDevice: PE21
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet12
+          port: Ethernet5
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet6
+          port: Ethernet7
+ - RR:
+      ip_addr: 192.168.0.93
+      sys_mac: 00:1c:73:33:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet7
+          port: Ethernet1
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet7
+          port: Ethernet2
+        - neighborDevice: PE12
+          neighborPort: Ethernet5
+          port: Ethernet3
+        - neighborDevice: PE11
+          neighborPort: Ethernet7
+          port: Ethernet4
+        - neighborDevice: P1
+          neighborPort: Ethernet6
+          port: Ethernet5
+        - neighborDevice: P2
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: PE21
+          neighborPort: Ethernet7
+          port: Ethernet7
+        - neighborDevice: PE22
+          neighborPort: Ethernet5
+          port: Ethernet8
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet7
+          port: Ethernet9
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet7
+          port: Ethernet10
+        - neighborDevice: RR5
+          neighborPort: Ethernet5
+          port: Ethernet11
+        - neighborDevice: RR6
+          neighborPort: Ethernet5
+          port: Ethernet12
+ - P1:
+      ip_addr: 192.168.0.91
+      sys_mac: 00:1c:73:31:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE11
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: PE21
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: PE12
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: PE22
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR
+          neighborPort: Ethernet5
+          port: Ethernet6
+ - P2:
+      ip_addr: 192.168.0.92
+      sys_mac: 00:1c:73:32:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE12
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: PE22
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: PE11
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: PE21
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR
+          neighborPort: Ethernet6
+          port: Ethernet6
+ - PE11:
+      ip_addr: 192.168.0.94
+      sys_mac: 00:1c:73:34:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P1
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: P2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: RR5
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR6
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet4
+          port: Ethernet7
+ - PE12:
+      ip_addr: 192.168.0.96
+      sys_mac: 00:1c:73:36:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P2
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: P1
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet3
+          port: Ethernet5
+ - PE21:
+      ip_addr: 192.168.0.95
+      sys_mac: 00:1c:73:35:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P1
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: P2
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: RR6
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR5
+          neighborPort: Ethernet3
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet7
+          port: Ethernet7
+ - PE22:
+      ip_addr: 192.168.0.97
+      sys_mac: 00:1c:73:37:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: P2
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: P1
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: RR
+          neighborPort: Ethernet8
+          port: Ethernet5
+ - R1-P11:
+      ip_addr: 192.168.0.81
+      sys_mac: 00:1c:73:21:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: R1-P12
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE11
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE12
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: P10
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: P11
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR5
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet2
+          port: Ethernet7
+ - R1-P12:
+      ip_addr: 192.168.0.82
+      sys_mac: 00:1c:73:22:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: R1-P11
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE11
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: PE12
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: P10
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: P11
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: RR5
+          neighborPort: Ethernet7
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet1
+          port: Ethernet7
+ - R2-P31:
+      ip_addr: 192.168.0.83
+      sys_mac: 00:1c:73:23:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: R2-P32
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE21
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: PE22
+          neighborPort: Ethernet2
+          port: Ethernet3
+        - neighborDevice: P20
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: P21
+          neighborPort: Ethernet4
+          port: Ethernet5
+        - neighborDevice: RR6
+          neighborPort: Ethernet6
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet9
+          port: Ethernet7
+ - R2-P32:
+      ip_addr: 192.168.0.84
+      sys_mac: 00:1c:73:24:c6:01
+      platform: cloudeos
+      neighbors:
+        - neighborDevice: R2-P31
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: PE21
+          neighborPort: Ethernet3
+          port: Ethernet2
+        - neighborDevice: PE22
+          neighborPort: Ethernet3
+          port: Ethernet3
+        - neighborDevice: P20
+          neighborPort: Ethernet5
+          port: Ethernet4
+        - neighborDevice: P21
+          neighborPort: Ethernet5
+          port: Ethernet5
+        - neighborDevice: RR6
+          neighborPort: Ethernet7
+          port: Ethernet6
+        - neighborDevice: RR
+          neighborPort: Ethernet10
+          port: Ethernet7
+ - H11:
+      ip_addr: 192.168.0.41
+      sys_mac: 00:1c:73:e1:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Leaf11
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H12:
+      ip_addr: 192.168.0.42
+      sys_mac: 00:1c:73:e2:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Leaf12
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H13:
+      ip_addr: 192.168.0.43
+      sys_mac: 00:1c:73:e3:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Edge13
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H14:
+      ip_addr: 192.168.0.44
+      sys_mac: 00:1c:73:e4:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Edge14
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H21:
+      ip_addr: 192.168.0.45
+      sys_mac: 00:1c:73:e5:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Leaf21
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H22:
+      ip_addr: 192.168.0.46
+      sys_mac: 00:1c:73:e6:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Leaf22
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H23:
+      ip_addr: 192.168.0.47
+      sys_mac: 00:1c:73:e7:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Edge23
+          neighborPort: Ethernet1
+          port: Ethernet1
+ - H24:
+      ip_addr: 192.168.0.48
+      sys_mac: 00:1c:73:e8:c6:01
+      platform: veos
+      neighbors:
+        - neighborDevice: Edge24
+          neighborPort: Ethernet1
+          port: Ethernet1
+additional_ssh_nodes:
+additional_clab_nodes:

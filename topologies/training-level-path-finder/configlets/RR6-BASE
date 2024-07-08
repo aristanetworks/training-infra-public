@@ -1,0 +1,10 @@
+service routing protocols model multi-agent
+!
+hostname RR6
+!
+interface Management 1
+   vrf MGMT
+   ip address  192.168.0.74/24
+!
+ip routing
+!

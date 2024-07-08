@@ -1,0 +1,10 @@
+service routing protocols model multi-agent
+!
+hostname Leaf22
+!
+interface Management 1
+   vrf MGMT
+   ip address  192.168.0.34/24
+!
+ip routing
+!
