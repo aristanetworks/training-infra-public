@@ -24,6 +24,18 @@ if [ $? -eq 0 ]; then
 else
     echo "not changing any branch name"
 fi
+
+PLATFORM=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.platform)
+if [ $? -eq 0 ] && [ "$PLATFORM" == "cloudeos" ]; then
+    echo "doing NAT in this topology"
+    sudo sysctl -w net.ipv4.ip_forward=1
+    sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    sudo iptables -A FORWARD -i vmgmt -o eth0 -j ACCEPT
+    sudo iptables -A FORWARD -m state --state ESTABLISHED,RELATED -o vmgmt -j ACCEPT
+else
+    echo "not doing NAT here"
+fi
+
 IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
 LABGUIDE_FILENAME="${url_parts[-1]}"
 
