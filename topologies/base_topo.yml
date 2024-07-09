@@ -2719,6 +2719,7 @@ topologies:
     desc: 'Training Lab Pathfinder. For use by the Arista Training Team.'
     name: 'Training Lab Pathfinder'
     title: 'Training Lab Pathfinder'
+    platform : 'cloudeos'
     disk_size: 600
     access: standard
     disable_links: [jenkins, lab_grading]
