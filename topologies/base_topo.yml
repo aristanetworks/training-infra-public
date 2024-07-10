@@ -2432,16 +2432,16 @@ topologies:
               - 4.30.1F
     prod:
       ceos:
-        cpu: 60
+        cpu: 80
         ram: 110
         cvp:
           2023.2.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 80
               ram: 64
-            branch: v2023.2-0315024
-            orderable: false
+            branch: v2023.2-0714024
+            orderable: true
             image: base-ceos-training-l7-part-2-v3-2023-2-4301-20240403
             eos:
               - 4.30.1F
