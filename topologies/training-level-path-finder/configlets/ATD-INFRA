@@ -21,6 +21,13 @@ alias intdesc
 !
 dns domain arista.lab
 !
+ip name-server vrf MGMT 8.8.8.8
+!
+ip host apiserver.arista.io 35.192.157.156
+ip host arista.io 34.67.65.165
+ip host www.arista.io 34.67.65.165
+ip host www.cv-staging.corp.arista.io 34.82.61.12
+!
 service routing protocols model multi-agent
 !
 ntp server vrf MGMT 192.168.0.1 iburst source Management 1
