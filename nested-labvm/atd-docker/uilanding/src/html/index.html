@@ -69,6 +69,13 @@
                     <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>                
                  </li>
                   {% end %}
+                  {% if "cvaas" not in disable_links %}
+                  <li>
+                    <a class="site-sidebar__item menu-click" href="https://www.arista.io/" target="_blank">
+                      CVaaS</a
+                    >
+                  </li>
+                  {% end %}                  
                   {% if "ide" not in disable_links %}
                   <li>
                     <a class="site-sidebar__item menu-click" href="/coder" target="_blank">
