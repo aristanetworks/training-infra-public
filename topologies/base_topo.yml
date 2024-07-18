@@ -2688,7 +2688,7 @@ topologies:
       veos:
         cpu: 128
         ram: 512
-        machine_type: n2-standard-80
+        machine_type: n2-standard-128
         cvp:
           2023.2.0:
             schema: 1
