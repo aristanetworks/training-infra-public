@@ -69,8 +69,10 @@ cvp_info:
         - P10-BASE
       P11:
         - P11-BASE
-      PE1:
-        - PE1-BASE
+      R1-PE1:
+        - R1-PE1-BASE
+      R2-PE2:
+        - R2-PE2-BASE  
       ISP-1:
         - ISP-1-BASE
       Edge10:
@@ -137,6 +139,8 @@ cvp_info:
         - RR4-BASE
       ISP-3:  
         - ISP-3-BASE
+      PE1:  
+        - PE1-BASE  
       PE2:  
         - PE2-BASE
       PE3: 
