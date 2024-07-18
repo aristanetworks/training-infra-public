@@ -8,8 +8,8 @@
           - P10-BASE
         P11:
           - P11-BASE
-        PE1:
-          - PE1-BASE
+        R1-PE1:
+          - R1-PE1-BASE
         ISP-1:
           - ISP-1-BASE
         Edge10:
@@ -62,10 +62,10 @@
           - Leaf21-BASE
         Leaf22:  
           - Leaf22-BASE
-        P1:  
-          - P1-BASE
-        P2:  
-          - P2-BASE
+        P5:  
+          - P5-BASE
+        P6:  
+          - P6-BASE
         P20:  
           - P20-BASE
         P21:  
@@ -76,24 +76,24 @@
           - RR4-BASE
         ISP-3:  
           - ISP-3-BASE
-        R1-P11:  
-          - R1-P11-BASE
-        R1-P12:  
-          - R1-P12-BASE
-        R2-P31: 
-          - R2-P31-BASE
-        R2-P32:  
-          - R2-P32-BASE
-        PE11:  
-          - PE11-BASE
-        PE12:  
-          - PE12-BASE
+        PE1:  
+          - PE1-BASE
         PE2:  
           - PE2-BASE
-        PE21:  
-          - PE21-BASE
-        PE22:  
-          - PE22-BASE
+        PE3: 
+          - PE3-BASE
+        PE4:  
+          - PE4-BASE
+        P1:  
+          - P1-BASE
+        P2:  
+          - PE2-BASE
+        R2-PE2:  
+          - R2-PE2-BASE
+        P3:  
+          - P3-BASE
+        P4:  
+          - P4-BASE
         RR:  
           - RR-BASE
         RR5:  
