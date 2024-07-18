@@ -89,7 +89,7 @@ nodes:
       sys_mac: 00:1c:73:b5:c6:01
       platform: veos
       neighbors:
-        - neighborDevice: P50
+        - neighborDevice: P10
           neighborPort: Ethernet2
           port: Ethernet1
         - neighborDevice: P11
@@ -702,7 +702,7 @@ nodes:
         - neighborDevice: P6
           neighborPort: Ethernet1
           port: Ethernet1
-        - neighborDevice: P5
+        - neighborDevice: P1
           neighborPort: Ethernet1
           port: Ethernet2
         - neighborDevice: P3
@@ -744,7 +744,7 @@ nodes:
           neighborPort: Ethernet4
           port: Ethernet5
         - neighborDevice: RR
-          neighborPort: Ethernet11
+          neighborPort: Ethernet6
           port: Ethernet6
         - neighborDevice: RR6
           neighborPort: Ethernet11
@@ -938,7 +938,7 @@ nodes:
           neighborPort: Ethernet6
           port: Ethernet6
         - neighborDevice: RR
-          neighborPort: Ethernet10
+          neighborPort: Ethernet9
           port: Ethernet7
         - neighborDevice: RR5
           neighborPort: Ethernet10
