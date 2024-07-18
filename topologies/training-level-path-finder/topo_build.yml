@@ -744,7 +744,7 @@ nodes:
           neighborPort: Ethernet4
           port: Ethernet5
         - neighborDevice: RR
-          neighborPort: Ethernet11
+          neighborPort: Ethernet6
           port: Ethernet6
         - neighborDevice: RR6
           neighborPort: Ethernet11
