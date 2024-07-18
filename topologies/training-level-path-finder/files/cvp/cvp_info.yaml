@@ -7,7 +7,7 @@ cvp_info:
       nodes:
       - P10
       - P11
-      - PE1
+      - R1-PE1
       - ISP-1
       - Edge10
       - Edge11
@@ -37,8 +37,7 @@ cvp_info:
       - ISP-2
       - Leaf21
       - Leaf22
-      - P1
-      - P2
+      - P2-PE2
       - P20
       - P21
       - RR3
@@ -47,15 +46,16 @@ cvp_info:
       parent: Tenant
       nodes:
       - ISP-3
-      - R1-P11
-      - R1-P12
-      - R2-P31
-      - R2-P32
-      - PE11
-      - PE12
+      - PE1
       - PE2
-      - PE21
-      - PE22
+      - PE3
+      - PE4
+      - P1
+      - P2
+      - P3
+      - P4
+      - P5
+      - P6
       - RR
       - RR5
       - RR6
@@ -123,10 +123,10 @@ cvp_info:
         - Leaf21-BASE
       Leaf22:  
         - Leaf22-BASE
-      P1:  
-        - P1-BASE
-      P2:  
-        - P2-BASE
+      P5:  
+        - P5-BASE
+      P6:  
+        - P6-BASE
       P20:  
         - P20-BASE
       P21:  
@@ -137,24 +137,24 @@ cvp_info:
         - RR4-BASE
       ISP-3:  
         - ISP-3-BASE
-      R1-P11:  
-        - R1-P11-BASE
-      R1-P12:  
-        - R1-P12-BASE
-      R2-P31: 
-        - R2-P31-BASE
-      R2-P32:  
-        - R2-P32-BASE
-      PE11:  
-        - PE11-BASE
-      PE12:  
-        - PE12-BASE
+      PE1:  
+        - PE1-BASE
       PE2:  
         - PE2-BASE
-      PE21:  
-        - PE21-BASE
-      PE22:  
-        - PE22-BASE
+      PE3: 
+        - PE3-BASE
+      PE4:  
+        - PE4-BASE
+      P1:  
+        - P1-BASE
+      P2:  
+        - P2-BASE
+      PE2:  
+        - PE2-BASE
+      P3:  
+        - P3-BASE
+      P4:  
+        - P4-BASE
       RR:  
         - RR-BASE
       RR5:  
