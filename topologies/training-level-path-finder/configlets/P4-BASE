@@ -1,6 +1,6 @@
 service routing protocols model multi-agent
 !
-hostname PE22
+hostname P4
 !
 interface Management 1
    vrf MGMT
