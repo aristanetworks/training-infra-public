@@ -859,7 +859,7 @@ nodes:
  - PE1:
       ip_addr: 192.168.0.81
       sys_mac: 00:1c:73:21:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: PE2
           neighborPort: Ethernet1
@@ -888,7 +888,7 @@ nodes:
  - PE2:
       ip_addr: 192.168.0.82
       sys_mac: 00:1c:73:22:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: PE1
           neighborPort: Ethernet1
@@ -917,7 +917,7 @@ nodes:
  - PE3:
       ip_addr: 192.168.0.83
       sys_mac: 00:1c:73:23:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: PE4
           neighborPort: Ethernet1
@@ -946,7 +946,7 @@ nodes:
  - PE4:
       ip_addr: 192.168.0.84
       sys_mac: 00:1c:73:24:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: PE3
           neighborPort: Ethernet1
