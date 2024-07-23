@@ -123,6 +123,8 @@ export ArGD=$(id -g arista)
 export AtID=$(id -u atdadmin)
 export AtGD=$(id -g atdadmin)
 
+docker container prune -f
+
 docker compose up -d --remove-orphans --force-recreate
 
 echo 'y' | docker image prune
