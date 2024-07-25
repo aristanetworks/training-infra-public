@@ -1548,14 +1548,14 @@ topologies:
               - 4.30.1F               
     prod:
       ceos:
-        cpu: 40
-        ram: 70
+        cpu: 60
+        ram: 110
         cvp:
           2020.2.3:
             schema: 1
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 110
             branch: v2020.2-20220404a
             orderable: false
             image: base-training-l7-ceos-c2020-2-3-20211220
@@ -1609,14 +1609,14 @@ topologies:
   training-level7-part3:
     dev:
       ceos:
-        cpu: 40
-        ram: 70
+        cpu: 60
+        ram: 110
         cvp:
           2020.2.3:
             schema: 1
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 110
             branch: nested/2020.2
             orderable: false
             image: base-training-l7-ceos-c2020-2-3-20220111
@@ -1626,8 +1626,8 @@ topologies:
           2021.3.0:
             schema: 1
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 110
             branch: nested/2021.3
             orderable: true
             image: base-ceos-training-l7-part-3-2021-3-20230224-151013
@@ -1636,8 +1636,8 @@ topologies:
           2022.3.1:
             schema: 1
             resources:
-              cpu: 40
-              ram: 70
+              cpu: 60
+              ram: 110
             branch: nested/2022.3
             orderable: true
             image: base-ceos-training-l7-part-3-2022-3-20230926-151013
@@ -1647,7 +1647,7 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 80
+              ram: 110
             branch: nested/2023.2
             orderable: true
             image: base-ceos-training-l7-part-3-2023-2-4301-20240319
