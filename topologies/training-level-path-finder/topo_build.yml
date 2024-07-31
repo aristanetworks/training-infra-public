@@ -345,9 +345,6 @@ nodes:
         - neighborDevice: Edge24
           neighborPort: Ethernet4
           port: Ethernet7
-        - neighborDevice: Edge14
-          neighborPort: Ethernet5
-          port: Ethernet7
         - neighborDevice: RR
           neighborPort: Ethernet15
           port: Ethernet8
