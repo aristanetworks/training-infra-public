@@ -18,6 +18,9 @@ nodes:
         - neighborDevice: ISP-1
           neighborPort: Ethernet3
           port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet17
+          port: Ethernet4
  - RR2:
       ip_addr: 192.168.0.72
       sys_mac: 00:1c:73:12:c6:01
@@ -32,6 +35,9 @@ nodes:
         - neighborDevice: ISP-1
           neighborPort: Ethernet4
           port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet18
+          port: Ethernet4
  - P10:
       ip_addr: 192.168.0.51
       sys_mac: 00:1c:73:f1:c6:01
@@ -58,6 +64,9 @@ nodes:
         - neighborDevice: Edge14
           neighborPort: Ethernet4
           port: Ethernet7
+        - neighborDevice: RR
+          neighborPort: Ethernet13
+          port: Ethernet8
  - P11:
       ip_addr: 192.168.0.52
       sys_mac: 00:1c:73:f2:c6:01
@@ -84,6 +93,9 @@ nodes:
         - neighborDevice: Edge14
           neighborPort: Ethernet5
           port: Ethernet7
+        - neighborDevice: RR
+          neighborPort: Ethernet14
+          port: Ethernet8
  - R1-PE1:
       ip_addr: 192.168.0.15
       sys_mac: 00:1c:73:b5:c6:01
@@ -287,6 +299,9 @@ nodes:
         - neighborDevice: ISP-2
           neighborPort: Ethernet3
           port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet19
+          port: Ethernet4
  - RR4:
       ip_addr: 192.168.0.77
       sys_mac: 00:1c:73:17:c6:01
@@ -301,6 +316,9 @@ nodes:
         - neighborDevice: ISP-2
           neighborPort: Ethernet4
           port: Ethernet3
+        - neighborDevice: RR
+          neighborPort: Ethernet20
+          port: Ethernet4
  - P20:
       ip_addr: 192.168.0.53
       sys_mac: 00:1c:73:f3:c6:01
@@ -327,6 +345,12 @@ nodes:
         - neighborDevice: Edge24
           neighborPort: Ethernet4
           port: Ethernet7
+        - neighborDevice: Edge14
+          neighborPort: Ethernet5
+          port: Ethernet7
+        - neighborDevice: RR
+          neighborPort: Ethernet15
+          port: Ethernet8
  - P21:
       ip_addr: 192.168.0.54
       sys_mac: 00:1c:73:f4:c6:01
@@ -353,6 +377,9 @@ nodes:
         - neighborDevice: Edge24
           neighborPort: Ethernet5
           port: Ethernet7
+        - neighborDevice: RR
+          neighborPort: Ethernet16
+          port: Ethernet8
  - R2-PE2:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
@@ -694,6 +721,30 @@ nodes:
         - neighborDevice: RR6
           neighborPort: Ethernet5
           port: Ethernet12
+        - neighborDevice: P10
+          neighborPort: Ethernet8
+          port: Ethernet13
+        - neighborDevice: P11
+          neighborPort: Ethernet8
+          port: Ethernet14
+        - neighborDevice: P20
+          neighborPort: Ethernet8
+          port: Ethernet15
+        - neighborDevice: P21
+          neighborPort: Ethernet8
+          port: Ethernet16
+        - neighborDevice: RR1
+          neighborPort: Ethernet4
+          port: Ethernet17
+        - neighborDevice: RR2
+          neighborPort: Ethernet4
+          port: Ethernet18
+        - neighborDevice: RR3
+          neighborPort: Ethernet4
+          port: Ethernet19
+        - neighborDevice: RR4
+          neighborPort: Ethernet4
+          port: Ethernet20
  - P5:
       ip_addr: 192.168.0.91
       sys_mac: 00:1c:73:31:c6:01
