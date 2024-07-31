@@ -2697,7 +2697,7 @@ topologies:
               ram: 512
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-path-finder-2023-2-4321-20240708
+            image: base-veos-training-path-finder-2023-2-4321-20240731
             eos:
               - 4.32.1F
           2023.2.0-dual:
