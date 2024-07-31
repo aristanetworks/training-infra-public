@@ -129,7 +129,7 @@ export AtGD=$(id -g atdadmin)
 PLATFORM=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.platform)
 if [ $? -eq 0 ] && [ "$PLATFORM" == "cloudeos" ]; then
     FILE_PATH="docker-compose.yml"
-    sed -i '' 's|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2-path-finder|g' "$FILE_PATH"
+    sudo sed -i'' 's|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2-path-finder|g' /opt/atd/nested-labvm/atd-docker/docker-compose.yml
     docker compose up -d --remove-orphans --force-recreate
 else
     docker compose up -d --remove-orphans --force-recreate
