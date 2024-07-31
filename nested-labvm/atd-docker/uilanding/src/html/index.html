@@ -129,9 +129,9 @@
               <section class="topology">
                 <div class="topology-overview">
                   <div class="white-box text-center">
-                    <h2>Click on a device to access CLI.</h2>
+                    <!-- <h2>Click on a device to access CLI.</h2> -->
                     <img src="topo/atd-topo.png" usemap="#image_map" />
-                    <map name="image_map">
+                    <!--  <map name="image_map">
                         {% for node in NODES %}
                         {% if node == "CVP" %}
                             <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/cv" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
@@ -142,7 +142,7 @@
                         {% for gui_url in zip(GUI_URLS,SERVERS) %}
                             <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
                         {% end %}
-                    </map>
+                    </map> -->
                     {% if topo_cvp %}
                     <span id="cvp_info"></span>
                     <br /><br />
