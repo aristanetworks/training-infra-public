@@ -123,7 +123,7 @@ export ArGD=$(id -g arista)
 export AtID=$(id -u atdadmin)
 export AtGD=$(id -g atdadmin)
 
-docker container prune -f
+#docker container prune -f
 
 # Use sed to replace the text
 PLATFORM=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.platform)
