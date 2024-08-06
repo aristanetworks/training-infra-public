@@ -1,0 +1,104 @@
+host_cpu: 4
+cvp_cpu: 32
+cvp_ram: 42
+cvp_nodes: 1
+veos_cpu: 2
+nodes:
+  - R1:
+      ip_addr: 192.168.0.11
+      sys_mac: 00:1c:73:b1:c6:01
+      neighbors:
+        - neighborDevice: R2
+          neighborPort: Ethernet2
+          port: Ethernet1
+
+  - R2:
+      ip_addr: 192.168.0.12
+      sys_mac: 00:1c:73:b2:c6:01
+      neighbors:
+        - neighborDevice: R1
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: R3
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: R4
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: R6
+          neighborPort: Ethernet1
+          port: Ethernet1
+
+  - R3:
+      ip_addr: 192.168.0.13
+      sys_mac: 00:1c:73:b3:c6:01
+      neighbors:
+        - neighborDevice: R2
+          neighborPort: Ethernet3
+          port: Ethernet1
+        - neighborDevice: R4
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+  - R4:
+      ip_addr: 192.168.0.14
+      sys_mac: 00:1c:73:b4:c6:01
+      neighbors:
+        - neighborDevice: R2
+          neighborPort: Ethernet4
+          port: Ethernet4
+        - neighborDevice: R3
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: R5
+          neighborPort: Ethernet1
+          port: Ethernet3
+        - neighborDevice: R7
+          neighborPort: Ethernet1
+          port: Ethernet1         
+
+  - R5:
+      ip_addr: 192.168.0.21
+      sys_mac: 00:1c:73:c1:c6:01
+      neighbors:
+        - neighborDevice: R1
+          neighborPort: Ethernet3
+          port: Ethernet1
+
+
+  - R6:
+      ip_addr: 192.168.0.22
+      sys_mac: 00:1c:73:c2:c6:01
+      neighbors:
+        - neighborDevice: R2
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: R8
+          neighborPort: Ethernet1
+          port: Ethernet2
+
+  - R7:
+      ip_addr: 192.168.0.23
+      sys_mac: 00:1c:73:c3:c6:01
+      neighbors:
+        - neighborDevice: R4
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: R8
+          neighborPort: Ethernet2
+          port: Ethernet2
+
+  - R8:
+      ip_addr: 192.168.0.24
+      sys_mac: 00:1c:73:c4:c6:01
+      neighbors:
+        - neighborDevice: R7
+          neighborPort: Ethernet2
+          port: Ethernet2
+        - neighborDevice: R6
+          neighborPort: Ethernet2
+          port: Ethernet1          
+
+servers:
+additional_ssh_nodes:
+additional_clab_nodes:

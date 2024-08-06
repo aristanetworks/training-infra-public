@@ -1,0 +1,22 @@
+---
+    lab_list:
+      reset:
+        description: "Reset All Devices to Base Lab (reset)"
+    labconfiglets:
+      reset:
+        R1:
+          - "R1-base"
+        R2:
+          - "R2-base"
+        R3:
+          - "R3-base"
+        R4:
+          - "R4-base"
+        R5:
+          - "R5-base"
+        R6:
+          - "R6-base"
+        R7:
+          - "R7-base"
+        R8:
+          - "R8-base"

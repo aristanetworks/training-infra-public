@@ -1,0 +1,38 @@
+cvp_info:
+  containers:
+    Tenant:
+      nodes:
+    Leaf:
+      parent: Tenant
+      nodes:
+      - R1
+      - R2
+      - R3
+      - R4
+      - R5
+      - R6
+      - R7
+      - R8
+
+  snapshots:
+  configlets:
+    containers:
+      Tenant:
+        - ATD-INFRA
+    netelements:
+      R1:
+        - R1-base
+      R2:
+        - R2-base
+      R3:
+        - R3-base
+      R4:
+        - R4-base
+      R5:
+        - R5-base
+      R6:
+        - R6-base
+      R7:
+        - R7-base
+      R8:
+        - R8-base
