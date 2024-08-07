@@ -2528,6 +2528,44 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, cvaas]
     labguides: self
+  training-level-bgp-custom:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-custom-lab-elan-2023-2-4321-20240807
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-0731024-1
+            orderable: false
+            image: base-veos-training-custom-lab-elan-2023-2-4321-20240807
+            eos:
+              - 4.30.1F
+    desc: 'BGP Custom Training Lab. For use by the Arista Training Team.'
+    name: 'BGP Custom Training Lab'
+    title: 'BGP Custom Training Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading, cvaas]
+    labguides: self
   training-labguides-test:
     dev:
       ceos:
