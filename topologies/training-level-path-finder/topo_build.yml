@@ -131,7 +131,7 @@ nodes:
  - ISP-1:
       ip_addr: 192.168.0.16
       sys_mac: 00:1c:73:b6:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: P10
           neighborPort: Ethernet3
@@ -380,7 +380,7 @@ nodes:
  - R2-PE2:
       ip_addr: 192.168.0.25
       sys_mac: 00:1c:73:c5:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: P20
           neighborPort: Ethernet2
@@ -412,7 +412,7 @@ nodes:
  - ISP-2:
       ip_addr: 192.168.0.26
       sys_mac: 00:1c:73:c6:c6:01
-      platform: cloudeos
+      platform: veos
       neighbors:
         - neighborDevice: P20
           neighborPort: Ethernet3
