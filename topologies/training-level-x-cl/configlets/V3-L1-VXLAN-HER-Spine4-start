@@ -1,0 +1,63 @@
+!
+interface Ethernet1
+   shutdown
+interface Ethernet2
+   shutdown
+interface Ethernet3
+   no switchport
+   ip address 10.10.4.1/30
+interface Ethernet4
+   no switchport
+   ip address 10.10.4.5/30
+interface Ethernet5
+   no switchport
+   ip address 10.10.4.9/30
+interface Ethernet6
+   no switchport
+   ip address 10.10.4.13/30
+interface Ethernet7
+   no switchport
+   ip address 10.10.5.14/30
+interface Ethernet8
+   no switchport
+   ip address 10.10.6.14/30
+interface Loopback0
+   ip address 10.24.24.24/32
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+router bgp 65100
+ router-id 10.24.24.24
+ maximum-paths 4 ecmp 4
+ no bgp default ipv4-unicast
+ bgp log-neighbor-changes
+ neighbor 10.10.4.2 description Leaf1
+ neighbor 10.10.4.2 remote-as 65001
+ neighbor 10.10.4.2 maximum-routes 12000
+ neighbor 10.10.4.6 description Leaf2
+ neighbor 10.10.4.6 remote-as 65002
+ neighbor 10.10.4.6 maximum-routes 12000
+ neighbor 10.10.4.10  description Leaf3
+ neighbor 10.10.4.10  remote-as 65003
+ neighbor 10.10.4.10  maximum-routes 12000
+ neighbor 10.10.4.14  description Leaf4
+ neighbor 10.10.4.14  remote-as 65004
+ neighbor 10.10.4.14  maximum-routes 12000
+ neighbor BorderleafUnderlay peer group
+ neighbor BorderleafUnderlay maximum-routes 12000
+ neighbor BorderleafUnderlay remote-as 65500
+ neighbor 10.10.5.13 peer group  BorderleafUnderlay
+ neighbor 10.10.5.13 description Borderleaf1
+ neighbor 10.10.6.13 peer group  BorderleafUnderlay
+ neighbor 10.10.6.13 description Borderleaf2
+ !
+ address-family ipv4
+   network  10.24.24.24/32
+   neighbor 10.10.4.2 activate
+   neighbor 10.10.4.6 activate
+   neighbor 10.10.4.10 activate
+   neighbor 10.10.4.14 activate
+   neighbor BorderleafUnderlay activate
+   redistribute connected

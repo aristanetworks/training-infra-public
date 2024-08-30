@@ -1,0 +1,100 @@
+vlan 4093
+ vlan 4094
+  trunk group MLAGVLAN
+
+ spanning-tree mode mstp
+ no spanning-tree vlan-id 4094
+
+ interface Vlan4093
+  no autostate
+  ip address 172.16.4.2/30
+
+ interface Vlan4094
+  no autostate
+  ip address 172.16.40.2/30
+
+
+ interface Loopback0
+  ip address 10.12.12.12/32
+
+ interface Loopback1
+   ip address 10.51.51.51/32
+
+ interface Port-Channel 100
+  description Peer Link Leaf 1 and Leaf 2
+  switchport
+  switchport mode trunk
+  switchport trunk group MLAGVLAN
+  no shut
+
+ ip virtual-router mac-address 00:1c:73:00:00:99
+
+ interface Ethernet1
+  description Peer Link PortChannel 100
+  channel-group 100 mode active
+
+ interface Ethernet2
+  description Peer Link PortChannel 100
+  channel-group 100 mode active
+!
+interface Ethernet3
+   no switchport
+   ip address 10.10.1.6/30
+interface Ethernet4
+   no switchport
+   ip address 10.10.2.6/30
+interface Ethernet5
+   no switchport
+   ip address 10.10.3.6/30
+interface Ethernet6
+   no switchport
+   ip address 10.10.4.6/30
+
+ mlag configuration
+  domain-id DomainLeaf1Leaf2
+  local-interface Vlan4094
+  peer-address 172.16.40.1
+  peer-link Port-Channel100
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+
+router bgp 65001
+ maximum-paths 4 ecmp 4
+ no bgp default ipv4-unicast
+ router-id 10.12.12.12
+ distance bgp 20 200 200
+ bgp log-neighbor-changes
+
+
+ neighbor 10.10.1.5  peer group SpineUnderlay
+ neighbor 10.10.2.5  peer group SpineUnderlay
+ neighbor 10.10.3.5 peer group SpineUnderlay
+ neighbor 10.10.4.5 peer group SpineUnderlay
+
+ neighbor 10.10.1.5  description Spine1
+ neighbor 10.10.2.5  description Spine2
+ neighbor 10.10.3.5  description Spine3
+ neighbor 10.10.4.5  description Spine4
+
+ neighbor SpineUnderlay remote-as 65100
+ neighbor SpineUnderlay  maximum-routes 12000
+ neighbor SpineUnderlay  send-community
+
+ neighbor 172.16.4.1 remote-as 65001
+ neighbor 172.16.4.1  maximum-routes 12000
+ neighbor 172.16.4.1 send-community extended
+ neighbor 172.16.4.1 next-hop-self
+ neighbor 172.16.4.1 description iBGP_Leaf1Underlay
+
+
+address-family ipv4
+ network  10.12.12.12/32
+ network  10.51.51.51/32
+ network  172.16.4.2/30
+ neighbor SpineUnderlay activate
+ neighbor 172.16.4.1 activate
+ redistribute connected
+ 
