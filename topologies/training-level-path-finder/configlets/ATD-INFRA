@@ -1,7 +1,7 @@
 vrf instance MGMT
 !
 daemon TerminAttr
-   exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=MGMT -taillogs -disableaaa
+   exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata,flowtracking/hardware -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=MGMT -taillogs -disableaaa
   no shutdown
 !
 alias mlag-reload bash /mnt/flash/shut_intfs && sudo shutdown now -r
