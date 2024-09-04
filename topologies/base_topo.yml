@@ -2657,7 +2657,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0528024
+            branch: v2023.2-090424
             orderable: false
             image: base-ceos-training-lx-cl-2023-2-4301-20240528
             eos:
@@ -2671,7 +2671,7 @@ topologies:
             resources:
               cpu: 48
               ram: 64
-            branch: v2023.2-0528024
+            branch: v2023.2-090424
             orderable: true
             image: base-ceos-training-lx-cl-2023-2-4301-20240528
             eos:
