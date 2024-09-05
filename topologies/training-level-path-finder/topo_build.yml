@@ -443,7 +443,10 @@ nodes:
           port: Ethernet8
         - neighborDevice: Edge24
           neighborPort: Ethernet3
-          port: Ethernet9        
+          port: Ethernet9
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet8
+          port: Ethernet10
  - Edge20:
       ip_addr: 192.168.0.20
       sys_mac: 00:1c:73:c0:c6:01
@@ -595,6 +598,9 @@ nodes:
         - neighborDevice: ISP-1
           neighborPort: Ethernet10
           port: Ethernet7
+        - neighborDevice: ISP-2
+          neighborPort: Ethernet10
+          port: Ethernet8
  - RR5:
       ip_addr: 192.168.0.73
       sys_mac: 00:1c:73:13:c6:01
