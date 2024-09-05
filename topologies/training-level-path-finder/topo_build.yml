@@ -159,7 +159,10 @@ nodes:
           port: Ethernet8
         - neighborDevice: Edge14
           neighborPort: Ethernet3
-          port: Ethernet9        
+          port: Ethernet9
+        - neighborDevice: ISP-3
+          neighborPort: Ethernet7
+          port: Ethernet10
  - Edge10:
       ip_addr: 192.168.0.10
       sys_mac: 00:1c:73:b0:c6:01
@@ -589,6 +592,9 @@ nodes:
         - neighborDevice: RR6
           neighborPort: Ethernet1
           port: Ethernet6
+        - neighborDevice: ISP-1
+          neighborPort: Ethernet10
+          port: Ethernet7
  - RR5:
       ip_addr: 192.168.0.73
       sys_mac: 00:1c:73:13:c6:01
