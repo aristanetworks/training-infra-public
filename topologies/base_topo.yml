@@ -2673,7 +2673,7 @@ topologies:
               ram: 64
             branch: v2023.2-090424
             orderable: true
-            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            image: base-ceos-training-lx-cl-2023-2-4301-20240821
             eos:
               - 4.30.1F  
     desc: 'Training Lab. For use by the Arista Training Team.'
