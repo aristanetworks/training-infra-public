@@ -2617,7 +2617,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            image: base-ceos-training-lx-cl-2023-2-4301-20240821
             eos:
               - 4.30.1F
           2024.1.2:
