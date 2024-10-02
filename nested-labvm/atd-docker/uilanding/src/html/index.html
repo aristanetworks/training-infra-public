@@ -94,6 +94,11 @@
                     >
                   </li>
                   {% end %}
+                  {% if "Tools" not in disable_links %}
+                  <li>
+                      <a class="site-sidebar__item menu-click" style="color: white;cursor: pointer;" id="tools" data-id="tools-div"  target="_blank">Tools</a>
+                  </li>
+                  {% end %}
                   <li>
                     <a class="site-sidebar__item" data-open="passwords-popup" id="myBtn"  target="_blank"
                       >Passwords</a
@@ -167,6 +172,92 @@
               </div>
               <div class="lab-note" id="apiResponse">
                 </div>
+            </div>
+
+            <div id="tools-div" class="panel">
+              <div class="container">
+                <section id="changeLatency" class="mb-3">
+                  <h2>Change Latency</h2>
+                  <form id="latencyForm">
+                    <div class="mb-3">
+                      <label class="form-label">Latency</label>
+                      <div class="form-check">
+                        <input
+                          type="radio"
+                          name="latencyRadio"
+                          id="enableLatency"
+                          value="enable"
+                          required
+                        />
+                        <label for="enableLatency">Enable</label>
+                      </div>
+                      <div class="form-check">
+                        <input
+                          type="radio"
+                          name="latencyRadio"
+                          id="disableLatency"
+                          value="disable"
+                        />
+                        <label for="disableLatency">Disable</label>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Multiselect</label>
+                      <div id="multiSelect" class="multiselect">
+                        <label><input type="checkbox" value="RP11x1" /> RP11x1</label>
+                        <label><input type="checkbox" value="RP11x2" /> RP11x2</label>
+                        <label><input type="checkbox" value="RP11x3" /> RP11x3</label>
+                        <label><input type="checkbox" value="RP11x4" /> RP11x4</label>
+                        <label><input type="checkbox" value="RP11x5" /> RP11x5</label>
+                        <label><input type="checkbox" value="RP11x6" /> RP11x6</label>
+                      </div>
+                    </div>
+                    <div id="sliderContainer" class="mb-3">
+                      <label for="rangeSlider" class="form-label">Slider</label>
+                      <input
+                        type="range"
+                        id="rangeSlider"
+                        min="100"
+                        max="7000"
+                        value="3000"
+                        required
+                        class="slider"
+                      />
+                      <div style="display: flex; justify-content: space-between">
+                        <span>100</span>
+                        <span id="sliderValue">3000</span>
+                        <span>7000</span>
+                      </div>
+                    </div>
+                    <button type="submit" class="button">Submit</button>
+                  </form>
+                  <div
+                    id="notification"
+                    class="alert alert-danger"
+                    style="display: none"
+                  ></div>
+                  <div id="output" class="mt-3"></div>
+                </section>
+          
+                <section id="viewConfiguration" class="mb-3">
+                  <h2>View Configuration on Devices</h2>
+                  <form id="configForm">
+                    <div class="mb-3">
+                      <label class="form-label">Select device to show config</label>
+                      <div id="deviceSelect" class="multiselect">
+                        <label><input type="checkbox" value="RP11x1" /> RP11x1</label>
+                        <label><input type="checkbox" value="RP11x2" /> RP11x2</label>
+                        <label><input type="checkbox" value="RP11x3" /> RP11x3</label>
+                        <label><input type="checkbox" value="RP11x4" /> RP11x4</label>
+                        <label><input type="checkbox" value="RP11x5" /> RP11x5</label>
+                        <label><input type="checkbox" value="RP11x6" /> RP11x6</label>
+                      </div>
+                    </div>
+                    <button type="submit" class="button">View Config</button>
+                  </form>
+                  <div id="configOutput" class="mt-3"></div>
+                </section>
+              </div>
             </div>
             <!-------------------------------------------------------------------------------------->
             <div id="lab-status" class="panel">

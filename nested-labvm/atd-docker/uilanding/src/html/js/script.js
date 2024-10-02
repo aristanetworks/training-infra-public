@@ -12,19 +12,19 @@ $(document).ready(function () {
     var elements = document.getElementsByClassName('menu-click');
 
     for (var i = 0; i < elements.length; i++) {
-        elements[i].classList.remove('current-page');
+      elements[i].classList.remove('current-page');
     }
     $id = $(this).data("id");
     $(this).addClass("current-page");
-    if ($id == "lab-status" || $id == "lab-menu") {
+    if ($id == "lab-status" || $id == "lab-menu" || $id == "tools-div") {
       $(".panel").hide();
-      
+
     } else {
       $(".panel").show();
       $('#lab-status').hide()
       $('#lab-menu').hide()
 
-      
+
     }
     $("#" + $id).show();
     if ($id == "lab-status") {
@@ -43,8 +43,8 @@ $(document).ready(function () {
 
 
 
-$(function() {
-  $('.lab-button').click(function() {
+$(function () {
+  $('.lab-button').click(function () {
     // Remove 'active' class from all buttons
     $('.lab-button').removeClass('active');
 
@@ -58,3 +58,151 @@ $(function() {
     return false;
   });
 });
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  const latencyForm = document.getElementById("latencyForm");
+  const configForm = document.getElementById("configForm");
+  const enableLatency = document.getElementById("enableLatency");
+  const disableLatency = document.getElementById("disableLatency");
+  const sliderContainer = document.getElementById("sliderContainer");
+  const rangeSlider = document.getElementById("rangeSlider");
+  const sliderValue = document.getElementById("sliderValue");
+  const notification = document.getElementById("notification");
+  const output = document.getElementById("output");
+  const configOutput = document.getElementById("configOutput");
+
+  function showNotification(message) {
+    notification.textContent = message;
+    notification.style.display = "block";
+  }
+
+  function hideNotification() {
+    notification.style.display = "none";
+  }
+
+  function getSelectedOptions(selectId) {
+    return Array.from(
+      document.querySelectorAll(`#${selectId} input:checked`)
+    ).map((checkbox) => checkbox.value);
+  }
+
+  function displayOutput() {
+
+    const latency = document.querySelector(
+      'input[name="latencyRadio"]:checked'
+    ).value;
+    const selected = getSelectedOptions("multiSelect");
+    const sliderValue = rangeSlider.value;
+
+    $.post({
+      url: "/tools",
+      data: JSON.stringify({
+        changeLatency: latency === 'enable' ? true : false,
+        devices: selected,
+        score: sliderValue
+      }),
+      contentType: "application/json",
+      dataType: "json"
+    })
+      .done(function (response) {
+        console.log("Success:", response);
+      })
+      .fail(function (jqXHR, textStatus, errorThrown) {
+        console.error("Error:", textStatus, errorThrown);
+      });
+
+    let outputHtml = "<h4>Latency Change Results:</h4>";
+    outputHtml += "<p><strong>Latency:</strong> " + latency + "</p>";
+    outputHtml +=
+      "<p><strong>Selected Devices:</strong> " +
+      selected.join(", ") +
+      "</p>";
+    if (latency === "enable") {
+      outputHtml +=
+        "<p><strong>Latency Value:</strong> " + sliderValue + "</p>";
+    }
+
+    output.innerHTML = outputHtml;
+  }
+
+  function displayConfigOutput() {
+    const selectedDevices = getSelectedOptions("deviceSelect");
+    let outputHtml = "<h4>Configuration for Selected Devices:</h4>";
+    $.post({
+      url: "/viewConfig",
+      data: JSON.stringify({
+
+        devices: selectedDevices,
+
+      }),
+      contentType: "application/json",
+      dataType: "json"
+    })
+      .done(function (response) {
+        console.log("Success:", response);
+      })
+      .fail(function (jqXHR, textStatus, errorThrown) {
+        console.error("Error:", textStatus, errorThrown);
+      });
+    selectedDevices.forEach(function (device) {
+      outputHtml +=
+        "<p><strong>" +
+        device +
+        ":</strong> Configuration details would be displayed here.</p>";
+    });
+    configOutput.innerHTML = outputHtml;
+  }
+
+  enableLatency.addEventListener("change", function () {
+    sliderContainer.style.display = this.checked ? "block" : "none";
+    rangeSlider.required = this.checked;
+  });
+
+  disableLatency.addEventListener("change", function () {
+    sliderContainer.style.display = "none";
+    rangeSlider.required = false;
+  });
+
+  rangeSlider.addEventListener("input", function () {
+    sliderValue.textContent = this.value;
+  });
+
+  latencyForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    hideNotification();
+    output.innerHTML = "";
+
+    if (!document.querySelector('input[name="latencyRadio"]:checked')) {
+      showNotification("Please select a latency option.");
+      return;
+    }
+
+    if (getSelectedOptions("multiSelect").length === 0) {
+      showNotification(
+        "Please select at least one option from the multiselect."
+      );
+      return;
+    }
+
+    if (enableLatency.checked && !rangeSlider.value) {
+      showNotification("Please set a value for the slider.");
+      return;
+    }
+
+    displayOutput();
+  });
+
+  configForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (getSelectedOptions("deviceSelect").length === 0) {
+      configOutput.innerHTML =
+        '<div class="alert alert-danger">Please select at least one device.</div>';
+      return;
+    }
+    displayConfigOutput();
+  });
+});
+
+

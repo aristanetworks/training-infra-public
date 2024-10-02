@@ -384,6 +384,73 @@ class ResetLabHandler(tornado.web.RequestHandler):
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
 
 
+class ToolsHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            # Parse the JSON body of the request
+            data = json.loads(self.request.body)
+            
+            # Extract the three parameters
+            changeLatency = data.get('changeLatency', False)
+            devices = data.get('devices', [])
+            score = data.get('score', 0)
+            import time
+            time.sleep(5)
+            
+            # Prepare the response
+            response = {
+                "changeLatency": changeLatency,
+                "devices": devices,
+                "score": score,
+                "message": "Parameters received successfully"
+            }
+            
+            # Send the response
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps(response))
+        
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON in request body"})
+        except ValueError as e:
+            self.set_status(400)
+            self.write({"error": str(e)})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": "Internal server error"})
+
+class ViewConfigHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            # Parse the JSON body of the request
+            data = json.loads(self.request.body)
+            
+            # Extract the three parameters
+            devices = data.get('devices', False)
+           
+        
+            import time
+            time.sleep(5)
+            # Prepare the response
+            response = {
+                "devices": devices,
+                "message": "Parameters received successfully"
+            }
+            
+            # Send the response
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps(response))
+        
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON in request body"})
+        except ValueError as e:
+            self.set_status(400)
+            self.write({"error": str(e)})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": "Internal server error"})
+
 
 if __name__ == "__main__":
     settings = {
@@ -401,6 +468,8 @@ if __name__ == "__main__":
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
+        (r'/tools', ToolsHandler),
+        (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
     ], **settings)
     app.listen(PORT)
