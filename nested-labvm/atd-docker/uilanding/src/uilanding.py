@@ -15,6 +15,8 @@ import docker
 import urllib3
 import traceback
 import os
+import subprocess
+import time
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -394,14 +396,18 @@ class ToolsHandler(tornado.web.RequestHandler):
             changeLatency = data.get('changeLatency', False)
             devices = data.get('devices', [])
             score = data.get('score', 0)
-            import time
-            time.sleep(5)
+            result = subprocess.run(f'please update code {"ENABLE" if changeLatency else "DISABLE"} -d {score} -i {",".join(devices)}"',
+                shell=True,
+                capture_output=True,
+                text=True
+            )
             
             # Prepare the response
             response = {
                 "changeLatency": changeLatency,
                 "devices": devices,
                 "score": score,
+                "result" : result.stdout,
                 "message": "Parameters received successfully"
             }
             
@@ -427,13 +433,15 @@ class ViewConfigHandler(tornado.web.RequestHandler):
             
             # Extract the three parameters
             devices = data.get('devices', False)
-           
-        
-            import time
-            time.sleep(5)
+            result = subprocess.run(f'please update code "sudo -S python3 /home/atdadmin/change-latency.py "SHOW" -i {",".join(devices)}"',
+                shell=True,
+                capture_output=True,
+                text=True
+            )
             # Prepare the response
             response = {
                 "devices": devices,
+                "result" : result.stdout,
                 "message": "Parameters received successfully"
             }
             

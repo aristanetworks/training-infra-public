@@ -95,7 +95,8 @@ document.addEventListener("DOMContentLoaded", function () {
     ).value;
     const selected = getSelectedOptions("multiSelect");
     const sliderValue = rangeSlider.value;
-
+    let outputHtml = "<h4>your request is in process</h4>";
+    output.innerHTML = outputHtml;
     $.post({
       url: "/tools",
       data: JSON.stringify({
@@ -107,29 +108,36 @@ document.addEventListener("DOMContentLoaded", function () {
       dataType: "json"
     })
       .done(function (response) {
-        console.log("Success:", response);
+
+        let outputHtml = "<h2>Latency Change Results:</h2>";
+        //let outputHtml = "<p><strong>Latency:</strong> " + response['changeLatency'] ? 'Enable' : 'Disable' + "</p>";
+        outputHtml +=
+          "<p><strong>Selected Devices:</strong> " +
+          response['devices'].join(", ") +
+          "</p>";
+        if (latency === "enable") {
+          outputHtml +=
+            "<p><strong>Latency Value:</strong> " + response['score'] + " ms</p>";
+        }
+        outputHtml += "<p><strong>Result:</strong> " + response['result'].replace(/\n/g, '<br>') + "</p>";
+
+        output.innerHTML = outputHtml;
       })
       .fail(function (jqXHR, textStatus, errorThrown) {
         console.error("Error:", textStatus, errorThrown);
+
+        let outputHtml = "<h4>Something went wrong, Try again.</h4>";
+        output.innerHTML = outputHtml;
       });
 
-    let outputHtml = "<h4>Latency Change Results:</h4>";
-    outputHtml += "<p><strong>Latency:</strong> " + latency + "</p>";
-    outputHtml +=
-      "<p><strong>Selected Devices:</strong> " +
-      selected.join(", ") +
-      "</p>";
-    if (latency === "enable") {
-      outputHtml +=
-        "<p><strong>Latency Value:</strong> " + sliderValue + "</p>";
-    }
 
-    output.innerHTML = outputHtml;
   }
 
   function displayConfigOutput() {
     const selectedDevices = getSelectedOptions("deviceSelect");
-    let outputHtml = "<h4>Configuration for Selected Devices:</h4>";
+    let outputHtml = "<h4>your request is in process</h4>";
+    configOutput.innerHTML = outputHtml;
+
     $.post({
       url: "/viewConfig",
       data: JSON.stringify({
@@ -142,17 +150,17 @@ document.addEventListener("DOMContentLoaded", function () {
     })
       .done(function (response) {
         console.log("Success:", response);
+        let outputHtml = "<h4>Configuration for Selected Devices:</h4>";
+        outputHtml +=
+          "<p><strong>  Result :</strong> " + response['result'] + "</p>";
+        configOutput.innerHTML = outputHtml;
       })
       .fail(function (jqXHR, textStatus, errorThrown) {
         console.error("Error:", textStatus, errorThrown);
+        let outputHtml = "<h4>Something went wrong, Try again.</h4>";
+        configOutput.innerHTML = outputHtml;
       });
-    selectedDevices.forEach(function (device) {
-      outputHtml +=
-        "<p><strong>" +
-        device +
-        ":</strong> Configuration details would be displayed here.</p>";
-    });
-    configOutput.innerHTML = outputHtml;
+
   }
 
   enableLatency.addEventListener("change", function () {
