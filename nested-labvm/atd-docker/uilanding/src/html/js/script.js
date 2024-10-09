@@ -150,9 +150,9 @@ document.addEventListener("DOMContentLoaded", function () {
     })
       .done(function (response) {
         console.log("Success:", response);
-        let outputHtml = "<h4>Configuration for Selected Devices:</h4>";
+        let outputHtml = "<h2>Configuration for Selected Devices:</h2>";
         outputHtml +=
-          "<p><strong>  Result :</strong> " + response['result'] + "</p>";
+          "<p><strong>  Result :</strong> " + response['result'].replace(/\n/g, '<br>') + "</p>";
         configOutput.innerHTML = outputHtml;
       })
       .fail(function (jqXHR, textStatus, errorThrown) {
