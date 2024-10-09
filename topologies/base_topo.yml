@@ -454,7 +454,7 @@ topologies:
     title: 'Training Network to Code'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level3v2:
     dev:
@@ -492,7 +492,7 @@ topologies:
     title: 'Training Level 3 v2'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-1-3:
     dev:
@@ -530,7 +530,7 @@ topologies:
     title: 'Training Level 1-3'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level1:
     dev:
@@ -608,7 +608,7 @@ topologies:
     title: 'Training Level 1 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level1-exam:
     dev:
@@ -656,7 +656,7 @@ topologies:
     title: 'Training Level 1 Exam'
     disk_size: 500
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level1-exam-2:
     dev:
@@ -724,7 +724,7 @@ topologies:
     title: 'Training Level 1 Exam -2'
     disk_size: 500
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level2:
     dev:
@@ -792,7 +792,7 @@ topologies:
     title: 'Training Level 2 Lab'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level2-exam:
     dev:
@@ -830,7 +830,7 @@ topologies:
     title: 'Training Level 2 Exam'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level2-exam-2:
     dev:
@@ -888,7 +888,7 @@ topologies:
     title: 'Training Level 2 Exam Exam Topology 2'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level3:
     dev:
@@ -1094,7 +1094,7 @@ topologies:
     title: 'Training Level 3 Exam'
     disk_size: 500
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level3-2:
     dev:
@@ -1162,7 +1162,7 @@ topologies:
     title: 'Training Level 3 Exam 2'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level4:
     dev:
@@ -1245,7 +1245,7 @@ topologies:
     title: 'Training Level 4 Lab'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level4-v2:
     dev:
@@ -1303,7 +1303,7 @@ topologies:
     title: 'Training Level 4 Lab'
     disk_size: 500
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level4-exam:
     dev:
@@ -1361,7 +1361,7 @@ topologies:
     title: 'Training Level 4 Exam'
     disk_size: 500
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level5:
     dev:
@@ -1441,7 +1441,7 @@ topologies:
     title: 'Training Level 5 Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins,lab_status, lab_grading]
+    disable_links: [jenkins,lab_status, lab_grading, Tools]
     labguides: self
   training-level7-part2:
     dev:
@@ -1479,7 +1479,7 @@ topologies:
     title: 'Training Level 7 Lab Part 2'
     disk_size: 500
     access: standard
-    disable_links: [labguides, jenkins,lab_status, lab_grading]
+    disable_links: [labguides, jenkins,lab_status, lab_grading, Tools]
     labguides: self
     
   training-level7:
@@ -1604,7 +1604,7 @@ topologies:
     title: 'Training Level 7 Lab'
     disk_size: 500
     access: standard
-    disable_links: [ jenkins,lab_status, lab_grading]
+    disable_links: [ jenkins,lab_status, lab_grading, Tools]
     labguides: self
   training-level7-part3:
     dev:
@@ -1718,7 +1718,7 @@ topologies:
     title: 'Training Level 7 - Part 3 Lab'
     disk_size: 500
     access: standard
-    disable_links: [jenkins, lab_status, lab_grading]
+    disable_links: [jenkins, lab_status, lab_grading, Tools]
     labguides: self
   training-level-1-3-container-labs:
     dev:
@@ -1800,7 +1800,7 @@ topologies:
     title: 'Training Level 1-3 Container labs'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-1-3-cisco-labs:
     dev:
@@ -1838,7 +1838,7 @@ topologies:
     title: 'Training Level 1-3 cisco labs'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-1-cl:
     dev:
@@ -1910,7 +1910,7 @@ topologies:
     title: 'Training Level - 1'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-2-cl:
     dev:
@@ -1982,7 +1982,7 @@ topologies:
     title: 'Training Level - 2'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-3-cl:
     dev:
@@ -2054,7 +2054,7 @@ topologies:
     title: 'Training Level - 3'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
 
   training-level-5-cl:
@@ -2127,7 +2127,7 @@ topologies:
     title: 'Training Level - 5'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
     
   training-fxg:
@@ -2194,7 +2194,7 @@ topologies:
     title: 'Training FXG'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-fxf:
     dev:
@@ -2260,7 +2260,7 @@ topologies:
     title: 'Training FXF'
     disk_size: 300
     access: standard
-    disable_links: [labguides, jenkins, lab_grading, cvaas]
+    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-avd:
     dev:
@@ -2298,7 +2298,7 @@ topologies:
     title: 'AVD - Arista Validated Design'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-cvp:
     dev:
@@ -2336,7 +2336,7 @@ topologies:
     title: 'CVP - CloudVision Portal'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level1-me:
     dev:
@@ -2374,7 +2374,7 @@ topologies:
     title: 'Training Level 1 Lab Media and Entertainment'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level7-part2-Test2:
     dev:
@@ -2412,7 +2412,7 @@ topologies:
     title: 'Level 7 part-2 Test -2'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level7-part2-v3:
     dev:
@@ -2450,7 +2450,7 @@ topologies:
     title: 'Level 7 part-2 V3'
     disk_size: 300
     access: standard
-    disable_links: [ jenkins, lab_grading, cvaas]
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-1-mini-1:
     dev:
@@ -2488,7 +2488,7 @@ topologies:
     title: 'Training Level 1 Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-1-mini-2:
     dev:
@@ -2526,7 +2526,7 @@ topologies:
     title: 'Training Level 1 Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-bgp-custom:
     dev:
@@ -2564,7 +2564,7 @@ topologies:
     title: 'BGP Custom Training Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-labguides-test:
     dev:
@@ -2602,7 +2602,7 @@ topologies:
     title: 'Labguides test Lab'
     disk_size: 50
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-x-cl:
     dev:
@@ -2681,7 +2681,7 @@ topologies:
     title: 'Training Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-x-cl-exam:
     dev:
@@ -2719,7 +2719,7 @@ topologies:
     title: 'Training Lab for Exam'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, cvaas]
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-path-finder:
     dev:
