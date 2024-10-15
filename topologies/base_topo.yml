@@ -2766,7 +2766,7 @@ topologies:
             resources:
               cpu: 128
               ram: 512
-            branch: v2023.2-0528024
+            branch: v2023.2-090424
             orderable: true
             image: base-veos-training-path-finder-2023-2-4321-20240906-092335
             eos:
