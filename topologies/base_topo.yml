@@ -2744,14 +2744,14 @@ topologies:
               cpu: 48
               ram: 110
               disk: 600
-              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20240716-eos
+              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
             resources_cvp:
               cpu: 48
               ram: 110
               disk: 100
-              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20240716-cvp
+              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
             branch: nested/2023.2-dual
-            image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20240716-eos
+            image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
             orderable: true
             eos:
               - 4.30.1F     
@@ -2767,8 +2767,25 @@ topologies:
               cpu: 128
               ram: 512
             branch: v2023.2-0528024
-            orderable: false
-            image: base-veos-training-path-finder-2023-2-4321-20240708
+            orderable: true
+            image: base-veos-training-path-finder-2023-2-4321-20240906-092335
+            eos:
+              - 4.32.1F
+          2023.2.0-dual:
+            schema: 2
+            resources_eos:
+              cpu: 48
+              ram: 110
+              disk: 600
+              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
+            resources_cvp:
+              cpu: 48
+              ram: 110
+              disk: 100
+              image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
+            branch: nested/2023.2-dual
+            image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
+            orderable: true
             eos:
               - 4.32.1F
     desc: 'Training Lab Pathfinder. For use by the Arista Training Team.'
