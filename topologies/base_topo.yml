@@ -2741,13 +2741,13 @@ topologies:
           2023.2.0-dual:
             schema: 2
             resources_eos:
-              cpu: 48
+              cpu: 80
               ram: 110
               disk: 600
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
             resources_cvp:
               cpu: 48
-              ram: 110
+              ram: 60
               disk: 100
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
             branch: nested/2023.2-dual
@@ -2774,13 +2774,13 @@ topologies:
           2023.2.0-dual:
             schema: 2
             resources_eos:
-              cpu: 48
+              cpu: 80
               ram: 110
               disk: 600
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
             resources_cvp:
               cpu: 48
-              ram: 110
+              ram: 60
               disk: 100
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
             branch: nested/2023.2-dual
