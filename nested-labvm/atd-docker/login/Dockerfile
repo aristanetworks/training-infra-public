@@ -49,6 +49,10 @@ COPY src/uploadRunningConfigs.py /usr/local/bin
 
 COPY src/update-token.py /usr/local/bin
 
+COPY src/reset-cvp.py /usr/local/bin
+
+RUN chmod +x /usr/local/bin/reset-cvp.py
+
 RUN chmod +x /usr/local/bin/update-token.py
 
 RUN chmod +x /usr/local/bin/lab_status.py
