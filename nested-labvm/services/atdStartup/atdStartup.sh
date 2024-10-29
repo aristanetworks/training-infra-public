@@ -88,6 +88,10 @@ if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
     sed -i 's/Management1/Management0/g' /opt/atd/topologies/$TOPO/configlets/*
 fi
 
+if [ "$EOS_TYPE" = 'veos' ]; then
+    sed -i 's/Management0/Management1/g' /opt/atd/topologies/$TOPO/configlets/*
+fi
+
 # Copy topo image to app directory
 rsync -av /opt/atd/topologies/$TOPO/atd-topo.png /opt/atd/topologies/$TOPO/files/apps/uilanding
 
