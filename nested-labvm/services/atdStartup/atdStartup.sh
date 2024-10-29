@@ -89,7 +89,7 @@ if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
 fi
 
 if [ "$EOS_TYPE" = 'veos' ]; then
-    sed -i 's/Management0/Management1/g' /opt/atd/topologies/$TOPO/configlets/*
+    sed -i 's/Management 0/Management1/g' /opt/atd/topologies/$TOPO/configlets/*
 fi
 
 # Copy topo image to app directory
