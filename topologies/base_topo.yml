@@ -2606,6 +2606,20 @@ topologies:
     labguides: self
   training-level-x-cl:
     dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-lx-veos-2024-3-4301-20241031
+            eos:
+              - 4.30.1F        
       ceos:
         cpu: 40
         ram: 110
