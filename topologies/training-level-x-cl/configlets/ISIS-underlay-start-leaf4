@@ -1,0 +1,29 @@
+int e3
+no switchport
+ip address 10.10.1.14/30
+mtu 15006
+isis enable META
+int e4
+no switchport
+ip address 10.10.2.14/30
+mtu 1500
+isis enable META
+int e5
+no switchport
+ip address 10.10.3.14/30
+mtu 1500
+isis enable META
+int e6
+no switchport
+ip address 10.10.4.14/30
+mtu 1500
+isis enable META
+int e7
+int loopback 0
+ip address 10.14.14.14/32
+ip routing
+router isis META
+net 49.0001.0000.0000.0014.00
+address-family ipv4 unicast
+is-type level-1
+redistribute connected
