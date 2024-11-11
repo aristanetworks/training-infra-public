@@ -1,4 +1,4 @@
-
+vlan 101
 !
 interface Ethernet1
    shutdown
