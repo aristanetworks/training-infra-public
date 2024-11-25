@@ -1,0 +1,22 @@
+vlan 10
+name VLAN10
+
+interface eth 3,4,5,6
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10
+  no shutdown
+
+interface eth 1,2
+  shutdown
+  interface eth 7-10
+  shutdown
+
+interface Ethernet7
+  switchport
+  switchport mode access
+  switchport access vlan 10
+  spanning-tree portfast
+  spanning-tree bpduguard enable
+  spanning-tree guard root
+  no shut

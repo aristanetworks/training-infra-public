@@ -1,0 +1,88 @@
+ vlan 30
+ vlan 40
+
+interface Port-Channel40
+  description Leaf 3 and Leaf 4 MLAG PortChannel 40 to Spine  MLAG
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 30,40
+  mlag 40
+  no shut
+
+
+interface Ethernet3
+  channel-group 40 mode active
+
+
+
+interface Ethernet4
+  channel-group 40  mode active
+
+
+  vlan 40
+
+interface Port-Channel2
+ description MLAG Connection to Host4
+ switchport
+ switchport mode access
+ switchport access vlan 40
+ mlag 2
+ no shut
+
+
+
+interface Ethernet9
+ description LACP Connection to Host 4
+ channel-group 2 mode active
+ 
+ vlan 30
+
+interface Port-Channel1
+  description MLAG Connection to Host3
+  switchport
+  switchport mode access
+  switchport access vlan 30
+  mlag 1
+  no shut
+
+interface Ethernet7
+  description LACP Connection to Host 3
+  channel-group 1 mode active
+  
+   vlan 4094
+  name MLAG
+  trunk group MLAGVLAN
+
+ spanning-tree mode mstp
+ no spanning-tree vlan-id 4094
+
+ ip virtual-router mac-address 001c.7300.0097
+
+interface Vlan4094
+  ip address 172.16.50.2/30
+  no autostate
+
+interface Port-Channel200
+  description MLAG Peer Link
+  switchport
+  switchport mode trunk
+  switchport trunk group MLAGVLAN
+  no shut
+
+interface Ethernet1
+  description MLAG Peer Link Member
+  channel-group 200 mode active
+
+
+interface Ethernet2
+  description MLAG Peer Link Member
+  channel-group 200 mode active
+
+
+mlag configuration
+  domain-id MLAGLeaf3Leaf4
+  local-interface Vlan4094
+  peer-address 172.16.50.1
+  peer-link Port-Channel200
+  primary-priority 20
+  heartbeat-interval 2500

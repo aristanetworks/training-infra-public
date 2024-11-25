@@ -1,0 +1,199 @@
+vlan 4093
+vlan 4094
+ trunk group MLAGVLAN
+
+spanning-tree mode mstp
+no spanning-tree vlan-id 4094
+
+interface Vlan4093
+ no autostate
+ ip address 172.16.4.1/30
+
+interface Vlan4094
+ no autostate
+ ip address 172.16.40.1/30
+
+interface Loopback0
+ ip address 10.11.11.11/32
+
+interface Loopback1
+  ip address 10.51.51.51/32
+
+interface Port-Channel 100
+ description Peer Link Leaf 1 and Leaf 2
+ switchport
+ switchport mode trunk
+ switchport trunk group MLAGVLAN
+ no shut
+
+ip virtual-router mac-address 00:1c:73:00:00:99
+
+interface Ethernet1
+ description Peer Link PortChannel 100
+ channel-group 100 mode active
+
+interface Ethernet2
+ description Peer Link PortChannel 100
+ channel-group 100 mode active
+
+interface Ethernet3
+  no switchport
+  ip address 10.10.1.2/30
+interface Ethernet4
+  no switchport
+  ip address 10.10.2.2/30
+interface Ethernet5
+  no switchport
+  ip address 10.10.3.2/30
+interface Ethernet6
+  no switchport
+  ip address 10.10.4.2/30
+
+mlag configuration
+ domain-id DomainLeaf1Leaf2
+ local-interface Vlan4094
+ peer-address 172.16.40.2
+ peer-link Port-Channel100
+ 
+service routing protocols model multi-agent
+!
+ip routing
+!
+router bgp 65001
+ maximum-paths 4 ecmp 4
+ no bgp default ipv4-unicast
+ router-id 10.11.11.11
+ distance bgp 20 200 200
+ bgp log-neighbor-changes
+
+
+ neighbor 10.10.1.1 description Spine1
+ neighbor 10.10.2.1 description Spine2
+ neighbor 10.10.3.1 description Spine3
+ neighbor 10.10.4.1 description Spine4
+
+ neighbor 10.10.1.1 peer group SpineUnderlay
+ neighbor 10.10.2.1 peer group SpineUnderlay
+ neighbor 10.10.3.1 peer group SpineUnderlay
+ neighbor 10.10.4.1 peer group SpineUnderlay
+
+ neighbor SpineUnderlay remote-as 65100
+ neighbor SpineUnderlay  maximum-routes 12000
+ neighbor SpineUnderlay  send-community
+
+ neighbor 172.16.4.2 remote-as 65001
+ neighbor 172.16.4.2  maximum-routes 12000
+ neighbor 172.16.4.2 send-community extended
+ neighbor 172.16.4.2 next-hop-self
+ neighbor 172.16.4.2 description iBGP_Leaf2Underlay
+
+
+address-family ipv4
+ network 10.11.11.11/32
+ network 10.51.51.51/32
+ network 172.16.4.1/30
+ neighbor SpineUnderlay activate
+ neighbor  172.16.4.2 activate
+ redistribute connected
+
+router bgp 65001
+ neighbor SpineOverlay peer group
+ neighbor SpineOverlay remote-as 65100
+ neighbor SpineOverlay update-source Loopback0
+ neighbor SpineOverlay ebgp-multihop 3
+ neighbor SpineOverlay send-community extended
+ neighbor SpineOverlay maximum-routes 0
+
+
+ neighbor 10.21.21.21  peer group SpineOverlay
+ neighbor 10.21.21.21  description Spine1Overlay
+ neighbor 10.22.22.22  peer group SpineOverlay
+ neighbor 10.22.22.22  description Spine2Overlay
+ neighbor 10.23.23.23  peer group SpineOverlay
+ neighbor 10.23.23.23  description Spine3Overlay
+ neighbor 10.24.24.24  peer group SpineOverlay
+ neighbor 10.24.24.24  description Spine4Overlay
+
+
+address-family evpn
+ neighbor SpineOverlay activate
+
+vrf instance VRF-C
+ip routing vrf VRF-C
+!
+vlan 101
+vlan 201
+!
+interface vlan 101
+ no autostate
+ vrf VRF-C
+ ip virtual-router address 172.16.11.254
+ ip address 172.16.11.1/24
+!
+interface vlan 201
+ vrf VRF-C
+ no autostate
+ ip virtual-router address 172.16.21.254
+ ip address 172.16.21.1/24
+
+ip virtual-router mac-address 00:1c:73:00:00:99
+
+interface Vxlan1
+
+ vxlan source-interface Loopback1
+ vxlan virtual-router encapsulation mac-address 00:1c:73:00:00:99
+ vxlan udp-port 4789
+ vxlan vlan 101 vni 1111
+ vxlan vlan 201 vni 2222
+ vxlan vrf VRF-C vni 7777
+
+router bgp 65001
+
+vlan 101
+   rd 10.11.11.11:11111
+   route-target both 1111:1111
+   redistribute learned
+
+vlan 201
+   rd 10.11.11.11:2222
+   route-target both 2222:2222
+   redistribute learned
+
+vrf VRF-C
+   rd 10.11.11.11:7777
+   route-target export evpn 7777:7777
+   route-target import evpn 7777:7777
+   redistribute connected
+   redistribute attached-host
+
+vlan 101
+vlan 201
+
+interface Port-Channel1
+ description MLAG PortChannel to Host 1
+ switchport
+ switchport access vlan 101
+ mlag 1
+ no shut
+
+interface Port-Channel2
+ description MLAG PortChannel to Host 2
+ switchport
+ switchport access vlan 201
+ mlag 2
+ no shut
+
+
+interface Ethernet7
+ channel-group 1 mode active
+
+interface Ethernet9
+ channel-group 2 mode active
+
+interface Ethernet8
+ shutdown
+
+interface Ethernet10
+ shutdown
+
+
