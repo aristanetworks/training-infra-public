@@ -274,13 +274,13 @@ nodes:
         - neighborDevice: spine1
           neighborPort: Ethernet7
           port: Ethernet1
-        - neighborDevice: spines2
+        - neighborDevice: spine2
           neighborPort: Ethernet7
           port: Ethernet2
-        - neighborDevice: spines3
+        - neighborDevice: spine3
           neighborPort: Ethernet7
           port: Ethernet3
-        - neighborDevice: spines4
+        - neighborDevice: spine4
           neighborPort: Ethernet7
           port: Ethernet4
   - router2:
@@ -290,12 +290,12 @@ nodes:
         - neighborDevice: spine1
           neighborPort: Ethernet8
           port: Ethernet1
-        - neighborDevice: spines2
+        - neighborDevice: spine2
           neighborPort: Ethernet8
           port: Ethernet2
-        - neighborDevice: spines3
+        - neighborDevice: spine3
           neighborPort: Ethernet8
           port: Ethernet3
-        - neighborDevice: spines4
+        - neighborDevice: spine4
           neighborPort: Ethernet8
           port: Ethernet4
