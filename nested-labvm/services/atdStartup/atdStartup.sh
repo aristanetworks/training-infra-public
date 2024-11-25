@@ -88,10 +88,6 @@ if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
     sed -i 's/Management1/Management0/g' /opt/atd/topologies/$TOPO/configlets/*
 fi
 
-if [ "$EOS_TYPE" = 'veos' ]; then
-    sed -i 's/Management 0/Management1/g' /opt/atd/topologies/$TOPO/configlets/*
-fi
-
 # Copy topo image to app directory
 rsync -av /opt/atd/topologies/$TOPO/atd-topo.png /opt/atd/topologies/$TOPO/files/apps/uilanding
 
@@ -124,7 +120,7 @@ cd /opt/atd/nested-labvm/atd-docker
 # Setting arista user ids for coder container
 export ArID=$(id -u arista)
 export ArGD=$(id -g arista)
-export AtID=$(id -u atdadmin)
+export AtID=$(id -u atdadmin) 
 export AtGD=$(id -g atdadmin)
 
 #docker container prune -f
