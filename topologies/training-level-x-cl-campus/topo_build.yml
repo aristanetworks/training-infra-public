@@ -15,10 +15,10 @@ nodes:
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: leaf1
-          neighborPort: Ethernet5
+          neighborPort: Ethernet4
           port: Ethernet3
         - neighborDevice: leaf2
-          neighborPort: Ethernet5
+          neighborPort: Ethernet4
           port: Ethernet4
         - neighborDevice: leaf3
           neighborPort: Ethernet5
@@ -43,10 +43,10 @@ nodes:
           neighborPort: Ethernet2
           port: Ethernet2
         - neighborDevice: leaf1
-          neighborPort: Ethernet6
+          neighborPort: Ethernet5
           port: Ethernet3
         - neighborDevice: leaf2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet5
           port: Ethernet4
         - neighborDevice: leaf3
           neighborPort: Ethernet6
@@ -117,7 +117,6 @@ nodes:
         - neighborDevice: spine2
           neighborPort: Ethernet3
           port: Ethernet5
-
   - leaf2:
       ip_addr: 192.168.0.22
       sys_mac: 00:1c:73:c2:c6:01
@@ -157,7 +156,7 @@ nodes:
           neighborPort: Ethernet5
           port: Ethernet5
         - neighborDevice: spine2
-          neighborPort: Ethernet6
+          neighborPort: Ethernet5
           port: Ethernet6
   - leaf4:
       ip_addr: 192.168.0.24
@@ -236,7 +235,7 @@ nodes:
       ip_addr: 192.168.0.51
       sys_mac: 00:1c:73:f1:c6:01
       neighbors:
-        - neighborDevice: leaf3
+        - neighborDevice: leaf1
           neighborPort: Ethernet3
           port: Ethernet1
   - host2:
@@ -278,10 +277,10 @@ nodes:
           neighborPort: Ethernet7
           port: Ethernet2
         - neighborDevice: spine3
-          neighborPort: Ethernet7
+          neighborPort: Ethernet4
           port: Ethernet3
         - neighborDevice: spine4
-          neighborPort: Ethernet7
+          neighborPort: Ethernet4
           port: Ethernet4
   - router2:
       ip_addr: 192.168.0.71
@@ -294,8 +293,8 @@ nodes:
           neighborPort: Ethernet8
           port: Ethernet2
         - neighborDevice: spine3
-          neighborPort: Ethernet8
+          neighborPort: Ethernet5
           port: Ethernet3
         - neighborDevice: spine4
-          neighborPort: Ethernet8
+          neighborPort: Ethernet5
           port: Ethernet4
