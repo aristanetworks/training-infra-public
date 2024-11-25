@@ -1,4 +1,4 @@
-hostname spine3
+hostname host5
 !
 interface Management 0
   vrf MGMT

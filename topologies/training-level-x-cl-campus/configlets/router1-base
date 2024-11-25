@@ -1,4 +1,4 @@
-hostname spine3
+hostname router-1
 !
 interface Management 0
   vrf MGMT
