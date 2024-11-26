@@ -2796,7 +2796,7 @@ topologies:
               ram: 110
             branch: nested/2024.3
             orderable: true
-            image: base-ceos-training-lx-cl-campus-2024-3-4301-20241125
+            image: base-ceos-training-lx-cl-campus-2024-3-4321-20241126
             eos:
               - 4.32.1F
     prod:
@@ -2811,7 +2811,7 @@ topologies:
               ram: 64
             branch: v2023.2-110424
             orderable: false
-            image: base-ceos-training-lx-cl-campus-2024-3-4301-20241125
+            image: base-ceos-training-lx-cl-campus-2024-3-4321-20241126
             eos:
               - 4.32.1F  
     desc: 'Training Lab for Campus. For use by the Arista Training Team.'
