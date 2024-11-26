@@ -2745,6 +2745,82 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
+  training-level-x-cl-veos:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: true
+            image: base-veos-training-lx-veos-2024-3-4301-20241125
+            eos:
+              - 4.32.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-110424
+            orderable: false
+            image: base-veos-training-lx-veos-2024-3-4301-20241125
+            eos:
+              - 4.32.1F  
+    desc: 'Training Lab. For use by the Arista Training Team.'
+    name: 'Training Lab veos'
+    title: 'Training Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    labguides: self
+  training-level-x-cl-campus:
+    dev:
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: true
+            image: base-ceos-training-lx-cl-campus-2024-3-4301-20241125
+            eos:
+              - 4.32.1F
+    prod:
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2023.2-110424
+            orderable: false
+            image: base-ceos-training-lx-cl-campus-2024-3-4301-20241125
+            eos:
+              - 4.32.1F  
+    desc: 'Training Lab for Campus. For use by the Arista Training Team.'
+    name: 'Training Lab campus'
+    title: 'Training Lab for campus'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    labguides: self    
   training-level-path-finder:
     dev:
       veos:
