@@ -2776,7 +2776,7 @@ topologies:
         cpu: 60
         ram: 110
         cvp:
-          2023.2.0:
+          2024.3.0:
             schema: 1
             resources:
               cpu: 48
