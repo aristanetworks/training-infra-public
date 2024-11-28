@@ -2786,9 +2786,9 @@ topologies:
             image: base-veos-training-lx-veos-2024-3-4301-20241125
             eos:
               - 4.32.1F  
-    desc: 'Training Lab. For use by the Arista Training Team.'
-    name: 'Training Lab veos'
-    title: 'Training Lab'
+    desc: 'Training Lab vEOS. For use by the Arista Training Team.'
+    name: 'Training Lab vEOS'
+    title: 'Training Lab vEOS'
     disk_size: 300
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
