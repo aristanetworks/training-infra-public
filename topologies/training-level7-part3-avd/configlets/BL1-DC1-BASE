@@ -1,6 +1,6 @@
 service routing protocols model multi-agent
 !
-hostname GW11
+hostname BL1-DC1
 !
 interface Management0
    vrf MGMT
