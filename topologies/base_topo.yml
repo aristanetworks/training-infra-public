@@ -2780,7 +2780,7 @@ topologies:
             schema: 1
             resources:
               cpu: 48
-              ram: 64
+              ram: 95
             branch:  v2024.3-112824
             orderable: true
             image: base-veos-training-lx-veos-2024-3-4301-20241125
