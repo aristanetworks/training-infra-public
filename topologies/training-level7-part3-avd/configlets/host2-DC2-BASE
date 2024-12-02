@@ -9,4 +9,7 @@ interface Management0
    ip address 192.168.0.54/24
 !
 ip routing
-
+!
+interface Ethernet 3,4
+  shutdown
+!
