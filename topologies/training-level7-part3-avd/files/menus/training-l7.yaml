@@ -2,7 +2,7 @@
       reset:
         description: "Reset All Devices to Base Lab"
       Start-of-Exam:
-        description: "Reset All Device to the Start of the L7 Part 2 Exam"
+        description: "Reset All Device to the Start of the L7 Part 3 AVD Exam"
     labconfiglets:
       reset:
         leaf1-DC1:
