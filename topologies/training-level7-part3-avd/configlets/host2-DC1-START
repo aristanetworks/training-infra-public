@@ -14,27 +14,26 @@ interface port-Channel 10
 !
 vlan 16
 name VLAN16
-
+!
 vlan 17
 name VLAN17
-
+!
 vrf instance tenant-a
 ip routing vrf tenant-a
-
+!
 interface VLAN16
 vrf tenant-a
 ip address 172.16.16.52/24
 no autostate
 no shutdown
-
+!
 interface VLAN17
 vrf tenant-a
 ip address 172.16.17.52/24
 no autostate
 no shutdown
-
-
+!
 ip route vrf tenant-a 172.16.16.0/24 172.16.16.254
 ip route vrf tenant-a 172.16.17.0/24 172.16.17.254
-
+!
 
