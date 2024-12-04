@@ -2779,7 +2779,7 @@ topologies:
           2024.3.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 60
               ram: 95
             branch:  v2024.3-112824
             orderable: true
