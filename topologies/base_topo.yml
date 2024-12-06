@@ -1606,6 +1606,45 @@ topologies:
     access: standard
     disable_links: [ jenkins,lab_status, lab_grading, Tools]
     labguides: self
+  training-level7-part3-avd:
+    dev:
+      ceos:
+        cpu: 80
+        ram: 110
+        cvp:
+         2023.2.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l7-part-3-avd-2023-2-4321-20241205
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 80
+        ram: 110
+        cvp:
+          2020.2.3:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: v2023.2-12062024
+            orderable: false
+            image: base-ceos-training-l7-part-3-avd-2023-2-4321-20241205
+            eos:
+              - 4.25.1F
+              - 4.26.0F              
+    desc: 'Level 7 - Part 3 AVD Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 7 - Part 3 AVD'
+    title: 'Training Level 7 - Part 3 Lab AVD'
+    disk_size: 500
+    access: standard
+    disable_links: [jenkins, lab_status, lab_grading, Tools]
+    labguides: self
   training-level7-part3:
     dev:
       ceos:
