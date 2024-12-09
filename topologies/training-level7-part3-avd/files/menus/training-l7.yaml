@@ -46,11 +46,11 @@
         host2-DC3:
           - host2-DC3-BASE
         GW11:
-          - GW11-BASE
+          - BL1-DC1-BASE
         GW12:
           - GW12-BASE
         GW21:
-          - GW21-BASE
+          - BL1-DC2-BASE
         GW22:
           - GW22-BASE
         GW31:
