@@ -1,7 +1,5 @@
     lab_list:
       reset:
-        description: "Reset All Devices to Base Lab"
-      Start-of-Exam:
         description: "Reset All Device to the Start of the L7 Part 3 AVD Exam"
     labconfiglets:
       reset:
@@ -45,82 +43,13 @@
           - host1-DC3-BASE
         host2-DC3:
           - host2-DC3-BASE
-        GW11:
+        BL1-DC1:
           - GW11-BASE
-        GW12:
+        BL2-DC1:
           - GW12-BASE
-        GW21:
+        BL1-DC2:
           - GW21-BASE
-        GW22:
-          - GW22-BASE
-        GW31:
-          - GW31-BASE
-        P1:
-          - P1-BASE
-        P2:
-          - P2-BASE
-        P3:
-          - P3-BASE
-        P4:
-          - P4-BASE
-        RR:
-          - RR-BASE
-        spine1-DC3:
-          - spine1-DC3-BASE
-        spine2-DC3:
-          - spine2-DC3-BASE
-        leaf1-DC3:
-          - leaf1-DC3-BASE
-        leaf2-DC3:
-          - leaf2-DC3-BASE
-      Start-of-Exam:
-        leaf1-DC1:
-          - leaf1-DC1-BASE
-        leaf2-DC1:
-          - leaf2-DC1-BASE
-        leaf3-DC1:
-          - leaf3-DC1-BASE
-        leaf4-DC1:
-          - leaf4-DC1-BASE
-        spine1-DC1:
-          - spine1-DC1-BASE
-        spine2-DC1:
-          - spine2-DC1-BASE
-        spine3-DC1:
-          - spine3-DC1-BASE
-        host1-DC1:
-          - host1-DC1-BASE
-        host2-DC1:
-          - host2-DC1-BASE
-        leaf1-DC2:
-          - leaf1-DC2-BASE
-        leaf2-DC2:
-          - leaf2-DC2-BASE
-        leaf3-DC2:
-          - leaf3-DC2-BASE
-        leaf4-DC2:
-          - leaf4-DC2-BASE
-        spine1-DC2:
-          - spine1-DC2-BASE
-        spine2-DC2:
-          - spine2-DC2-BASE
-        spine3-DC2:
-          - spine3-DC2-BASE
-        host1-DC2:
-          - host1-DC2-BASE
-        host2-DC2:
-          - host2-DC2-BASE
-        host1-DC3:
-          - host1-DC3-BASE
-        host2-DC3:
-          - host2-DC3-BASE
-        GW11:
-          - GW11-BASE
-        GW12:
-          - GW12-BASE
-        GW21:
-          - GW21-BASE
-        GW22:
+        BL2-DC2:
           - GW22-BASE
         GW31:
           - GW31-BASE
