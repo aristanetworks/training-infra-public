@@ -298,3 +298,5 @@ nodes:
         - neighborDevice: spine4
           neighborPort: Ethernet5
           port: Ethernet4
+additional_ssh_nodes:
+additional_clab_nodes:
