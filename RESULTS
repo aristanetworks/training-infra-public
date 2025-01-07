@@ -1,0 +1,53 @@
+sudo systemctl disable firewalld
+sudo systemctl stop firewalld
+sudo systemctl mask firewalld
+
+sudo systemctl enable --now nftables
+
+#Allow traffic between br-3b1c0f397574 and clab-bridge
+sudo iptables -I FORWARD -i br-6ebfa452bf06  -o clab-bridge -j ACCEPT
+sudo iptables -I FORWARD -i clab-bridge -o br-6ebfa452bf06 -j ACCEPT
+
+# Allow traffic between br-4e23182a8aca and clab-bridge
+sudo iptables -I FORWARD -i br-8db94184787d  -o clab-bridge -j ACCEPT
+sudo iptables -I FORWARD -i clab-bridge -o br-8db94184787d -j ACCEPT
+
+# Add routes for the networks
+sudo ip route add 192.168.0.0/24 dev br-8db94184787d 
+sudo ip route add 192.168.0.0/24 dev br-6ebfa452bf06 
+
+sudo docker exec atd-nginx apt update
+sudo docker exec atd-nginx apt install -y iputils-ping
+# Test connectivity
+sudo docker exec atd-nginx ping 192.168.0.21
+
+sudo docker exec atd-login sudo apt update
+sudo docker exec atd-login sudo apt install -y iputils-ping
+# Test connectivity
+sudo docker exec atd-login sudo ping 192.168.0.21
+sudo docker exec atd-login sudo ping 192.168.0.05
+
+
+networks:
+  atd_nginx:
+  clab:
+    external: true    # This references the existing containerlab network
+
+nginx:
+    networks:
+      - atd_nginx
+      - clab    # Add clab network
+
+
+to fix the issue: 
+
+
+# Delete the duplicate route
+sudo ip route del 192.168.0.0/24 dev vmgmt
+
+# Add more specific route for CVP
+sudo ip route add 192.168.0.5/32 dev vmgmt
+
+solutipon got from claud
+
+test aaa group radius arista REPLACE_PWD
