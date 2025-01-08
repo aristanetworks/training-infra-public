@@ -2690,7 +2690,7 @@ topologies:
               ram: 110
             branch: nested/2024.3
             orderable: true
-            image: base-ceos-training-lx-cl-2024-3-4301-20241029
+            image: base-ceos-training-lx-cl-alma-2024-3-4301-20250107-152059
             eos:
               - 4.30.1F              
           2024.1.2-dual:
@@ -2869,7 +2869,45 @@ topologies:
     disk_size: 300
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
-    labguides: self    
+    labguides: self  
+  training-level-x-cl-campus-veos:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: true
+            image: base-veos-training-lx-cl-campus-2024-3-4321-20250107-200616
+            eos:
+              - 4.32.1F
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2024.3-070125
+            orderable: false
+            image: base-veos-training-lx-cl-campus-2024-3-4321-20250107-200616
+            eos:
+              - 4.32.1F  
+    desc: 'Training Lab vEOS for Campus. For use by the Arista Training Team.'
+    name: 'Training Lab vEOS campus'
+    title: 'Training Lab vEOS for campus'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    labguides: self   
   training-level-path-finder:
     dev:
       veos:
