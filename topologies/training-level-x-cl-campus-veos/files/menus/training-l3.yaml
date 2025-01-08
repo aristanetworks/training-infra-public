@@ -2,6 +2,8 @@
     lab_list:
       reset:
         description: "Reset All Devices to Base Lab (reset)"
+      varp:
+        description: "Start VARP Lab"
     labconfiglets:
       reset:
         spine1:
@@ -40,4 +42,49 @@
           - router1-base
         router2: 
           - router2-base
-
+      varp:
+         spine1:
+          - spine1-base
+          - spine1-l2
+         spine2:
+          - spine2-base
+          - spine1-l2
+        spine3:
+          - spine3-base
+        spine4:
+          - spine4-base
+        leaf1:
+          - leaf1-base
+          - leaf1-l2
+        leaf2:
+          - leaf2-base
+          - leaf2-l2
+        leaf3:
+          - leaf3-base
+          - leaf3-l2
+        leaf4:
+          - leaf4-base
+          - leaf4-l2
+        leaf5:
+          - leaf5-base 
+        host1:
+          - host1-base
+        host2:
+          - host2-base
+        host3:
+          - host3-base
+        host4:
+          - host4-base
+        host5:
+          - host5-base
+        memleaf1:
+          - memleaf1-base
+          - memleaf1-l2
+        memleaf2:
+          - memleaf2-base
+          - memleaf2-l2
+        router1:
+          - router1-base
+        router2: 
+          - router2-base
+   
