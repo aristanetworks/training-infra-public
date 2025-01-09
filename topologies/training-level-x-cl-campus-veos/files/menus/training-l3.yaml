@@ -7,89 +7,89 @@
     labconfiglets:
       reset:
         spine1:
-          - spine1-base
+          - "spine1-base"
         spine2:
-          - spine2-base
+          - "spine2-base"
         spine3:
-          - spine3-base
+          - 'spine3-base"
         spine4:
-          - spine4-base
+          - 'spine4-base"
         leaf1:
-          - leaf1-base
+          - "leaf1-base"
         leaf2:
-          - leaf2-base
+          - "leaf2-base"
         leaf3:
-          - leaf3-base
+          - "leaf3-base"
         leaf4:
-          - leaf4-base
+          - "leaf4-base"
         leaf5:
-          - leaf5-base
+          - "leaf5-base"
         host1:
-          - host1-base
+          - 'host1-base"
         host2:
-          - host2-base
+          - "host2-base"
         host3:
-          - host3-base
+          - "host3-base"
         host4:
-          - host4-base
+          - "host4-base"
         host5:
-          - host5-base
+          - "host5-base"
         memleaf1:
-          - memleaf1-base
+          - "memleaf1-base"
         memleaf2:
-          - memleaf2-base
+          - "memleaf2-base"
         router1:
-          - router1-base
+          - "router1-base"
         router2: 
-          - router2-base
+          - "router2-base"
       varp:
         spine1:
-          - spine1-base
-          - spine1-varp
+          - "spine1-base"
+          - "spine1-varp"
         spine2:
-          - spine2-base
-          - spine2-varp
+          - "spine2-base"
+          - "spine2-varp"
         spine3:
-          - spine3-base
+          - "spine3-base"
         spine4:
-          - spine4-base
+          - "spine4-base"
         leaf1:
-          - leaf1-base
-          - leaf1-varp
+          - "leaf1-base"
+          - "leaf1-varp"
         leaf2:
-          - leaf2-base
-          - leaf2-varp
+          - "leaf2-base"
+          - "leaf2-varp"
         leaf3:
-          - leaf3-base
-          - leaf3-varp
+          - "leaf3-base"
+          - "leaf3-varp"
         leaf4:
-          - leaf4-base
-          - leaf4-varp
+          - "leaf4-base"
+          - "leaf4-varp"
         leaf5:
-          - leaf5-base
+          - "leaf5-base"
         host1:
-          - host1-base
-          - host1-varp
+          - "host1-base"
+          - "host1-varp"
         host2:
-          - host2-base
-          - host2-varp
+          - "host2-base"
+          - "host2-varp"
         host3:
-          - host3-base
-          - host3-varp
+          - "host3-base"
+          - "host3-varp"
         host4:
-          - host4-base
-          - host4-varp
+          - "host4-base"
+          - "host4-varp"
         host5:
-          - host5-base
+          - "host5-base"
         memleaf1:
-          - memleaf1-base
-          - memleaf1-varp
+          - "memleaf1-base"
+          - "memleaf1-varp"
         memleaf2:
-          - memleaf2-base
-          - memleaf2-varp
+          - "memleaf2-base"
+          - "memleaf2-varp"
         router1:
-          - router1-base
+          - "router1-base"
         router2: 
-          - router2-base
+          - "router2-base"
      
     
