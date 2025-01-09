@@ -51,7 +51,7 @@ interface Vlan4094
    no autostate
    ip address 169.254.0.0/31
 !
-ip routing
+
 !
 mlag configuration
    domain-id MLAG
