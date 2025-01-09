@@ -1,0 +1,15 @@
+spanning-tree mode none
+!
+vlan 30
+!
+!
+interface Ethernet1
+  switchport
+  switchport mode access
+   switchport access vlan 30
+!
+interface Vlan30
+   ip address 172.17.30.1/24
+!
+ip routing
+

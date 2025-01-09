@@ -1,0 +1,17 @@
+spanning-tree mode none
+!
+vlan 40
+!
+interface Ethernet1
+ switchport
+ switchport mode access
+  switchport access vlan 40
+  no shut
+!
+!
+interface Vlan40
+   ip address 172.17.40.1/24
+!
+ip routing
+!
+

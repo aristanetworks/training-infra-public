@@ -1,0 +1,76 @@
+!
+spanning-tree mode mstp
+no spanning-tree vlan-id 4094
+spanning-tree mst 0 priority 4096
+!
+!
+!
+vlan 4094
+   name MLAG_PEER
+   trunk group MLAG
+!
+!
+interface Port-Channel1
+   description MLAG_PEER_spine1_Po1
+   switchport mode trunk
+   switchport trunk group MLAG
+!
+interface Port-Channel3
+   description LEAF2_Po4
+   switchport trunk allowed vlan 10,20
+   switchport mode trunk
+   mlag 3
+!
+interface Port-Channel5
+   description LEAF3_Po5
+   switchport trunk allowed vlan 30,40
+   switchport mode trunk
+   mlag 5
+!
+interface Ethernet1
+   description MLAG_spine1_Ethernet1
+   channel-group 1 mode active
+!
+interface Ethernet2
+   description MLAG_spine1_Ethernet2
+   channel-group 1 mode active
+!
+interface Ethernet3
+   description TO_LEAF1_Ethernet5
+   channel-group 3 mode active
+!
+interface Ethernet4
+   description TO_LEAF2_Ethernet5
+   channel-group 3 mode active
+!
+interface Ethernet5
+   description TO_LEAF3_Ethernet6
+   channel-group 5 mode active
+!
+interface Ethernet6
+   description TO_LEAF4_Ethernet6
+   channel-group 5 mode active
+!
+interface Ethernet7
+!
+interface Ethernet8
+!
+!
+interface Vlan4094
+   description MLAG_PEER
+   mtu 1500
+   no autostate
+   ip address 169.254.0.1/31
+!
+!
+ip routing
+!
+mlag configuration
+   domain-id MLAG
+   local-interface Vlan4094
+   peer-address 169.254.0.0
+   peer-link Port-Channel1
+   reload-delay mlag 300
+   reload-delay non-mlag 330
+!
+ 

@@ -1,0 +1,20 @@
+!
+!
+spanning-tree mode none
+!
+vlan 10
+!
+!
+interface Ethernet1
+  switchport
+   switchport mode access
+   switchport access vlan 10
+  no shut
+!
+!
+interface Vlan10
+   ip address 172.17.10.1/24
+!
+ip routing
+!
+ 
