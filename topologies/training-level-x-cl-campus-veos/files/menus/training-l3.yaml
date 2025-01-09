@@ -11,9 +11,9 @@
         spine2:
           - "spine2-base"
         spine3:
-          - 'spine3-base"
+          - "spine3-base"
         spine4:
-          - 'spine4-base"
+          - "spine4-base"
         leaf1:
           - "leaf1-base"
         leaf2:
@@ -25,7 +25,7 @@
         leaf5:
           - "leaf5-base"
         host1:
-          - 'host1-base"
+          - "host1-base"
         host2:
           - "host2-base"
         host3:
