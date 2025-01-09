@@ -42,7 +42,6 @@
           - router1-base
         router2: 
           - router2-base
-    labconfiglets:
       varp:
         spine1:
           - spine1-base
