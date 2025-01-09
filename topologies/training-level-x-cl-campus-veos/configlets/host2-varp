@@ -15,4 +15,4 @@ interface Ethernet1
 interface Vlan10
    ip address 172.17.20.1/24
 !
-Ip routing 
+ip routing 
