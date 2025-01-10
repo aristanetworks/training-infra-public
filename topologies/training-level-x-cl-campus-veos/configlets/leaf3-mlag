@@ -1,0 +1,16 @@
+
+!
+interface Port-Channel5
+   description SPINE1_Po5
+   switchport mode trunk
+   mlag 5
+!
+
+interface Ethernet5
+   description TO_SPINE1_Ethernet5
+   channel-group 5 mode active
+!
+interface Ethernet6
+   description TO_SPINE2_Ethernet5
+   channel-group 5 mode active
+!

@@ -1,0 +1,19 @@
+
+spanning-tree mode none
+!
+vlan 10
+!
+
+interface Ethernet1
+   switchport access vlan 10
+!
+interface Management1
+   vrf MGMT
+   ip address 192.168.0.51/24
+!
+interface Vlan10
+   ip address 172.17.10.1/24
+!
+ip routing
+!
+ip route 0.0.0.0/0 172.17.10.254
