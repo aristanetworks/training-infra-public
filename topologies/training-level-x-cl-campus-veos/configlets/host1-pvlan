@@ -1,16 +1,16 @@
 !
 spanning-tree mode none
 !
-     vlan 10
+vlan 10
        name Primary_VLAN
-      !
-      vlan 100
+!
+vlan 100
         private-vlan community primary vlan 10
-
-   interface Vlan10
+!
+interface Vlan10
       ip address 172.17.10.1/24
 
-   default interface etherent1
+default interface ethernet1
  
 interface Ethernet1
     switchport
