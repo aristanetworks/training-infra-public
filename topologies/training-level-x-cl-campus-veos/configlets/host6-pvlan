@@ -1,0 +1,25 @@
+!
+
+Spanning-tree mode none
+!
+
+ vlan 10
+       name Primary_VLAN
+!
+ vlan 300
+        private-vlan community primary vlan 10
+
+ interface Vlan10
+      ip address 172.17.10.6/24
+
+
+ interface ethernet1
+    Shutdown 
+default interface Ethernet 2
+
+interface Ethernet2
+    switchport
+    switchport mode access
+    switchport access vlan 300
+    No shut
+

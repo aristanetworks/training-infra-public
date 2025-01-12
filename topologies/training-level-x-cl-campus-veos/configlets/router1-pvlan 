@@ -1,0 +1,2 @@
+interface Ethernet 2,3,4
+ shutdown
