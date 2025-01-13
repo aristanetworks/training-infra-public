@@ -1,4 +1,0 @@
-hostname eos2
-
-interface Management1
-   ip address 192.168.0.11/24

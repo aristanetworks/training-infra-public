@@ -1,5 +1,0 @@
-router isis 100
-   timers local-convergence-delay protected-prefixes
-   !
-   address-family ipv4 unicast
-      fast-reroute ti-lfa mode link-protection level-2

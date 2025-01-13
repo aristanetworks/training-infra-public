@@ -1,2 +1,0 @@
-interface Ethernet3
-  isis metric 30

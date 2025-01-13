@@ -1,4 +1,0 @@
-interface Loopback0
-   isis passive
-router isis 1
-   advertise passive-only
