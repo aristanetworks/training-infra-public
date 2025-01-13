@@ -142,7 +142,12 @@ if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
 then
     bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
 fi
-
+os_name=$(grep -i '^NAME=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+# Check if the OS name is AlmaLinux
+if [[ "$os_name" == "AlmaLinux" ]]; then
+    sudo ip route del 192.168.0.0/24 dev vmgmt
+    sudo ip route add 192.168.0.0/25 dev vmgmt
+fi
 
 # if cEOS Startup present, run it
 if [ -f "/opt/ceos/scripts/.ceos.txt" ]
