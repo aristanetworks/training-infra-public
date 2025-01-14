@@ -154,3 +154,6 @@ then
     done
     bash /opt/ceos/scripts/Startup.sh
 fi
+echo "Executing script to check unhealthy containers"
+rsync -av /opt/atd/nested-labvm/services/atdStartup/unhealthyContainers.sh /usr/local/bin/
+bash /usr/local/bin/unhealthyContainers.sh
