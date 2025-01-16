@@ -2,3 +2,17 @@
 spanning-tree mode none
 !
 ip routing
+!
+ vlan 10
+     name  Campus_Pod10_VLAN
+!
+   interface vlan 10            
+    ip address 172.17.10.4/24
+    no shut          
+!
+   interface Ethernet1  
+    switchport      
+    switchport mode access         
+    switchport access vlan 10     
+    no shut     
+!
