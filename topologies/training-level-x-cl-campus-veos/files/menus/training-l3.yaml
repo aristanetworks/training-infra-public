@@ -2,8 +2,6 @@
     lab_list:
       reset:
         description: "Reset All Devices to Base Lab (reset)"
-      varp:  
-        description: "Reset VARP Lab"
     labconfiglets:
       reset:
         spine1:
