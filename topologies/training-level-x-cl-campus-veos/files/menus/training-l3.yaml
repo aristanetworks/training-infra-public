@@ -37,7 +37,7 @@
         memleaf2:
           - "memleaf2-base"
         router1:
-          - "router1-base"
+          - "router-1-base"
         router2: 
-          - "router2-base"
+          - "router-2-base"
     
