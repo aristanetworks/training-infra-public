@@ -39,7 +39,7 @@ def readLabDetails():
     # get the lab password and the topolgy in use
     with open(labACCESS) as f:
         labDetails = yaml.load(f,Loader=yaml.FullLoader)
-    return labDetails['login_info']['jump_host']['pw'], labDetails['topology'],labDetails['name'],labDetails['zone']
+    return labDetails['login_info']['jump_host']['pw'], labDetails['topology'],labDetails['name'],labDetails['zone'], labDetails['project']
 
 
 
@@ -254,10 +254,91 @@ def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
             print("Switch {switch} config and output saved".format(switch = name))
 
 
+def gradeExam(project, instance, region):
+    #need gcp project and then url
+    grade_url = f"https://us-central1-{project}.cloudfunctions.net/api-grading"
+    headers = {'Content-Type': 'application/json'}
+    # need instance name and region
+    try:
+        grade_response = requests.post(url=grade_url,headers=headers,data=json.dumps({"instance":instance,"zone":region,"source":"cli"}))
+        if grade_response.status_code == 200:
+            marks_dict = grade_response.json()["marks"] # {'V2_L2-Exam': {'score': 10, 'total_points': 195}}
+            score, total_points = 0,0
+            for lab in marks_dict:
+                score = score + marks_dict[lab]['score']
+                total_points = total_points + marks_dict[lab]['total_points']
+            if score/total_points > 0.75:
+                result = "Pass"
+            else:
+                result = "Fail"
+        else:
+            raise Exception
+
+    except Exception as e:
+        result = "Pending"
+    return result
+    # then call CF
+    # return the exam result
+
+def updateHubspot(result, doceboid, courseid):
+    # need docebo user id, course id
+    try:
+        # get access token
+        metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/attributes/hubspot_pat"
+        headers = {"Metadata-Flavor": "Google"}
+        response = requests.get(metadata_url, headers=headers)
+        if response.status_code == 200:
+            hubspot_pat = response.text.strip()
+        else:
+            raise Exception
+        # get the record id
+        headers = {
+        'Authorization': f'Bearer {hubspot_pat}',
+        'Content-Type': 'application/json'
+        }
+        search_url = "https://api.hubapi.com/crm/v3/objects/courses/search"
+        filter_data = {
+            "filterGroups": [
+                {
+                    "filters": [
+                        {
+                            "propertyName": "docebo_user_id",
+                            "operator": "EQ",
+                            "value": doceboid
+                        },
+                        {
+                            "propertyName": "course_id",
+                            "operator": "EQ",
+                            "value": courseid
+                        }
+                    ]
+                }
+            ]
+        }
+        search_response = requests.post(url=search_url,data=json.dumps(filter_data),headers=headers)
+        # check only one record is returned
+        if search_response.status_code == 200:
+            record_id = search_response.json()['results'][0]['id']
+        else:
+            raise Exception
+        # update the record with the result
+        update_url = f"https://api.hubapi.com/crm/v3/objects/courses/{record_id}"
+        update_data = {
+            "properties": {
+                "recertification_result": result
+            }
+        }
+        update_response = requests.patch(url=update_url,data=json.dumps(update_data),headers=headers)
+        if update_response.status_code != 200:
+            raise Exception
+    except Exception:
+        return None
+
+
 
 
 def main():
-    labPassword, labTopology, labName, labZone = readLabDetails()
+    labPassword, labTopology, labName, labZone, labProject = readLabDetails()
     #print(labZone)
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
@@ -279,8 +360,22 @@ def main():
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
     ftpUpload(tarFile)
     print("Upload complete")
+    # grade and update
+    if labName.split("-")[2] == "rct":
+        print("Grading the exam. Please wait for 1-2 minutes here")
+        result = gradeExam(labProject, labName, labZone)
+        if result != "Pending":
+            userId = labName.split("-")[0][1:]
+            courseId = labName.split("-")[1][1:]
+            updateHubspot(result,userId,courseId)
+            print("Grading completed")
+        else:
+            print("Contact the support team for the results")
     print("Disconneting you from the lab environment")
     firewall("block-firewall",labName,labZone)
+
+
+
 
 def firewall(action, instanceName, instanceRegion):
     """
