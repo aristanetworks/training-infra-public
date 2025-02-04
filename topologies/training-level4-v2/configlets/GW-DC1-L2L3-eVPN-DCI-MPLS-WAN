@@ -1,0 +1,40 @@
+!
+Hostname GW-DC1
+!
+Router isis isis
+   Net 49.0000.0000.0000.0005.00
+   Is-type level-1
+   Address-family ipv4 unicast
+   segment-routing mpls
+      router-id 192.168.100.5
+      no shutdown
+!
+interface Loopback0
+   node-segment ipv4 index 5
+   isis enable isis
+!
+interface Ethernet2
+   isis enable isis
+   isis network point-to-point
+!
+router bgp 65003
+   !
+   neighbor 192.168.100.6 remote-as 65004
+   neighbor 192.168.100.6 next-hop-self
+   neighbor 192.168.100.6 update-source Loopback0
+   neighbor 192.168.100.6 ebgp-multihop 3
+   neighbor 192.168.100.6 send-community
+   !
+   vlan 12
+      rd evpn domain all 1:10012
+      route-target import export 1:10012
+      route-target import export evpn domain remote 12:10012
+      redistribute learned
+   !
+   address-family evpn
+      neighbor 192.168.100.6 activate
+      neighbor 192.168.100.6 domain remote
+      neighbor 192.168.100.6 encapsulation mpls next-hop-self source-interface Loopback0
+      neighbor default next-hop-self received-evpn-routes route-type ip-prefix inter-domain
+   !
+!

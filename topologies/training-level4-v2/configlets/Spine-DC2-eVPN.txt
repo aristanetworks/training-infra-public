@@ -1,0 +1,32 @@
+!
+Hostname Spine-DC2
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+router bgp 65005
+   maximum-paths 128
+   no bgp default ipv4-unicast
+   neighbor 192.168.12.2  remote-as 65006
+   neighbor 172.16.26.6   remote-as 65004
+   !
+   neighbor 192.168.10.2  remote-as 65006
+   neighbor 192.168.10.2  update-source Loopback0
+   neighbor 192.168.10.2  ebgp-multihop 3
+   neighbor 192.168.10.2  send-community
+   !
+   neighbor 192.168.100.6 remote-as 65004
+   neighbor 192.168.100.6 update-source Loopback0
+   neighbor 192.168.100.6 ebgp-multihop 3
+   neighbor 192.168.100.6 send-community
+   !
+   redistribute connected
+   !
+   address-family ipv4
+      neighbor 172.16.26.6   activate
+      neighbor 192.168.12.2  activate
+   !
+   address-family evpn
+      neighbor 192.168.10.2  activate
+      neighbor 192.168.100.6 activate
+   !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

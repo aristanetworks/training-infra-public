@@ -1,0 +1,28 @@
+!
+Hostname Spine-DC2
+!
+ip routing
+!
+mpls ip
+!
+service routing protocols model multi-agent
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+int loop0
+   ip address 192.168.100.2/32
+!
+int eth1
+   no switchport
+   ip address 192.168.12.1/30
+   no shut
+!
+int eth2-5
+   shut
+!
+int eth6
+   no switchport
+   ip address 172.16.26.2/24
+   no shut
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

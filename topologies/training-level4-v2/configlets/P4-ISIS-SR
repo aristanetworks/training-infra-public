@@ -1,0 +1,43 @@
+!
+ip routing
+mpls ip
+!
+service routing protocols model multi-agent
+!
+Router isis isis
+   Net 49.0000.0000.0000.0004.00
+   router-id ipv4 192.168.100.4
+   Is-type level-1
+   Address-family ipv4 unicast
+   segment-routing mpls
+      no shutdown
+!
+int loop0
+ ip address 192.168.100.4/32
+ isis enable isis
+ node-segment ipv4 index 4
+!
+int eth1
+ no switchport
+ ip address 172.16.14.4/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ no shut
+!
+int eth2
+ no switchport
+ ip address 172.16.24.4/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ no shut
+!
+ip prefix-list ldp-fec-prefix-list
+ permit 192.168.100.0/24 ge 24
+!
+mpls ldp
+ Router-id interface loopback 0
+ fec filter prefix-list ldp-fec-prefix-list
+ no shut
+!

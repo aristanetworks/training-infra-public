@@ -1,0 +1,43 @@
+!
+Hostname Leaf-DC1
+!
+interface Vxlan1
+   vxlan source-interface Loopback0
+   vxlan udp-port 4789
+   vxlan vlan 10 vni 10010
+   vxlan vlan 12 vni 10012
+   vxlan vrf ABC vni 10000
+!
+router bgp 65001
+   maximum-paths 128
+   no bgp default ipv4-unicast
+   neighbor 192.168.11.1 remote-as 65002
+   neighbor 192.168.100.1 remote-as 65002
+   neighbor 192.168.100.1 update-source Loopback0
+   neighbor 192.168.100.1 ebgp-multihop 3
+   neighbor 192.168.100.1 send-community
+   redistribute connected
+   !
+   address-family evpn
+      neighbor 192.168.100.1 activate
+      neighbor 192.168.100.1 encapsulation vxlan 
+   !
+   address-family ipv4
+      neighbor 192.168.11.1 activate
+   !
+   vrf ABC
+      rd 192.168.10.1:10000
+      route-target import evpn 10000:10000
+      route-target export evpn 10000:10000
+      redistribute connected
+      !
+   vlan 10
+      rd 10010:10010
+      route-target import export 10010:10010
+      redistr learned
+      !   
+   vlan 12
+      rd 1:10012
+      route-target import export 1:10012
+      redistr learned
+      !
