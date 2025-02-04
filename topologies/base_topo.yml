@@ -2690,9 +2690,9 @@ topologies:
               ram: 110
             branch: nested/2024.3
             orderable: true
-            image: base-ceos-training-lx-cl-alma-2024-3-4301-20250107-152059
+            image: base-ceos-training-lx-cl-2024-3-4321-20250204
             eos:
-              - 4.30.1F              
+              - 4.32.1F              
           2024.1.2-dual:
             schema: 2
             resources_eos:
@@ -2772,6 +2772,16 @@ topologies:
             image: base-ceos-training-lx-cl-exam-2023-2-4301-20240620
             eos:
               - 4.30.1F
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: true
+            image: base-ceos-training-lx-cl-exam-2024-3-4321-20250204
+            eos:
+              - 4.32.1F
     prod:
       ceos:
         cpu: 60
@@ -2817,7 +2827,7 @@ topologies:
               ram: 110
             branch: nested/2024.3
             orderable: true
-            image: base-veos-training-lx-veos-2024-3-4301-20241125
+            image: base-veos-training-lx-veos-2024-3-4321-20250204
             eos:
               - 4.32.1F              
     prod:
@@ -2830,9 +2840,9 @@ topologies:
             resources:
               cpu: 60
               ram: 95
-            branch:  v2024.3-112824
+            branch:  v2024.3-02032025
             orderable: true
-            image: base-veos-training-lx-veos-2024-3-4301-20241125
+            image: base-veos-training-lx-veos-2024-3-4321-20250204
             eos:
               - 4.32.1F  
     desc: 'Training Lab vEOS. For use by the Arista Training Team.'
@@ -2854,10 +2864,20 @@ topologies:
               cpu: 48
               ram: 110
             branch: nested/2024.3
-            orderable: true
+            orderable: false
             image: base-ceos-training-lx-cl-campus-2024-3-4321-20241126
             eos:
               - 4.32.1F
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: true
+            image: base-veos-training-lx-cl-campus-2024-3-4321-20250204
+            eos:
+              - 4.32.1F              
     prod:
       ceos:
         cpu: 60
@@ -2873,6 +2893,16 @@ topologies:
             image: base-ceos-training-lx-cl-campus-2024-3-4321-20241126
             eos:
               - 4.32.1F  
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch: v2024.3-02032025
+            orderable: true
+            image: base-veos-training-lx-cl-campus-2024-3-4321-20250204
+            eos:
+              - 4.32.1F 
     desc: 'Training Lab for Campus. For use by the Arista Training Team.'
     name: 'Training Lab campus'
     title: 'Training Lab for campus'
