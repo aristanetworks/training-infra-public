@@ -17,7 +17,7 @@ if (resetRequestSubmittedTime) {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-fetch('/get_status') // Fetch exam status from the Flask server
+fetch('/examStatus') // Fetch exam status from the Flask server
     .then(response => response.text())
     .then(status => {
     console.log("Response from server:", status); // Log the response
@@ -28,7 +28,7 @@ fetch('/get_status') // Fetch exam status from the Flask server
 
 document.getElementById('overlayButton').addEventListener('click', function () {
     
-    fetch('/update_status', { method: 'POST' }) // Send request to update status
+    fetch('/examStatus', { method: 'POST' }) // Send request to update status
         .then(response => response.json())
         .then(() => {
         console.log("Response from server:", status); // Log the response
