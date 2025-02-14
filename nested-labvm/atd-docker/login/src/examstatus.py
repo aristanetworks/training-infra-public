@@ -23,7 +23,7 @@ if __name__ == "__main__":
         print("Usage: python examstatus.py <status | status=true | status=false>")
         sys.exit(1)
     
-    arg = sys.argv[1].lower()
+    arg = sys.argv[1]
     
     if arg == "presentstatus":
         print(read_status())
