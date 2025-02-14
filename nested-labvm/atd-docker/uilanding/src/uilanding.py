@@ -406,7 +406,8 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         status = data.get('update_status',"status=startExamButtonNotNeeded")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')        
+        login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
+        login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
         self.write({
             'response':f'Status updated to {status}'
                 })     
