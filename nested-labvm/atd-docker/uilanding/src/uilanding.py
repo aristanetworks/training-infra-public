@@ -396,7 +396,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         log_file.write(str(container_output.output.decode("utf-8")))
         log_file.close()        
         with open("log.txt", "r") as txt_file:
-            response =  txt_file.readlines()
+            response =  [line.rstrip('\n') for line in txt_file][0]
         print(response)
         self.write({
             'response':response

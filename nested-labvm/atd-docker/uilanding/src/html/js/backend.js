@@ -18,10 +18,10 @@ if (resetRequestSubmittedTime) {
 
 document.addEventListener('DOMContentLoaded', function () {
 fetch('/examStatus') // Fetch exam status from the Flask server
-    .then(response => response.text())
+    .then(response => response.json())
     .then(status => {
     console.log("Response from server:", status); // Log the response
-    if (status.trim() === 'startExamButtonNotNeeded') {
+    if (data.response && data.response.trim() === 'startExamButtonNotNeeded') {
         document.getElementById('overlay').style.display = 'none';
     }
     })
