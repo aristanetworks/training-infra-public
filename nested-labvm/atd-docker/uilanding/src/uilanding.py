@@ -403,7 +403,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         })   
     def post(self):
         data = json.loads(self.request.body.decode('utf-8'))
-        status = data.get('update_status',"False")
+        status = data.get('update_status',"status=False")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         container_output=login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py status={status}')        

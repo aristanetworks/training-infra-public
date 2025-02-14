@@ -31,7 +31,7 @@ document.getElementById('overlayButton').addEventListener('click', function () {
     fetch('/examStatus', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ update_status: False }) // Send JSON data
+        body: JSON.stringify({ update_status: "status=False" }) // Send JSON data
     }) // Send request to update status
         .then(response => response.json())
         .then(() => {
