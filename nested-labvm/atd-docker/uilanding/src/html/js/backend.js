@@ -21,14 +21,18 @@ fetch('/examStatus') // Fetch exam status from the Flask server
     .then(response => response.text())
     .then(status => {
     console.log("Response from server:", status); // Log the response
-    if (status.trim() === 'True') {
+    if (status.trim() === 'False') {
         document.getElementById('overlay').style.display = 'none';
     }
     })
 
 document.getElementById('overlayButton').addEventListener('click', function () {
     
-    fetch('/examStatus', { method: 'POST' }) // Send request to update status
+    fetch('/examStatus', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ update_status: False }) // Send JSON data
+    }) // Send request to update status
         .then(response => response.json())
         .then(() => {
         console.log("Response from server:", status); // Log the response

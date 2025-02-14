@@ -402,7 +402,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             'response':response
         })   
     def post(self):
-        data = json.loads(self.request.body)
+        data = json.loads(self.request.body.decode('utf-8'))
         status = data.get('update_status',False)
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
