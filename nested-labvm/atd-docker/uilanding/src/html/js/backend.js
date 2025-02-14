@@ -15,16 +15,28 @@ if (resetRequestSubmittedTime) {
 
 
 
-document.getElementById('overlayButton').addEventListener('click', function() {
-    // Remove the overlay
-    var overlay = document.getElementById('overlay');
-    overlay.style.opacity = 0;
-    overlay.style.visibility = 'hidden';
-  
-    // Simulate triggering a bash script
-    console.log('Bash script would be triggered here!');
-  });
 
+document.addEventListener('DOMContentLoaded', function () {
+fetch('/get_status') // Fetch exam status from the Flask server
+    .then(response => response.text())
+    .then(status => {
+    if (status.trim() === 'yes') {
+        document.getElementById('overlay').style.display = 'none';
+    }
+    })
+    console.log(response);
+
+document.getElementById('overlayButton').addEventListener('click', function () {
+    
+    fetch('/update_status', { method: 'POST' }) // Send request to update status
+        .then(response => response.json())
+        .then(() => {
+        document.getElementById('overlay').style.opacity = 0;
+        document.getElementById('overlay').style.visibility = 'hidden';
+        });
+    });
+    console.log(response)
+});    
 
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'
