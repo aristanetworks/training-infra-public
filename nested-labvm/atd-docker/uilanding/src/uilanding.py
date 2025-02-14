@@ -391,7 +391,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'sudo exam_status.py presentstatus')
+        container_output=login_container.exec_run(f'sudo python3 /usr/local/bin/exam_status.py presentstatus')
         log_file = open('log.txt','w')
         log_file.write(str(container_output.output.decode("utf-8")))
         log_file.close()        
@@ -406,7 +406,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         status = data.get('update_status',False)
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'sudo exam_status.py status={status}')        
+        container_output=login_container.exec_run(f'sudo python3 /usr/local/bin/exam_status.py status={status}')        
         self.write({
             'response':f'Status updated to {status}'
                 })     
