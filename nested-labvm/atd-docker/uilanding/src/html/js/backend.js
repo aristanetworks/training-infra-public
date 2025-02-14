@@ -20,22 +20,23 @@ document.addEventListener('DOMContentLoaded', function () {
 fetch('/get_status') // Fetch exam status from the Flask server
     .then(response => response.text())
     .then(status => {
-    if (status.trim() === 'yes') {
+    console.log("Response from server:", status); // Log the response
+    if (status.trim() === 'True') {
         document.getElementById('overlay').style.display = 'none';
     }
     })
-    console.log(response);
 
 document.getElementById('overlayButton').addEventListener('click', function () {
     
     fetch('/update_status', { method: 'POST' }) // Send request to update status
         .then(response => response.json())
         .then(() => {
+        console.log("Response from server:", status); // Log the response
         document.getElementById('overlay').style.opacity = 0;
         document.getElementById('overlay').style.visibility = 'hidden';
         });
     });
-    console.log(response)
+
 });    
 
 // $('#labMenu').click(function (event) {
