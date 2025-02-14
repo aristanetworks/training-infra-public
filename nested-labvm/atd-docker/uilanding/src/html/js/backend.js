@@ -13,6 +13,19 @@ if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
 
+
+
+document.getElementById('overlayButton').addEventListener('click', function() {
+    // Remove the overlay
+    var overlay = document.getElementById('overlay');
+    overlay.style.opacity = 0;
+    overlay.style.visibility = 'hidden';
+  
+    // Simulate triggering a bash script
+    console.log('Bash script would be triggered here!');
+  });
+
+
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'
 //     document.getElementById('mainContent').style.display = 'none'

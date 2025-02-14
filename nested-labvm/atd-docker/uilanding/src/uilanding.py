@@ -386,6 +386,31 @@ class ResetLabHandler(tornado.web.RequestHandler):
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
 
 
+class ExamStatusHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        container_output=login_container.exec_run(f'sudo exam_status.py presentstatus')
+        log_file = open('log.txt','w')
+        log_file.write(str(container_output.output.decode("utf-8")))
+        log_file.close()        
+        with open("log.txt", "r") as txt_file:
+            response =  txt_file.readlines()
+        print(response)
+        self.write({
+            'response':response
+        })   
+    def post(self):
+        data = json.loads(self.request.body)
+        status = data.get('update_status',False)
+        docker_conn= docker.from_env()
+        login_container = docker_conn.containers.get('atd-login')
+        container_output=login_container.exec_run(f'sudo exam_status.py status={status}')        
+        self.write({
+            'response':f'Status updated to {status}'
+                })     
+
 class ToolsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
@@ -476,9 +501,10 @@ if __name__ == "__main__":
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
-        (r'/tools', ToolsHandler),
+        #(r'/tools', ToolsHandler),
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
+        (r'/examStatus', ExamStatusHandler)
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
