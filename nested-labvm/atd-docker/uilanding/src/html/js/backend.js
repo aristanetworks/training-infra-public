@@ -34,8 +34,8 @@ document.getElementById('overlayButton').addEventListener('click', function () {
         body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" }) // Send JSON data
     }) // Send request to update status
         .then(response => response.json())
-        .then(() => {
-        console.log("Response from server:", status); // Log the response
+        .then(postdataresponse => {
+        console.log("Response from server:", postdataresponse); // Log the response
         document.getElementById('overlay').style.opacity = 0;
         document.getElementById('overlay').style.visibility = 'hidden';
         });
