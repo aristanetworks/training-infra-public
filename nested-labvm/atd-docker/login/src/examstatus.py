@@ -13,7 +13,7 @@ def write_status(status):
     """Writes the exam status (True/False) to examstatus.txt."""
     try:
         with open(statusFilePath, "w") as file:
-            file.write("True" if status else "False")
+            file.write("startExamButtonNotNeeded")
         return True
     except Exception:
         return False
@@ -27,9 +27,7 @@ if __name__ == "__main__":
     
     if arg == "presentstatus":
         print(read_status())
-    elif arg == "status=True":
-        print(write_status(True))
-    elif arg == "status=False":
+    elif arg == "status=startExamButtonNotNeeded":
         print(write_status(False))
     else:
         #print("Invalid argument. Use 'status', 'status=true', or 'status=false'.")
