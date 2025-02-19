@@ -2478,7 +2478,7 @@ topologies:
             schema: 1
             resources:
               cpu: 80
-              ram: 64
+              ram: 110
             branch: v2023.2-0731024-1
             orderable: true
             image: base-ceos-training-l7-part-2-v3-2023-2-4301-20240403
