@@ -223,6 +223,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def keepalive(self):
         try:
             self.uptime = getUptime('192.168.0.1')
+            self.endexamtime = '00'
             self.cvp_status = getAPI("cvp_status")
             if self.cvp_status['status'] == 'UP':
                 self.cvp_tasks = getAPI("cvp_tasks")
@@ -248,7 +249,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         instance_data = {
             'cvp': self.cvp_status,
             'tasks': self.cvp_tasks,
-            'uptime': self.uptime
+            'uptime': self.uptime,
+            'endexamtime' : self.endexamtime
         }
         self.write_message(json.dumps({
             'type': mtype,
