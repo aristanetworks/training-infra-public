@@ -250,7 +250,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'cvp': self.cvp_status,
             'tasks': self.cvp_tasks,
             'uptime': self.uptime,
-            'endexamtime' : self.endexamtime
+            'endexamtime' : '00'
         }
         self.write_message(json.dumps({
             'type': mtype,
