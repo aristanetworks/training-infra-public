@@ -23,6 +23,7 @@ if echo "$MACHINE_NAME" | grep -qE "-ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9])"; the
     duration=${duration_map[$exam_code]}
     echo "Exam Duration: ${duration:-Unknown}"
     echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml
+    echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $duration "
 else
     echo "startExamButtonNotNeeded" > "$FILE_PATH"
 fi
