@@ -10,9 +10,9 @@ MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
 FILE_PATH="/opt/atd/topologies/$TOPO/files/apps/examstatus/examstatus.txt"
 mkdir -p "$(dirname "$FILE_PATH")"
 
-if echo "$MACHINE_NAME" | grep -qE "-ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9])"; then
+if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
     echo "startExamButtonNeeded" > "$FILE_PATH"
-    exam_code=$(echo "$MACHINE_NAME" | grep -oE "[0-9]+\-[0-9]+" | head -1)
+    exam_code="${BASH_REMATCH[1]}"
     declare -A duration_map
     duration_map["-1-2"]=120  # 120 minutes (2 hours)
     duration_map["-2-2"]=240  # 240 minutes (4 hours)
