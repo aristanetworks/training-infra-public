@@ -30,8 +30,10 @@ fi
 if [ -f "$FILE_PATH" ]; then
     echo "Indicator File for exam created successfully: $FILE_PATH"
 else
-    echo "Failed to create Indicator File for exam."
+    echo "Current topology is NOT an exam topology: $MACHINE_NAME"
+    echo "startExamButtonNotNeeded" > "$FILE_PATH"
 fi
+
 
 CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
