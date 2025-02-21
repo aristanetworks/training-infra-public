@@ -12,7 +12,7 @@ mkdir -p "$(dirname "$FILE_PATH")"
 
 if echo "$MACHINE_NAME" | grep -qE "-ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9])"; then
     echo "startExamButtonNeeded" > "$FILE_PATH"
-    exam_code=$(echo "$MACHINE_NAME" | grep -oE "-[0-9]-[a-zA-Z0-9]")
+    exam_code=$(echo "$MACHINE_NAME" | grep -oE "-[0-9]+-[0-9]+" | tail -1)
     declare -A duration_map
     duration_map["-1-2"]=120  # 120 minutes (2 hours)
     duration_map["-2-2"]=240  # 240 minutes (4 hours)
