@@ -6,6 +6,32 @@ TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
+MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
+FILE_PATH="/opt/atd/topologies/$TOPO/files/apps/examstatus/examstatus.txt"
+mkdir -p "$(dirname "$FILE_PATH")"
+
+if echo "$MACHINE_NAME" | grep -qE "-ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9])"; then
+    echo "startExamButtonNeeded" > "$FILE_PATH"
+    exam_code=$(echo "$MACHINE_NAME" | grep -oE "-[0-9]-[a-zA-Z0-9]")
+    declare -A duration_map
+    duration_map["-1-2"]=120  # 120 minutes (2 hours)
+    duration_map["-2-2"]=240  # 240 minutes (4 hours)
+    duration_map["-3-d"]=240  # 240 minutes (4 hours)
+    duration_map["-5-3"]=240  # 240 minutes (4 hours)
+    duration_map["-4-1"]=300  # 300 minutes (5 hours)
+    # Get duration based on exam_code
+    duration=${duration_map[$exam_code]}
+    echo "Exam Duration: ${duration:-Unknown}"
+    echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml
+else
+    echo "startExamButtonNotNeeded" > "$FILE_PATH"
+fi
+if [ -f "$FILE_PATH" ]; then
+    echo "Indicator File for exam created successfully: $FILE_PATH"
+else
+    echo "Failed to create Indicator File for exam."
+fi
+
 CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
 if [ "$EOS_TYPE" == "container-labs" ]; then

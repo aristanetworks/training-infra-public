@@ -30,6 +30,7 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
+EXAM_END_TIME = 0
 # Open yaml for the default yaml and read what file to lookup for default menu
 default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
 print ("Waiting for labguides-done.txt file existance to start the server")
@@ -205,6 +206,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
                 self.cvp_status = getAPI("cvp_status")
+                self.endexamtime = EXAM_END_TIME
                 if self.cvp_status['status'] == 'UP':
                     self.cvp_tasks = getAPI("cvp_tasks")
                 else:
@@ -223,7 +225,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def keepalive(self):
         try:
             self.uptime = getUptime('192.168.0.1')
-            self.endexamtime = '00'
+            self.endexamtime = EXAM_END_TIME
             self.cvp_status = getAPI("cvp_status")
             if self.cvp_status['status'] == 'UP':
                 self.cvp_tasks = getAPI("cvp_tasks")
@@ -261,6 +263,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 # ===============================
 # Utility Functions
 # ===============================
+
+# def getRemainingExamTime():
+#     try:
+        
+#     except Exception as e:
+#         pass
+
 
 def getAPI(action):
     try:
@@ -406,10 +415,13 @@ class ExamStatusHandler(tornado.web.RequestHandler):
     def post(self):
         data = json.loads(self.request.body.decode('utf-8'))
         status = data.get('update_status',"status=startExamButtonNotNeeded")
-        docker_conn= docker.from_env()
-        login_container = docker_conn.containers.get('atd-login')
-        login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
-        login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
+        exam_duration = host_yaml.get("exam_duration", 0)
+        current_time = int(time.time())
+        EXAM_END_TIME = current_time + (exam_duration * 60)
+        # docker_conn= docker.from_env()
+        # login_container = docker_conn.containers.get('atd-login')
+        # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
+        # login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
         self.write({
             'response':f'Status updated to {status}'
                 })     

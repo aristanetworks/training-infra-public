@@ -17,14 +17,20 @@ if (resetRequestSubmittedTime) {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-fetch('/examStatus') // Fetch exam status from the Flask server
-    .then(response => response.json())
-    .then(data => {
-    console.log("Response from server:", data); // Log the response
-    if (data.response && data.response.trim() === 'startExamButtonNotNeeded') {
-        document.getElementById('overlay').style.display = 'none';
-    }
-    })
+    fetch('/examStatus') // Fetch exam status from the Flask server
+        .then(response => response.json())
+        .then(data => {
+            console.log("Response from server:", data); // Log the response
+            if (data.response && data.response.trim() === 'startExamButtonNotNeeded') {
+                document.getElementById('overlay').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching exam status:", error);
+            document.getElementById('overlay').style.display = 'none';
+        });
+});
+
 
 document.getElementById('overlayButton').addEventListener('click', function () {
     
