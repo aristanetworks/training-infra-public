@@ -47,7 +47,6 @@ document.getElementById('overlayButton').addEventListener('click', function () {
         });
     });
 
-});    
 
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'
