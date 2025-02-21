@@ -22,7 +22,13 @@ if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
     # Get duration based on exam_code
     duration=${duration_map[$exam_code]}
     echo "Exam Duration: ${duration:-Unknown}"
-    echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml
+    if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
+        # Update existing value using sed
+        sed -i "s/exam_duration:.*$/exam_duration: ${duration:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
+    else
+        # Add new entry if it doesn't exist
+        echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml
+    fi
     echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $duration "
 else
     echo "startExamButtonNotNeeded" > "$FILE_PATH"
