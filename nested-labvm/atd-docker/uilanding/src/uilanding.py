@@ -252,7 +252,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'cvp': self.cvp_status,
             'tasks': self.cvp_tasks,
             'uptime': self.uptime,
-            'endexamtime' : '00'
+            'endexamtime' : EXAM_END_TIME
         }
         self.write_message(json.dumps({
             'type': mtype,
@@ -417,6 +417,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         status = data.get('update_status',"status=startExamButtonNotNeeded")
         exam_duration = host_yaml.get("exam_duration", 0)
         current_time = int(time.time())
+        global EXAM_END_TIME
         EXAM_END_TIME = current_time + (exam_duration * 60)
         # docker_conn= docker.from_env()
         # login_container = docker_conn.containers.get('atd-login')
