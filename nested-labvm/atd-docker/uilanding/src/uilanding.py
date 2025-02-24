@@ -399,31 +399,50 @@ class ResetLabHandler(tornado.web.RequestHandler):
 
 class ExamStatusHandler(tornado.web.RequestHandler):
     def get(self):
-        self.set_header("Access-Control-Allow-Origin", "*")
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
-        self.write({
-            'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded"
-        })   
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            self.write({
+                'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded"
+            })   
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)})
+                       
     def post(self):
-        data = json.loads(self.request.body.decode('utf-8'))
-        status = data.get('update_status',"status=startExamButtonNotNeeded")
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
-        exam_duration = host_yaml.get("exam_duration", 0)
-        current_time = int(time.time())
-        global EXAM_END_TIME
-        EXAM_END_TIME = current_time + (exam_duration * 60)
-        host_yaml['examButtonNeeded'] = False
-        yaml = YAML()
-        with open(ATD_ACCESS_PATH, "w") as file:
-            yaml.dump(host_yaml, file)        
-        # docker_conn= docker.from_env()
-        # login_container = docker_conn.containers.get('atd-login')
-        # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
-        # login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
-        self.write({
-            'response':f'Status updated to {status}'
-                })     
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+            status = data.get('update_status',"status=startExamButtonNotNeeded")
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            exam_duration = host_yaml.get("exam_duration", 0)
+            current_time = int(time.time())
+            global EXAM_END_TIME
+            EXAM_END_TIME = current_time + (exam_duration * 60)
+            host_yaml['examButtonNeeded'] = False
+            yaml = YAML()
+            with open(ATD_ACCESS_PATH, "w") as file:
+                yaml.dump(host_yaml, file)        
+            # docker_conn= docker.from_env()
+            # login_container = docker_conn.containers.get('atd-login')
+            # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
+            # login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
+            self.write({
+                'response':f'Status updated to {status}'
+                    })     
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)}) 
 
+class ExamSubmitHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")  
+        try:
+            docker_conn= docker.from_env()
+            login_container = docker_conn.containers.get('atd-login') 
+            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py')    
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)}) 
 class ToolsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
@@ -518,6 +537,7 @@ if __name__ == "__main__":
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
         (r'/examStatus', ExamStatusHandler)
+        (r'/examSubmit', ExamSubmitHandler)
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
