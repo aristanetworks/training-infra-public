@@ -150,6 +150,12 @@ function examInstanceCountdown(element, exam_end_time) {
     var el = document.getElementById(element);
     var countdown_string = '';
     var count_style = 'white';
+    // Track which notifications have been sent
+    var notifications_sent = {
+        "1hr": false,
+        "30min": false,
+        "10min": false
+    };
     if ( event_timer_ids.hasOwnProperty(element) ) {
         clearInterval(event_timer_ids[element]);
         delete event_timer_ids[element];
@@ -165,10 +171,21 @@ function examInstanceCountdown(element, exam_end_time) {
             if (countdown_diff < (30 * 60) ) {
                 count_style = 'red';
                 // check to see if user has been notified
-                if ( !topo_notify ) {
-                    alert("Your topology will shutdown in " + countdown_parts['minutes'] + " minutes.");
-                    topo_notify = true;
-                }
+           // Notify at 1 hour, 30 minutes, and 10 minutes left
+           if (countdown_diff <= (60 * 60) && !notifications_sent["1hr"]) {
+            alert("Your topology will shutdown in 1 hour.");
+            notifications_sent["1hr"] = true;
+            }
+            if (countdown_diff <= (30 * 60) && !notifications_sent["30min"]) {
+                alert("Your topology will shutdown in 30 minutes.");
+                notifications_sent["30min"] = true;
+                count_style = 'orange';  // Change text color to orange at 30 min
+            }
+            if (countdown_diff <= (10 * 60) && !notifications_sent["10min"]) {
+                alert("Your topology will shutdown in 10 minutes.");
+                notifications_sent["10min"] = true;
+                count_style = 'red';  // Change text color to red at 10 min
+            }
             }
             countdown_string = countdown_parts['hours'].toString().padStart(2,0) + ':' + countdown_parts['minutes'].toString().padStart(2,0) + ':' + countdown_parts['seconds'].toString().padStart(2,0);
         }
