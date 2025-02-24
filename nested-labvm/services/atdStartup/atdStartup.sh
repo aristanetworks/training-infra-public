@@ -30,7 +30,7 @@ if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
         echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
     fi
     if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
-        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/"/etc/atd/ACCESS_INFO.yaml
+        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/" /etc/atd/ACCESS_INFO.yaml
     else
         echo "examButtonNeeded: True" >> /etc/atd/ACCESS_INFO.yaml
     fi
