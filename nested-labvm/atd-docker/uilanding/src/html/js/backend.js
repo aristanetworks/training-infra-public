@@ -17,6 +17,11 @@ if (resetRequestSubmittedTime) {
 
 
 document.addEventListener('DOMContentLoaded', function () {
+    const overlay = document.getElementById('overlay');
+    // Show loading indicator while fetching status
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
+
     fetch('/examStatus') // Fetch exam status from the Flask server
         .then(response => response.json())
         .then(data => {
