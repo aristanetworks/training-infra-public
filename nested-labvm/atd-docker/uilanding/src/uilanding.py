@@ -407,11 +407,11 @@ class ExamStatusHandler(tornado.web.RequestHandler):
     def post(self):
         data = json.loads(self.request.body.decode('utf-8'))
         status = data.get('update_status',"status=startExamButtonNotNeeded")
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         exam_duration = host_yaml.get("exam_duration", 0)
         current_time = int(time.time())
         global EXAM_END_TIME
         EXAM_END_TIME = current_time + (exam_duration * 60)
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         host_yaml['examButtonNeeded'] = False
         yaml = YAML()
         with open(ATD_ACCESS_PATH, "w") as file:
