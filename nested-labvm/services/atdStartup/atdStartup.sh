@@ -25,10 +25,13 @@ if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
     if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
         # Update existing value using sed
         sed -i "s/exam_duration:.*$/exam_duration: ${duration:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
-        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/"/etc/atd/ACCESS_INFO.yaml
     else
         # Add new entry if it doesn't exist
-        echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml
+        echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
+    fi
+    if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
+        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/"/etc/atd/ACCESS_INFO.yaml
+    else
         echo "examButtonNeeded: True" >> /etc/atd/ACCESS_INFO.yaml
     fi
     echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $duration "

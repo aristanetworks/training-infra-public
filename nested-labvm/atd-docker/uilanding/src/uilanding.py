@@ -402,7 +402,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
         host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         self.write({
-            'response':["startExamButtonNeeded"] if host_yaml['examButtonNeeded'] else ["startExamButtonNotNeeded"]
+            'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded"
         })   
     def post(self):
         data = json.loads(self.request.body.decode('utf-8'))
@@ -411,6 +411,11 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         current_time = int(time.time())
         global EXAM_END_TIME
         EXAM_END_TIME = current_time + (exam_duration * 60)
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        host_yaml['examButtonNeeded'] = False
+        yaml = YAML()
+        with open(ATD_ACCESS_PATH, "w") as file:
+            yaml.dump(data, file)        
         # docker_conn= docker.from_env()
         # login_container = docker_conn.containers.get('atd-login')
         # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
