@@ -51,13 +51,11 @@ COPY src/update-token.py /usr/local/bin
 
 COPY src/reset-cvp.py /usr/local/bin
 
-COPY src/examstatus.py /usr/local/bin
 
 COPY src/upload_exam_unattended.py /usr/local/bin
 
 RUN chmod +x /usr/local/bin/upload_exam_unattended.py
 
-RUN chmod +x /usr/local/bin/examstatus.py
 
 RUN chmod +x /usr/local/bin/reset-cvp.py
 
