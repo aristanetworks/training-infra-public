@@ -420,10 +420,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             host_yaml['examButtonNeeded'] = False
             yaml = YAML()
             with open(ATD_ACCESS_PATH, "w") as file:
-                yaml.dump(host_yaml, file)        
-            docker_conn= docker.from_env()
-            login_container = docker_conn.containers.get('atd-login')
-            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py')     
+                yaml.dump(host_yaml, file)         
             self.write({
                 'response':f'Status updated to ExamButtonNotNeeded'
                     })     
@@ -437,7 +434,7 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
-            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py')    
+            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py', detach=True)    
         except Exception as e:    
             self.set_status(500)
             self.write({"error": str(e)}) 
