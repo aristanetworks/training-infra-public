@@ -53,11 +53,7 @@ COPY src/reset-cvp.py /usr/local/bin
 
 COPY src/examstatus.py /usr/local/bin
 
-COPY src/auto-submit.py  /usr/local/bin
-
 COPY src/upload_exam_unattended.py /usr/local/bin
-
-RUN chmod +x /usr/local/bin/auto-submit.py
 
 RUN chmod +x /usr/local/bin/upload_exam_unattended.py
 

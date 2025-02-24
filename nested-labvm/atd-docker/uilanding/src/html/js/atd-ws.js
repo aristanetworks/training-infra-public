@@ -79,7 +79,12 @@ function createWS(SOCK_URL) {
             var reg_data = received_msg['data'];
             if ('uptime' in reg_data) {
                 uptime_data = reg_data['uptime'];
+                if (reg_data['endexamtime'] !== 0){
                 examInstanceCountdown('countdown_timer', reg_data['endexamtime']);
+            }
+                else
+                {
+                    instanceCountdown('countdown_timer', uptime_data['boottime'], uptime_data['runtime']) }
             }
             if ('cvp' in reg_data) {
                 _cvp_info = "<h3>CVP " + reg_data['cvp']['version'] + " is currently " + reg_data['cvp']['status'] + "</h3>";

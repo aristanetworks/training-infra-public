@@ -7,11 +7,8 @@ APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.ju
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
 MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
-FILE_PATH="/opt/atd/topologies/$TOPO/files/apps/examstatus/examstatus.txt"
-mkdir -p "$(dirname "$FILE_PATH")"
 
 if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
-    echo "startExamButtonNeeded" > "$FILE_PATH"
     exam_code="${BASH_REMATCH[1]}"
     declare -A duration_map
     duration_map["-1-2"]=120  # 120 minutes (2 hours)
@@ -38,13 +35,6 @@ if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
 else
     echo "exam_duration: 0" >> /etc/atd/ACCESS_INFO.yaml
     echo "examButtonNeeded: False" >> /etc/atd/ACCESS_INFO.yaml
-    echo "startExamButtonNotNeeded" > "$FILE_PATH"
-fi
-if [ -f "$FILE_PATH" ]; then
-    echo "Indicator File for exam created successfully: $FILE_PATH"
-else
-    echo "Current topology is NOT an exam topology: $MACHINE_NAME"
-    echo "startExamButtonNotNeeded" > "$FILE_PATH"
 fi
 
 

@@ -412,7 +412,6 @@ class ExamStatusHandler(tornado.web.RequestHandler):
     def post(self):
         try:
             data = json.loads(self.request.body.decode('utf-8'))
-            status = data.get('update_status',"status=startExamButtonNotNeeded")
             host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
             exam_duration = host_yaml.get("exam_duration", 0)
             current_time = int(time.time())
@@ -422,12 +421,11 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             yaml = YAML()
             with open(ATD_ACCESS_PATH, "w") as file:
                 yaml.dump(host_yaml, file)        
-            # docker_conn= docker.from_env()
-            # login_container = docker_conn.containers.get('atd-login')
-            # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
-            # login_container.exec_run(f'sudo python3 /usr/local/bin/auto-submit.py')      
+            docker_conn= docker.from_env()
+            login_container = docker_conn.containers.get('atd-login')
+            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py')     
             self.write({
-                'response':f'Status updated to {status}'
+                'response':f'Status updated to ExamButtonNotNeeded'
                     })     
         except Exception as e:    
             self.set_status(500)
