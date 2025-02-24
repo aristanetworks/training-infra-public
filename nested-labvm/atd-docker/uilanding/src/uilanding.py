@@ -400,17 +400,9 @@ class ResetLabHandler(tornado.web.RequestHandler):
 class ExamStatusHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
-        docker_conn= docker.from_env()
-        login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py presentstatus')
-        log_file = open('log.txt','w')
-        log_file.write(str(container_output.output.decode("utf-8")))
-        log_file.close()        
-        with open("log.txt", "r") as txt_file:
-            response =  [line.rstrip('\n') for line in txt_file][0]
-        print(response)
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         self.write({
-            'response':response
+            'response':["startExamButtonNeeded"] if host_yaml['examButtonNeeded'] else ["startExamButtonNotNeeded"]
         })   
     def post(self):
         data = json.loads(self.request.body.decode('utf-8'))
