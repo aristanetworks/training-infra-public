@@ -536,7 +536,7 @@ if __name__ == "__main__":
         #(r'/tools', ToolsHandler),
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
-        (r'/examStatus', ExamStatusHandler)
+        (r'/examStatus', ExamStatusHandler),
         (r'/examSubmit', ExamSubmitHandler)
     ], **settings)
     app.listen(PORT)
