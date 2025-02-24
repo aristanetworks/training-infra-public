@@ -44,6 +44,7 @@ document.getElementById('overlayButton').addEventListener('click', function () {
         console.log("Response from server:", postdataresponse); // Log the response
         document.getElementById('overlay').style.opacity = 0;
         document.getElementById('overlay').style.visibility = 'hidden';
+        location.reload();
         });
     });
 
