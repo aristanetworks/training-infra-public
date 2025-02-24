@@ -415,7 +415,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
         host_yaml['examButtonNeeded'] = False
         yaml = YAML()
         with open(ATD_ACCESS_PATH, "w") as file:
-            yaml.dump(data, file)        
+            yaml.dump(host_yaml, file)        
         # docker_conn= docker.from_env()
         # login_container = docker_conn.containers.get('atd-login')
         # login_container.exec_run(f'sudo python3 /usr/local/bin/examstatus.py {status}')  
