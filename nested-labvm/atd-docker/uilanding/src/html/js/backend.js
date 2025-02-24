@@ -27,8 +27,10 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             console.log("Response from server:", data); // Log the response
             if (data.response && data.response.trim() === 'startExamButtonNotNeeded') {
-                document.getElementById('overlay').style.display = 'none';
+                addExamButton();
             }
+            else
+            { overlay.style.display = 'none';}
         })
         .catch(error => {
             console.error("Error fetching exam status:", error);
@@ -37,21 +39,28 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
-document.getElementById('overlayButton').addEventListener('click', function () {
-    
-    fetch('/examStatus', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" }) // Send JSON data
-    }) // Send request to update status
+function addExamButton() {
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = '<button id="overlayButton">Start Exam</button>';
+
+    document.getElementById('overlayButton').addEventListener('click', function () {
+        fetch('/examStatus', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
+        })
         .then(response => response.json())
         .then(postdataresponse => {
-        console.log("Response from server:", postdataresponse); // Log the response
-        document.getElementById('overlay').style.opacity = 0;
-        document.getElementById('overlay').style.visibility = 'hidden';
-        location.reload();
-        });
+            console.log("Response from server:", postdataresponse);
+            overlay.style.opacity = 0;
+            overlay.style.visibility = 'hidden';
+            location.reload();
+        })
+        .catch(error => console.error("Error updating exam status:", error));
     });
+}
+
+
 
 
 // $('#labMenu').click(function (event) {
