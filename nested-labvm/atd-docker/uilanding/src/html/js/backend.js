@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(response => response.json())
         .then(data => {
             console.log("Response from server:", data); // Log the response
-            if (data.response && data.response.trim() === 'startExamButtonNotNeeded') {
+            if (data.response && data.response.trim() === 'startExamButtonNeeded') {
                 addExamButton();
             }
             else
