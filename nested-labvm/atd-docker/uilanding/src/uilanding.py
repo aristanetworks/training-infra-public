@@ -30,6 +30,7 @@ ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
+EXAM_END_TIME = 0
 # Open yaml for the default yaml and read what file to lookup for default menu
 default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
 print ("Waiting for labguides-done.txt file existance to start the server")
@@ -205,6 +206,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
                 self.cvp_status = getAPI("cvp_status")
+                self.endexamtime = EXAM_END_TIME
                 if self.cvp_status['status'] == 'UP':
                     self.cvp_tasks = getAPI("cvp_tasks")
                 else:
@@ -223,6 +225,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def keepalive(self):
         try:
             self.uptime = getUptime('192.168.0.1')
+            self.endexamtime = EXAM_END_TIME
             self.cvp_status = getAPI("cvp_status")
             if self.cvp_status['status'] == 'UP':
                 self.cvp_tasks = getAPI("cvp_tasks")
@@ -248,7 +251,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         instance_data = {
             'cvp': self.cvp_status,
             'tasks': self.cvp_tasks,
-            'uptime': self.uptime
+            'uptime': self.uptime,
+            'endexamtime' : EXAM_END_TIME
         }
         self.write_message(json.dumps({
             'type': mtype,
@@ -259,6 +263,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 # ===============================
 # Utility Functions
 # ===============================
+
+# def getRemainingExamTime():
+#     try:
+        
+#     except Exception as e:
+#         pass
+
 
 def getAPI(action):
     try:
@@ -386,6 +397,47 @@ class ResetLabHandler(tornado.web.RequestHandler):
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
 
 
+class ExamStatusHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            self.write({
+                'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded"
+            })   
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)})
+                       
+    def post(self):
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            exam_duration = host_yaml.get("exam_duration", 0)
+            current_time = int(time.time())
+            global EXAM_END_TIME
+            EXAM_END_TIME = current_time + (exam_duration * 60)
+            host_yaml['examButtonNeeded'] = False
+            yaml = YAML()
+            with open(ATD_ACCESS_PATH, "w") as file:
+                yaml.dump(host_yaml, file)         
+            self.write({
+                'response':f'Status updated to ExamButtonNotNeeded'
+                    })     
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)}) 
+
+class ExamSubmitHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")  
+        try:
+            docker_conn= docker.from_env()
+            login_container = docker_conn.containers.get('atd-login') 
+            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py', detach=True)    
+        except Exception as e:    
+            self.set_status(500)
+            self.write({"error": str(e)}) 
 class ToolsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
@@ -476,9 +528,11 @@ if __name__ == "__main__":
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
-        (r'/tools', ToolsHandler),
+        #(r'/tools', ToolsHandler),
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
+        (r'/examStatus', ExamStatusHandler),
+        (r'/examSubmit', ExamSubmitHandler)
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

@@ -6,6 +6,38 @@ TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
+MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
+
+if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
+    exam_code="${BASH_REMATCH[1]}"
+    declare -A duration_map
+    duration_map["-1-2"]=120  # 120 minutes (2 hours)
+    duration_map["-2-2"]=240  # 240 minutes (4 hours)
+    duration_map["-3-d"]=240  # 240 minutes (4 hours)
+    duration_map["-5-3"]=240  # 240 minutes (4 hours)
+    duration_map["-4-1"]=300  # 300 minutes (5 hours)
+    # Get duration based on exam_code
+    duration=${duration_map[$exam_code]}
+    echo "Exam Duration: ${duration:-Unknown}"
+    if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
+        # Update existing value using sed
+        sed -i "s/exam_duration:.*$/exam_duration: ${duration:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
+    else
+        # Add new entry if it doesn't exist
+        echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
+    fi
+    if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
+        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/" /etc/atd/ACCESS_INFO.yaml
+    else
+        echo "examButtonNeeded: True" >> /etc/atd/ACCESS_INFO.yaml
+    fi
+    echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $duration "
+else
+    echo "exam_duration: 0" >> /etc/atd/ACCESS_INFO.yaml
+    echo "examButtonNeeded: False" >> /etc/atd/ACCESS_INFO.yaml
+fi
+
+
 CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
 if [ "$EOS_TYPE" == "container-labs" ]; then
