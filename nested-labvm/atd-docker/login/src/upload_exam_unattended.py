@@ -353,11 +353,11 @@ def firewall(action, instanceName, instanceRegion):
     #call the cloud function or the do the api calls here itself
     response = requests.get(EDIT_INSTANCE + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
-        print("Response from edit-instance CF: {}".format(response.json()))
+        print("Access to this lab has been blocked")
         os.system("pkill -KILL -u arista")
         return(response.json())
     except Exception as e:
-        print("Response from edit-instance CF: {}".format(e))
+        print("An error occured, please contact the proctor.")
         return(False)
 
 main()
