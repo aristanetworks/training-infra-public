@@ -1,0 +1,5 @@
+interface vlan1
+ip address 10.1.1.10/24
+
+interface vlan10
+ip address 10.10.10.10/24

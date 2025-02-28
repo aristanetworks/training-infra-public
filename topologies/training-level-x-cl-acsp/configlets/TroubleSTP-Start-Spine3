@@ -1,0 +1,12 @@
+vlan 10
+  name VLAN10
+
+
+interface eth 3,4,5,6
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10
+  no shutdown
+
+interface eth 1,2,7,8
+  shutdown

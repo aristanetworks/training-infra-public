@@ -1,0 +1,22 @@
+vlan 201
+Ip routing
+
+interface Port-Channel2
+ description from Host 2 to MLAG Domain
+ switchport
+ switchport access vlan 201
+ no shut
+
+interface Ethernet1
+ channel-group 2 mode active
+
+interface Ethernet2
+ channel-group 2 mode active
+
+interface Vlan201
+ no autostate
+ ip address 172.16.21.10/24
+
+ip route 172.16.11.0/24 172.16.21.254
+ip route 172.16.31.0/24 172.16.21.254
+ip route 172.16.41.0/24 172.16.21.254

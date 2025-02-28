@@ -1,0 +1,57 @@
+
+
+
+
+vlan 103
+
+int vlan 103
+ ip address 172.16.103.1/24
+ no autostate
+
+int e1,2
+  shutdown
+
+int e3
+  no switchport
+  ip address 10.10.1.10/30
+  no shutdown
+
+int e4
+   no switchport
+   ip address 10.10.2.10/30
+   no shutdown
+
+int e5
+   no switchport
+   ip address 10.10.3.10/30
+   no shutdown
+
+
+int e6
+   no switchport
+   ip address 10.10.4.10/30
+   no shutdown
+
+int lo0
+  ip address 10.13.13.13/32
+ 
+ip routing
+
+ip route 172.16.101.0/24 10.11.11.11
+
+
+ router bgp 65003
+ router-id 10.13.13.13
+ maximum-paths 4 ecmp 4
+ neighbor Spines peer group
+ neighbor Spines remote-as 65100
+ neighbor 10.10.1.9 peer group Spines
+ neighbor 10.10.1.9 description Spine1
+ neighbor 10.10.2.9 peer group Spines
+ neighbor 10.10.2.9 description Spine2
+ neighbor 10.10.3.9 peer group Spines
+ neighbor 10.10.3.9 description Spine3
+ neighbor 10.10.4.9 peer group Spines
+ neighbor 10.10.4.9 description Spine4
+ network 10.13.13.13/32
+ redistribute connected

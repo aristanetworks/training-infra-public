@@ -1,0 +1,100 @@
+cvp_info:
+  containers:
+    Tenant:
+      nodes:
+    Leaf-DC1:
+      parent: Tenant
+      nodes:
+      - leaf1
+      - leaf2
+      - leaf3
+      - leaf4
+    Borderleaf-DC1:
+      parent: Tenant
+      nodes:
+      - borderleaf1
+      - borderleaf2
+    Spine-DC1:
+      parent: Tenant
+      nodes:
+      - spine1
+      - spine2
+      - spine3
+      - spine4
+    Hosts-DC1:
+      parent: Tenant
+      nodes:
+      - host1
+      - host2
+      - host3
+      - host4
+      Leaf-DC2:
+      parent: Tenant
+      nodes:
+      - leaf5
+      - leaf6
+    Borderleaf-DC2:
+      parent: Tenant
+      nodes:
+      - borderleaf3
+      - borderleaf4
+    Spine-DC2:
+      parent: Tenant
+      nodes:
+      - spine5
+      - spine6
+    Hosts-DC2:
+      parent: Tenant
+      nodes:
+      - host9
+      - host10
+  snapshots:
+  configlets:
+    containers:
+      Tenant:
+        - ATD-INFRA
+    netelements:
+      spine1:
+        - spine1-base
+      spine2:
+        - spine2-base
+      spine3:
+        - spine3-base
+      spine4:
+        - spine4-base
+      spine5:
+        - spine5-base
+      spine6:
+        - spine6-base
+      leaf1:
+        - leaf1-base
+      leaf2:
+        - leaf2-base
+      borderleaf1:
+        - borderleaf1-base
+      borderleaf2:
+        - borderleaf2-base
+      borderleaf3:
+        - borderleaf3-base
+      borderleaf4:
+        - borderleaf4-base
+      leaf3:
+        - leaf3-base
+      leaf4:
+        - leaf4-base
+      leaf5:
+        - leaf5-base
+      leaf6:
+        - leaf5-base
+      host3:
+        - host3-base
+      host4:
+        - host4-base
+      host1:
+        - host1-base
+      host2:
+        - host2-base
+      host9:
+        - host9-base
+      host10:
+        - host10-base

@@ -1,0 +1,49 @@
+int e1,2
+  shutdown
+
+int e3
+  no switchport
+  ip address 10.10.4.1/30
+  no shutdown
+
+int e4
+   no switchport
+   ip address 10.10.4.5/30
+   no shutdown
+
+int e5
+   no switchport
+   ip address 10.10.4.9/30
+   no shutdown
+
+
+int e6
+   no switchport
+   ip address 10.10.4.13/30
+   no shutdown
+
+int e7
+   no switchport
+   ip address 10.10.5.14/30
+   no shutdown
+
+int e8
+   no switchport
+   ip address 10.10.6.14/30
+   no shutdown
+
+int lo0
+  ip address 10.24.24.24/32
+
+ ip routing
+
+ router ospf 1
+    router-id 10.24.24.24
+    passive-interface default
+    no passive-interface Ethernet 3-8
+    network 0.0.0.0/0 area 0
+
+
+interface Ethernet 3-8
+  ip ospf network point-to-point
+  no shut

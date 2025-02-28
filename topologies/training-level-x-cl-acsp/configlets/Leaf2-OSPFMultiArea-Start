@@ -1,0 +1,30 @@
+interface Ethernet1
+shutdown
+!
+interface Ethernet2
+shutdown
+!
+interface Ethernet3
+no switchport
+ip address 10.10.1.6/30
+!
+interface Ethernet4
+no switchport
+ip address 10.10.2.6/30
+!
+interface Ethernet5
+no switchport
+ip address 10.10.3.6/30
+!
+interface Ethernet6
+no switchport
+ip address 10.10.4.6/30
+!
+interface Ethernet7
+!
+interface Ethernet8
+!
+interface Ethernet9
+!
+interface Ethernet10
+!
