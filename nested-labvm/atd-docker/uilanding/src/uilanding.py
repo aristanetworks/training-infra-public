@@ -434,7 +434,10 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
-            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py', detach=True)    
+            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)  
+            self.write({
+                'response':f'Exam has been submitted'
+                    })    
         except Exception as e:    
             self.set_status(500)
             self.write({"error": str(e)}) 
