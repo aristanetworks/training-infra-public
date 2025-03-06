@@ -327,8 +327,8 @@ def main():
     with tarfile.open(tarFile, "w:gz") as tar:
         tar.add(os.getcwd() + "/" + folder, arcname=os.path.basename(tarFile))
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
-    ftpUpload(tarFile)
-    print("Upload complete")
+    #ftpUpload(tarFile)
+    #print("Upload complete")
     # grade and update
     if labName.split("-")[2] == "rct":
         print("Grading the exam. Please wait for 1-2 minutes here")
