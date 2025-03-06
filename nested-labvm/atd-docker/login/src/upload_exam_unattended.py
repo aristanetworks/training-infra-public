@@ -340,6 +340,8 @@ def main():
             print("Grading completed")
         else:
             print("Contact the support team for the results")
+    else:
+        result = gradeExam(labProject, labName, labZone)
     print("Disconneting you from the lab environment")
     firewall("block-firewall",labName,labZone)
 
