@@ -13,6 +13,51 @@ if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
 
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const overlay = document.getElementById('overlay');
+    // Show loading indicator while fetching status
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
+
+    fetch('/examStatus') // Fetch exam status from the Flask server
+        .then(response => response.json())
+        .then(data => {
+            console.log("Response from server:", data); // Log the response
+            if (data.response && data.response.trim() === 'startExamButtonNeeded') {
+                addExamButton();
+            }
+            else
+            { overlay.style.display = 'none';}
+        })
+        .catch(error => {
+            console.error("Error fetching exam status:", error);
+            document.getElementById('overlay').style.display = 'none';
+        });
+});
+
+
+function addExamButton() {
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = '<button id="overlayButton">Start Exam</button>';
+
+    document.getElementById('overlayButton').addEventListener('click', function () {
+        fetch('/examStatus', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
+        })
+        .then(response => response.json())
+        .then(postdataresponse => {
+            console.log("Response from server:", postdataresponse);
+            overlay.style.opacity = 0;
+            overlay.style.visibility = 'hidden';
+            location.reload();
+        })
+        .catch(error => console.error("Error updating exam status:", error));
+    });
+}
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'
 //     document.getElementById('mainContent').style.display = 'none'
