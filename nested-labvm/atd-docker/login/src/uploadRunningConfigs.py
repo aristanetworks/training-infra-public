@@ -66,7 +66,8 @@ def uploadSwitchDetails(allHostsName,allHostsIP,labDetails):
         grading_config = yaml.dump({"to_be_graded": allHostsName, "templates": labDetails["labguides_modules"]}, default_flow_style=False)
         blob_obj = bucket_obj.blob(f"{bucket_folder_path}/grading_config.yaml")
         blob_obj.upload_from_string(grading_config, content_type="yaml")
-
+        blob_obj_tar = bucket_obj.blob(f"{bucket_folder_path}/{labDetails['name'][:-11]}.gz")
+        blob_obj_tar.upload_from_filename(f"/home/arista/results-{labDetails['name'][:-11]}")
     #get running configs
     for name, ip in zip(reversed(allHostsName),reversed(allHostsIP)):
         switch = jsonrpclib.Server("https://arista:{password}@{ipaddress}/command-api".format(password = labDetails['login_info']['jump_host']['pw'], ipaddress = ip))
