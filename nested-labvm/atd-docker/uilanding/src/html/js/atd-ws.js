@@ -10,7 +10,11 @@ atdURL += "/td-ws";
 var ws = new WebSocket(atdURL);
 var event_timer_ids = {};
 var topo_notify = false;
-
+var notifications_sent = {
+    "1hr": false,
+    "30min": false,
+    "10min": false
+};
 createWS(atdURL);
 
 
@@ -157,11 +161,6 @@ function examInstanceCountdown(element, exam_end_time) {
     var countdown_string = '';
     var count_style = 'white';
     // Track which notifications have been sent
-    var notifications_sent = {
-        "1hr": false,
-        "30min": false,
-        "10min": false
-    };
     if ( event_timer_ids.hasOwnProperty(element) ) {
         clearInterval(event_timer_ids[element]);
         delete event_timer_ids[element];
