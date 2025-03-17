@@ -1,0 +1,14 @@
+int e1
+  no switchport
+  ip address 10.10.10.100/24
+  no shutdown
+
+int lo0
+  ip address 10.11.11.11/32
+  
+ip routing
+
+ip route 10.10.20.0/24 10.10.10.254
+
+router ospf 1
+ network 0.0.0.0/0 area 0
