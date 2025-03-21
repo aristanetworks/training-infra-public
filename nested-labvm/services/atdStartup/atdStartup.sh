@@ -206,5 +206,5 @@ bash /usr/local/bin/unhealthyContainers.sh
 rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.service /etc/systemd/system
 rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer /etc/systemd/system
 sudo systemctl daemon-reload
-sudo systemctl enable deploy-check.timer
-sudo systemctl start deploy-check.timer
+sudo systemctl enable exam-submission-check.timer
+sudo systemctl start exam-submission-check.timer

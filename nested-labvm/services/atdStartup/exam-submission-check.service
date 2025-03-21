@@ -6,7 +6,7 @@ Requires=docker.service
 [Service]
 Type=oneshot
 User=root
-ExecStart=/bin/bash /usr/local/bin/deploy_check.sh
+ExecStart=/bin/bash /usr/local/bin/examSubmitContainer.sh
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=300

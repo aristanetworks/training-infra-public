@@ -1,9 +1,9 @@
 #!/bin/bash
 
-LOG_FILE="/var/log/deploy-check.log"
+LOG_FILE="/var/log/exam-submission-check.log"
 YAML_FILE="/etc/atd/ACCESS_INFO.yaml"
 
-echo "[$(date)] Starting deploy-check.service" >> "$LOG_FILE"
+echo "[$(date)] Starting exam-submission-check.service" >> "$LOG_FILE"
 
 # Extract exam_duration from YAML
 EXAM_DURATION=$(awk -F ": " "/exam_duration:/ {print \$2}" "$YAML_FILE" | tr -d " ")
@@ -30,7 +30,7 @@ if [[ "$CURRENT_TIME" -gt "$EXAM_DURATION" ]]; then
 
     # Disable and stop the service after execution
 
-    if systemctl stop deploy-check.timer && systemctl disable deploy-check.timer; then
+    if systemctl stop exam-submission-check.timer && systemctl disable exam-submission-check.timer; then
             echo "[$(date)] Successfully stopped and disabled deploy-check timer." >> "$LOG_FILE"
         else
                  echo "[$(date)] ERROR: Failed to stop and disable deploy-check timer!" >> "$LOG_FILE"
