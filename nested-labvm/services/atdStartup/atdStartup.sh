@@ -203,3 +203,8 @@ fi
 echo "Executing script to check unhealthy containers"
 rsync -av /opt/atd/nested-labvm/services/atdStartup/unhealthyContainers.sh /usr/local/bin/
 bash /usr/local/bin/unhealthyContainers.sh
+rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.service /etc/systemd/system
+rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer /etc/systemd/system
+sudo systemctl daemon-reload
+sudo systemctl enable deploy-check.timer
+sudo systemctl start deploy-check.timer
