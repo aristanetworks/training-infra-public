@@ -14,6 +14,12 @@ if [[ "$EXAM_DURATION" -eq 0 ]]; then
     exit 0
 fi
 
+# If examButtonNeeded is True, exit
+if [[ "$EXAM_BUTTON_NEEDED" = "True" ]]; then
+    echo "[$(date)] examButtonNeeded is set to True. Exiting." >> "$LOG_FILE"
+    exit 0
+fi
+
 # Get current timestamp
 CURRENT_TIME=$(date +%s)
 
