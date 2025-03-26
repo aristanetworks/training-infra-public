@@ -2740,7 +2740,7 @@ topologies:
             image: training-level-x-c2024-1-2-dual-ceos-20240610-eos
             orderable: true
             eos:
-              - 4.30.1F   
+              - 4.30.1F
     prod:
       veos:
         cpu: 60
@@ -2779,7 +2779,7 @@ topologies:
             orderable: true
             image: base-ceos-training-lx-cl-2024-3-4321-20250306
             eos:
-              - 4.30.1F                    
+              - 4.30.1F
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
