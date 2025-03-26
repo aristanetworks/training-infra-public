@@ -2775,11 +2775,11 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2024.3-02032025
+            branch: v2024.3-03102025
             orderable: true
-            image: base-ceos-training-lx-cl-2024-3-4301-20241029
+            image: base-ceos-training-lx-cl-2024-3-4321-20250306
             eos:
-              - 4.30.1F                
+              - 4.30.1F                    
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
