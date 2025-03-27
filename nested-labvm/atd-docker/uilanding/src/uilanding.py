@@ -409,6 +409,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             current_time = int(time.time())
             global EXAM_END_TIME
             EXAM_END_TIME = current_time + (exam_duration * 60)
+            host_yaml['endExamTime'] = EXAM_END_TIME
             host_yaml['examButtonNeeded'] = False
             yaml = YAML()
             with open(ATD_ACCESS_PATH, "w") as file:
@@ -426,7 +427,7 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
-            login_container.exec_run(f'sudo python3 /usr/local/bin/uploadExam.py.py', detach=True)    
+            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py.py', detach=True)    
             self.write({
                 'response':f'Exam has been submitted'
                     }) 

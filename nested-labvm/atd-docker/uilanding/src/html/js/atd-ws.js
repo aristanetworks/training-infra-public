@@ -197,19 +197,21 @@ function examInstanceCountdown(element, exam_end_time) {
         else {
             countdown_string = '00:00:00';
             clearInterval(interval); // Stop countdown when time runs out
+            console.log("Exam submitted:", data);
+            alert("Exam has been automatically submitted.");
             // Fetch examSubmit when timer reaches 0 using GET request
-            fetch('/examSubmit', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Exam submitted:", data);
-                alert("Exam has been automatically submitted.");
-            })
-            .catch(error => console.error("Error submitting exam:", error));
+            // fetch('/examSubmit', {
+            //     method: 'GET',
+            //     headers: {
+            //         'Content-Type': 'application/json'
+            //     }
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+            //     console.log("Exam submitted:", data);
+            //     alert("Exam has been automatically submitted.");
+            // })
+            // .catch(error => console.error("Error submitting exam:", error));
         }
         el.innerHTML = countdown_string;
         el.style.color = count_style;
