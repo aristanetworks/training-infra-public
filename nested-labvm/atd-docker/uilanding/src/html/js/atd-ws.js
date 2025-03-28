@@ -84,11 +84,11 @@ function createWS(SOCK_URL) {
             if ('uptime' in reg_data) {
                 uptime_data = reg_data['uptime'];
                 if (reg_data['endexamtime'] !== 0){
-                examInstanceCountdown('countdown_timer', reg_data['endexamtime']);
-            }
-                else
-                {
-                    instanceCountdown('countdown_timer', uptime_data['boottime'], uptime_data['runtime']) }
+                    examInstanceCountdown('countdown_timer', reg_data['endexamtime']);
+                }
+                    else
+                    {
+                        instanceCountdown('countdown_timer', uptime_data['boottime'], uptime_data['runtime']) }
             }
             if ('cvp' in reg_data) {
                 _cvp_info = "<h3>CVP " + reg_data['cvp']['version'] + " is currently " + reg_data['cvp']['status'] + "</h3>";
@@ -155,6 +155,7 @@ function instanceCountdown(element, boot_time, runtime) {
     event_timer_ids[element] = interval;
 }
 
+
 function examInstanceCountdown(element, exam_end_time) {
     var el = document.getElementById(element);
     var countdown_string = '';
@@ -196,19 +197,21 @@ function examInstanceCountdown(element, exam_end_time) {
         else {
             countdown_string = '00:00:00';
             clearInterval(interval); // Stop countdown when time runs out
+            console.log("Exam submitted:", data);
+            alert("Exam has been automatically submitted.");
             // Fetch examSubmit when timer reaches 0 using GET request
-            fetch('/examSubmit', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Exam submitted:", data);
-                alert("Exam has been automatically submitted.");
-            })
-            .catch(error => console.error("Error submitting exam:", error));
+            // fetch('/examSubmit', {
+            //     method: 'GET',
+            //     headers: {
+            //         'Content-Type': 'application/json'
+            //     }
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+            //     console.log("Exam submitted:", data);
+            //     alert("Exam has been automatically submitted.");
+            // })
+            // .catch(error => console.error("Error submitting exam:", error));
         }
         el.innerHTML = countdown_string;
         el.style.color = count_style;

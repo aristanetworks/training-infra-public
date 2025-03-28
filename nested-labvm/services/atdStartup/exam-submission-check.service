@@ -1,0 +1,17 @@
+[Unit]
+Description=Check exam_duration and execute Docker command if expired
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash /usr/local/bin/examSubmitContainer.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=300
+Restart=no
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
