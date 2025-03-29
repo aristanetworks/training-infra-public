@@ -6,6 +6,7 @@ TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
 APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
 PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
+CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
 
 if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
@@ -47,8 +48,6 @@ else
     fi
 fi
 
-
-CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
 if [ "$EOS_TYPE" == "container-labs" ]; then
     EOS_TYPE="ceos"
@@ -184,7 +183,12 @@ if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
 then
     bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
 fi
-
+os_name=$(grep -i '^NAME=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+# Check if the OS name is AlmaLinux
+if [[ "$os_name" == "AlmaLinux" ]]; then
+    sudo ip route del 192.168.0.0/24 dev vmgmt
+    sudo ip route add 192.168.0.0/25 dev vmgmt
+fi
 
 # if cEOS Startup present, run it
 if [ -f "/opt/ceos/scripts/.ceos.txt" ]
@@ -199,3 +203,9 @@ fi
 echo "Executing script to check unhealthy containers"
 rsync -av /opt/atd/nested-labvm/services/atdStartup/unhealthyContainers.sh /usr/local/bin/
 bash /usr/local/bin/unhealthyContainers.sh
+rsync -av /opt/atd/nested-labvm/services/atdStartup/examSubmitContainer.sh /usr/local/bin/
+rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.service /etc/systemd/system
+rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer /etc/systemd/system
+sudo systemctl daemon-reload
+sudo systemctl enable exam-submission-check.timer
+sudo systemctl start exam-submission-check.timer
