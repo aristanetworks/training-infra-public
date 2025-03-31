@@ -264,13 +264,6 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 # Utility Functions
 # ===============================
 
-# def getRemainingExamTime():
-#     try:
-        
-#     except Exception as e:
-#         pass
-
-
 def getAPI(action):
     try:
         _action = encodeID(action)
@@ -396,7 +389,6 @@ class ResetLabHandler(tornado.web.RequestHandler):
         login_container = docker_conn.containers.get('atd-login')
         login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
 
-
 class ExamStatusHandler(tornado.web.RequestHandler):
     def get(self):
         try:
@@ -417,6 +409,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             current_time = int(time.time())
             global EXAM_END_TIME
             EXAM_END_TIME = current_time + (exam_duration * 60)
+            host_yaml['endExamTime'] = EXAM_END_TIME
             host_yaml['examButtonNeeded'] = False
             yaml = YAML()
             with open(ATD_ACCESS_PATH, "w") as file:
