@@ -714,7 +714,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-03132025
+            branch:  v2023.2-04012025
             orderable: true
             image: base-veos-training-l1-exam-2-2023-2-4301-20250303
             eos:
@@ -878,7 +878,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-03132025
+            branch:  v2023.2-04012025
             orderable: true
             image: base-veos-training-l2-exam-2-2023-2-4301-20250303
             eos:
@@ -1084,7 +1084,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-03132025
+            branch:  v2023.2-04012025
             orderable: true
             image: base-veos-training-l3-exam-2023-2-4301-20250303
             eos:
@@ -1382,7 +1382,7 @@ topologies:
             resources:
               cpu: 60
               ram: 88
-            branch:  v2023.2-03132025
+            branch:  v2023.2-04012025
             orderable: true
             image: base-veos-training-l4-exam-2023-2-4301-20250303
             eos:
@@ -1462,7 +1462,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch: v2023.2-03132025
+            branch: v2023.2-04012025
             orderable: true
             image: base-ceos-training-l5-2023-2-4301-20240329
             eos:
@@ -2833,7 +2833,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2024.3-03102025
+            branch: v2024.3-04012025
             orderable: true
             image: base-ceos-training-lx-cl-exam-2024-3-4321-20250204
             eos:
@@ -2977,7 +2977,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2024.3-03102025
+            branch: v2024.3-04012025
             orderable: true
             image: base-veos-training-lx-cl-campus-2024-3-4321-20250307
             eos:
