@@ -2741,6 +2741,16 @@ topologies:
             orderable: true
             eos:
               - 4.30.1F
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2025.1
+            orderable: true
+            image: base-ceos-training-lx-cl-2025-1-4321-20250407
+            eos:
+              - 4.32.1F            
     prod:
       veos:
         cpu: 60
@@ -2918,7 +2928,7 @@ topologies:
             orderable: false
             image: base-veos-training-lx-cl-campus-2024-3-4321-20250307
             eos:
-              - 4.32.1F              
+              - 4.32.1F               
     prod:
       ceos:
         cpu: 60
@@ -2967,6 +2977,16 @@ topologies:
             image: base-veos-training-lx-cl-campus-2024-3-4321-20250307
             eos:
               - 4.32.1F
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2025.1
+            orderable: true
+            image: base-veos-training-lx-cl-campus-2025-1-4321-20250407
+            eos:
+              - 4.32.1F          
     prod:
       veos:
         cpu: 60
