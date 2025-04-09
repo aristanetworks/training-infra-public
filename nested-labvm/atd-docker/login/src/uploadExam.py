@@ -28,7 +28,7 @@ regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 cvpHost = "192.168.0.5"
 cvpUser = "arista"
 url = "https://{host}".format(host=cvpHost)
-EDIT_INSTANCE = 'https://us-central1-atd-testdrivetraining-prod.cloudfunctions.net/edit-instance'
+EDIT_INSTANCE = 'https://us-central1-{}.cloudfunctions.net/edit-instance'
 
 def encodeID(tmp_data):
     tmp_str = json.dumps(tmp_data).encode()
@@ -358,8 +358,8 @@ def main():
     with tarfile.open(tarFile, "w:gz") as tar:
         tar.add(os.getcwd() + "/" + folder, arcname=os.path.basename(tarFile))
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
-    ftpUpload(tarFile)
-    print("Upload complete")
+    # ftpUpload(tarFile)
+    # print("Upload complete")
     # grade and update
     if labName.split("-")[2] == "rct":
         print("Grading the exam. Please wait for 1-2 minutes here")
@@ -371,8 +371,10 @@ def main():
             print("Grading completed")
         else:
             print("Contact the support team for the results")
+    else:
+        result = gradeExam(labProject, labName, labZone)            
     print("Disconneting you from the lab environment")
-    firewall("block-firewall",labName,labZone)
+    firewall("block-firewall",labName,labZone,labProject)
 
 
 
