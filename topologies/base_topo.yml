@@ -2843,7 +2843,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2024.3-04012025
+            branch: v2024.3-04082025
             orderable: true
             image: base-ceos-training-lx-cl-exam-2024-3-4321-20250204
             eos:
