@@ -379,12 +379,12 @@ def main():
 
 
 
-def firewall(action, instanceName, instanceRegion):
+def firewall(action, instanceName, instanceRegion,labProject):
     """
     """
     #get the data from DB if needed
     #call the cloud function or the do the api calls here itself
-    response = requests.get(EDIT_INSTANCE + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
+    response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
         print("Response from edit-instance CF: {}".format(response.json()))
         os.system("pkill -KILL -u arista")
