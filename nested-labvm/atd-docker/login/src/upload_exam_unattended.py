@@ -28,7 +28,7 @@ regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 cvpHost = "192.168.0.5"
 cvpUser = "arista"
 url = "https://{host}".format(host=cvpHost)
-EDIT_INSTANCE = 'https://us-central1-atd-testdrivetraining-prod.cloudfunctions.net/edit-instance'
+EDIT_INSTANCE = 'https://us-central1-{}.cloudfunctions.net/edit-instance'
 
 def encodeID(tmp_data):
     tmp_str = json.dumps(tmp_data).encode()
@@ -343,17 +343,17 @@ def main():
     else:
         result = gradeExam(labProject, labName, labZone)
     print("Disconneting you from the lab environment")
-    firewall("block-firewall",labName,labZone)
+    firewall("block-firewall",labName,labZone,labProject)
 
 
 
 
-def firewall(action, instanceName, instanceRegion):
+def firewall(action, instanceName, instanceRegion,labProject):
     """
     """
     #get the data from DB if needed
     #call the cloud function or the do the api calls here itself
-    response = requests.get(EDIT_INSTANCE + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
+    response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
         print("Access to this lab has been blocked")
         os.system("pkill -KILL -u arista")
