@@ -2803,7 +2803,7 @@ topologies:
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
-    disk_size: 250
+    disk_size: 300
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
