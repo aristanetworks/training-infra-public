@@ -120,110 +120,141 @@ def grabCVPInfo(labPassword,folder):
     print("CVP details saved")
 
 
-def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
-    pingDone = 0
-    evpnNOTdone = 0
-    for name, ip in zip(reversed(allHostsName),reversed(allHostsIP)):
-        switch = jsonrpclib.Server("https://arista:{password}@{ipaddress}/command-api".format(password = labPassword, ipaddress = ip))
+def grabSwitchDetails(allHostsName, allHostsIP, folder, labPassword):
+    """Collect and save configuration and operational data from Arista switches."""
+    
+    for name, ip in zip(reversed(allHostsName), reversed(allHostsIP)):
+        print(f"Processing switch {name} at {ip}...")
+        
+        # Connect to the switch
         try:
-            config = switch.runCmds(1,["enable", "show running-config"],"text")
-            runConfig = (config[1]["output"])
-            mlag = switch.runCmds(1,["enable", "show mlag","show mlag config-sanity", "show mlag interfaces detail"],"text")
-            mlagOutput = "show mlag\n"
-            mlagOutput += (mlag[1]["output"])
-            mlagOutput += "\nshow mlag config-sanity\n"
-            mlagOutput += (mlag[2]["output"])
-            mlagOutput += "\nshow mlag interfaces detail\n"
-            mlagOutput += (mlag[3]["output"])
-            vxlan = switch.runCmds(1,["enable", "show vxlan address-table", "show mac address-table", "show vxlan flood vtep", "show vxlan vtep detail", "show vxlan vni summary", "show vxlan vni", "show vxlan config-sanity"],"text")
-            vxlanOutput = "show vxlan address-table\n"
-            vxlanOutput += (vxlan[1]["output"])
-            vxlanOutput += "\nshow mac address-table\n"
-            vxlanOutput += (vxlan[2]["output"])
-            vxlanOutput += "\nshow vxlan flood vtep\n"
-            vxlanOutput += (vxlan[3]["output"])
-            vxlanOutput += "\nshow vxlan vtep detail\n"
-            vxlanOutput += (vxlan[4]["output"])
-            vxlanOutput += "\nshow vxlan vni summary\n"
-            vxlanOutput += (vxlan[5]["output"])
-            vxlanOutput += "\nshow vxlan vni\n"
-            vxlanOutput += (vxlan[6]["output"])
-            vxlanOutput += "\nshow vxlan config-sanity\n"
-            vxlanOutput += (vxlan[7]["output"])
-            route = switch.runCmds(1,["enable", "show ip route"],"text")
-            routeOutput = (route[1]["output"])
-            bgpSum = switch.runCmds(1,["enable", "show ip bgp summary"],"text")
-            bgpSumOutput = (bgpSum[1]["output"])
-            if not "host" in name:
-                evpnSum = switch.runCmds(1,["enable", "show bgp evpn summary"],"text")
-                evpnSumOutput = (evpnSum[1]["output"])
-                evpnBGP = switch.runCmds(1,["enable", "show bgp evpn"],"text")
-                evpnBGPOutput = (evpnBGP[1]["output"])
-                evpnNOTdone = 1
-            intSum = switch.runCmds(1,["enable", "show ip interface brief"],"text")
-            intSumOutput = (intSum[1]["output"])
-            vlanSum = switch.runCmds(1,["enable", "show vlan"],"text")
-            vlanSumOutput = (vlanSum[1]["output"])
-            if "host1" in name:
-                pingSum = switch.runCmds(1,["enable", "ping 172.16.200.20"],"text")
-                pingSumOutput = (pingSum[1]["output"])
-                pingDone = 1
-                pingSum300 = switch.runCmds(1,["enable", "ping 172.16.30.20"],"text")
-                pingSum300Output = (pingSum300[1]["output"])
+            switch = jsonrpclib.Server(f"https://arista:{labPassword}@{ip}/command-api")
         except Exception as e:
-            print(str(e))
-            print("Check eAPI is enabled on {switch}".format(switch = name))
-        else:
-            filename = str(name) + "-running" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(runConfig)
-            filename = str(name) + "-MLAG" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(mlagOutput)
-            filename = str(name) + "-Route" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(routeOutput)
-            filename = str(name) + "-BGPsummary" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(bgpSumOutput)
-            if evpnNOTdone == 1:
-                filename = str(name) + "-EVPNsummary" + ".txt"
-                completePath = os.path.join(folder, filename)
-                with open(completePath, 'w') as f:
-                    f.write(evpnSumOutput)
-                filename = str(name) + "-EVPN" + ".txt"
-                completePath = os.path.join(folder, filename)
-                with open(completePath, 'w') as f:
-                    f.write(evpnBGPOutput)
-                evpnNOTdone = 0
-            filename = str(name) + "-INTsummary" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(intSumOutput)
-            filename = str(name) + "-VXLAN" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(vxlanOutput)
-            filename = str(name) + "-VLANsummary" + ".txt"
-            completePath = os.path.join(folder, filename)
-            with open(completePath, 'w') as f:
-                f.write(vlanSumOutput)
-            if pingDone == 1:
-                filename = str(name) + "-PINGsummary" + ".txt"
-                completePath = os.path.join(folder, filename)
-                with open(completePath, 'w') as f:
-                    f.write(pingSumOutput)
-                filename = str(name) + "-PINGsummary300" + ".txt"
-                completePath = os.path.join(folder, filename)
-                with open(completePath, 'w') as f:
-                    f.write(pingSum300Output)
-                pingDone = 0
-            print("Switch {switch} config and output saved".format(switch = name))
+            print(f"Failed to connect to {name}: {str(e)}")
+            continue
+        
+        # Dictionary to store all outputs
+        outputs = {}
+        
+        # Collect data with error handling for each command group
+        collect_command_output(switch, name, outputs, "running", ["show running-config"])
+        collect_mlag_info(switch, name, outputs)
+        collect_vxlan_info(switch, name, outputs)
+        collect_command_output(switch, name, outputs, "Route", ["show ip route"])
+        collect_command_output(switch, name, outputs, "BGPsummary", ["show ip bgp summary"])
+        
+        # EVPN commands - only for non-host devices
+        if "host" not in name:
+            collect_command_output(switch, name, outputs, "EVPNsummary", ["show bgp evpn summary"])
+            collect_command_output(switch, name, outputs, "EVPN", ["show bgp evpn"])
+        
+        collect_command_output(switch, name, outputs, "INTsummary", ["show ip interface brief"])
+        collect_command_output(switch, name, outputs, "VLANsummary", ["show vlan"])
+        
+        # Ping tests - only for host1
+        if "host1" in name:
+            collect_command_output(switch, name, outputs, "PINGsummary", ["ping 172.16.200.20"])
+            collect_command_output(switch, name, outputs, "PINGsummary300", ["ping 172.16.30.20"])
+        
+        # Save all collected outputs to files
+        save_outputs_to_files(name, outputs, folder)
+        
+        print(f"Switch {name} processing complete")
 
+
+def collect_command_output(switch, name, outputs_dict, output_key, commands):
+    """Run a command and store its output with error handling."""
+    try:
+        result = switch.runCmds(1, ["enable"] + commands, "text")
+        outputs_dict[output_key] = result[1]["output"]
+        print(f"{name}: Got {output_key}")
+    except Exception as e:
+        print(f"{name}: Failed to get {output_key}: Most likely this is not enabled or configured")
+
+
+def collect_mlag_info(switch, name, outputs_dict):
+    """Collect MLAG information with error handling."""
+    try:
+        commands = ["show mlag", "show mlag config-sanity", "show mlag interfaces detail"]
+        result = switch.runCmds(1, ["enable"] + commands, "text")
+        
+        mlag_output = "show mlag\n"
+        mlag_output += result[1]["output"]
+        mlag_output += "\nshow mlag config-sanity\n"
+        mlag_output += result[2]["output"]
+        mlag_output += "\nshow mlag interfaces detail\n"
+        mlag_output += result[3]["output"]
+        
+        outputs_dict["MLAG"] = mlag_output
+        print(f"{name}: Got MLAG info")
+    except Exception as e:
+        print(f"{name}: Failed to get MLAG info: Most likely this is not enabled or configured")
+
+
+def collect_vxlan_info(switch, name, outputs_dict):
+    """Collect VXLAN information with error handling."""
+    try:
+        commands = [
+            "show vxlan address-table", 
+            "show mac address-table", 
+            "show vxlan flood vtep", 
+            "show vxlan vtep detail", 
+            "show vxlan vni summary", 
+            "show vxlan vni", 
+            "show vxlan config-sanity"
+        ]
+        result = switch.runCmds(1, ["enable"] + commands, "text")
+        
+        vxlan_output = "show vxlan address-table\n"
+        vxlan_output += result[1]["output"]
+        vxlan_output += "\nshow mac address-table\n"
+        vxlan_output += result[2]["output"]
+        vxlan_output += "\nshow vxlan flood vtep\n"
+        vxlan_output += result[3]["output"]
+        vxlan_output += "\nshow vxlan vtep detail\n"
+        vxlan_output += result[4]["output"]
+        vxlan_output += "\nshow vxlan vni summary\n"
+        vxlan_output += result[5]["output"]
+        vxlan_output += "\nshow vxlan vni\n"
+        vxlan_output += result[6]["output"]
+        vxlan_output += "\nshow vxlan config-sanity\n"
+        vxlan_output += result[7]["output"]
+        
+        outputs_dict["VXLAN"] = vxlan_output
+        print(f"{name}: Got VXLAN info")
+    except Exception as e:
+        print(f"{name}: Failed to get VXLAN info: Most likely this is not enabled or configured")
+
+
+def save_outputs_to_files(name, outputs_dict, folder):
+    """Save all collected outputs to files with error handling."""
+    for output_type, content in outputs_dict.items():
+        try:
+            filename = f"{name}-{output_type}.txt"
+            complete_path = os.path.join(folder, filename)
+            with open(complete_path, 'w') as f:
+                f.write(content)
+        except Exception as e:
+            print(f"Failed to save {output_type} for {name}: {str(e)}")
+
+
+def format_command_outputs(commands, results):
+    """Format multiple command outputs with headers"""
+    output = ""
+    for i, cmd in enumerate(commands):
+        if i > 0:
+            output += "\n"
+        output += f"{cmd}\n{results[i]['output']}"
+    return output
+
+
+def save_output_to_file(device_name, output_type, content, folder):
+    """Save output content to a file"""
+    filename = f"{device_name}-{output_type}.txt"
+    complete_path = os.path.join(folder, filename)
+    
+    with open(complete_path, 'w') as f:
+        f.write(content)
 
 def gradeExam(project, instance, region):
     #need gcp project and then url
@@ -329,7 +360,7 @@ def main():
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
     #ftpUpload(tarFile)
     #print("Upload complete")
-    # grade and update
+    #grade and update
     if labName.split("-")[2] == "rct":
         print("Grading the exam. Please wait for 1-2 minutes here")
         result = gradeExam(labProject, labName, labZone)
