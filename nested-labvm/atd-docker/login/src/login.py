@@ -123,7 +123,7 @@ def device_menu():
       elif user_input == '96' or user_input.lower() == 'screen':
           os.system('/usr/bin/screen')
       elif user_input == '95' or user_input.lower() == 'exam':
-        os.system('uploadExam.py')
+        os.system('upload_exam_unattended.py')
       elif user_input == '97' or user_input.lower() == 'back':
           if menu_mode == previous_menu:
               menu_mode = 'MAIN'
