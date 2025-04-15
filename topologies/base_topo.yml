@@ -714,7 +714,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-04012025
+            branch:  v2023.2-04152025
             orderable: true
             image: base-veos-training-l1-exam-2-2023-2-4301-20250303
             eos:
@@ -878,7 +878,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch:  v2023.2-04012025
+            branch:  v2023.2-04152025
             orderable: true
             image: base-veos-training-l2-exam-2-2023-2-4301-20250303
             eos:
