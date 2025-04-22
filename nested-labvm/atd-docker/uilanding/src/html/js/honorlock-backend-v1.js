@@ -21,13 +21,8 @@ function getExamInstruction() {
             const iframe = document.createElement('iframe');
             iframe.id = 'exam-instructions-frame';
             iframe.src = result.data.launch_screen_url;
-            iframe.style.position = 'fixed';
-            iframe.style.top = '0';
-            iframe.style.left = '0';
             iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.zIndex = '9999';
+            iframe.style.height = '600px';
             document.body.appendChild(iframe);
             document.getElementById('honer-iframe').style.display = 'none';
             document.getElementById('honer-ext-reload-text').style.display = 'none';
@@ -69,9 +64,10 @@ function setSessionSetup() {
 
             }).then((data) => {
                 console.log('Session has been setup', data);
-                Honorlock.onLaunchProctoringIframeResize((data) => {
+
+                Honorlock.onLaunchProctoringIframeResize((launchdata) => {
                     console.log('Entered Proctoring function');
-                    let updatedIframeHeight = data.launch_proctoring_data.iframe_height;
+                    let updatedIframeHeight = launchdata.launch_proctoring_data.iframe_height;
                     //platform specific code on how to get the iframe and adjust the height.
                     let iframe = document.getElementById('launch-proctoring-iframe');
                     // iframe.style.height = updatedIframeHeight + 'px';
