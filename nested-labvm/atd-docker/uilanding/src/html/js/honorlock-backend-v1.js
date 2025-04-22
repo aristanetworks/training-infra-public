@@ -112,9 +112,15 @@ function setSessionSetup() {
                             'Content-Type': 'application/json'
                         }
                     })
-                    .then(baseUrl => {
-                        const parsedResponse = JSON.parse(baseUrl); // Parse the response
-                        iframe2.src = window.location.origin + '/' + parsedResponse.response; // Use the 'pwd' field from the parsed response
+                    .then(baseUrl => baseUrl.json()) // Parse the response as JSON
+                    .then(parsedResponse => {
+                        console.log('BaseUrl response:', parsedResponse);
+                        if (parsedResponse.response) {
+                            iframe2.src = window.location.origin + '?auth=' + parsedResponse.response; // Use the 'pwd' field from the decoded response
+                            console.log(iframe2.src);
+                        } else {
+                            console.error('BaseUrl response is missing the "response" field.');
+                        }
                     })
                     .catch(error => {
                         console.error('Error fetching BaseUrl:', error);
