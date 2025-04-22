@@ -21,8 +21,13 @@ function getExamInstruction() {
             const iframe = document.createElement('iframe');
             iframe.id = 'exam-instructions-frame';
             iframe.src = result.data.launch_screen_url;
+            iframe.style.position = 'fixed';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
             iframe.style.width = '100%';
-            iframe.style.height = '600px';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.zIndex = '9999';
             document.body.appendChild(iframe);
             document.getElementById('honer-iframe').style.display = 'none';
             document.getElementById('honer-ext-reload-text').style.display = 'none';
@@ -73,6 +78,26 @@ function setSessionSetup() {
                 });
 
                 Honorlock.onBeginExam(() => {
+                    fetch('/BeginExamHandler', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            external_exam_id: uservalue['external_exam_id'],
+                            exam_taker_attempt_id: uservalue['exam_taker_attempt_id'],
+                            exam_taker_id: uservalue['exam_taker_id']
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('BeginExamHandler response:', data);
+                        // Handle response if needed
+                    })
+                    .catch(error => {
+                        console.error('Error in BeginExamHandler fetch:', error);
+                    });
                     console.log('Exam has begun');
                     const iframe = document.getElementById('exam-instructions-frame');
                     if (iframe) {
@@ -105,6 +130,26 @@ function setSessionSetup() {
                             // Optionally, you can redirect the user or perform other actions here
                         });
                         // Add any additional logic for submitting the exam here
+                        fetch('/EndExamHandler', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                external_exam_id: uservalue['external_exam_id'],
+                                exam_taker_id: uservalue['exam_taker_id'],
+                                exam_taker_attempt_id: uservalue['exam_taker_attempt_id']
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('EndExamHandler response:', data);
+                            // Handle response if needed
+                        })
+                        .catch(error => {
+                            console.error('Error in EndExamHandler fetch:', error);
+                        });
                         Honorlock.examSubmit();
                     });
                     document.body.appendChild(submitButton);

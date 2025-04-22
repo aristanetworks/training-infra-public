@@ -625,8 +625,69 @@ class ViewConfigHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": "Internal server error"})
+class BeginExamHandler(tornado.web.RequestHandler):
+    def post(self):
 
+        """
+        Handler to create a user Begin Exam in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
 
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/session/start"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class EndExamHandler(tornado.web.RequestHandler):
+    def post(self):
+
+        """
+        Handler to create a user Begin Exam in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/session/complete"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -651,7 +712,9 @@ if __name__ == "__main__":
         (r'/exam-authentication', ExamAuthenticationHandler),     
         (r'/getClientId', GetClientIdHandler),
         (r'/getExamInstructions', GetExamInstructionsHandler),
-        (r'/getUserSessionId', GetUserSessionIdHandler)       
+        (r'/getUserSessionId', GetUserSessionIdHandler),
+        (r'/beginExam', BeginExamHandler),  
+        (r'/endExam', EndExamHandler)     
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
