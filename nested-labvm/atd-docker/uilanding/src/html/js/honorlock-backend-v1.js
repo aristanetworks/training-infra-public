@@ -99,11 +99,6 @@ function setSessionSetup() {
                         iframe.style.display = 'none';
                     }
                     Honorlock.examLoaded();
-                    const examStartedMessage = document.createElement('div');
-                    examStartedMessage.textContent = "The exam has started. Good luck!";
-                    examStartedMessage.style.fontSize = "20px";
-                    examStartedMessage.style.marginTop = "20px";
-                    document.body.appendChild(examStartedMessage);
                     const iframe2 = document.createElement('iframe');
                     fetch('/baseUrl', {
                         method: 'GET',
@@ -130,8 +125,6 @@ function setSessionSetup() {
                     iframe2.style.left = "0";
                     iframe2.style.width = "100%";
                     iframe2.style.height = "100%";
-                    iframe2.style.border = "none";
-                    iframe2.style.zIndex = "9999";
                     document.body.appendChild(iframe2);
 
                     const submitButton = document.createElement('button');
