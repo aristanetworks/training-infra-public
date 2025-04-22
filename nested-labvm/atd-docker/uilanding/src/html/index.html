@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arista {{ topo_title }}</title>
     <link rel="stylesheet" href="css/foundation.min.css" />
+    <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
+    <script src="js/honorlock-examsubmit-v1.js"></script>
     <script src="js/atd-ws.js"></script>    
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/typography.css" />
@@ -128,13 +130,16 @@
               <div class="common-note">
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
               </div>
-              <div class="icon-div">
+                <div class="icon-div"></div>
                 <div class="icon"><i class="fa-regular fa-clock"></i></div>
                 <div class="icon-detail">
                   <h2>Time Remaining</h2>
                   <time><span id="countdown_timer">00:00:00</span></time>
                 </div>
-              </div>
+                </div>
+                <div class="icon-div">
+                <button id="submitButton" class="button">Exam Submit</button>
+                </div>
               <!---==============-->
               <section class="topology">
                 <div class="topology-overview">
