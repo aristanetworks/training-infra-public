@@ -112,9 +112,9 @@ function setSessionSetup() {
                             'Content-Type': 'application/json'
                         }
                     })
-                    .then(response => response.text())
                     .then(baseUrl => {
-                        iframe2.src = window.location.origin + '/' + baseUrl; // Prepend window.location.origin/ to the fetched base URL
+                        const parsedResponse = JSON.parse(baseUrl); // Parse the response
+                        iframe2.src = window.location.origin + '/' + parsedResponse.response; // Use the 'pwd' field from the parsed response
                     })
                     .catch(error => {
                         console.error('Error fetching BaseUrl:', error);
