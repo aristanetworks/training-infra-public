@@ -133,6 +133,8 @@ function setSessionSetup() {
                     submitButton.style.marginTop = "20px";
                     submitButton.style.padding = "10px 20px";
                     submitButton.style.fontSize = "16px";
+                    // Append the submit button after the iframe
+                    document.body.appendChild(submitButton);
                     submitButton.addEventListener('click', () => {
                         alert("Exam submitted successfully!");
                         Honorlock.onExamSubmit(() => {
