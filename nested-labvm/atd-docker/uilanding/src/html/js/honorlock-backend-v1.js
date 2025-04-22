@@ -107,7 +107,7 @@ function setSessionSetup() {
                     document.body.appendChild(examStartedMessage);
 
                     const iframe2 = document.createElement('iframe');
-                    iframe2.src = "http://127.0.0.1:5000"; // Replace with your host URL
+                    iframe2.src = window.location.origin; // Dynamically set to the base URL of the current JS location
                     iframe2.style.position = "fixed";
                     iframe2.style.top = "0";
                     iframe2.style.left = "0";
