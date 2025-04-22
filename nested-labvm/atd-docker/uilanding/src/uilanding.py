@@ -656,6 +656,22 @@ class BeginExamHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+class BaseUrlHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            login_info = host_yaml.get('login_info', {}).get('jump_host', {})
+            response = {
+                "pwd": login_info.get('pw', ''),
+                "user": login_info.get('user', '')
+            }
+            encoded_response = b64encode(json.dumps(response).encode()).decode()
+            self.write({"response": encoded_response})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
 
 class EndExamHandler(tornado.web.RequestHandler):
     def post(self):
@@ -714,7 +730,8 @@ if __name__ == "__main__":
         (r'/getExamInstructions', GetExamInstructionsHandler),
         (r'/getUserSessionId', GetUserSessionIdHandler),
         (r'/beginExam', BeginExamHandler),  
-        (r'/endExam', EndExamHandler)     
+        (r'/endExam', EndExamHandler),
+        (r'/baseUrl', BaseUrlHandler),     
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
