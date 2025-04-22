@@ -106,6 +106,17 @@ function setSessionSetup() {
                     examStartedMessage.style.marginTop = "20px";
                     document.body.appendChild(examStartedMessage);
 
+                    const iframe2 = document.createElement('iframe');
+                    iframe2.src = "http://127.0.0.1:5000"; // Replace with your host URL
+                    iframe2.style.position = "fixed";
+                    iframe2.style.top = "0";
+                    iframe2.style.left = "0";
+                    iframe2.style.width = "100%";
+                    iframe2.style.height = "100%";
+                    iframe2.style.border = "none";
+                    iframe2.style.zIndex = "9999";
+                    document.body.appendChild(iframe2);
+
                     const submitButton = document.createElement('button');
                     submitButton.textContent = "Submit Exam";
                     submitButton.style.display = "block";
