@@ -78,7 +78,7 @@ function setSessionSetup() {
                 });
 
                 Honorlock.onBeginExam(() => {
-                    fetch('/BeginExamHandler', {
+                    fetch('/beginExam', {
                         method: 'POST',
                         headers: {
                             'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
@@ -130,7 +130,7 @@ function setSessionSetup() {
                             // Optionally, you can redirect the user or perform other actions here
                         });
                         // Add any additional logic for submitting the exam here
-                        fetch('/EndExamHandler', {
+                        fetch('/endExam', {
                             method: 'POST',
                             headers: {
                                 'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
