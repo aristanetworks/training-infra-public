@@ -1,4 +1,4 @@
-const submitButton = document.getElementById('submitbutton');
+const submitButton = document.getElementById('submitButton');
 
 submitButton.addEventListener('click', () => {
     alert("Exam submitted successfully!");
