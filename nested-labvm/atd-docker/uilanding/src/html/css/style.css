@@ -36,6 +36,15 @@ table {
   width: 100%;
 }
 
+.no-border {
+  border: none; /* Removes the border from the table */
+  border-collapse: collapse; /* Ensures no gaps between cells */
+}
+
+.no-border td,
+.no-border th {
+  border: none; /* Removes borders from table cells */
+}
 td,
 th {
   border: 1px solid #dddddd;

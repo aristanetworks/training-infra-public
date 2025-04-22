@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arista {{ topo_title }}</title>
     <link rel="stylesheet" href="css/foundation.min.css" />
+    <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
     <script src="js/atd-ws.js"></script>    
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/typography.css" />
@@ -14,7 +15,6 @@
   </head>
   <body>
     <header></header>
-
     <main>
       <!-------Index with sidebar-->
 
@@ -22,7 +22,11 @@
       <div class="grid-container full">
         <div class="grid-x">
           <header></header>
-          <div id="overlay"> <button id="overlayButton">Start Exam</button> </div>
+          <div id="overlay"> <button id="overlayButton">Start Exam</button>
+            <p>
+            <a href="/honorlock-authentication">Click here for Honorlock authentication</a>
+            </p>
+          </div>
           <aside
             id="sidebar"
             class="cell small-12 medium-12 large-3 left-sidebar"
@@ -124,14 +128,23 @@
               <h1>Arista {{ topo_title }}</h1>
               <div class="common-note">
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
-              </div>
-              <div class="icon-div">
-                <div class="icon"><i class="fa-regular fa-clock"></i></div>
-                <div class="icon-detail">
-                  <h2>Time Remaining</h2>
-                  <time><span id="countdown_timer">00:00:00</span></time>
                 </div>
-              </div>
+                <div class="icon-div">
+                  <table class="no-border" style="width: 100%;">
+                    <tbody style="background-color: transparent;"><tr>
+                    <td style="text-align: center;">
+                    <div class="icon"><i class="fa-regular fa-clock"></i></div>
+                    <div class="icon-detail">
+                    <h2>Time Remaining</h2>
+                    <time><span id="countdown_timer">00:00:00</span></time>
+                    </div>
+                  </td>
+                  <td style="text-align: center;">
+                    <button id="submitButton" class="button">Submit Exam</button>
+                    </td>
+                    </tr>
+                    </tbody></table>
+                </div>
               <!---==============-->
               <section class="topology">
                 <div class="topology-overview">
@@ -334,5 +347,6 @@
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script src="js/backend.js"></script>
+    <script src="js/honorlock-examsubmit-v1.js"></script>
   </body>
 </html>
