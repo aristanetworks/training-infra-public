@@ -25,7 +25,6 @@ function getExamInstruction() {
             iframe.style.height = '600px';
             document.body.appendChild(iframe);
             document.getElementById('honer-iframe').style.display = 'none';
-            document.getElementById('honer-ext-reload-text').style.display = 'none';
             setSessionSetup()
         })
 }
