@@ -6,7 +6,6 @@
     <title>Arista {{ topo_title }}</title>
     <link rel="stylesheet" href="css/foundation.min.css" />
     <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
-    <script src="js/honorlock-examsubmit-v1.js"></script>
     <script src="js/atd-ws.js"></script>    
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/typography.css" />
@@ -129,16 +128,22 @@
               <h1>Arista {{ topo_title }}</h1>
               <div class="common-note">
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
-              </div>
-                <div class="icon-div"></div>
-                <div class="icon"><i class="fa-regular fa-clock"></i></div>
-                <div class="icon-detail">
-                  <h2>Time Remaining</h2>
-                  <time><span id="countdown_timer">00:00:00</span></time>
-                </div>
                 </div>
                 <div class="icon-div">
-                <button id="submitButton" class="button">Exam Submit</button>
+                <table style="width: 100%;">
+                  <tr>
+                  <td style="text-align: center;">
+                    <div class="icon"><i class="fa-regular fa-clock"></i></div>
+                    <div class="icon-detail">
+                    <h2>Time Remaining</h2>
+                    <time><span id="countdown_timer">00:00:00</span></time>
+                    </div>
+                  </td>
+                  <td style="text-align: center;">
+                    <button id="submitButton" class="button">Submit Exam</button>
+                  </td>
+                  </tr>
+                </table>
                 </div>
               <!---==============-->
               <section class="topology">
@@ -342,5 +347,6 @@
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script src="js/backend.js"></script>
+    <script src="js/honorlock-examsubmit-v1.js"></script>
   </body>
 </html>
