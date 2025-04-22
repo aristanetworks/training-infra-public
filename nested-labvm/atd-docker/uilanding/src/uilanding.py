@@ -89,10 +89,41 @@ if 'title' in host_yaml:
 else:
     TITLE = 'Test Drive Lab'
 
+def get_metadata_extract(attribute):
+    try:
+        metadata_url = "http://169.254.169.254/computeMetadata/v1/project/attributes/{}".format(attribute)
+        headers = {"Metadata-Flavor": "Google"}
+        response = requests.get(metadata_url, headers=headers)
+        if response.status_code == 200:
+            return response.text
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching metadata: {e}")
+        return None
+
+HonorLockClientID = get_metadata_extract('honorlockClientID')
+HonorLockSecret = get_metadata_extract('honorlockClientSecret')
+
+
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
         return(self.get_secure_cookie("user"))
 
+class ExamAuthenticationHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")  # Set the correct content type for HTML
+        try:
+            with open(BASE_PATH + 'honorlock-index.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)  # Write the HTML content to the response
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: honorlock-index.html not found")
+        except Exception as e:      
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
 class LoginHandler(BaseHandler):
     def get(self):
         AUTH = False
@@ -343,6 +374,94 @@ def pS(mtype):
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
+class GetClientIdHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to fetch client ID from Honorlock API.
+        """
+        url = "https://app.honorlock.com/api/en/v1/token"
+        payload = json.dumps({
+            "client_id": HonorLockClientID,
+            "client_secret": HonorLockSecret
+        })
+        headers = {'Content-Type': 'application/json'}
+
+        try:
+            response = requests.post(url, headers=headers, data=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class GetExamInstructionsHandler(tornado.web.RequestHandler):
+    def post(self):
+        """
+        Handler to fetch exam instructions from Honorlock API.
+        """
+        try:
+            payload = json.loads(self.request.body)
+            url = f"https://app.honorlock.com/api/en/v1/exams/{payload['external_exam_id']}/instructions"
+            auth_header = self.request.headers.get('Authorization')
+
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+
+class GetUserSessionIdHandler(tornado.web.RequestHandler):
+    def post(self):
+        """
+        Handler to create a user session in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/exams/sessions/create"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
 class LabHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -528,7 +647,11 @@ if __name__ == "__main__":
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
         (r'/examStatus', ExamStatusHandler),
-        (r'/examSubmit', ExamSubmitHandler)        
+        (r'/examSubmit', ExamSubmitHandler),
+        (r'/exam-authentication', ExamAuthenticationHandler),     
+        (r'/getClientId', GetClientIdHandler),
+        (r'/getExamInstructions', GetExamInstructionsHandler),
+        (r'/getUserSessionId', GetUserSessionIdHandler)       
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
