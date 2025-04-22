@@ -20,9 +20,9 @@ submitButton.addEventListener('click', () => {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            external_exam_id: uservalue['external_exam_id'],
-            exam_taker_id: uservalue['exam_taker_id'],
-            exam_taker_attempt_id: uservalue['exam_taker_attempt_id']
+            external_exam_id: "test-course-april_external_id",
+            exam_taker_id: "test-taker-id5",
+            exam_taker_attempt_id: "2"
         })
     })
     .then(response => response.json())
