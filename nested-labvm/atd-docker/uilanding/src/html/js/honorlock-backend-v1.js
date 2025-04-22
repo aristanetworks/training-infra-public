@@ -105,7 +105,7 @@ function setSessionSetup() {
                     examStartedMessage.style.marginTop = "20px";
                     document.body.appendChild(examStartedMessage);
                     const iframe2 = document.createElement('iframe');
-                    fetch('/BaseUrl', {
+                    fetch('/baseUrl', {
                         method: 'GET',
                         headers: {
                             'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
