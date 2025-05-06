@@ -1628,7 +1628,7 @@ topologies:
             resources:
               cpu: 60
               ram: 80
-            branch: v2023.2-0731024-1
+            branch: v2023.2-05062025
             orderable: false
             image: base-ceos-training-l7-2023-2-4301
             eos:
@@ -2530,7 +2530,7 @@ topologies:
             resources:
               cpu: 80
               ram: 110
-            branch: v2023.2-0731024-1
+            branch: v2023.2-05062025
             orderable: true
             image: base-ceos-training-l7-part-2-v3-2023-2-4301-20240403
             eos:
