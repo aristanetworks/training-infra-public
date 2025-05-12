@@ -2810,6 +2810,16 @@ topologies:
             image: base-ceos-training-lx-cl-2024-3-4321-20250306
             eos:
               - 4.30.1F
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: v2025.1-05122025
+            orderable: false
+            image: base-ceos-training-lx-cl-2025-1-4321-20250408-141208
+            eos:
+              - 4.32.1F   
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
@@ -3021,7 +3031,17 @@ topologies:
             orderable: true
             image: base-veos-training-lx-cl-campus-2024-3-4321-20250307
             eos:
-              - 4.32.1F  
+              - 4.32.1F 
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: v2025.1-05122025
+            orderable: false
+            image: base-veos-training-lx-cl-campus-2025-1-4321-20250408-141208
+            eos:
+              - 4.32.1F                 
     desc: 'Training Lab vEOS for Campus. For use by the Arista Training Team.'
     name: 'Training Lab vEOS campus'
     title: 'Training Lab vEOS for campus'
