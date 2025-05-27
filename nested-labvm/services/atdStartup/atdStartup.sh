@@ -18,6 +18,9 @@ if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
     duration_map["-5-3"]=240  # 240 minutes (4 hours)
     duration_map["-4-1"]=240  # 240 minutes (4 hours)
     duration_map["-1-v"]=120  # 120 minutes (2 hours)
+    duration_map["-1-f"]=120  # 120 minutes (2 hours)
+    duration_map["-5-d"]=240  # 120 minutes (4 hours)
+    duration_map["-6-d"]=240  # 120 minutes (4 hours)
     # Get duration based on exam_code
     duration=${duration_map[$exam_code]}
     echo "Exam Duration: ${duration:-Unknown}"
