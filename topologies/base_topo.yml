@@ -3080,7 +3080,7 @@ topologies:
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
             branch: nested/2023.2-dual
             image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
-            orderable: true
+            orderable: false
             eos:
               - 4.30.1F     
     prod:
@@ -3113,7 +3113,7 @@ topologies:
               image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-cvp
             branch: nested/2023.2-dual
             image: atd-training-level-path-finder-c2023-2-1-dual-ceos-20241006-eos
-            orderable: true
+            orderable: false
             eos:
               - 4.32.1F
     desc: 'Training Lab Pathfinder. For use by the Arista Training Team.'
