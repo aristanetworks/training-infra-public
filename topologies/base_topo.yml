@@ -6,26 +6,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l1-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2021.3
-            orderable: true
-            image: base-veos-training-l1-2021-3-20230315-110300
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -41,26 +21,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-training-l1-e4-26-0f-c2020-2-3-20211220
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-veos-training-l1-2021-3-20230315-110300
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -84,16 +44,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l1-exam-2-2021-3-20230622-101922
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -109,26 +59,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-training-l1-e4-26-0f-c2020-2-3-20211220
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-veos-training-l1-exam-2-2021-3-20230622-101922
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -152,26 +82,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l2-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l2-2021-3-20230314-153844
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -187,16 +97,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-veos-training-l2-2021-3-20230314-153844
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -220,16 +120,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l2-exam-2-2021-3-20230621-093455
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -245,16 +135,6 @@ topologies:
         cpu: 40
         ram: 64
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: 2021.3-3.17-exam-fixes
-            orderable: false
-            image: base-veos-training-l2-exam-2-2021-3-20230621-093455
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -278,66 +158,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 36
-              ram: 72
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l3-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2020.2.3.e426:
-            schema: 1
-            resources:
-              cpu: 36
-              ram: 72
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l3-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch:   nested/2021.3
-            orderable: true
-            image: base-veos-training-l3-2021-3-20230314-142621
-            eos:
-              - 4.27.2F
-          2022.2.1:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: nested/2022.2
-            orderable: true
-            image: base-veos-training-l3-2022-2-20230210-170733
-            eos:
-              - 4.29.1F
-          2022.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 100
-            branch: nested/2022.3
-            orderable: true
-            image: base-veos-training-l3-2022-3-4291-20230213-114928
-            eos:
-              - 4.29.1F
-          2022.3.1:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 110
-            branch: nested/2022.3
-            orderable: true
-            image: base-veos-training-l3-2022-3-1-4291-20230214-130205
-            eos:
-              - 4.29.1F
           2023.2.0:
             schema: 1
             resources:
@@ -353,36 +173,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 36
-              ram: 72
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-training-l3-e4-24-2f-c2020-2-3-20211220
-            eos:
-              - 4.24.2.2F
-          2020.2.3.e426:
-            schema: 1
-            resources:
-              cpu: 36
-              ram: 72
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-training-l3-e4-26-0f-c2020-2-3-20211220
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-veos-training-l3-2021-3-20230314-142621
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -406,26 +196,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 36
-              ram: 72
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l3-exam-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l3-exam-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -441,26 +211,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 70
-              ram: 72
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-veos-training-l3-exam-2021-3-20230206-214313
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-veos-training-l3-exam-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -484,26 +234,6 @@ topologies:
         cpu: 40
         ram: 80
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l3-2-e4-26-0f-c2020-2-3-20220111
-            eos:
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l3-2-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -519,16 +249,6 @@ topologies:
         cpu: 40
         ram: 80
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 80
-            branch: 2021.3-3.14
-            orderable: false
-            image: base-veos-training-l3-2-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -548,45 +268,10 @@ topologies:
     labguides: self
   training-level4:
     dev:
-      ceos:
-        cpu: 24
-        ram: 64
-        cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 32
-              ram: 64
-            branch: nested/2020.2
-            orderable: false
-            image: base-veos-training-l4-2021-3-20230206-203233
-            eos:
-              - 4.25.1F
-              - 4.26.0F
       veos:
         cpu: 60
         ram: 90
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l4-2021-3-20230314-153844
-            eos:
-              - 4.27.2F
-          2021.3.0.e6:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2021.3
-            orderable: false
-            image: base-training-l4-e4-27-1f-c2021-3-0-e6-20220131
-            eos:
-              - 4.27.1F
           2023.2.0:
             schema: 1
             resources:
@@ -612,26 +297,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2022.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: 2022.3-3.19-l1-3
-            orderable: false
-            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
-            eos:
-              - 4.29.1F
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch:  v2023.2-04022025
-            orderable: false
-            image: base-veos-training-l4-v2-2023-2-20241126
-            eos:
-              - 4.30.1F
           2024.3.0:
             schema: 1
             resources:
@@ -655,16 +320,6 @@ topologies:
         cpu: 60
         ram: 90
         cvp:
-          2022.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2022.3
-            orderable: false
-            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
-            eos:
-              - 4.29.1F
           2023.2.0:
             schema: 1
             resources:
@@ -691,16 +346,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2022.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: 2022.3-3.19-l1-3
-            orderable: false
-            image: base-veos-training-l4-v2-2022-3-4291-20230718-151314
-            eos:
-              - 4.29.1F
           2023.2.0:
             schema: 1
             resources:
@@ -724,26 +369,6 @@ topologies:
         cpu: 60
         ram: 90
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2021.3
-            orderable: false
-            image: base-veos-training-l4-exam-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l4-exam-2023-2-4301-20250303
-            eos:
-              - 4.30.1F
           2024.3.0:
             schema: 1
             resources:
@@ -759,26 +384,6 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: 2021.3-3.9
-            orderable: false
-            image: base-veos-training-l4-exam-2021-3-20230206-214313
-            eos:
-              - 4.27.2F
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 88
-            branch:  v2023.2-04012025
-            orderable: false
-            image: base-veos-training-l4-exam-2023-2-4301-20250303
-            eos:
-              - 4.30.1F
           2024.3.0:
             schema: 1
             resources:
@@ -802,27 +407,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 72
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l5-ceos-c2020-2-3-20220111
-            eos:
-              - 4.25.1F
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 72
-            branch: nested/2021.3
-            orderable: false
-            image: base-ceos-training-l5-2021-3-20230314-162836
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -838,27 +422,6 @@ topologies:
         cpu: 36
         ram: 72
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 72
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-ceos-training-l5-2021-3-20230206-203421
-            eos:
-              - 4.25.1F
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 72
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-ceos-training-l5-2021-3-20230314-162836
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -921,37 +484,6 @@ topologies:
         cpu: 40
         ram: 70
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 40
-              ram: 70
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l7-ceos-c2020-2-3-20220111
-            eos:
-              - 4.25.1F
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch: nested/2021.3
-            orderable: false
-            image: base-ceos-training-l7-2021-3-20230224-151013
-            eos:
-              - 4.27.2F
-          2022.3.1:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch: nested/2022.3
-            orderable: true
-            image: base-ceos-training-l7-2022-3-20230925-151013
-            eos:
-              - 4.30.1F
           2023.2.0:
             schema: 1
             resources:
@@ -984,27 +516,6 @@ topologies:
         cpu: 60
         ram: 110
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 110
-            branch: v2020.2-20220404a
-            orderable: false
-            image: base-training-l7-ceos-c2020-2-3-20211220
-            eos:
-              - 4.25.1F
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch: 2021.3-3.17
-            orderable: false
-            image: base-ceos-training-l7-2021-3-20230331-110651
-            eos:
-              - 4.27.2F
           2023.2.0:
             schema: 1
             resources:
@@ -1084,37 +595,6 @@ topologies:
         cpu: 60
         ram: 110
         cvp:
-          2020.2.3:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 110
-            branch: nested/2020.2
-            orderable: false
-            image: base-training-l7-ceos-c2020-2-3-20220111
-            eos:
-              - 4.25.1F
-              - 4.26.0F
-          2021.3.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 110
-            branch: nested/2021.3
-            orderable: false
-            image: base-ceos-training-l7-part-3-2021-3-20230224-151013
-            eos:
-              - 4.27.2F
-          2022.3.1:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 110
-            branch: nested/2022.3
-            orderable: true
-            image: base-ceos-training-l7-part-3-2022-3-20230926-151013
-            eos:
-              - 4.30.1F
           2023.2.0:
             schema: 1
             resources:
