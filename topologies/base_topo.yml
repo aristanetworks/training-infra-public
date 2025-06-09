@@ -1,43 +1,5 @@
 ---
 topologies:
-  training-level1:
-    dev:
-      veos:
-        cpu: 32
-        ram: 64
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l1-2023-2-4301-20240710
-            eos:
-              - 4.30.1F               
-    prod:
-      veos:
-        cpu: 32
-        ram: 64
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 56
-              ram: 80
-            branch:  v2023.2-0731024-1
-            orderable: true
-            image: base-veos-training-l1-2023-2-4301-20240710
-            eos:
-              - 4.30.1F                 
-    desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1'
-    title: 'Training Level 1 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
-    labguides: self
   training-level1-exam-2:
     dev:
       veos:
@@ -76,44 +38,6 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
-  training-level2:
-    dev:
-      veos:
-        cpu: 32
-        ram: 64
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l2-2023-2-4301-20250304
-            eos:
-              - 4.30.1F                
-    prod:
-      veos:
-        cpu: 32
-        ram: 64
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 56
-              ram: 80
-            branch: v2023.2-0731024-1
-            orderable: true
-            image: base-veos-training-l2-2023-2-4301-20250304
-            eos:
-              - 4.30.1F 
-    desc: 'Level 2 Exam Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 2'
-    title: 'Training Level 2 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [labguides, jenkins, lab_grading, Tools, cvaas]
-    labguides: self
   training-level2-exam-2:
     dev:
       veos:
@@ -149,82 +73,6 @@ topologies:
     name: 'Training - Level 2 Exam Topology 2'
     title: 'Training Level 2 Exam Exam Topology 2'
     disk_size: 300
-    access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
-    labguides: self
-  training-level3:
-    dev:
-      veos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l3-2023-2-4301-20240710
-            eos:
-              - 4.30.1F  
-    prod:
-      veos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch:  v2023.2-0731024-1
-            orderable: true
-            image: base-veos-training-l3-2023-2-4301-20240710
-            eos:
-              - 4.30.1F
-    desc: 'Level 3 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 3'
-    title: 'Training Level 3 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [labguides, jenkins]
-    labguides: self
-  training-level3-exam:
-    dev:
-      veos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l3-exam-2023-2-4301-20250303
-            eos:
-              - 4.30.1F               
-    prod:
-      veos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch:  v2023.2-04012025
-            orderable: true
-            image: base-veos-training-l3-exam-2023-2-4301-20250303
-            eos:
-              - 4.30.1F
-    desc: 'Level 3 Training Exam Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 3 Exam'
-    title: 'Training Level 3 Exam'
-    disk_size: 500
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
@@ -400,44 +248,6 @@ topologies:
     disk_size: 500
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
-    labguides: self
-  training-level5:
-    dev:
-      ceos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 90
-            branch: nested/2023.2
-            orderable: true
-            image: base-ceos-training-l5-2023-2-4301-20240329
-            eos:
-              - 4.30.1F
-    prod:
-      ceos:
-        cpu: 36
-        ram: 72
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 60
-              ram: 80
-            branch: v2023.2-04012025
-            orderable: true
-            image: base-ceos-training-l5-2023-2-4301-20240329
-            eos:
-              - 4.30.1F
-    desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 5'
-    title: 'Training Level 5 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [jenkins,lab_status, lab_grading, Tools]
     labguides: self
   training-level7-part2:
     dev:
@@ -1037,44 +847,6 @@ topologies:
     access: standard
     disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
-  training-level1-me:
-    dev:
-      veos:
-        cpu: 40
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 110
-            branch: nested/2023.2
-            orderable: true
-            image: base-veos-training-l1-me-2023-2-4301-20240329
-            eos:
-              - 4.30.1F
-    prod:
-      veos:
-        cpu: 60
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 64
-            branch: v2023.2-0731024-1
-            orderable: true
-            image: base-veos-training-l1-me-2023-2-4301-20240329
-            eos:
-              - 4.30.1F
-    desc: 'Level 1 Media and Entertainment Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1 ME'
-    title: 'Training Level 1 Lab Media and Entertainment'
-    disk_size: 300
-    access: standard
-    disable_links: [ jenkins, lab_grading, Tools, cvaas]
-    labguides: self
   training-level7-part2-Test2:
     dev:
       ceos:
@@ -1150,82 +922,6 @@ topologies:
     disk_size: 300
     access: standard
     disable_links: [ jenkins, lab_grading, Tools, cvaas]
-    labguides: self
-  training-level-1-mini-1:
-    dev:
-      ceos:
-        cpu: 40
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 110
-            branch: nested/2023.2
-            orderable: true
-            image: base-ceos-training-l1-mini-1-2023-2-4301-20240403-123354-image
-            eos:
-              - 4.30.1F
-    prod:
-      veos:
-        cpu: 60
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 64
-            branch: v2023.2-0731024-1
-            orderable: true
-            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
-            eos:
-              - 4.30.1F
-    desc: 'Level 1 mini-1 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1 mini-1'
-    title: 'Training Level 1 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
-    labguides: self
-  training-level-1-mini-2:
-    dev:
-      ceos:
-        cpu: 40
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 110
-            branch: nested/2023.2
-            orderable: true
-            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
-            eos:
-              - 4.30.1F
-    prod:
-      veos:
-        cpu: 60
-        ram: 110
-        cvp:
-          2023.2.0:
-            schema: 1
-            resources:
-              cpu: 48
-              ram: 64
-            branch: v2023.2-0731024-1
-            orderable: true
-            image: base-ceos-training-l1-mini-2-2023-2-4301-20240403-123354-image
-            eos:
-              - 4.30.1F
-    desc: 'Level 1 mini-2 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Level 1 mini-2'
-    title: 'Training Level 1 Lab'
-    disk_size: 300
-    access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
   training-level-bgp-custom:
     dev:
