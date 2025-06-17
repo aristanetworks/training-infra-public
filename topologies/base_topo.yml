@@ -51,7 +51,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l2-exam-2-2023-2-4301-20250613
+            image: base-veos-training-l2-exam-2-2023-2-4301-20250303
             eos:
               - 4.30.1F  
     prod:
@@ -66,7 +66,7 @@ topologies:
               ram: 80
             branch:  v2023.2-06162025
             orderable: true
-            image: base-veos-training-l2-exam-2-2023-2-4301-20250613
+            image: base-veos-training-l2-exam-2-2023-2-4301-20250303
             eos:
               - 4.30.1F  
     desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
