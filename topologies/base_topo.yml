@@ -13,7 +13,7 @@ topologies:
               ram: 90
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-l1-exam-2-2023-2-4301-20250613
+            image: base-veos-training-l1-exam-2-2023-2-4301-20250303
             eos:
               - 4.30.1F                 
     prod:
@@ -28,7 +28,7 @@ topologies:
               ram: 80
             branch:  v2023.2-06162025
             orderable: true
-            image: base-veos-training-l1-exam-2-2023-2-4301-20250613
+            image: base-veos-training-l1-exam-2-2023-2-4301-20250303
             eos:
               - 4.30.1F   
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
@@ -100,7 +100,7 @@ topologies:
               ram: 90
             branch: nested/2024.3
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2024-3-20250307
             eos:
               - 4.32.1F   
     prod:
@@ -125,7 +125,7 @@ topologies:
               ram: 90
             branch: v2024.3-06162025
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2024-3-20250307
             eos:
               - 4.32.1F                    
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -159,7 +159,7 @@ topologies:
               ram: 90
             branch: nested/2024.3
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2024-3-20250307
             eos:
               - 4.32.1F   
 
@@ -185,7 +185,7 @@ topologies:
               ram: 90
             branch: v2024.3-06162025
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2024-3-20250307
             eos:
               - 4.32.1F            
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
@@ -442,7 +442,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-l5-cl-2023-2-4301-20250613
+            image: base-ceos-training-l5-cl-2023-2-4301-20240516
             eos:
               - 4.30.1F
           2023.2.0-dual:
@@ -474,7 +474,7 @@ topologies:
               ram: 80
             branch:  v2023.2-06162025
             orderable: true
-            image: base-ceos-training-l5-cl-2023-2-4301-20250613
+            image: base-ceos-training-l5-cl-2023-2-4301-20240516
             eos:
               - 4.30.1F       
           2023.2.0-dual:
@@ -514,7 +514,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-avd-2023-2-4301-20250613
+            image: base-veos-training-avd-2023-2-4301-20240212
             eos:
               - 4.30.1F
     prod:
@@ -529,7 +529,7 @@ topologies:
               ram: 64
             branch: v2023.2-06162025
             orderable: true
-            image: base-ceos-training-avd-2023-2-4301-20250613
+            image: base-veos-training-avd-2023-2-4301-20240212
             eos:
               - 4.30.1F
     desc: 'AVD - Arista Validated Design'
@@ -552,7 +552,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-ceos-training-cvp-2023-2-4301-20250613
+            image: base-veos-training-cvp-2023-2-4301-20240315
             eos:
               - 4.30.1F
     prod:
@@ -567,7 +567,7 @@ topologies:
               ram: 64
             branch: v2023.2-06162025
             orderable: true
-            image: base-ceos-training-cvp-2023-2-4301-20250613
+            image: base-veos-training-cvp-2023-2-4301-20240315
             eos:
               - 4.30.1F
     desc: 'CVP - CloudVision Portal'
@@ -628,7 +628,7 @@ topologies:
               ram: 110
             branch: nested/2023.2
             orderable: true
-            image: base-veos-training-custom-lab-elan-2023-2-4321-20250613
+            image: base-veos-training-custom-lab-elan-2023-2-4321-20240807
             eos:
               - 4.30.1F
     prod:
@@ -643,7 +643,7 @@ topologies:
               ram: 64
             branch: v2023.2-06162025
             orderable: false
-            image: base-veos-training-custom-lab-elan-2023-2-4321-20250613
+            image: base-veos-training-custom-lab-elan-2023-2-4321-20240807
             eos:
               - 4.30.1F
     desc: 'BGP Custom Training Lab. For use by the Arista Training Team.'
@@ -847,7 +847,7 @@ topologies:
               ram: 110
             branch: nested/2024.3
             orderable: true
-            image: base-ceos-training-lx-cl-exam-2024-3-4321-20250604
+            image: base-ceos-training-lx-cl-exam-2024-3-4321-20250204
             eos:
               - 4.32.1F
     prod:
@@ -872,7 +872,7 @@ topologies:
               ram: 110
             branch: v2024.3-06162025
             orderable: true
-            image: base-ceos-training-lx-cl-exam-2024-3-4321-20250604
+            image: base-ceos-training-lx-cl-exam-2024-3-4321-20250204
             eos:
               - 4.32.1F              
     desc: 'Training Lab for Exam. For use by the Arista Training Team.'
