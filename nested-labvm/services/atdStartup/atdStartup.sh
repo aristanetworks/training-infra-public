@@ -213,3 +213,5 @@ rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer 
 sudo systemctl daemon-reload
 sudo systemctl enable exam-submission-check.timer
 sudo systemctl start exam-submission-check.timer
+# Enable password authentication for SSH
+sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd
