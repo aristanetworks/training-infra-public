@@ -1084,3 +1084,83 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading]
     labguides: self
+  training-level5:
+    dev:
+      ceos:
+        cpu: 36
+        ram: 72
+        cvp:
+          2020.2.3:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 72
+            branch: nested/2020.2
+            orderable: false
+            image: base-training-l5-ceos-c2020-2-3-20220111
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 72
+            branch: nested/2021.3
+            orderable: false
+            image: base-ceos-training-l5-2021-3-20230314-162836
+            eos:
+              - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-ceos-training-l5-2023-2-4301-20240329
+            eos:
+              - 4.30.1F
+    prod:
+      ceos:
+        cpu: 36
+        ram: 72
+        cvp:
+          2020.2.3:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 72
+            branch: v2020.2-20220404a
+            orderable: false
+            image: base-ceos-training-l5-2021-3-20230206-203421
+            eos:
+              - 4.25.1F
+              - 4.26.0F
+          2021.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 72
+            branch: 2021.3-3.17
+            orderable: false
+            image: base-ceos-training-l5-2021-3-20230314-162836
+            eos:
+              - 4.27.2F
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 80
+            branch: v2023.2-04012025
+            orderable: true
+            image: base-ceos-training-l5-2023-2-4301-20240329
+            eos:
+              - 4.30.1F
+    desc: 'Level 5 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 5'
+    title: 'Training Level 5 Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins,lab_status, lab_grading, Tools]
+    labguides: self
