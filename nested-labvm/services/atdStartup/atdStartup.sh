@@ -215,3 +215,5 @@ sudo systemctl enable exam-submission-check.timer
 sudo systemctl start exam-submission-check.timer
 echo "Password authentication enabled for SSH"
 sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd
+echo -e "\nMatch User atdadmin\n    PasswordAuthentication no" | sudo tee -a /etc/ssh/sshd_config
+sudo systemctl restart sshd
