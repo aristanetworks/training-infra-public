@@ -916,7 +916,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-lx-veos-2025-1-4321-20250604
+            image: base-veos-training-lx-veos-2025-1-4321-20250708
             eos:
               - 4.32.1F                
     prod:
@@ -974,7 +974,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-lx-cl-campus-2025-1-4321-20250408-141208
+            image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
             eos:
               - 4.32.1F          
     prod:
@@ -1163,4 +1163,42 @@ topologies:
     disk_size: 300
     access: standard
     disable_links: [jenkins,lab_status, lab_grading, Tools]
+    labguides: self
+training-level-x-cl-exam-veos:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp: 
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2025.1
+            orderable: true
+            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20250708
+            eos:
+              - 4.32.1F                
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 95
+            branch:  v2025.1-06162025
+            orderable: false
+            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20250708
+            eos:
+              - 4.32.1F  
+    desc: 'Training Lab vEOS Exam. For use by the Arista Training Team.'
+    name: 'Training Lab vEOS Exam'
+    title: 'Training Lab vEOS Exam '
+    disk_size: 300
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
