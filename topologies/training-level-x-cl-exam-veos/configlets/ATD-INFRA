@@ -23,7 +23,7 @@ dns domain arista.lab
 !
 service routing protocols model multi-agent
 !
-ntp server vrf MGMT 192.168.0.1 iburst source Management
+ntp server vrf MGMT 192.168.0.1 iburst source Management1
 !
 radius-server host 192.168.0.1 vrf MGMT key 7 0207165218120E
 !
