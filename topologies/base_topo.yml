@@ -1164,7 +1164,7 @@ topologies:
     access: standard
     disable_links: [jenkins,lab_status, lab_grading, Tools]
     labguides: self
-training-level-x-cl-exam-veos:
+  training-level-x-cl-exam-veos:
     dev:
       veos:
         cpu: 40
