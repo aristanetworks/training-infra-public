@@ -140,7 +140,9 @@ def grabSwitchDetails(allHostsName, allHostsIP, folder, labPassword):
         collect_command_output(switch, name, outputs, "running", ["show running-config"])
         collect_mlag_info(switch, name, outputs)
         collect_vxlan_info(switch, name, outputs)
-        collect_command_output(switch, name, outputs, "Route", ["show ip route"])
+        collect_ospf_info(switch, name, outputs)
+        collect_command_output(switch, name, outputs, "Route", ["show ip route vrf all"])
+        collect_command_output(switch, name, outputs, "VRF", ["show vrf"])
         collect_command_output(switch, name, outputs, "BGPsummary", ["show ip bgp summary"])
         
         # EVPN commands - only for non-host devices
@@ -190,6 +192,23 @@ def collect_mlag_info(switch, name, outputs_dict):
     except Exception as e:
         print(f"{name}: Failed to get MLAG info: Most likely this is not enabled or configured")
 
+def collect_ospf_info(switch, name, outputs_dict):
+    """Collect OSPF information with error handling."""
+    try:
+        commands = ["show ip ospf", "show ip ospf neighbor", "show ip ospf interface brief"]
+        result = switch.runCmds(1, ["enable"] + commands, "text")
+        
+        ospf_output = "show ip ospf\n"
+        ospf_output += result[1]["output"]
+        ospf_output += "\nshow ip ospf neighbor\n"
+        ospf_output += result[2]["output"]
+        ospf_output += "\nshow ip ospf interface brief\n"
+        ospf_output += result[3]["output"]
+        
+        outputs_dict["OSPF"] = ospf_output
+        print(f"{name}: Got OSPF info")
+    except Exception as e:
+        print(f"{name}: Failed to get OSPF info: Most likely this is not enabled or configured")
 
 def collect_vxlan_info(switch, name, outputs_dict):
     """Collect VXLAN information with error handling."""
