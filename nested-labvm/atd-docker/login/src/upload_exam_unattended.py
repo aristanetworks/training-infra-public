@@ -140,7 +140,9 @@ def grabSwitchDetails(allHostsName, allHostsIP, folder, labPassword):
         collect_command_output(switch, name, outputs, "running", ["show running-config"])
         collect_mlag_info(switch, name, outputs)
         collect_vxlan_info(switch, name, outputs)
+        collect_ospf_info(switch, name, outputs)
         collect_command_output(switch, name, outputs, "Route", ["show ip route vrf all"])
+        collect_command_output(switch, name, outputs, "VRF", ["show vrf"])
         collect_command_output(switch, name, outputs, "BGPsummary", ["show ip bgp summary"])
         
         # EVPN commands - only for non-host devices
