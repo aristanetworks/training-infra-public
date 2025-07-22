@@ -27,6 +27,9 @@ nodes:
         - neighborDevice: A1
           neighborPort: Ethernet2
           port: Ethernet2
+        - neighborDevice: C1
+          neighborPort: Ethernet3
+          port: Ethernet3
   - C1:
       ip_addr: 192.168.0.23
       sys_mac: 00:1c:73:c3:c6:01
@@ -37,6 +40,9 @@ nodes:
         - neighborDevice: A1
           neighborPort: Ethernet3
           port: Ethernet2
+        - neighborDevice: B1
+          neighborPort: Ethernet3
+          port: Ethernet3
   - A2:
       ip_addr: 192.168.0.31
       sys_mac: 00:1c:73:d1:c6:01
@@ -60,6 +66,9 @@ nodes:
         - neighborDevice: A2
           neighborPort: Ethernet2
           port: Ethernet2
+        - neighborDevice: C2
+          neighborPort: Ethernet3
+          port: Ethernet3
   - C2:
       ip_addr: 192.168.0.33
       sys_mac: 00:1c:73:d3:c6:01
@@ -70,6 +79,9 @@ nodes:
         - neighborDevice: A2
           neighborPort: Ethernet3
           port: Ethernet2
+        - neighborDevice: B2
+          neighborPort: Ethernet3
+          port: Ethernet3
   - PE1:
       ip_addr: 192.168.0.41
       sys_mac: 00:1c:73:e1:c6:01
