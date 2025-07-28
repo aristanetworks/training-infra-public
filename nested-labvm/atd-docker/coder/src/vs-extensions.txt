@@ -16,3 +16,4 @@ samuelcolvin.jinjahtml
 tuxtina.json2yaml
 wholroyd.jinja
 yzhang.markdown-all-in-one
+rangav.vscode-thunder-client
