@@ -12,11 +12,18 @@ ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 ARG PIP_NO_CACHE_DIR=1
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
 
+
 USER root
 RUN dnf update -y && \
     dnf install -y python3 git openssh-server vim nano less rsync man-db jq python3-pip wget zsh sshpass libvirt-client && \
     dnf clean all
 USER coder
+
+
+# Install Code extensions
+COPY src/vs-extensions.txt /home/coder/
+
+RUN while IFS= read -r line; do code-server --install-extension $line; done < /home/coder/vs-extensions.txt
 
 RUN pip3 install --user pyeapi jsonrpclib-pelix shyaml && \
     pip3 install --user "ansible-core>=2.15.0,<2.17.0" --upgrade
@@ -30,10 +37,6 @@ RUN ansible-galaxy collection install arista.avd:==${AVD_VER} && \
 # Install Ansible-AVD collection requirements
 RUN pip3 install --user "pyavd[ansible]==${AVD_VER}" "anta==${ANTA_VER}" --upgrade
 
-# Install Code extensions
-COPY src/vs-extensions.txt /home/coder/
-
-RUN while IFS= read -r line; do code-server --install-extension $line; done < /home/coder/vs-extensions.txt
 
 COPY src/.gitconfig /home/coder/
 
