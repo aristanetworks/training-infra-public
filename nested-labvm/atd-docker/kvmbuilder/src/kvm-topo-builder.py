@@ -17,11 +17,17 @@ DATA_OUTPUT = expanduser('~/kvm/')
 BASE_XML_VEOS = expanduser('~/base.xml')
 BASE_XML_CLOUDEOS = expanduser('~/base_cloudeos.xml')
 BASE_XML_CVP = expanduser('~/base_cvp.xml')
+# NEW: Base XML for generic Linux servers
+BASE_XML_SERVER = expanduser('~/base_server.xml')
+
 
 OVS_BRIDGES = []
 VEOS_NODES = {}
 sleep_delay = 30
 KOUT_LINES = ['#!/bin/bash','']
+
+# NEW: Define a path for the base server qcow2 image
+BASE_SERVER_QCOW2_PATH = '/var/lib/libvirt/images/servers/base/server.qcow2'
 
 
 class vNODE():
@@ -155,6 +161,8 @@ def createMac(dev_type, dev_id):
     """
     if dev_type == 'cvp':
         return('a{0}'.format(dev_id))
+    elif dev_type == 'server': # NEW: MAC address range for servers
+        return('e{0}'.format(dev_id))
     else:
         if dev_id < 10:
             return('b{0}'.format(dev_id))
@@ -203,6 +211,9 @@ def main(uargs):
     cvp_cpu_count = FILE_BUILD['cvp_cpu']
     cvp_node_count = FILE_BUILD['cvp_nodes']
     veos_cpu_count = FILE_BUILD['veos_cpu']
+    # NEW: Server CPU and RAM defaults
+    server_cpu_count = FILE_BUILD.get('server_cpu', 1) # Default to 1 if not specified
+    server_ram_count = FILE_BUILD.get('server_ram', 2048) # Default to 2GB if not specified
     if 'cvp_ram' in FILE_BUILD:
         cvp_ram_count = FILE_BUILD['cvp_ram'] * 1024
     else:
@@ -314,12 +325,110 @@ def main(uargs):
         if _cvp + 1 == cvp_node_count:
             KOUT_LINES.append("sudo mv /var/lib/libvirt/images/cvp /var/lib/libvirt/images/cvp{0}".format(_cvp + 1))
         else:
-            KOUT_LINES.append("sudo mkdir /var/lib/libvirt/images/cvp{0}".format(_cvp + 1))
+            KOUT_LINES.append("sudo mkdir -p /var/lib/libvirt/images/cvp{0}".format(_cvp + 1)) # Added -p for parent directories
             KOUT_LINES.append("sudo cp -r /var/lib/libvirt/images/cvp/disk* /var/lib/libvirt/images/cvp{0}/".format(_cvp + 1))
-        KOUT_LINES.append("sudo virsh define cvp{0}.xml".format(_cvp + 1))
+        KOUT_LINES.append("sudo virsh define {0}{1}.xml".format(DATA_OUTPUT, 'cvp{0}'.format(_cvp + 1))) # Added DATA_OUTPUT
         KOUT_LINES.append("sudo virsh start cvp{0}".format(_cvp + 1))
         KOUT_LINES.append("sudo virsh autostart cvp{0}".format(_cvp + 1))
         pS("OK", "Created Virsh commands for cvp{0}".format(_cvp + 1))
+
+    # NEW: Logic for handling server nodes
+    server_node_counter = 0
+    for vdev in VEOS_NODES:
+        if VEOS_NODES[vdev].v_platform == 'server':
+            print(f"Creating server for {vdev} and platform {VEOS_NODES[vdev].v_platform}")
+            tree = ET.parse(BASE_XML_SERVER)
+            root = tree.getroot()
+
+            # Add name item for KVM domain
+            vname = ET.SubElement(root, 'name')
+            vname.text = vdev
+            # Add CPU Configuration
+            vcpu = ET.SubElement(root, 'vcpu')
+            vcpu.text = str(server_cpu_count)
+            # Add RAM Configuration for server
+            vmem = ET.SubElement(root, 'memory', attrib={'unit': 'MiB'})
+            vmem.text = str(server_ram_count)
+            vcurmem = ET.SubElement(root, 'currentMemory', attrib={'unit': 'MiB'})
+            vcurmem.text = str(server_ram_count)
+
+            # Get to the device section and add interfaces
+            xdev = root.find('./devices')
+            # Add/Create disk location for xml
+            tmp_disk = ET.SubElement(xdev, 'disk', attrib={
+                'type': 'file',
+                'device': 'disk'
+            })
+            ET.SubElement(tmp_disk, 'driver', attrib={
+                'name': 'qemu',
+                'type': 'qcow2',
+                'cache': 'directsync',
+                'io': 'native'
+            })
+            # Path for duplicated qcow2 file for the server
+            server_qcow2_path = f'/var/lib/libvirt/images/servers/{vdev}.qcow2'
+            ET.SubElement(tmp_disk, 'source', attrib={'file': server_qcow2_path})
+            ET.SubElement(tmp_disk, 'target', attrib={
+                'dev': 'vda',
+                'bus': 'virtio'
+            })
+
+            # Management interface for server (similar to vmgmt for vEOS/CVP)
+            tmp_int = ET.SubElement(xdev, 'interface', attrib={'type': 'bridge'})
+            ET.SubElement(tmp_int, 'source', attrib={'bridge': 'vmgmt'})
+            if VEOS_NODES[vdev].sys_mac:
+                tmp_sys_mac = VEOS_NODES[vdev].sys_mac
+            else:
+                tmp_sys_mac = '00:1c:73:{0}:c6:01'.format(createMac('server', server_node_counter))
+            ET.SubElement(tmp_int, 'mac', attrib={'address': tmp_sys_mac})
+            ET.SubElement(tmp_int, 'target', attrib={'dev': vdev})
+            ET.SubElement(tmp_int, 'model', attrib={'type': 'virtio'})
+            ET.SubElement(tmp_int, 'address', attrib={
+                'type': 'pci',
+                'domain': '0x0000',
+                'bus': '0x00',
+                'slot': '0x03',
+                'function': '0x0'
+            })
+
+            # Only one connection back to the topology, so only one additional interface
+            # Assuming 'neighbors' will contain this single connection
+            d_slot_counter = 4 # Start slot after management
+            d_intf_counter = 0
+            for vintf in VEOS_NODES[vdev].intfs:
+                tmp_dev = VEOS_NODES[vdev].intfs[vintf]
+                tmp_int = ET.SubElement(xdev, 'interface', attrib={'type': 'bridge'})
+                ET.SubElement(tmp_int, 'source', attrib={'bridge': tmp_dev['bridge']})
+                ET.SubElement(tmp_int, 'target', attrib={'dev': '{0}x{1}'.format(VEOS_NODES[vdev].name_short, tmp_dev['port'].replace('X',''))})
+                ET.SubElement(tmp_int, 'model', attrib={'type': 'virtio'})
+                ET.SubElement(tmp_int, 'virtualport', attrib={'type': 'openvswitch'})
+                ET.SubElement(tmp_int, 'address', attrib={
+                    'type': 'pci',
+                    'domain': '0x0000',
+                    'bus': '0x00',
+                    'slot': '0x0{0}'.format(d_slot_counter),
+                    'function': '0x{0}'.format(d_intf_counter)
+                })
+                # For servers, assuming only one data interface, so no need to increment counters
+                # However, if multiple are somehow defined in YAML, this will handle them.
+                if d_intf_counter == 7:
+                    d_slot_counter += 1
+                    d_intf_counter = 0
+                else:
+                    d_intf_counter += 1
+
+            # Export/write of xml for node
+            tree.write(DATA_OUTPUT + '{0}.xml'.format(vdev))
+            KOUT_LINES.append(f"sudo mkdir -p /var/lib/libvirt/images/servers") # Ensure servers directory exists
+            KOUT_LINES.append(f"sudo cp {BASE_SERVER_QCOW2_PATH} {server_qcow2_path}")
+            # Add cloud-init configuration for IP address
+            KOUT_LINES.append(f"sudo virt-customize -a {server_qcow2_path} --run-command 'echo \"network:\n  version: 2\n  ethernets:\n    eth0:\n      dhcp4: false\n      addresses: [{VEOS_NODES[vdev].ip}/24]\" > /etc/netplan/01-netcfg.yaml'")
+            KOUT_LINES.append(f"sudo virsh define {DATA_OUTPUT}{vdev}.xml")
+            KOUT_LINES.append(f"sudo virsh start {vdev}")
+            KOUT_LINES.append(f"sudo virsh autostart {vdev}")
+            pS("OK", f"Created Virsh commands for {vdev} (Server)")
+            server_node_counter += 1
+
 
     if 'eos_type' in host_yaml:
         if host_yaml['eos_type'] == 'veos':
@@ -332,6 +441,9 @@ def main(uargs):
         # Create xml files for vEOS KVM Nodes
         node_counter = 0
         for vdev in VEOS_NODES:
+            # Skip if it's a server, already handled above
+            if VEOS_NODES[vdev].v_platform == 'server':
+                continue
             # Open base XML file
             if VEOS_NODES[vdev].v_platform == 'cloudeos':
                 print(f"Creating cloudeos for {vdev} and platforn {VEOS_NODES[vdev].v_platform}")
@@ -411,13 +523,13 @@ def main(uargs):
                     d_intf_counter += 1
             # Export/write of xml for node
             tree.write(DATA_OUTPUT + '{0}.xml'.format(vdev))
-            if VEOS_NODES[vdev].v_platform == 'cloudeos' : 
+            if VEOS_NODES[vdev].v_platform == 'cloudeos' :
                 print(f"Copying clouseos for {vdev} becasue platform is {v_platform}")
                 KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/cloud-eos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
             else:
                 print(f"Copying veos for {vdev} because platform is {v_platform}")
                 KOUT_LINES.append("sudo cp /var/lib/libvirt/images/veos/base/veos.qcow2 /var/lib/libvirt/images/veos/{0}.qcow2".format(vdev))
-            KOUT_LINES.append("sudo virsh define {0}.xml".format(vdev))
+            KOUT_LINES.append("sudo virsh define {0}{1}.xml".format(DATA_OUTPUT, vdev)) # Added DATA_OUTPUT
             KOUT_LINES.append("sudo virsh start {0}".format(vdev))
             KOUT_LINES.append("sudo virsh autostart {0}".format(vdev))
             pS("OK", "Created Virsh commands for {0}".format(vdev))
@@ -426,8 +538,8 @@ def main(uargs):
     with open(DATA_OUTPUT + TOPO_TAG + '-kvm-create.sh', 'w') as kout:
         for kli in KOUT_LINES:
             kout.write("{0}\n".format(kli))
-    
-    
+
+
 if __name__ == '__main__':
     print('Starting KVM Builder')
     parser = argparse.ArgumentParser()
