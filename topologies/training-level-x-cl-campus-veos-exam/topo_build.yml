@@ -100,7 +100,7 @@ nodes:
           port: Ethernet5
   - spine5:
       ip_addr: 192.168.0.15
-      sys_mac: 00:1c:73:b1:c6:01
+      sys_mac: 00:1c:73:b5:c6:01
       neighbors:
         - neighborDevice: spine6
           neighborPort: Ethernet1
@@ -122,7 +122,7 @@ nodes:
           port: Ethernet6
   - spine6:
       ip_addr: 192.168.0.16
-      sys_mac: 00:1c:73:b2:c6:01
+      sys_mac: 00:1c:73:b6:c6:01
       neighbors:
         - neighborDevice: spine5
           neighborPort: Ethernet1
@@ -239,7 +239,7 @@ nodes:
           port: Ethernet3
   - leaf6:
       ip_addr: 192.168.0.26
-      sys_mac: 00:1c:73:c1:c6:01
+      sys_mac: 00:1c:73:c6:c6:01
       neighbors:
         - neighborDevice: leaf7
           neighborPort: Ethernet1
@@ -258,7 +258,7 @@ nodes:
           port: Ethernet5
   - leaf7:
       ip_addr: 192.168.0.27
-      sys_mac: 00:1c:73:c2:c6:01
+      sys_mac: 00:1c:73:c7:c6:01
       neighbors:
         - neighborDevice: leaf6
           neighborPort: Ethernet1
@@ -350,14 +350,14 @@ nodes:
           port: Ethernet1
   - host6:
       ip_addr: 192.168.0.65
-      sys_mac: 00:1c:73:f1:c6:01
+      sys_mac: 00:1c:73:05:c6:01
       neighbors:
         - neighborDevice: leaf6
           neighborPort: Ethernet3
           port: Ethernet1
   - host7:
       ip_addr: 192.168.0.66
-      sys_mac: 00:1c:73:f2:c6:01
+      sys_mac: 00:1c:73:06:c6:01
       neighbors:
         - neighborDevice: leaf7
           neighborPort: Ethernet3
