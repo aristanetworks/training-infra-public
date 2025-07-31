@@ -10,6 +10,8 @@ cvp_info:
       - leaf3
       - leaf4
       - leaf5
+      - leaf6
+      - leaf7
       - memleaf1
       - memleaf2
     router:
@@ -24,6 +26,8 @@ cvp_info:
       - spine2
       - spine3
       - spine4
+      - spine5
+      - spine6
     Hosts:
       parent: Tenant
       nodes:
@@ -32,6 +36,8 @@ cvp_info:
       - host3
       - host4
       - host5
+      - host6
+      - host7
   snapshots:
   configlets:
     containers:
@@ -46,6 +52,10 @@ cvp_info:
         - spine3-base
       spine4:
         - spine4-base
+      spine5:
+        - spine5-base
+      spine6:
+        - spine6-base
       leaf1:
         - leaf1-base
       leaf2:
@@ -56,6 +66,10 @@ cvp_info:
         - leaf4-base
       leaf5:
         - leaf5-base
+      leaf6:
+        - leaf6-base
+      leaf7:
+        - leaf7-base
       host1:
         - host1-base
       host2:
@@ -66,6 +80,10 @@ cvp_info:
         - host4-base
       host5:
         - host5-base
+      host6:
+        - host6-base
+      host7:
+        - host7-base
       memleaf1:
         - memleaf1-base
       memleaf2:
