@@ -2,7 +2,7 @@ hostname memleaf1
 !
 interface Management 1
   vrf MGMT
-  ip address 192.168.0.26/24
+  ip address 192.168.0.28/24
 
 !
 service routing protocols model multi-agent
