@@ -1,4 +1,4 @@
-hostname host5
+hostname host6
 !
 interface Management 1
   vrf MGMT
