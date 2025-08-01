@@ -1263,7 +1263,7 @@ topologies:
             eos:
               - 4.32.1F    
     desc: 'Training Lab Campus vEOS Exam. For use by the Arista Training Team.'
-    name: 'Training Lab vEOS Exam'
+    name: 'Training Lab Campus Exam'
     title: 'Campus Exam'
     disk_size: 300
     access: standard
