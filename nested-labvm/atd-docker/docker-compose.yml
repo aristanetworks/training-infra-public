@@ -227,7 +227,7 @@ services:
       - /home/arista/arista-dir/apps/ssh/web.json:/opt/webssh2/app/config.json:ro
   webui:
     container_name: atd-webui
-    image: jlesage/firefox:latest
+    image: jlesage/firefox:v25.06.2
     privileged: true
     shm_size: 512M
     restart: always
