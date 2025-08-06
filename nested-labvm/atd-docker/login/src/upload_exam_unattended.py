@@ -12,6 +12,7 @@ from ftplib import FTP
 import json
 from base64 import b64decode, b64encode
 import requests
+from datetime import datetime, timezone
 
 
 try:
@@ -355,7 +356,23 @@ def updateHubspot(result, doceboid, courseid):
     except Exception:
         return None
 
-
+def create_metadata_file(folder, labName, labTopology):
+    """
+    Creates a JSON file with lab metadata including the UTC creation timestamp.
+    """
+    metadata = {
+        "lab_name": labName,
+        "lab_topology": labTopology,
+        "created_utc_time": datetime.now(timezone.utc).isoformat()
+    }
+    
+    metadata_filename = "lab-metadata.json"
+    complete_path = os.path.join(folder, metadata_filename)
+    
+    with open(complete_path, 'w') as f:
+        json.dump(metadata, f, indent=4)
+    
+    print(f"Metadata file '{metadata_filename}' created.")
 
 
 def main():
@@ -369,6 +386,9 @@ def main():
             os.makedirs(folder)
         except OSError as exc: # Guard against race condition
             raise
+    
+    # Create the metadata file before collecting switch details
+    create_metadata_file(folder, labName, labTopology)    
     grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword)
     tarFile = "results-" + folder #+ "-" + candidateID
     grabCVPInfo(labPassword,folder)
