@@ -1,0 +1,53 @@
+!
+interface ethernet1,2
+  shutdown
+interface ethernet3
+  no switchport
+  ip address 10.10.1.1/30
+  no shutdown
+interface ethernet4
+   no switchport
+   ip address 10.10.1.5/30
+   no shutdown
+interface ethernet5
+   no switchport
+   ip address 10.10.1.9/30
+   no shutdown
+interface ethernet6
+   no switchport
+   ip address 10.10.1.13/30
+   no shutdown
+
+interface loopback0
+  ip address 10.21.21.21/32
+!  
+service routing protocols model multi-agent
+!
+ip routing
+!
+router bgp 65100
+   router-id 10.21.21.21
+   maximum-paths 4 ecmp 4
+   no bgp default ipv4-unicast
+   bgp log-neighbor-changes
+
+   neighbor 10.10.1.2 description Leaf1
+   neighbor 10.10.1.2 remote-as 65001
+   neighbor 10.10.1.2 maximum-routes 12000
+   neighbor 10.10.1.6 description Leaf2
+   neighbor 10.10.1.6 remote-as 65002
+   neighbor 10.10.1.6 maximum-routes 12000
+   neighbor 10.10.1.10  description Leaf3
+   neighbor 10.10.1.10  remote-as 65003
+   neighbor 10.10.1.10  maximum-routes 12000
+   neighbor 10.10.1.14  description Leaf4
+   neighbor 10.10.1.14  remote-as 65003
+   neighbor 10.10.1.14  maximum-routes 12000
+
+   address-family ipv4
+      network 10.21.21.21/32
+      neighbor 10.10.1.2 activate
+      neighbor 10.10.1.6 activate
+      neighbor 10.10.1.10 activate
+      neighbor 10.10.1.14 activate
+      redistribute connected

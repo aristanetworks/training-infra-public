@@ -1,0 +1,37 @@
+interface ethernet1,2
+   shutdown
+interface ethernet4
+   no switchport
+   ip address 10.10.1.6/30
+   no shutdown
+interface ethernet5
+   no switchport
+   ip address 10.10.2.6/30
+   no shutdown
+
+interface Loopback0
+ip address 10.12.12.12/32
+
+service routing protocols model multi-agent
+!
+ip routing
+!
+router bgp 65002
+   router-id 10.12.12.12
+   maximum-paths 2 ecmp 2
+   no bgp default ipv4-unicast
+   bgp log-neighbor-changes
+
+   neighbor 10.10.1.5 peer group SpineUnderlay
+   neighbor 10.10.2.5 peer group SpineUnderlay
+
+   neighbor 10.10.1.5 description Spine1
+   neighbor 10.10.2.5 description Spine2
+
+   neighbor SpineUnderlay remote-as 65100
+   neighbor SpineUnderlay  maximum-routes 12000
+
+address-family ipv4
+   network  10.12.12.12/32
+   neighbor SpineUnderlay activate
+   redistribute connected
