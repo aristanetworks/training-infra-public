@@ -1008,7 +1008,7 @@ topologies:
               - 4.32.1F          
     prod:
       veos:
-        cpu: 60
+        cpu: 68
         ram: 110
         cvp:
           2024.3.0:
@@ -1024,11 +1024,11 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 68
               ram: 110
-            branch: v2025.1-05122025.2
+            branch: v2025.1-08132025-campus
             orderable: true
-            image: base-veos-training-lx-cl-campus-2025-1-4321-20250408-141208
+            image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
             eos:
               - 4.32.1F                 
     desc: 'Training Lab vEOS for Campus. For use by the Arista Training Team.'
