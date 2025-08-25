@@ -146,6 +146,9 @@ nodes:
         - neighborDevice: PE2
           neighborPort: Ethernet5
           port: Ethernet2
+        - neighborDevice: PE6
+          neighborPort: Ethernet3
+          port: Ethernet3
   - P5:
       ip_addr: 192.168.0.45
       sys_mac: 00:1c:73:e5:c6:01
@@ -166,4 +169,7 @@ nodes:
         - neighborDevice: PE2
           neighborPort: Ethernet6
           port: Ethernet2
+        - neighborDevice: PE4
+          neighborPort: Ethernet3
+          port: Ethernet3
 additional_ssh_nodes:
