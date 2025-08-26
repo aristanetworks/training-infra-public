@@ -146,7 +146,7 @@ nodes:
         - neighborDevice: PE2
           neighborPort: Ethernet5
           port: Ethernet2
-        - neighborDevice: PE6
+        - neighborDevice: P6
           neighborPort: Ethernet3
           port: Ethernet3
   - P5:
@@ -169,7 +169,7 @@ nodes:
         - neighborDevice: PE2
           neighborPort: Ethernet6
           port: Ethernet2
-        - neighborDevice: PE4
+        - neighborDevice: P4
           neighborPort: Ethernet3
           port: Ethernet3
 additional_ssh_nodes:
