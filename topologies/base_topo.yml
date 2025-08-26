@@ -210,7 +210,7 @@ topologies:
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 v2'
     title: 'Training Level 4 Lab'
-    disk_size: 500
+    disk_size: 600
     access: standard
     disable_links: [ jenkins, lab_grading, Tools, cvaas]
     labguides: self
