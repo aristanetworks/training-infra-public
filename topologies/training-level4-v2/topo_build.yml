@@ -1,7 +1,7 @@
 host_cpu: 4
-cvp_cpu: 24
+cvp_cpu: 32
 cvp_nodes: 1
-cvp_ram: 32
+cvp_ram: 52
 veos_cpu: 2
 nodes:
   - A1:
