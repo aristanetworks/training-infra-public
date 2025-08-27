@@ -5,8 +5,8 @@ USER coder
 ENV HOME=/home/coder
 ENV PATH=$PATH:/home/coder/.local/bin
 ENV AVD_VER="5.5.1"
-ENV CVP_VER="3.10.1"
-ENV ANTA_VER="1.0.0"
+ENV CVP_VER="3.12.0"
+ENV ANTA_VER="1.4.0"
 # set args to cleanup installs
 ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 ARG PIP_NO_CACHE_DIR=1
@@ -15,7 +15,7 @@ ARG PIP_BREAK_SYSTEM_PACKAGES=1
 
 USER root
 RUN dnf update -y && \
-    dnf install -y python3 git openssh-server vim nano less rsync man-db jq python3-pip wget zsh sshpass libvirt-client && \
+    dnf install -y python3 git openssh-server vim nano less rsync man-db jq python3-pip wget zsh sshpass libvirt-client grpcurl && \
     dnf clean all
 USER coder
 
