@@ -1,169 +1,210 @@
 import { getUserDetails } from './honorlock-common.js';
-
+let token;
 async function getExamInstruction() {
-    const myHeaders = new Headers();
-    token = sessionStorage.getItem('token');
-    myHeaders.append("Authorization", "Bearer " + token);
-    myHeaders.append("Content-Type", "application/json"); // Ensure Content-Type is set
-    const uservalue = await getUserDetails();
-    const raw = JSON.stringify({
-        "external_exam_id": uservalue.external_exam_id,
-    });
+    try {
+        const myHeaders = new Headers();
+        token = sessionStorage.getItem('token'); // Assign to the module-scoped token
+        if (!token) {
+            throw new Error('Token not found in session storage');
+        }
+        
+        myHeaders.append("Authorization", "Bearer " + token);
+        myHeaders.append("Content-Type", "application/json");
 
-    const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: raw,
-    };
+        const uservalue = await getUserDetails();
+        const raw = JSON.stringify({
+            "external_exam_id": uservalue.external_exam_id,
+        });
 
-    fetch("/getExamInstructions", requestOptions)
-        .then((response) => response.json())
-        .then((result) => {
-            console.log(result.data);
-            const iframe = document.createElement('iframe');
-            iframe.id = 'exam-instructions-frame';
-            iframe.src = result.data.launch_screen_url;
-            iframe.style.width = '100%';
-            iframe.style.height = '600px';
-            document.body.appendChild(iframe);
-            document.getElementById('honer-iframe').style.display = 'none';
-            setSessionSetup()
-        })
+        const requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            body: raw,
+        };
+
+        const response = await fetch("/getExamInstructions", requestOptions);
+        const result = await response.json();
+        
+        console.log(result.data);
+        const iframe = document.createElement('iframe');
+        iframe.id = 'exam-instructions-frame';
+        iframe.src = result.data.launch_screen_url;
+        iframe.style.width = '100%';
+        iframe.style.height = '600px';
+        document.body.appendChild(iframe);
+        
+        const honerIframe = document.getElementById('honer-iframe');
+        if (honerIframe) {
+            honerIframe.style.display = 'none';
+        }
+        
+        await setSessionSetup();
+    } catch (error) {
+        console.error('Error in getExamInstruction:', error);
+        // Handle the error appropriately
+    }
 }
 async function setSessionSetup() {
-    const myHeaders = new Headers();
-    token = sessionStorage.getItem('token');
-    myHeaders.append("Authorization", "Bearer " + token);
-    myHeaders.append("Content-Type", "application/json"); // Ensure Content-Type is set
-    const uservalue = await getUserDetails();
-    const raw = JSON.stringify(uservalue);
+    try {
+        const myHeaders = new Headers();
+        const currentToken = sessionStorage.getItem('token');
+        if (!currentToken) {
+            throw new Error('Token not found in session storage');
+        }
+        
+        myHeaders.append("Authorization", "Bearer " + currentToken);
+        myHeaders.append("Content-Type", "application/json");
 
-    const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        redirect: "follow",
-        body: raw,
-    };
+        const uservalue = await getUserDetails();
+        const raw = JSON.stringify(uservalue);
 
-    fetch("/getUserSessionId", requestOptions)
-        .then((response) => response.json())
-        .then((result) => {
-            console.log(result.data);
-            Honorlock.setupSession({
-                session: result.data,
-                app_url: "http://127.0.0.1:5000",
-                external_exam_id: uservalue.external_exam_id,
-                exam_taker_id: uservalue.exam_taker_id,
-                exam_taker_name: uservalue.exam_taker_full_name,
-                exam_taker_attempt_id: uservalue.exam_taker_attempt_id,
+        const requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            redirect: "follow",
+            body: raw,
+        };
 
-            }).then((data) => {
-                console.log('Session has been setup', data);
+        const response = await fetch("/getUserSessionId", requestOptions);
+        const result = await response.json();
+        console.log(result.data);
 
-                Honorlock.onLaunchProctoringIframeResize((launchdata) => {
-                    console.log('Entered Proctoring function');
-                    let updatedIframeHeight = launchdata.launch_proctoring_data.iframe_height;
-                    //platform specific code on how to get the iframe and adjust the height.
-                    let iframe = document.getElementById('launch-proctoring-iframe');
-                    // iframe.style.height = updatedIframeHeight + 'px';
+        const sessionData = await Honorlock.setupSession({
+            session: result.data,
+            app_url: "http://127.0.0.1:5000",
+            external_exam_id: uservalue.external_exam_id,
+            exam_taker_id: uservalue.exam_taker_id,
+            exam_taker_name: uservalue.exam_taker_full_name,
+            exam_taker_attempt_id: uservalue.exam_taker_attempt_id,
+        });
+
+        console.log('Session has been setup', sessionData);
+
+        // Setup iframe resize handler
+        Honorlock.onLaunchProctoringIframeResize((launchdata) => {
+            console.log('Entered Proctoring function');
+            const updatedIframeHeight = launchdata.launch_proctoring_data.iframe_height;
+            const iframe = document.getElementById('launch-proctoring-iframe');
+            if (iframe) {
+                // iframe.style.height = updatedIframeHeight + 'px';
+            }
+        });
+
+        // Setup begin exam handler
+        Honorlock.onBeginExam(async () => {
+            try {
+                // Handle begin exam
+                const beginExamResponse = await fetch('/beginExam', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + currentToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        external_exam_id: uservalue.external_exam_id,
+                        exam_taker_attempt_id: uservalue.exam_taker_attempt_id,
+                        exam_taker_id: uservalue.exam_taker_id
+                    })
                 });
 
-                Honorlock.onBeginExam(() => {
-                    fetch('/beginExam', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            external_exam_id: uservalue['external_exam_id'],
-                            exam_taker_attempt_id: uservalue['exam_taker_attempt_id'],
-                            exam_taker_id: uservalue['exam_taker_id']
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('BeginExamHandler response:', data);
-                        // Handle response if needed
-                    })
-                    .catch(error => {
-                        console.error('Error in BeginExamHandler fetch:', error);
-                    });
-                    console.log('Exam has begun');
-                    const iframe = document.getElementById('exam-instructions-frame');
-                    if (iframe) {
-                        iframe.style.display = 'none';
-                    }
-                    Honorlock.examLoaded();
-                    const iframe2 = document.createElement('iframe');
-                    fetch('/baseUrl', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(baseUrl => baseUrl.json()) // Parse the response as JSON
-                    .then(parsedResponse => {
-                        console.log('BaseUrl response:', parsedResponse);
-                        if (parsedResponse.response) {
-                            iframe2.src = window.location.origin + '?auth=' + parsedResponse.response; // Use the 'pwd' field from the decoded response
-                            console.log(iframe2.src);
-                        } else {
-                            console.error('BaseUrl response is missing the "response" field.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching BaseUrl:', error);
-                    });
-                    iframe2.style.position = "fixed";
-                    iframe2.style.top = "0";
-                    iframe2.style.left = "0";
-                    iframe2.style.width = "100%";
-                    iframe2.style.height = "100%";
-                    document.body.appendChild(iframe2);
+                const beginExamData = await beginExamResponse.json();
+                console.log('BeginExamHandler response:', beginExamData);
 
-                    submitButton.addEventListener('click', () => {
+                console.log('Exam has begun');
+                
+                // Hide instructions iframe
+                const instructionsFrame = document.getElementById('exam-instructions-frame');
+                if (instructionsFrame) {
+                    instructionsFrame.style.display = 'none';
+                }
+
+                // Load exam
+                Honorlock.examLoaded();
+
+                // Create and setup exam iframe
+                const examIframe = document.createElement('iframe');
+                
+                // Get base URL
+                const baseUrlResponse = await fetch('/baseUrl', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + currentToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const baseUrlData = await baseUrlResponse.json();
+                console.log('BaseUrl response:', baseUrlData);
+
+                if (baseUrlData.response) {
+                    examIframe.src = window.location.origin + '?auth=' + baseUrlData.response;
+                    console.log(examIframe.src);
+                } else {
+                    throw new Error('BaseUrl response is missing the "response" field.');
+                }
+
+                // Style the exam iframe
+                examIframe.style.position = "fixed";
+                examIframe.style.top = "0";
+                examIframe.style.left = "0";
+                examIframe.style.width = "100%";
+                examIframe.style.height = "100%";
+                document.body.appendChild(examIframe);
+
+                // Create and setup submit button
+                const submitButton = document.createElement('button');
+                submitButton.textContent = "Submit Exam";
+                submitButton.id = "submitButton";
+                
+                submitButton.addEventListener('click', async () => {
+                    try {
                         alert("Exam submitted successfully!");
+                        
                         Honorlock.onExamSubmit(() => {
-                            //platform specific code on how to proceed when submitting the exam
-                            //e.g we submit a form on the page
                             console.log('Exam submitted');
                             const examSubmittedMessage = document.createElement('div');
                             examSubmittedMessage.textContent = "Exam submitted successfully!";
                             examSubmittedMessage.style.fontSize = "20px";
                             examSubmittedMessage.style.marginTop = "20px";
                             document.body.appendChild(examSubmittedMessage);
-                            // Optionally, you can redirect the user or perform other actions here
                         });
-                        // Add any additional logic for submitting the exam here
-                        fetch('/endExam', {
+
+                        const endExamResponse = await fetch('/endExam', {
                             method: 'POST',
                             headers: {
-                                'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
+                                'Authorization': 'Bearer ' + currentToken,
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                external_exam_id: uservalue['external_exam_id'],
-                                exam_taker_id: uservalue['exam_taker_id'],
-                                exam_taker_attempt_id: uservalue['exam_taker_attempt_id']
+                                external_exam_id: uservalue.external_exam_id,
+                                exam_taker_id: uservalue.exam_taker_id,
+                                exam_taker_attempt_id: uservalue.exam_taker_attempt_id
                             })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log('EndExamHandler response:', data);
-                            // Handle response if needed
-                        })
-                        .catch(error => {
-                            console.error('Error in EndExamHandler fetch:', error);
                         });
+
+                        const endExamData = await endExamResponse.json();
+                        console.log('EndExamHandler response:', endExamData);
+                        
                         Honorlock.examSubmit();
-                    });
-                    document.body.appendChild(submitButton);
+                    } catch (error) {
+                        console.error('Error submitting exam:', error);
+                        alert("Error submitting exam. Please try again.");
+                    }
                 });
-            }).catch((error) => console.error(error));
+
+                document.body.appendChild(submitButton);
+
+            } catch (error) {
+                console.error('Error in begin exam handler:', error);
+                alert("Error starting exam. Please refresh and try again.");
+            }
         });
 
+    } catch (error) {
+        console.error('Error in setSessionSetup:', error);
+        alert("Error setting up exam session. Please refresh and try again.");
+        throw error; // Re-throw to be handled by calling function
+    }
 }
 
 
@@ -175,9 +216,7 @@ function initializeHonorlock() {
             console.log(data);
             console.log('Bearer token:', data.data.access_token);
             sessionStorage.setItem('token', data.data.access_token);
-            // Use the token as needed
-
-            getExamInstruction();
+            return getExamInstruction();
         })
         .catch(error => {
             console.error('Error fetching bearer token:', error);
