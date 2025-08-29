@@ -1,12 +1,14 @@
-function getExamInstruction() {
+import { getUserDetails } from './honorlock-common.js';
+
+async function getExamInstruction() {
     const myHeaders = new Headers();
     token = sessionStorage.getItem('token');
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json"); // Ensure Content-Type is set
-    uservalue = {
-        "external_exam_id": "test-course-april_external_id",
-    }
-    const raw = JSON.stringify(uservalue);
+    const uservalue = await getUserDetails();
+    const raw = JSON.stringify({
+        "external_exam_id": uservalue.external_exam_id,
+    });
 
     const requestOptions = {
         method: "POST",
@@ -28,18 +30,12 @@ function getExamInstruction() {
             setSessionSetup()
         })
 }
-function setSessionSetup() {
+async function setSessionSetup() {
     const myHeaders = new Headers();
     token = sessionStorage.getItem('token');
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json"); // Ensure Content-Type is set
-    uservalue = {
-        "exam_taker_id": "test-taker-id5",
-        "exam_taker_email": "testuser5@gmail.com",
-        "exam_taker_full_name": "Test user five",
-        "external_exam_id": "test-course-april_external_id",
-        "exam_taker_attempt_id": "2"
-    }
+    const uservalue = await getUserDetails();
     const raw = JSON.stringify(uservalue);
 
     const requestOptions = {
@@ -56,10 +52,10 @@ function setSessionSetup() {
             Honorlock.setupSession({
                 session: result.data,
                 app_url: "http://127.0.0.1:5000",
-                external_exam_id: uservalue['external_exam_id'],
-                exam_taker_id: uservalue['exam_taker_id'],
-                exam_taker_name: uservalue['exam_taker_full_name'],
-                exam_taker_attempt_id: uservalue['exam_taker_attempt_id'],
+                external_exam_id: uservalue.external_exam_id,
+                exam_taker_id: uservalue.exam_taker_id,
+                exam_taker_name: uservalue.exam_taker_full_name,
+                exam_taker_attempt_id: uservalue.exam_taker_attempt_id,
 
             }).then((data) => {
                 console.log('Session has been setup', data);
