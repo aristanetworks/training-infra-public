@@ -672,6 +672,62 @@ class BaseUrlHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
+class GetAccessInfoHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to fetch user details from ACCESS_INFO.yaml file.
+        """
+        self.set_header("Access-Control-Allow-Origin", "*")
+        try:
+            # Check authorization
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            # Read the YAML file
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            
+            # Extract customer details
+            customer_details = host_yaml.get('customer_details', {})
+            
+            if not customer_details:
+                # Return default values if no customer details found
+                self.write({
+                    "customer_details": {
+                        "exam_taker_id": "Arista-test-taker-ID",
+                        "exam_taker_email": "arista-test-taker@arista.com",
+                        "exam_taker_full_name": "Arista Test Taker",
+                        "external_exam_id": "test-course-april_external_id",
+                        "exam_taker_attempt_id": "1"
+                    }
+                })
+            else:
+                # Return the actual customer details from YAML
+                self.write({
+                    "customer_details": {
+                        "exam_taker_id": str(customer_details.get('exam_taker_id', '')),
+                        "exam_taker_email": customer_details.get('exam_taker_email', '').strip(),
+                        "exam_taker_full_name": customer_details.get('exam_taker_full_name', ''),
+                        "external_exam_id": str(customer_details.get('external_exam_id', '')),
+                        "exam_taker_attempt_id": str(customer_details.get('exam_taker_attempt_id', ''))
+                    }
+                })
+
+        except Exception as e:
+            print(f"Error in GetAccessInfoHandler: {str(e)}")
+            self.set_status(500)
+            self.write({
+                "error": str(e),
+                    "customer_details": {
+                        "exam_taker_id": "Arista-test-taker-ID",
+                        "exam_taker_email": "arista-test-taker@arista.com",
+                        "exam_taker_full_name": "Arista Test Taker",
+                        "external_exam_id": "test-course-april_external_id",
+                        "exam_taker_attempt_id": "1"
+                    }
+            })
 
 class EndExamHandler(tornado.web.RequestHandler):
     def post(self):
@@ -726,6 +782,7 @@ if __name__ == "__main__":
         (r'/examStatus', ExamStatusHandler),
         (r'/examSubmit', ExamSubmitHandler),
         (r'/exam-authentication', ExamAuthenticationHandler),     
+        (r'/getAccessInfo', GetAccessInfoHandler),
         (r'/getClientId', GetClientIdHandler),
         (r'/getExamInstructions', GetExamInstructionsHandler),
         (r'/getUserSessionId', GetUserSessionIdHandler),
