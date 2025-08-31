@@ -1,13 +1,12 @@
 import { getUserDetails } from './honorlock-common.js';
-let token;
+// ...existing code...
 async function getExamInstruction() {
     try {
         const myHeaders = new Headers();
-        token = sessionStorage.getItem('token'); // Assign to the module-scoped token
+        const token = sessionStorage.getItem('token'); // Always assign before use
         if (!token) {
             throw new Error('Token not found in session storage');
         }
-        
         myHeaders.append("Authorization", "Bearer " + token);
         myHeaders.append("Content-Type", "application/json");
 
@@ -47,12 +46,11 @@ async function getExamInstruction() {
 async function setSessionSetup() {
     try {
         const myHeaders = new Headers();
-        const currentToken = sessionStorage.getItem('token');
-        if (!currentToken) {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
             throw new Error('Token not found in session storage');
         }
-        
-        myHeaders.append("Authorization", "Bearer " + currentToken);
+        myHeaders.append("Authorization", "Bearer " + token);
         myHeaders.append("Content-Type", "application/json");
 
         const uservalue = await getUserDetails();
@@ -94,10 +92,14 @@ async function setSessionSetup() {
         Honorlock.onBeginExam(async () => {
             try {
                 // Handle begin exam
+                const token = sessionStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Token not found in session storage');
+                }
                 const beginExamResponse = await fetch('/beginExam', {
                     method: 'POST',
                     headers: {
-                        'Authorization': 'Bearer ' + currentToken,
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -128,7 +130,7 @@ async function setSessionSetup() {
                 const baseUrlResponse = await fetch('/baseUrl', {
                     method: 'GET',
                     headers: {
-                        'Authorization': 'Bearer ' + currentToken,
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -169,10 +171,14 @@ async function setSessionSetup() {
                             document.body.appendChild(examSubmittedMessage);
                         });
 
+                        const token = sessionStorage.getItem('token');
+                        if (!token) {
+                            throw new Error('Token not found in session storage');
+                        }
                         const endExamResponse = await fetch('/endExam', {
                             method: 'POST',
                             headers: {
-                                'Authorization': 'Bearer ' + currentToken,
+                                'Authorization': 'Bearer ' + token,
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
