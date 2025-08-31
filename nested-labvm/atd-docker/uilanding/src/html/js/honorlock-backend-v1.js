@@ -214,19 +214,18 @@ async function setSessionSetup() {
 }
 
 
-function initializeHonorlock() {
+async function initializeHonorlock() {
 
-    fetch('/getClientId')
-        .then(response => response.json())
-        .then(data => {
-            console.log(data);
-            console.log('Bearer token:', data.data.access_token);
-            sessionStorage.setItem('token', data.data.access_token);
-            return getExamInstruction();
-        })
-        .catch(error => {
-            console.error('Error fetching bearer token:', error);
-        });
+    try {
+        const response = await fetch('/getClientId');
+        const data = await response.json();
+        console.log(data);
+        console.log('Bearer token:', data.data.access_token);
+        sessionStorage.setItem('token', data.data.access_token);
+        await getExamInstruction();
+    } catch (error) {
+        console.error('Error fetching bearer token:', error);
+    }
 
 }
 
