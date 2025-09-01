@@ -18,12 +18,12 @@ submitButton.addEventListener('click', async () => {
         .then(data => {
             alert("Exam submitted successfully!");
             Honorlock.onExamSubmit(() => {
-                console.log('Exam submitted');
                 const examSubmittedMessage = document.createElement('div');
                 examSubmittedMessage.textContent = "Exam submitted successfully!";
                 examSubmittedMessage.style.fontSize = "20px";
                 examSubmittedMessage.style.marginTop = "20px";
                 document.body.appendChild(examSubmittedMessage);
+                console.log('Exam submitted');
             });
             Honorlock.examSubmit();
             console.log('EndExamHandler response:', data);
