@@ -24,6 +24,12 @@ submitButton.addEventListener('click', async () => {
                 examSubmittedMessage.style.marginTop = "20px";
                 document.body.appendChild(examSubmittedMessage);
                 console.log('Exam submitted');
+                // Print the JSON body sent to /endExam
+                console.log('Submitted JSON:', JSON.stringify({
+                    external_exam_id: userDetails.external_exam_id,
+                    exam_taker_id: userDetails.exam_taker_id,
+                    exam_taker_attempt_id: userDetails.exam_taker_attempt_id
+                }));
             });
             Honorlock.examSubmit();
             console.log('EndExamHandler response:', data);
