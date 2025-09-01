@@ -1,3 +1,4 @@
+import { getUserDetails } from './honorlock-common.js';
 submitButton.addEventListener('click', async () => {
     try {
         const userDetails = await getUserDetails();
