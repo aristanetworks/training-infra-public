@@ -111,7 +111,18 @@ class BaseHandler(tornado.web.RequestHandler):
         return(self.get_secure_cookie("user"))
 class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
     def get(self):
-        self.redirect('/html/exam-submitted.html')
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")  # Set the correct content type for HTML
+        try:
+            with open(BASE_PATH + 'exam-submitted.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)  # Write the HTML content to the response
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: exam-submitted.html not found")
+        except Exception as e:      
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
 class ExamAuthenticationHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
