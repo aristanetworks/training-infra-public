@@ -1,223 +1,278 @@
 const labStaustext = document.getElementById("labStatusByApi");
-labStaustext.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
-let failedSwitches = []
-const checkIsAllSwitchesOK = localStorage.getItem('isAllSwitchesOk')
-isAllSwitchesOk = true;
-if (checkIsAllSwitchesOK == 'yes' || checkIsAllSwitchesOK == undefined) {
+if (labStaustext) { // Check if element exists
+    labStaustext.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
+}
+let failedSwitches = [];
+// Corrected: checkIsAllSwitchesOK was not declared before assignment
+let isAllSwitchesOk = true;
+const checkIsAllSwitchesOKStorage = localStorage.getItem('isAllSwitchesOk');
+
+if (checkIsAllSwitchesOKStorage === 'yes' || checkIsAllSwitchesOKStorage === undefined || checkIsAllSwitchesOKStorage === null) {
     isAllSwitchesOk = true;
 } else {
     isAllSwitchesOk = false;
 }
-resetRequestSubmittedTime = localStorage.getItem('resetRequestSubmittedTime')
-if (resetRequestSubmittedTime) {
-    document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
+let resetRequestSubmittedTime = localStorage.getItem('resetRequestSubmittedTime'); // Corrected: resetRequestSubmittedTime was not declared
+const resetOkMSGEl = document.getElementById('resetOkMSG');
+if (resetRequestSubmittedTime && resetOkMSGEl) { // Check if element exists
+    resetOkMSGEl.innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime;
 }
-
-
 
 document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('overlay');
-    // Show loading indicator while fetching status
-    overlay.style.display = 'flex';
-    overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
+    if (!overlay) {
+        console.error("#overlay element not found. Cannot initialize exam UI.");
+        return;
+    }
 
-    fetch('/examStatus') // Fetch exam status from the Flask server
-        .then(response => response.json())
-        .then(data => {
-            console.log("Response from server:", data); // Log the response
-            if (data.response && data.response.trim() === 'startExamButtonNeeded') {
-                addExamButton();
+    // or just let the CVP wait message (handled by atd-ws.js) act as a loading indicator.
+    // For now, we ensure the overlay is hidden until we know if the button is needed.
+    overlay.style.display = 'none';
+    overlay.style.visibility = 'hidden';
+    overlay.style.opacity = 0;
+
+    fetch('/examStatus') // Fetch exam status from the Tornado server
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            else
-            { overlay.style.display = 'none';}
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response from /examStatus GET:", data);
+            if (data.response && data.response.trim() === 'startExamButtonNeeded') {
+                console.log("Exam button is needed. Setting up overlay.");
+                // Make the main overlay (which contains the full structure from index.html) visible.
+                overlay.style.display = 'flex'; // Or 'flex' if that's your layout
+                overlay.style.visibility = 'visible';
+                overlay.style.opacity = 1;
+                addExamButtonAndListener(); // Call the modified function
+            } else {
+                console.log("Exam button not needed. Overlay will remain hidden.");
+                overlay.style.display = 'none';
+                overlay.style.visibility = 'hidden';
+                overlay.style.opacity = 0;
+            }
         })
         .catch(error => {
             console.error("Error fetching exam status:", error);
-            document.getElementById('overlay').style.display = 'none';
+            if (overlay) { // Ensure overlay is hidden on error
+                overlay.style.display = 'none';
+                overlay.style.visibility = 'hidden';
+                overlay.style.opacity = 0;
+            }
         });
 });
 
-
-function addExamButton() {
+/**
+ * Finds the existing "Start Exam" button in the HTML (from index.html)
+ * and attaches its click event listener.
+ * This function no longer modifies overlay.innerHTML.
+ */
+function addExamButtonAndListener() {
     const overlay = document.getElementById('overlay');
-    overlay.innerHTML = '<button id="overlayButton">Start Exam</button>';
+    const overlayButton = document.getElementById('overlayButton'); // Get button from index.html
 
-    document.getElementById('overlayButton').addEventListener('click', function () {
-        fetch('/examStatus', { 
+    if (!overlay) {
+        console.error("Main #overlay element not found. Cannot attach listener.");
+        return;
+    }
+    if (!overlayButton) {
+        console.error("#overlayButton not found within #overlay. Ensure index.html structure is correct and loaded.");
+        // If #overlayButton is missing, atd-ws.js will also have trouble.
+        // This indicates index.html is still not providing the expected structure.
+        return;
+    }
+
+    console.log("#overlayButton found. Attaching click listener.");
+
+    overlayButton.addEventListener('click', function () {
+        // This check is important: atd-ws.js might disable this button if CVP is not ready
+        if (overlayButton.disabled) {
+            console.log("Start Exam button is currently disabled (likely CVP not ready). Click action ignored.");
+            // You could alert the user or briefly show a message here.
+            alert("Please wait for CVP to be ready before starting the exam. The status is shown in the overlay.");
+            return;
+        }
+
+        console.log("Start Exam button clicked. Sending POST to /examStatus.");
+        fetch('/examStatus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            // This body was in your original script. Ensure it's what your server expects.
             body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                // Try to get more error info if possible
+                return response.json().then(err => {
+                    throw new Error(`Server error: ${response.status} - ${err.error || 'Unknown error'}`);
+                }).catch(() => { // If parsing error JSON fails
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
         .then(postdataresponse => {
-            console.log("Response from server:", postdataresponse);
+            console.log("Response from server after /examStatus POST:", postdataresponse);
+            // Hide the entire overlay and reload
             overlay.style.opacity = 0;
             overlay.style.visibility = 'hidden';
+            overlay.style.display = 'none'; // Ensure it's fully hidden
             location.reload();
         })
-        .catch(error => console.error("Error updating exam status:", error));
+        .catch(error => {
+            console.error("Error POSTing to /examStatus or processing response:", error);
+            alert(`Failed to start the exam: ${error.message}. Please try again.`);
+        });
     });
 }
-// $('#labMenu').click(function (event) {
-//     document.getElementById('lab-menu').style.display = 'block'
-//     document.getElementById('mainContent').style.display = 'none'
-//     document.getElementById('labStatusContent').style.display = 'none'
-//     document.getElementById('labGradingData').style.display = 'none'
-//     clearInterval(labStatusInterval)
-// });
-// $('#home').click(function (event) {
-//     document.getElementById('lab-menu').style.display = 'none'
-//     document.getElementById('mainContent').style.display = 'block'
-//     document.getElementById('labStatusContent').style.display = 'none'
-//     document.getElementById('labGradingData').style.display = 'none'
-//     clearInterval(labStatusInterval)
-// })
-// $('#labStaus').click(function (event) {
-//     document.getElementById('lab-menu').style.display = 'none'
-//     document.getElementById('mainContent').style.display = 'none'
-//     document.getElementById('labStatusContent').style.display = 'block'
-//     document.getElementById('labGradingData').style.display = 'none'
-//     getLabStatus()
-//     labStatusInterval = setInterval(
-//         () => {
-//             getLabStatus()
-//         }, 30000
-//     )
-// })
-// $('#labGrading').click(function (event) {
-//     document.getElementById('lab-menu').style.display = 'none'
-//     document.getElementById('mainContent').style.display = 'none'
-//     document.getElementById('labStatusContent').style.display = 'none'
-//     document.getElementById('labGradingData').style.display = 'block'
-//     clearInterval(labStatusInterval)
-// })
+
 
 $('#resetLabs').click((event) => {
     if (confirm('Please click ok to reset below switches \n-' + failedSwitches.join('\n-'))) {
-        document.getElementById('resetLabs').innerHTML = ''
-        document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()
-        isAllSwitchesOk = false;
-        localStorage.setItem('isAllSwitchesOk', 'no')
-        localStorage.setItem('resetRequestSubmittedTime', new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString())
+        const resetLabsEl = document.getElementById('resetLabs');
+        const resetOkMSGInnerEl = document.getElementById('resetOkMSG'); // Renamed to avoid conflict
+        if(resetLabsEl) resetLabsEl.innerHTML = '';
+        const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+        if(resetOkMSGInnerEl) resetOkMSGInnerEl.innerHTML = "Please wait, reset request has been submitted at " + timestamp;
+
+        isAllSwitchesOk = false; // This was declared with let earlier, ensure scope is correct or re-declare if needed
+        localStorage.setItem('isAllSwitchesOk', 'no');
+        localStorage.setItem('resetRequestSubmittedTime', timestamp);
+
         $.get('/resetLab?lab_names=' + failedSwitches.join(','), (res) => {
-
-        })
+            // Handle response if needed
+            console.log("Reset lab response:", res);
+        });
     }
-})
-
+});
 
 function getLabStatus() {
     let switchesTable = document.getElementById("labStatusByApi");
-
+    if (!switchesTable) return; // Exit if table not found
 
     $.get('/labStaus', (res) => {
-        switchesTable.innerHTML = "";
-        failedSwitches = []
-        res.response.forEach(
-            (item) => {
-                let row = document.createElement("tr");
-                let labName = document.createElement("td");
-                values = item.split(',')
-                labName.innerHTML = values[0];
-                let labStatus = document.createElement("td");
-                let spanElement = document.createElement("span");
-               labStatus.appendChild(spanElement)
-                spanElement.textContent = values[1];
-                if (values[1].indexOf("Ok") >= 0) {
-                    //labStatus.style.color = "green"
-                    spanElement.classList.add("switch", "green");
-                } else {
-                    failedSwitches.push(values[0])
-                    // labStatus.style.color = "red"
-                    // labStatus.style.fontWeight = "bold"
-                    spanElement.classList.add("switch", "red");
-                    spanElement.textContent = values[1];
+        switchesTable.innerHTML = ""; // Clear previous status
+        failedSwitches = [];
+        if (res && res.response && Array.isArray(res.response)) {
+            res.response.forEach(
+                (item) => {
+                    let row = document.createElement("tr");
+                    let labNameCell = document.createElement("td"); // Renamed for clarity
+                    let values = item.split(',');
+                    labNameCell.innerHTML = values[0];
+
+                    let labStatusCell = document.createElement("td"); // Renamed for clarity
+                    let spanElement = document.createElement("span");
+                    labStatusCell.appendChild(spanElement);
+                    spanElement.textContent = values[1] ? values[1].trim() : 'N/A'; // Handle missing status
+
+                    if (values[1] && values[1].trim().toLowerCase().includes("ok")) {
+                        spanElement.classList.add("switch", "green");
+                    } else {
+                        failedSwitches.push(values[0]);
+                        spanElement.classList.add("switch", "red");
+                    }
+                    row.appendChild(labNameCell);
+                    row.appendChild(labStatusCell);
+                    switchesTable.appendChild(row);
                 }
-                row.appendChild(labName);
-                row.appendChild(labStatus);
-                switchesTable.appendChild(row);
-            }
-        )
-        if (failedSwitches.length == 0) {
-            isAllSwitchesOk = true;
-            localStorage.setItem('isAllSwitchesOk', 'yes')
-            document.getElementById('resetOkMSG').innerHTML = ''
-            localStorage.removeItem('resetRequestSubmittedTime')
-        }
-        if (isAllSwitchesOk && failedSwitches.length > 0) {
-            document.getElementById('resetLabs').innerHTML = 'Please <span style="color: blue; text-decoration: underline; cursor: pointer;">click here</span> to reset failed switches'
-
+            );
         } else {
-            document.getElementById('resetLabs').innerHTML = ''
+            switchesTable.innerHTML = "<tr><td colspan='2'>Could not parse lab status response or no data.</td></tr>";
+            console.error("Invalid response structure from /labStaus:", res);
         }
 
-        document.getElementById('lastUpdated').innerHTML = "Last updated : " + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()
-    })
+        const resetOkMSGEl = document.getElementById('resetOkMSG');
+        const resetLabsEl = document.getElementById('resetLabs');
 
+        if (failedSwitches.length === 0) {
+            isAllSwitchesOk = true;
+            localStorage.setItem('isAllSwitchesOk', 'yes');
+            if (resetOkMSGEl) resetOkMSGEl.innerHTML = '';
+            localStorage.removeItem('resetRequestSubmittedTime');
+        }
+
+        if (isAllSwitchesOk && failedSwitches.length > 0) {
+            if (resetLabsEl) resetLabsEl.innerHTML = 'Please <span style="color: blue; text-decoration: underline; cursor: pointer;">click here</span> to reset failed switches';
+        } else {
+            if (resetLabsEl) resetLabsEl.innerHTML = '';
+        }
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        if (lastUpdatedEl) lastUpdatedEl.innerHTML = "Last updated : " + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+    }).fail((jqXHR, textStatus, errorThrown) => {
+        console.error("Error fetching /labStaus:", textStatus, errorThrown);
+        if(switchesTable) switchesTable.innerHTML = "<tr><td colspan='2'>Error loading lab status.</td></tr>";
+    });
 }
 
+// Lab button click (kept from your original code)
+const labBtnEl = document.getElementById("labBtn");
+if (labBtnEl) { // Check if element exists
+    labBtnEl.addEventListener("click", function () {
+        const selected_lab_options_el = $('.lab-button.active');
+        if (!selected_lab_options_el.length) {
+            alert("Please select a lab option first.");
+            return;
+        }
+        const selected_lab_options = selected_lab_options_el.attr('id');
+        const apiResponseEl = document.getElementById('apiResponse');
+        if (!apiResponseEl) return;
 
-
-
-
-
-document.getElementById("labBtn").addEventListener("click", function () {
-    const selected_lab_options = $('.lab-button.active').attr('id'); // Get the ID instead of text
-    // document.getElementById('loader').style.display = 'block'
-    $.get("/lab?lab_value=" + selected_lab_options, (res) => {
-        console.log(res)
-        if (res.response) {
-            // output = ''
-            // res.response.forEach(element => {
-            //     output = output + element
-            // });
-            document.getElementById('apiResponse').textContent = res.response
+        // document.getElementById('loader').style.display = 'block' // Assuming you have a loader element
+        $.get("/lab?lab_value=" + selected_lab_options, (res) => {
+            console.log("Response from /lab:", res);
+            if (res.response) {
+                apiResponseEl.textContent = res.response;
+            } else {
+                apiResponseEl.textContent = "Received an empty response from the lab action.";
+            }
             // document.getElementById('loader').style.display = 'none'
-
-        }
-    }).fail((err) => {
-        console.log(err)
-        document.getElementById('apiResponse').textContent = "Some thing went wrong"
-        // document.getElementById('loader').style.display = 'none'
-    })
-
-
-});
-function displayToolTip() {
-    document.getElementById('tooltiptext').style.visibility = "visible";
+        }).fail((err) => {
+            console.error("Error calling /lab:", err);
+            apiResponseEl.textContent = "Something went wrong while processing the lab action.";
+            // document.getElementById('loader').style.display = 'none'
+        });
+    });
 }
-function hideToolTip() {
-    document.getElementById('tooltiptext').style.visibility = "hidden";
+
+// Tooltip functions (kept from your original code)
+function displayToolTip(element) { // Added element parameter for context if needed
+    const tooltipText = document.getElementById('tooltiptext');
+    if (tooltipText) tooltipText.style.visibility = "visible";
 }
-document.getElementById('CvpStatus').style.color = "grey";
-document.getElementById('CvpStatus').style.pointerEvents = "none";
+function hideToolTip(element) { // Added element parameter for context if needed
+    const tooltipText = document.getElementById('tooltiptext');
+    if (tooltipText) tooltipText.style.visibility = "hidden";
+}
+
+// CVP Status styling (ensure #CvpStatus exists or handle potential null)
+const cvpStatusLink = document.getElementById('CvpStatus'); // Assuming this ID exists for the CVP link
+if (cvpStatusLink) {
+    console.warn("Initial styling for #CvpStatus is present. This might be handled by atd-ws.js based on CVP readiness now.");
+} else {
+    // console.warn("#CvpStatus element not found for initial styling.");
+}
 
 
-
-// For Popup
-
-// Get the modal
+// For Popup (kept from your original code)
 var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn"); // This is the "Passwords" button
+var span = document.getElementsByClassName("close")[0]; 
 
-// Get the button that opens the modal
-var btn = document.getElementById("myBtn");
-
-// Get the <span> element that closes the modal
-var span = document.getElementsByClassName("close")[0];
-
-// When the user clicks the button, open the modal 
-btn.onclick = function () {
-    modal.style.display = "block";
-}
-
-// When the user clicks on <span> (x), close the modal
-span.onclick = function () {
-    modal.style.display = "none";
-}
-
-// When the user clicks anywhere outside of the modal, close it
-window.onclick = function (event) {
-    if (event.target == modal) {
+if (btn && modal && span) { // Ensure all elements for modal exist
+    btn.onclick = function () {
+        modal.style.display = "block";
+    }
+    span.onclick = function () {
         modal.style.display = "none";
     }
-}    
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+} else {
+    // console.warn("Modal elements (myModal, myBtn, or close button) not all found. Popup functionality might be affected.");
+}
