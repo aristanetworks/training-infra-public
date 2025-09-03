@@ -65,7 +65,11 @@ async function setSessionSetup() {
 
         const response = await fetch("/getUserSessionId", requestOptions);
         const result = await response.json();
-        console.log(result.data);
+        console.log('getUserSessionId result:', result);
+        if (!result || !result.data) {
+            alert("Error: No session data returned from backend. Please try again or contact support.");
+            throw new Error('No data returned from /getUserSessionId');
+        }
 
         const sessionData = await Honorlock.setupSession({
             session: result.data,
@@ -157,20 +161,10 @@ async function setSessionSetup() {
                 const submitButton = document.createElement('button');
                 submitButton.textContent = "Submit Exam";
                 submitButton.id = "submitButton";
-                
+
                 submitButton.addEventListener('click', async () => {
                     try {
-                        alert("Exam submitted successfully!");
-                        
-                        Honorlock.onExamSubmit(() => {
-                            console.log('Exam submitted');
-                            const examSubmittedMessage = document.createElement('div');
-                            examSubmittedMessage.textContent = "Exam submitted successfully!";
-                            examSubmittedMessage.style.fontSize = "20px";
-                            examSubmittedMessage.style.marginTop = "20px";
-                            document.body.appendChild(examSubmittedMessage);
-                        });
-
+                        submitButton.disabled = true; // Prevent double submission
                         const token = sessionStorage.getItem('token');
                         if (!token) {
                             throw new Error('Token not found in session storage');
@@ -190,11 +184,26 @@ async function setSessionSetup() {
 
                         const endExamData = await endExamResponse.json();
                         console.log('EndExamHandler response:', endExamData);
-                        
+                        if (!endExamData || endExamData.error) {
+                            alert("Error submitting exam: " + (endExamData.error || "Unknown error"));
+                            submitButton.disabled = false;
+                            return;
+                        }
+
+                        alert("Exam submitted successfully!");
+                        Honorlock.onExamSubmit(() => {
+                            console.log('Exam submitted');
+                            const examSubmittedMessage = document.createElement('div');
+                            examSubmittedMessage.textContent = "Exam submitted successfully!";
+                            examSubmittedMessage.style.fontSize = "20px";
+                            examSubmittedMessage.style.marginTop = "20px";
+                            document.body.appendChild(examSubmittedMessage);
+                        });
                         Honorlock.examSubmit();
                     } catch (error) {
                         console.error('Error submitting exam:', error);
                         alert("Error submitting exam. Please try again.");
+                        submitButton.disabled = false;
                     }
                 });
 
