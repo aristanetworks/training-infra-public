@@ -3,17 +3,13 @@ import { getUserDetails } from './honorlock-common.js';
 // Register the callback ONCE, outside the button handler
 Honorlock.onExamSubmit(() => {
     console.log('onExamSubmit callback executed');
-    const examSubmittedMessage = document.createElement('div');
-    examSubmittedMessage.textContent = "Exam submitted successfully!";
-    examSubmittedMessage.style.fontSize = "20px";
-    examSubmittedMessage.style.marginTop = "20px";
-    document.body.appendChild(examSubmittedMessage);
+    window.location.href = '/exam-submitted';
     console.log('Exam submitted');
     // Print the JSON body sent to /endExam
     // Note: userDetails is not available here, so log a generic message
     console.log('Exam submission callback triggered.');
 });
-
+const submitButton = document.getElementById('submitButton');
 submitButton.addEventListener('click', async () => {
     try {
         const userDetails = await getUserDetails();

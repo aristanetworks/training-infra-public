@@ -157,57 +157,57 @@ async function setSessionSetup() {
                 examIframe.style.height = "100%";
                 document.body.appendChild(examIframe);
 
-                // Create and setup submit button
-                const submitButton = document.createElement('button');
-                submitButton.textContent = "Submit Exam";
-                submitButton.id = "submitButton";
+                // // Create and setup submit button
+                // const submitButton = document.createElement('button');
+                // submitButton.textContent = "Submit Exam";
+                // submitButton.id = "submitButton";
 
-                submitButton.addEventListener('click', async () => {
-                    try {
-                        submitButton.disabled = true; // Prevent double submission
-                        const token = sessionStorage.getItem('token');
-                        if (!token) {
-                            throw new Error('Token not found in session storage');
-                        }
-                        const endExamResponse = await fetch('/endExam', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': 'Bearer ' + token,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                external_exam_id: uservalue.external_exam_id,
-                                exam_taker_id: uservalue.exam_taker_id,
-                                exam_taker_attempt_id: uservalue.exam_taker_attempt_id
-                            })
-                        });
+                // submitButton.addEventListener('click', async () => {
+                //     try {
+                //         submitButton.disabled = true; // Prevent double submission
+                //         const token = sessionStorage.getItem('token');
+                //         if (!token) {
+                //             throw new Error('Token not found in session storage');
+                //         }
+                //         const endExamResponse = await fetch('/endExam', {
+                //             method: 'POST',
+                //             headers: {
+                //                 'Authorization': 'Bearer ' + token,
+                //                 'Content-Type': 'application/json'
+                //             },
+                //             body: JSON.stringify({
+                //                 external_exam_id: uservalue.external_exam_id,
+                //                 exam_taker_id: uservalue.exam_taker_id,
+                //                 exam_taker_attempt_id: uservalue.exam_taker_attempt_id
+                //             })
+                //         });
 
-                        const endExamData = await endExamResponse.json();
-                        console.log('EndExamHandler response:', endExamData);
-                        if (!endExamData || endExamData.error) {
-                            alert("Error submitting exam: " + (endExamData.error || "Unknown error"));
-                            submitButton.disabled = false;
-                            return;
-                        }
+                //         const endExamData = await endExamResponse.json();
+                //         console.log('EndExamHandler response:', endExamData);
+                //         if (!endExamData || endExamData.error) {
+                //             alert("Error submitting exam: " + (endExamData.error || "Unknown error"));
+                //             submitButton.disabled = false;
+                //             return;
+                //         }
 
-                        alert("Exam submitted successfully!");
-                        Honorlock.onExamSubmit(() => {
-                            console.log('Exam submitted');
-                            const examSubmittedMessage = document.createElement('div');
-                            examSubmittedMessage.textContent = "Exam submitted successfully!";
-                            examSubmittedMessage.style.fontSize = "20px";
-                            examSubmittedMessage.style.marginTop = "20px";
-                            document.body.appendChild(examSubmittedMessage);
-                        });
-                        Honorlock.examSubmit();
-                    } catch (error) {
-                        console.error('Error submitting exam:', error);
-                        alert("Error submitting exam. Please try again.");
-                        submitButton.disabled = false;
-                    }
-                });
+                //         alert("Exam submitted successfully!");
+                //         Honorlock.onExamSubmit(() => {
+                //             console.log('Exam submitted');
+                //             const examSubmittedMessage = document.createElement('div');
+                //             examSubmittedMessage.textContent = "Exam submitted successfully!";
+                //             examSubmittedMessage.style.fontSize = "20px";
+                //             examSubmittedMessage.style.marginTop = "20px";
+                //             document.body.appendChild(examSubmittedMessage);
+                //         });
+                //         Honorlock.examSubmit();
+                //     } catch (error) {
+                //         console.error('Error submitting exam:', error);
+                //         alert("Error submitting exam. Please try again.");
+                //         submitButton.disabled = false;
+                //     }
+                // });
 
-                document.body.appendChild(submitButton);
+                // document.body.appendChild(submitButton);
                     Honorlock.questionLoaded();
             } catch (error) {
                 console.error('Error in begin exam handler:', error);

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta
@@ -109,7 +110,9 @@ HonorLockSecret = get_metadata_extract('honorlockClientSecret')
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
         return(self.get_secure_cookie("user"))
-
+class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.redirect('/html/exam-submitted.html')
 class ExamAuthenticationHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -767,6 +770,7 @@ if __name__ == "__main__":
     }
 
     app = tornado.web.Application([
+        (r'/exam-submitted', ExamSubmittedRedirectHandler),
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
