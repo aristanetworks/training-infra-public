@@ -208,7 +208,7 @@ async function setSessionSetup() {
                 });
 
                 document.body.appendChild(submitButton);
-
+                    Honorlock.questionLoaded();
             } catch (error) {
                 console.error('Error in begin exam handler:', error);
                 alert("Error starting exam. Please refresh and try again.");

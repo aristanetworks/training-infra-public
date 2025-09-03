@@ -388,7 +388,7 @@ class GetClientIdHandler(tornado.web.RequestHandler):
 
         try:
             response = requests.post(url, headers=headers, data=payload)
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 self.write(response.json())
             else:
                 self.set_status(response.status_code)
@@ -752,7 +752,7 @@ class EndExamHandler(tornado.web.RequestHandler):
             }
 
             response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 self.write(response.json())
             else:
                 self.set_status(response.status_code)
