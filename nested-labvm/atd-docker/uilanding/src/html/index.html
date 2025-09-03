@@ -22,13 +22,8 @@
       <div class="grid-container full">
         <div class="grid-x">
           <header></header>
-          <div id="overlay" style="display: none; visibility: hidden; opacity: 0;">
-            <div id="cvpWaitMessageOverlayContainer" style="display: none;">
-              <p id="cvpWaitMessageOverlay" style="text-align: center;">CVP is currently starting. Please wait to start the exam.</p>
-            </div>
-            <div id="startExamContentContainer" style="display: none;">
-              <button id="overlayButton">Start Exam</button>
-              <p>
+          <div id="overlay"> <button id="overlayButton">Start Exam</button>
+            <p>
             <a href="/honorlock-authentication">Click here for Honorlock authentication</a>
             </p>
           </div>
@@ -76,9 +71,9 @@
                     <a class="site-sidebar__item menu-click" href="/cv" target="_blank" ><s>CVP</s></a>
                     <span id="tooltiptext">CVP is Starting, Please wait</span>
                   </li>
-                  <li id="cvpLoaded" style="display: none;">
-                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank">CVP</a>
-                  </li>
+                  <li id="cvpLoaded">
+                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>                
+                 </li>
                   {% end %}
                   {% if "cvaas" not in disable_links %}
                   <li>
@@ -155,7 +150,7 @@
                 <div class="topology-overview">
                   <div class="white-box text-center">
                     <!-- <h2>Click on a device to access CLI.</h2> -->
-                    <img src="topo/atd-topo.png" usemap="#image_map" alt="Topology Diagram" />
+                    <img src="topo/atd-topo.png" usemap="#image_map" />
                     <!--  <map name="image_map">
                         {% for node in NODES %}
                         {% if node == "CVP" %}

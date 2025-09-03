@@ -1,129 +1,51 @@
-/* overlay.css */
-
-/* --- General Overlay Styles --- */
-#overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(20, 20, 30, 0.75); /* Dark overlay background */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  backdrop-filter: blur(8px);
-  z-index: 9999;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-}
-
-/* --- Content Card Containers within Overlay --- */
-#cvpWaitMessageOverlayContainer,
-#startExamContentContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-
-  background-color: #ffffff; /* Solid white background for the card for max contrast */
-  padding: 35px 45px;
-  border-radius: 10px;        /* Slightly adjusted for a clean look */
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 3px 8px rgba(0,0,0,0.08); /* Refined shadow */
-  width: auto;
-  min-width: 320px;
-  max-width: 480px;
-  box-sizing: border-box;
-  color: #212529; /* Default darker text color for content inside these boxes (Bootstrap-like dark) */
-}
-
-/* --- CVP Wait Message Styling --- */
-#cvpWaitMessageOverlay {
-  /* text-align: center; is applied via inline style in HTML - this is fine */
-  /* padding-top: 20px; from inline style - adjust if spinner spacing is enough */
-  color: #343a40;     /* A clear, dark (but not pure black) color - good for readability */
-  font-size: 1.1rem;
-  line-height: 1.6;
-  max-width: 100%;
-  margin: 0;
-}
-
-/* CSS-only spinner integrated with the CVP wait message */
-#cvpWaitMessageOverlay::before {
-  content: '';
-  display: block;
-  width: 30px;
-  height: 30px;
-  margin: 0 auto 20px auto;
-  border: 3px solid rgba(0, 123, 255, 0.2);
-  border-top-color: #007bff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-/* --- Start Exam Button Styling --- */
-#overlayButton {
-  padding: 12px 30px;
-  font-size: 1.05em;
-  font-weight: 500;
-  background-color: #007bff;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px; /* Slightly less rounded for a crisper look */
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
-  margin-bottom: 25px;
-  transition: background-color 0.2s ease-out, transform 0.15s ease-out, box-shadow 0.2s ease-out;
-}
-
-#overlayButton:hover {
-  background-color: #0069d9;
-  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
-  transform: translateY(-1px);
-}
-
-#overlayButton:active {
-  background-color: #0056b3;
-  box-shadow: 0 1px 2px rgba(0, 123, 255, 0.2);
-  transform: translateY(0px);
-}
-
-/* --- Honorlock Link Styling --- */
-#startExamContentContainer p {
-  margin-top: 0;
-  font-size: 0.9em;
-  color: #495057; /* Slightly darker secondary text color */
-}
-
-#startExamContentContainer p a {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-#startExamContentContainer p a:hover {
-  text-decoration: underline;
-  color: #0056b3;
-}
-
-/* --- General Spinner Animation & Your Original .loading-spinner (if used elsewhere) --- */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
+/* The overlay style */
 .loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-top-color: #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: auto;
-}
-
-/* Your existing #content style (if used elsewhere) */
-#content {
-  opacity: 1;
-  transition: opacity 0.3s ease;
-}
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: auto;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px); /* Apply blur effect to the background */
+      z-index: 9999; /* Ensure it stays on top */
+      visibility: visible;
+      opacity: 1;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    
+    #overlayButton {
+      padding: 15px 30px;
+      font-size: 18px;
+      background-color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    #overlayButton:hover {
+      background-color: #f0f0f0;
+    }
+    
+    #content {
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
