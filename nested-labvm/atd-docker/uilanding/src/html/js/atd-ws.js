@@ -46,8 +46,15 @@ function createWS(SOCK_URL) {
         var received_msg = JSON.parse(re_data);
         console.log(received_msg)
         reg_data = received_msg['data'];
+        // Handle Start Exam button visibility and state based on CVP status
+        var startExamBtn = document.getElementById('overlayButton');
         if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
-            
+            // Show button, disable it, and set waiting text
+            if (startExamBtn) {
+                startExamBtn.style.display = 'inline-block';
+                startExamBtn.disabled = true;
+                startExamBtn.textContent = 'CVP is not up yet, please wait till CVP comes online';
+            }
             btn = document.getElementById('labBtn')
             if (btn) {
                 btn.disabled = true
@@ -59,6 +66,12 @@ function createWS(SOCK_URL) {
                 }
             }
         } else {
+            // Enable Start Exam button and restore original text
+            if (startExamBtn) {
+                startExamBtn.style.display = 'inline-block';
+                startExamBtn.disabled = false;
+                startExamBtn.textContent = 'Start Exam';
+            }
             btn = document.getElementById('labBtn')
             if (btn) {
                 btn.disabled = false
@@ -69,7 +82,6 @@ function createWS(SOCK_URL) {
                     document.getElementById('cvpLoaded').style.display = "block"
                 }
             }
-
         }
         if (received_msg['type'] == 'ping') {
             ws.send(JSON.stringify({
