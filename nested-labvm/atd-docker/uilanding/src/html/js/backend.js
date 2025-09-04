@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function addExamButton() {
     const overlay = document.getElementById('overlay');
-    overlay.innerHTML = '<button id="overlayButton">Start Exam</button>';
+    overlay.innerHTML = '<button id="overlayButton" disabled>CVP is not up yet, please wait till CVP comes online</button>';
 
     document.getElementById('overlayButton').addEventListener('click', function () {
         fetch('/examStatus', { 
