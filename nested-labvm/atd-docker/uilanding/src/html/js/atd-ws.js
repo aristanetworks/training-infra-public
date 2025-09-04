@@ -1,3 +1,10 @@
+// Set default state for Start Exam button before websocket response
+var startExamBtn = document.getElementById('overlayButton');
+if (startExamBtn) {
+    startExamBtn.style.display = 'inline-block';
+    startExamBtn.disabled = true;
+    startExamBtn.textContent = 'CVP is not up yet, please wait till CVP comes online';
+}
 
 var atdURL = window.location.origin;
 if ( atdURL.includes('https') ) {
@@ -5,13 +12,6 @@ if ( atdURL.includes('https') ) {
 }
 else {
     atdURL = atdURL.replace("http:","ws:");
-}
-// Set default state for Start Exam button before websocket response
-var startExamBtn = document.getElementById('overlayButton');
-if (startExamBtn) {
-    startExamBtn.style.display = 'inline-block';
-    startExamBtn.disabled = true;
-    startExamBtn.textContent = 'CVP is not up yet, please wait till CVP comes online';
 }
 atdURL += "/td-ws";
 var ws = new WebSocket(atdURL);
