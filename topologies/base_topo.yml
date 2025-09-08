@@ -286,7 +286,21 @@ topologies:
             image: dual-topo-training-level-7-eos
             orderable: true
             eos:
-              - 4.30.1F               
+              - 4.30.1F
+      veos:
+        cpu: 80
+        ram: 110
+        cvp: 
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 90
+              ram: 150
+            branch: nested/2025.1
+            orderable: false
+            image: base-ceos-training-l7-2023-2-4301
+            eos:
+              - 4.32.1F              
     prod:
       ceos:
         cpu: 60
