@@ -1,0 +1,13 @@
+service routing protocols model multi-agent
+!
+hostname BL2-DC2
+!
+interface Management0
+   vrf MGMT
+   ip address 192.168.0.96/24
+!
+ip routing
+!
+interface Ethernet 1-8
+  shutdown
+!
