@@ -851,7 +851,7 @@ nodes:
 
   - OOB-CORE:
       ip_addr: 192.168.0.61
-      sys_mac: 00:1c:73:04:c6:01
+      sys_mac: 00:1c:73:01:c6:01
       neighbors:
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet1
