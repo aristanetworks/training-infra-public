@@ -4,7 +4,7 @@ hostname OOB-CORE
 !
 interface Management1
    vrf MGMT
-   ip address 192.168.0.61/24
+   ip address 192.168.0.64/24
 !
 ip routing
 !

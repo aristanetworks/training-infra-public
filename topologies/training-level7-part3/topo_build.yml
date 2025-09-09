@@ -768,8 +768,8 @@ nodes:
 
 # OOB
   - OOB-DC1:
-      ip_addr: 192.168.0.62
-      sys_mac: 00:1c:73:02:c6:01
+      ip_addr: 192.168.0.65
+      sys_mac: 00:1c:73:05:c6:01
       neighbors:
         - neighborDevice: OOB-CORE
           neighborPort: Ethernet1
@@ -809,8 +809,8 @@ nodes:
           port: Ethernet12
 
   - OOB-DC2:
-      ip_addr: 192.168.0.63
-      sys_mac: 00:1c:73:03:c6:01
+      ip_addr: 192.168.0.66
+      sys_mac: 00:1c:73:06:c6:01
       neighbors:
         - neighborDevice: OOB-CORE
           neighborPort: Ethernet2
@@ -850,8 +850,8 @@ nodes:
           port: Ethernet12
 
   - OOB-CORE:
-      ip_addr: 192.168.0.61
-      sys_mac: 00:1c:73:01:c6:01
+      ip_addr: 192.168.0.64
+      sys_mac: 00:1c:73:04:c6:01
       neighbors:
         - neighborDevice: OOB-DC1
           neighborPort: Ethernet1
