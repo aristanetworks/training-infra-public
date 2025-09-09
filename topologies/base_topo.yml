@@ -288,7 +288,7 @@ topologies:
             eos:
               - 4.30.1F
       veos:
-        cpu: 80
+        cpu: 92
         ram: 110
         cvp: 
           2025.1.0:
