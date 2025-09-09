@@ -298,7 +298,7 @@ topologies:
               ram: 150
             branch: nested/2025.1
             orderable: false
-            image: base-ceos-training-l7-2023-2-4301
+            image: base-veos-training-l7-2025-1-4321-20250909
             eos:
               - 4.32.1F              
     prod:
