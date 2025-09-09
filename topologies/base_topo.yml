@@ -297,7 +297,7 @@ topologies:
               cpu: 90
               ram: 150
             branch: nested/2025.1
-            orderable: false
+            orderable: true
             image: base-veos-training-l7-2025-1-4321-20250909
             eos:
               - 4.32.1F              
