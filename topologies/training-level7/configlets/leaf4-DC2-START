@@ -139,9 +139,6 @@ mlag configuration
    peer-link Port-Channel1
    dual-primary detection delay 10 action errdisable all-interfaces
 !
-ip route vrf MGMT 0.0.0.0/0 192.168.0.1
-!
-ip radius source-interface Management0
 !
 router bgp 65220
    router-id 192.168.255.34
