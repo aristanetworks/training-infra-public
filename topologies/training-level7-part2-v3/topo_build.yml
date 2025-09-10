@@ -609,7 +609,7 @@ nodes:
 # WAN-DC1-Side
   - GW11:
       ip_addr: 192.168.0.91
-      sys_mac: 00:1c:73:31:c6:011
+      sys_mac: 00:1c:73:31:c6:01
       neighbors:
         - neighborDevice: P1
           neighborPort: Ethernet1
