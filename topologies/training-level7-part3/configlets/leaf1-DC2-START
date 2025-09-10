@@ -79,7 +79,7 @@ interface Loopback0
 interface Loopback1
    ip address 192.168.255.212/32
 !
-interface Management0
+interface Management1
    vrf MGMT
    ip address 192.168.0.31/24
 !
@@ -147,7 +147,7 @@ mlag configuration
 !
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
 !
-ip radius source-interface Management0
+ip radius source-interface Management1
 !
 router bgp 65220
    router-id 192.168.255.31

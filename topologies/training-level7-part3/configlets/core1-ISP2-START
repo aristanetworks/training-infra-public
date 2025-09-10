@@ -32,7 +32,7 @@ interface Loopback0
    isis enable ISP
    isis passive
 !
-interface Management0
+interface Management1
    vrf MGMT
    ip address 192.168.0.73/24
 !
@@ -41,7 +41,7 @@ ip routing vrf MGMT
 !
 ip route vrf MGMT 0.0.0.0/0 192.168.0.1
 !
-ip radius source-interface Management0
+ip radius source-interface Management1
 !
 router bgp 2
    neighbor 10.102.0.1 remote-as 65220
