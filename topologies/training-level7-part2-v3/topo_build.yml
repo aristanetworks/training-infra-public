@@ -609,7 +609,7 @@ nodes:
 # WAN-DC1-Side
   - GW11:
       ip_addr: 192.168.0.91
-      sys_mac: 00:1c:73:91:c6:01
+      sys_mac: 00:1c:73:31:c6:011
       neighbors:
         - neighborDevice: P1
           neighborPort: Ethernet1
@@ -638,7 +638,7 @@ nodes:
 
   - GW12:
       ip_addr: 192.168.0.92
-      sys_mac: 00:1c:73:92:c6:01
+      sys_mac: 00:1c:73:32:c6:01
       neighbors:
         - neighborDevice: P2
           neighborPort: Ethernet1
@@ -667,7 +667,7 @@ nodes:
 
   - P1:
       ip_addr: 192.168.0.93
-      sys_mac: 00:1c:73:93:c6:01
+      sys_mac: 00:1c:73:33:c6:01
       neighbors:
         - neighborDevice: GW11
           neighborPort: Ethernet1
@@ -690,7 +690,7 @@ nodes:
 
   - P2:
       ip_addr: 192.168.0.94
-      sys_mac: 00:1c:73:94:c6:01
+      sys_mac: 00:1c:73:34:c6:01
       neighbors:
         - neighborDevice: GW12
           neighborPort: Ethernet1
@@ -711,7 +711,7 @@ nodes:
 # WAN-DC2-Side
   - GW21:
       ip_addr: 192.168.0.95
-      sys_mac: 00:1c:73:95:c6:01
+      sys_mac: 00:1c:73:35:c6:01
       neighbors:
         - neighborDevice: P3
           neighborPort: Ethernet1
@@ -740,7 +740,7 @@ nodes:
 
   - GW22:
       ip_addr: 192.168.0.96
-      sys_mac: 00:1c:73:96:c6:01
+      sys_mac: 00:1c:73:36:c6:01
       neighbors:
         - neighborDevice: P4
           neighborPort: Ethernet1
@@ -769,7 +769,7 @@ nodes:
 
   - P3:
       ip_addr: 192.168.0.97
-      sys_mac: 00:1c:73:97:c6:01
+      sys_mac: 00:1c:73:37:c6:01
       neighbors:
         - neighborDevice: GW21
           neighborPort: Ethernet1
@@ -792,7 +792,7 @@ nodes:
 
   - P4:
       ip_addr: 192.168.0.98
-      sys_mac: 00:1c:73:98:c6:01
+      sys_mac: 00:1c:73:38:c6:01
       neighbors:
         - neighborDevice: GW22
           neighborPort: Ethernet1
@@ -813,7 +813,7 @@ nodes:
 # WAN-DC3-Side
   - GW31:
       ip_addr: 192.168.0.99
-      sys_mac: 00:1c:73:99:c6:01
+      sys_mac: 00:1c:73:39:c6:01
       neighbors:
         - neighborDevice: P1
           neighborPort: Ethernet3
@@ -840,7 +840,7 @@ nodes:
 # WAN RR
   - RR:
       ip_addr: 192.168.0.90
-      sys_mac: 00:1c:73:90:c6:01
+      sys_mac: 00:1c:73:30:c6:01
       neighbors:
         - neighborDevice: GW11
           neighborPort: Ethernet5
