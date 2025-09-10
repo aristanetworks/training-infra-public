@@ -636,7 +636,7 @@ topologies:
               cpu: 90
               ram: 150
             branch: nested/2025.1
-            orderable: false
+            orderable: true
             image: base-ceos-training-l7-part-2-v3-2025-1-4301-20250910
             eos:
               - 4.32.1F        
