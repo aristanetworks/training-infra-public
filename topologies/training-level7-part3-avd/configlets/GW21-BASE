@@ -2,7 +2,7 @@ service routing protocols model multi-agent
 !
 hostname BL1-DC2
 !
-interface Management0
+interface Management1
    vrf MGMT
    ip address  192.168.0.95/24
 !
