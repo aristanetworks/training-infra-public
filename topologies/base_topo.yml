@@ -897,7 +897,7 @@ topologies:
     title: 'Training Lab'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    disable_links: [lab_grading, Tools, cvaas]
     labguides: self
   training-level-x-cl-exam:
     dev:
@@ -1034,7 +1034,7 @@ topologies:
     title: 'Training Lab vEOS'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    disable_links: [lab_grading, Tools, cvaas]
     labguides: self
   training-level-x-cl-campus-veos:
     dev:
@@ -1092,7 +1092,7 @@ topologies:
     title: 'Training Lab vEOS for campus'
     disk_size: 300
     access: standard
-    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    disable_links: [lab_grading, Tools, cvaas]
     labguides: self   
   training-level-path-finder:
     dev:
