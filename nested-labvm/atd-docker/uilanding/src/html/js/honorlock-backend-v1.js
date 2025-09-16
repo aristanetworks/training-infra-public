@@ -29,7 +29,7 @@ async function getExamInstruction() {
         iframe.id = 'exam-instructions-frame';
         iframe.src = result.data.launch_screen_url;
         iframe.style.width = '100%';
-        iframe.style.height = '600px';
+        iframe.style.height = '100vh';
         document.body.appendChild(iframe);
         
         const honerIframe = document.getElementById('honer-iframe');
