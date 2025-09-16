@@ -402,7 +402,19 @@ class GetClientIdHandler(tornado.web.RequestHandler):
         try:
             response = requests.post(url, headers=headers, data=payload)
             if response.status_code in [200, 201]:
-                self.write(response.json())
+                try:
+                    docker_conn = docker.from_env()
+                    login_container = docker_conn.containers.get('atd-login')
+                    login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py.py', detach=True)
+                    self.write({
+                        'honorlock_response': response.json(),
+                        'exam_submit': 'Exam has been submitted'
+                    })
+                except Exception as e:
+                    self.write({
+                        'honorlock_response': response.json(),
+                        'exam_submit_error': str(e)
+                    })
             else:
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})

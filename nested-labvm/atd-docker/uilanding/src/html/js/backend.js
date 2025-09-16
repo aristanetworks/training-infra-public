@@ -13,11 +13,6 @@ if (resetRequestSubmittedTime) {
     document.getElementById('resetOkMSG').innerHTML = "Please wait, reset request has been submitted at " + resetRequestSubmittedTime
 }
 
-window.addEventListener('beforeunload', function (e) {
-  e.preventDefault();
-  e.returnValue = '';
-  // Most browsers will show a generic confirmation dialog.
-});
 
 document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('overlay');
