@@ -143,7 +143,7 @@ async function setSessionSetup() {
                 console.log('BaseUrl response:', baseUrlData);
 
                 if (baseUrlData.response) {
-                    examIframe.src = window.location.origin + '?auth=' + baseUrlData.response;
+                    examIframe.src = window.location.origin + '?auth=' + baseUrlData.response + '&honorlock=true';
                     console.log(examIframe.src);
                 } else {
                     throw new Error('BaseUrl response is missing the "response" field.');

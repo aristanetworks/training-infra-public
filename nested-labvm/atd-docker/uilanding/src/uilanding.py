@@ -179,11 +179,22 @@ class LoginHandler(BaseHandler):
 
 class topoRequestHandler(BaseHandler):
     def get(self):
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
         if not self.current_user:
-            if 'auth' in self.request.arguments:
-                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            if lab_type == "Exam":
+                if 'auth' in self.request.arguments:
+                    self.redirect('/exam-authentication')
+                elif 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
+                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                else:
+                    self.redirect('/login')
             else:
-                self.redirect('/login')
+                if 'auth' in self.request.arguments:
+                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                else:
+                    self.redirect('/login')
+
             return()
         else:
             _topo_cvp = False
@@ -797,7 +808,7 @@ if __name__ == "__main__":
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
         (r'/topo/(.*)', tornado.web.StaticFileHandler, {'path': ArBASE_PATH}),
-        (r'/', ExamAuthenticationHandler),
+        (r'/', topoRequestHandler),
         (r'/td-ws', topoDataHandler),
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
