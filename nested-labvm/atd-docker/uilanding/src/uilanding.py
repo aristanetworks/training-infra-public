@@ -778,14 +778,16 @@ class EndExamHandler(tornado.web.RequestHandler):
 
             response = requests.post(url, headers=headers, json=payload)
             try:
+                print("Calling upload_exam_unattended.py script to upload exam")
                 docker_conn = docker.from_env()
                 login_container = docker_conn.containers.get('atd-login')
                 login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)
             except Exception as e:
-                    self.write({
-                        'honorlock_response': response.json(),
-                        'exam_submit': 'Exam has been submitted but error running upload_exam_unattended.py',
-                    })
+                print(f"Error running upload_exam_unattended.py: {e}")
+                self.write({
+                    'honorlock_response': response.json(),
+                    'exam_submit': 'Exam has been submitted but error running upload_exam_unattended.py',
+                })
             if response.status_code in [200, 201]:
                 try:
                     self.write({
