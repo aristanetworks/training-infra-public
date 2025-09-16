@@ -183,10 +183,11 @@ class topoRequestHandler(BaseHandler):
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
         if not self.current_user:
             if lab_type == "Exam":
-                if 'auth' in self.request.arguments:
-                    self.redirect('/exam-authentication')
-                elif 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
+
+                if 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
                     self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                elif 'auth' in self.request.arguments:
+                    self.redirect('/exam-authentication')
                 else:
                     self.redirect('/login')
             else:
