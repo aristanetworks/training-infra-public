@@ -797,7 +797,7 @@ if __name__ == "__main__":
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
         (r'/topo/(.*)', tornado.web.StaticFileHandler, {'path': ArBASE_PATH}),
-        (r'/', topoRequestHandler),
+        (r'/', ExamAuthenticationHandler),
         (r'/td-ws', topoDataHandler),
         (r'/login', LoginHandler),
         (r'/lab', LabHandler),
