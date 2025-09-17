@@ -832,7 +832,7 @@ if __name__ == "__main__":
 
     app = tornado.web.Application([
         (r'/exam-submitted', ExamSubmittedRedirectHandler),
-        (r'/exam-redo', ExamRedoRedirectHandler)
+        (r'/exam-redo', ExamRedoRedirectHandler),
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
