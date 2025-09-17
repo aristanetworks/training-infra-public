@@ -100,6 +100,7 @@ async function setSessionSetup() {
                 if (!token) {
                     throw new Error('Token not found in session storage');
                 }
+                // Function to call beginExam endpoint
                 const beginExamResponse = await fetch('/beginExam', {
                     method: 'POST',
                     headers: {

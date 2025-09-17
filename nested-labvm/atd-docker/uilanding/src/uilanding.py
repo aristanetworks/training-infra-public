@@ -650,6 +650,20 @@ class ViewConfigHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": "Internal server error"})
+class ExamRedoRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")
+        try:
+            with open(BASE_PATH + 'exam-redo.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: exam-redo.html not found")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
 class BeginExamHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -675,6 +689,11 @@ class BeginExamHandler(tornado.web.RequestHandler):
             response = requests.post(url, headers=headers, json=payload)
             if response.status_code == 200:
                 self.write(response.json())
+            elif response.status_code == 409:
+                self.redirect('/exam-redo')
+                self.set_status(409)
+                self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
+                return
             else:
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
@@ -813,6 +832,7 @@ if __name__ == "__main__":
 
     app = tornado.web.Application([
         (r'/exam-submitted', ExamSubmittedRedirectHandler),
+        (r'/exam-redo', ExamRedoRedirectHandler)
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
