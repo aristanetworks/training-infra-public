@@ -113,7 +113,10 @@ async function setSessionSetup() {
                         exam_taker_id: uservalue.exam_taker_id
                     })
                 });
-
+                if (beginExamResponse.status === 409) {
+                    window.location.href = '/exam-redo';
+                    return;
+            }
                 const beginExamData = await beginExamResponse.json();
                 console.log('BeginExamHandler response:', beginExamData);
 

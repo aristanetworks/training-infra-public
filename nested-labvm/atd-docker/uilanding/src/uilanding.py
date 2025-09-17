@@ -690,7 +690,6 @@ class BeginExamHandler(tornado.web.RequestHandler):
             if response.status_code == 200:
                 self.write(response.json())
             elif response.status_code == 409:
-                self.redirect('/exam-redo')
                 self.set_status(409)
                 self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
                 return
