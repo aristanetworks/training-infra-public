@@ -49,3 +49,7 @@
       opacity: 1;
       transition: opacity 0.3s ease;
     }
+    button:disabled {
+      pointer-events: none;
+      opacity: 0.6;
+    }
