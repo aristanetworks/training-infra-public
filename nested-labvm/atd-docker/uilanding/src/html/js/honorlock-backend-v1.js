@@ -67,7 +67,7 @@ async function setSessionSetup() {
         const result = await response.json();
         console.log('getUserSessionId result:', result);
         if (!result || !result.data) {
-            alert("Error: No session data returned from backend. Please try again or contact support.");
+            window.location.reload();
             throw new Error('No data returned from /getUserSessionId');
         }
 
