@@ -229,3 +229,12 @@ function examInstanceCountdown(element, exam_end_time) {
     }, 1000);
     event_timer_ids[element] = interval;
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var startExamBtn = document.getElementById('overlayButton');
+    if (startExamBtn) {
+        startExamBtn.addEventListener('click', function() {
+            alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
+        });
+    }
+});
