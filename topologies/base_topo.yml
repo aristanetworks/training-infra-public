@@ -1371,7 +1371,7 @@ topologies:
               cpu: 60
               ram: 95
             branch:  v2025.1-06162025
-            orderable: false
+            orderable: true
             image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20250924
             eos:
               - 4.32.1F  
