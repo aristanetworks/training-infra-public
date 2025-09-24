@@ -951,7 +951,7 @@ topologies:
     desc: 'Training Lab. For use by the Arista Training Team.'
     name: 'Training Lab'
     title: 'Training Lab'
-    disk_size: 300
+    disk_size: 320
     access: standard
     disable_links: [lab_grading, Tools, cvaas]
     labguides: self
