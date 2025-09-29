@@ -4,9 +4,9 @@ FROM ghcr.io/coder/code-server:4.102.2-39
 USER coder
 ENV HOME=/home/coder
 ENV PATH=$PATH:/home/coder/.local/bin
-ENV AVD_VER="5.5.1"
+ENV AVD_VER="5.7.0"
 ENV CVP_VER="3.12.0"
-ENV ANTA_VER="1.4.0"
+ENV ANTA_VER="1.5.0"
 # set args to cleanup installs
 ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 ARG PIP_NO_CACHE_DIR=1
@@ -26,7 +26,7 @@ COPY src/vs-extensions.txt /home/coder/
 RUN while IFS= read -r line; do code-server --install-extension $line; done < /home/coder/vs-extensions.txt
 
 RUN pip3 install --user pyeapi jsonrpclib-pelix shyaml && \
-    pip3 install --user "ansible-core==2.18" --upgrade
+    pip3 install --user "ansible-core==2.18.9" --upgrade
 
 # Install arista.avd, community.general and ansible.posix ansible-galaxy collections, Use this for version control of AVD topologies
 RUN ansible-galaxy collection install arista.avd:==${AVD_VER} && \
