@@ -35,7 +35,7 @@ RUN ansible-galaxy collection install arista.avd:==${AVD_VER} && \
     ansible-galaxy collection install ansible.posix --upgrade
 
 # Install Ansible-AVD collection requirements
-RUN pip3 install --user "pyavd[ansible]==${AVD_VER}" "anta==${ANTA_VER}" --upgrade
+RUN pip3 install --user "pyavd[ansible]==${AVD_VER}" "anta[cli]==${ANTA_VER}" --upgrade
 
 
 COPY src/.gitconfig /home/coder/
