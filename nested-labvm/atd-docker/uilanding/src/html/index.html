@@ -92,8 +92,12 @@
                   </li>
                   {% end %}
                   {% if "webui" not in disable_links %}
-
                   <li><a class="site-sidebar__item menu-click" href="/firefox" target="_blank" >WebUI</a></li>
+                  {% end %}
+                  {% if "jenkins" not in disable_links %}
+                  <li>
+                    <a class="site-sidebar__item menu-click" href="/jenkins" target="_blank">Jenkins</a>
+                  </li>
                   {% end %}
                   {% if "lab_menu" not in disable_links %}
                   <li>

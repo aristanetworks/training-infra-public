@@ -1,0 +1,17 @@
+vlan 20
+
+spanning-tree mode none
+
+interface vlan 20
+  ip address 172.16.20.10/24
+ no shut
+
+interface Ethernet1
+ switchport
+ switchport mode access
+ switchport access vlan 20
+ no shut
+
+ip routing
+
+ip route 0.0.0.0/0 172.16.20.1

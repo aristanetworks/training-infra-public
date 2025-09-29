@@ -8,6 +8,7 @@ PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
 CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
 CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
+
 LAB_TYPE=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('lab_type', 'Lab'))" 2>/dev/null)
 EXAM_MINUTES=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('exam_hours', '0'))" 2>/dev/null)
 if [ "$LAB_TYPE" = "Exam" ]; then
@@ -201,3 +202,5 @@ rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer 
 sudo systemctl daemon-reload
 sudo systemctl enable exam-submission-check.timer
 sudo systemctl start exam-submission-check.timer
+echo "Password authentication enabled for SSH"
+sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd

@@ -1,0 +1,96 @@
+!
+interface ethernet5
+no switchport
+ip address 10.10.1.14/30
+no shutdown
+interface ethernet6
+   no switchport
+   ip address 10.10.2.14/30
+   no shutdown
+
+interface loopback0
+ip address 10.14.14.14/32
+!
+interface loopback1
+ip address 10.15.15.15/32
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+router bgp 65003
+   router-id 10.14.14.14
+   maximum-paths 2 ecmp 2
+   no bgp default ipv4-unicast
+   bgp log-neighbor-changes
+
+   neighbor 10.10.1.13 peer group SpineUnderlay
+   neighbor 10.10.2.13 peer group SpineUnderlay
+
+   neighbor 10.10.1.13 description Spine1
+   neighbor 10.10.2.13 description Spine2
+
+   neighbor SpineUnderlay remote-as 65100
+   neighbor SpineUnderlay  maximum-routes 12000
+
+   neighbor 169.254.0.0 remote-as 65003
+   neighbor 169.254.0.0 next-hop-self
+   neighbor 169.254.0.0 description Leaf3
+
+   address-family ipv4
+      network  10.14.14.14/32
+      neighbor SpineUnderlay activate
+      neighbor 169.254.0.0 activate
+      redistribute connected
+
+
+spanning-tree mode mstp
+no spanning-tree vlan-id 4094
+!
+vlan 101
+   name VLAN101
+!
+vlan 4094
+   name MLAG_PEER
+   trunk group MLAG
+!
+interface Port-Channel1
+   description MLAG_PEER_leaf3_Po1
+   switchport mode trunk
+   switchport trunk group MLAG
+!
+interface Port-Channel3
+   description MEMLEAF_Po3
+   switchport trunk allowed vlan 101
+   switchport mode trunk
+   mlag 3
+!
+interface Ethernet1
+   description MLAG_leaf3_Ethernet1
+   channel-group 1 mode active
+!
+interface Ethernet2
+   description MLAG_leaf3_Ethernet2
+   channel-group 1 mode active
+!
+interface Ethernet3
+   description TO_MEMLEAF1_Ethernet3
+   channel-group 3 mode active
+!
+interface Ethernet4
+   description TO_MEMLEAF2_Ethernet4
+   channel-group 3 mode active
+!
+interface Vlan4094
+   description MLAG_PEER
+   mtu 1500
+   no autostate
+   ip address 169.254.0.1/31
+!
+mlag configuration
+   domain-id MLAG
+   local-interface Vlan4094
+   peer-address 169.254.0.0
+   peer-link Port-Channel1
+   reload-delay mlag 300
+   reload-delay non-mlag 330

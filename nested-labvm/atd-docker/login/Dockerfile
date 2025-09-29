@@ -86,6 +86,8 @@ RUN chown -R arista:arista .
 
 RUN pip install --upgrade rcvpapi
 
+RUN pip install --upgrade cvprac
+
 COPY src/entrypoint.sh /usr/local/bin/
 
 RUN chmod +x /usr/local/bin/entrypoint.sh

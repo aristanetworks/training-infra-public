@@ -330,6 +330,7 @@ def main():
             # Import all devices not 
             pS("INFO","Importing devices: {0}".format(", ".join(tmp_eos_add)))
             cvp_clnt.addDeviceInventory(tmp_eos_add)
+            pS("OK","All devices have been added to Provisioning")
         for eos in eos_info:
             # Check to see if the device has a target container
             if eos.targetContainerName:

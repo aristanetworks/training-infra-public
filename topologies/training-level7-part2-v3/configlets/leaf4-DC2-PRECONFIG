@@ -1,0 +1,57 @@
+interface Loopback0
+   ip address 192.168.255.34/32
+!
+vlan 15
+   name VLAN15
+!
+vlan 16
+   name VLAN16
+!
+vlan 17
+   name VLAN17
+!
+vlan 18
+   name VLAN18
+!
+vlan 19
+   name VLAN19
+
+interface Port-Channel10
+   switchport trunk allowed vlan 15-19
+   switchport mode trunk
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0000:0000:3334
+      route-target import 00:00:00:00:33:34
+   lacp system-id 0000.0000.3334
+   
+!
+interface Ethernet1
+   shut
+!
+interface Ethernet2
+   shut
+!
+interface Ethernet3
+   no switchport
+   ip address 10.20.0.37/30
+
+!
+interface Ethernet4
+   no switchport
+   ip address 10.20.0.41/30
+!
+interface Ethernet5
+   no switchport
+   ip address 10.20.0.45/30
+
+!
+interface Ethernet6
+   channel-group 10 mode active
+!
+interface Ethernet7
+   shut
+!
+interface Ethernet15 
+  shut
+!

@@ -1,0 +1,41 @@
+int loopback 0
+   ip address 192.168.255.80/32
+
+
+vlan 15
+name VLAN15
+
+vlan 16
+name VLAN16
+
+vlan 17
+name VLAN17
+
+vlan 18
+name VLAN18
+
+vlan 19
+name VLAN19
+
+vlan 130
+name VLAN130
+
+
+spanning-tree mode mstp
+
+
+
+interface Eth1
+   mtu 9214
+    switchport 
+    no switchport mode access
+    switchport mode trunk
+    switchport trunk allowed vlan 15-19
+    spanning-tree portfast edge
+
+interface Ethernet 2
+   mtu 9214
+   switchport
+   switchport mode access
+   switchport access vlan 130
+   

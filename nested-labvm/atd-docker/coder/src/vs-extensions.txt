@@ -1,4 +1,5 @@
 christian-kohler.path-intellisense
+echoapi.echoapi-for-vscode
 codezombiech.gitignore
 coenraads.bracket-pair-colorizer-2
 DavidAnson.vscode-markdownlint

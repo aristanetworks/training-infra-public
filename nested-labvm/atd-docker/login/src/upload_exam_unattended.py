@@ -12,6 +12,7 @@ from ftplib import FTP
 import json
 from base64 import b64decode, b64encode
 import requests
+from datetime import datetime, timezone
 
 
 try:
@@ -140,7 +141,9 @@ def grabSwitchDetails(allHostsName, allHostsIP, folder, labPassword):
         collect_command_output(switch, name, outputs, "running", ["show running-config"])
         collect_mlag_info(switch, name, outputs)
         collect_vxlan_info(switch, name, outputs)
-        collect_command_output(switch, name, outputs, "Route", ["show ip route"])
+        collect_ospf_info(switch, name, outputs)
+        collect_command_output(switch, name, outputs, "Route", ["show ip route vrf all"])
+        collect_command_output(switch, name, outputs, "VRF", ["show vrf"])
         collect_command_output(switch, name, outputs, "BGPsummary", ["show ip bgp summary"])
         
         # EVPN commands - only for non-host devices
@@ -247,7 +250,6 @@ def format_command_outputs(commands, results):
         output += f"{cmd}\n{results[i]['output']}"
     return output
 
-
 def save_output_to_file(device_name, output_type, content, folder):
     """Save output content to a file"""
     filename = f"{device_name}-{output_type}.txt"
@@ -336,7 +338,23 @@ def updateHubspot(result, doceboid, courseid):
     except Exception:
         return None
 
-
+def create_metadata_file(folder, labName, labTopology):
+    """
+    Creates a JSON file with lab metadata including the UTC creation timestamp.
+    """
+    metadata = {
+        "lab_name": labName,
+        "lab_topology": labTopology,
+        "created_utc_time": datetime.now(timezone.utc).isoformat()
+    }
+    
+    metadata_filename = "lab-metadata.json"
+    complete_path = os.path.join(folder, metadata_filename)
+    
+    with open(complete_path, 'w') as f:
+        json.dump(metadata, f, indent=4)
+    
+    print(f"Metadata file '{metadata_filename}' created.")
 
 
 def main():
@@ -350,6 +368,9 @@ def main():
             os.makedirs(folder)
         except OSError as exc: # Guard against race condition
             raise
+    
+    # Create the metadata file before collecting switch details
+    create_metadata_file(folder, labName, labTopology)    
     grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword)
     tarFile = "results-" + folder #+ "-" + candidateID
     grabCVPInfo(labPassword,folder)
@@ -360,7 +381,7 @@ def main():
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
     #ftpUpload(tarFile)
     #print("Upload complete")
-    # grade and update
+    #grade and update
     if labName.split("-")[2] == "rct":
         print("Grading the exam. Please wait for 1-2 minutes here")
         result = gradeExam(labProject, labName, labZone)

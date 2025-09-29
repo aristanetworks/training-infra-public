@@ -1,0 +1,13 @@
+service routing protocols model multi-agent
+!
+hostname P3
+!
+interface Management1
+   vrf MGMT
+   ip address  192.168.0.97/24
+!
+ip routing
+!
+interface Ethernet 5
+ shutdown
+!
