@@ -14,7 +14,6 @@ if (resetRequestSubmittedTime) {
 }
 
 
-
 document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('overlay');
     // Show loading indicator while fetching status
@@ -40,9 +39,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function addExamButton() {
     const overlay = document.getElementById('overlay');
-    overlay.innerHTML = '<button id="overlayButton">Start Exam</button>';
+    overlay.innerHTML = '<button id="overlayButton" disabled>CVP is not up yet, please wait till CVP comes online</button>';
 
     document.getElementById('overlayButton').addEventListener('click', function () {
+        if (this.disabled) {
+        // Prevent any action if disabled
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+     alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
         fetch('/examStatus', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

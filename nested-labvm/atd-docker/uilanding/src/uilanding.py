@@ -89,10 +89,54 @@ if 'title' in host_yaml:
 else:
     TITLE = 'Test Drive Lab'
 
+def get_metadata_extract(attribute):
+    try:
+        metadata_url = "http://169.254.169.254/computeMetadata/v1/project/attributes/{}".format(attribute)
+        headers = {"Metadata-Flavor": "Google"}
+        response = requests.get(metadata_url, headers=headers)
+        if response.status_code == 200:
+            return response.text
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching metadata: {e}")
+        return None
+
+HonorLockClientID = get_metadata_extract('honorlockClientID')
+HonorLockSecret = get_metadata_extract('honorlockClientSecret')
+
+
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
         return(self.get_secure_cookie("user"))
-
+class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")  # Set the correct content type for HTML
+        try:
+            with open(BASE_PATH + 'exam-submitted.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)  # Write the HTML content to the response
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: exam-submitted.html not found")
+        except Exception as e:      
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
+class ExamAuthenticationHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")  # Set the correct content type for HTML
+        try:
+            with open(BASE_PATH + 'honorlock-index.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)  # Write the HTML content to the response
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: honorlock-index.html not found")
+        except Exception as e:      
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
 class LoginHandler(BaseHandler):
     def get(self):
         AUTH = False
@@ -135,11 +179,23 @@ class LoginHandler(BaseHandler):
 
 class topoRequestHandler(BaseHandler):
     def get(self):
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
         if not self.current_user:
-            if 'auth' in self.request.arguments:
-                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            if lab_type == "Exam":
+
+                if 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
+                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                elif 'auth' in self.request.arguments:
+                    self.redirect('/exam-authentication')
+                else:
+                    self.redirect('/login')
             else:
-                self.redirect('/login')
+                if 'auth' in self.request.arguments:
+                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                else:
+                    self.redirect('/login')
+
             return()
         else:
             _topo_cvp = False
@@ -343,6 +399,94 @@ def pS(mtype):
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
+class GetClientIdHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to fetch client ID from Honorlock API.
+        """
+        url = "https://app.honorlock.com/api/en/v1/token"
+        payload = json.dumps({
+            "client_id": HonorLockClientID,
+            "client_secret": HonorLockSecret
+        })
+        headers = {'Content-Type': 'application/json'}
+
+        try:
+            response = requests.post(url, headers=headers, data=payload)
+            if response.status_code in [200, 201]:
+                 self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class GetExamInstructionsHandler(tornado.web.RequestHandler):
+    def post(self):
+        """
+        Handler to fetch exam instructions from Honorlock API.
+        """
+        try:
+            payload = json.loads(self.request.body)
+            url = f"https://app.honorlock.com/api/en/v1/exams/{payload['external_exam_id']}/instructions"
+            auth_header = self.request.headers.get('Authorization')
+
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+
+class GetUserSessionIdHandler(tornado.web.RequestHandler):
+    def post(self):
+        """
+        Handler to create a user session in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/exams/sessions/create"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
 class LabHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -427,7 +571,7 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
-            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py.py', detach=True)    
+            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)    
             self.write({
                 'response':f'Exam has been submitted'
                     }) 
@@ -506,8 +650,179 @@ class ViewConfigHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": "Internal server error"})
+class ExamRedoRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")
+        try:
+            with open(BASE_PATH + 'exam-redo.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: exam-redo.html not found")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
+class BeginExamHandler(tornado.web.RequestHandler):
+    def post(self):
 
+        """
+        Handler to create a user Begin Exam in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
 
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/session/start"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                self.write(response.json())
+            elif response.status_code == 409:
+                self.set_status(409)
+                self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
+                return
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+class BaseUrlHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            login_info = host_yaml.get('login_info', {}).get('jump_host', {})
+            response = {
+                "pwd": login_info.get('pw', ''),
+                "user": login_info.get('user', '')
+            }
+            encoded_response = b64encode(json.dumps(response).encode()).decode()
+            self.write({"response": encoded_response})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class GetAccessInfoHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to fetch user details from ACCESS_INFO.yaml file.
+        """
+        self.set_header("Access-Control-Allow-Origin", "*")
+        try:
+            # Check authorization
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            # Read the YAML file
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            
+            # Extract customer details
+            customer_details = host_yaml.get('customer_details', {})
+            
+            if not customer_details:
+                # Return default values if no customer details found
+                self.write({
+                    "customer_details": {
+                        "exam_taker_id": "Arista-test-taker-ID",
+                        "exam_taker_email": "arista-test-taker@arista.com",
+                        "exam_taker_full_name": "Arista Test Taker",
+                        "external_exam_id": "test-course-april_external_id",
+                        "exam_taker_attempt_id": "1"
+                    }
+                })
+            else:
+                # Return the actual customer details from YAML
+                self.write({
+                    "customer_details": {
+                        "exam_taker_id": str(customer_details.get('exam_taker_id', '')),
+                        "exam_taker_email": customer_details.get('exam_taker_email', '').strip(),
+                        "exam_taker_full_name": customer_details.get('exam_taker_full_name', ''),
+                        "external_exam_id": str(customer_details.get('external_exam_id', '')),
+                        "exam_taker_attempt_id": str(customer_details.get('exam_taker_attempt_id', ''))
+                    }
+                })
+
+        except Exception as e:
+            print(f"Error in GetAccessInfoHandler: {str(e)}")
+            self.set_status(500)
+            self.write({
+                "error": str(e),
+                    "customer_details": {
+                        "exam_taker_id": "Arista-test-taker-ID",
+                        "exam_taker_email": "arista-test-taker@arista.com",
+                        "exam_taker_full_name": "Arista Test Taker",
+                        "external_exam_id": "test-course-april_external_id",
+                        "exam_taker_attempt_id": "1"
+                    }
+            })
+
+class EndExamHandler(tornado.web.RequestHandler):
+    def post(self):
+
+        """
+        Handler to create a user Begin Exam in Honorlock API.
+        """
+        try:
+            auth_header = self.request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                self.set_status(401)
+                self.write({"error": "Authorization token is missing or invalid"})
+                return
+
+            access_token = auth_header.split(' ')[1]
+            url = "https://app.honorlock.com/api/en/v1/session/complete"
+            payload = json.loads(self.request.body)
+            headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            try:
+                print("Calling upload_exam_unattended.py script to upload exam")
+                docker_conn = docker.from_env()
+                login_container = docker_conn.containers.get('atd-login')
+                login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)
+            except Exception as e:
+                print(f"Error running upload_exam_unattended.py: {e}")
+                self.write({
+                    'honorlock_response': response.json(),
+                    'exam_submit': 'Exam has been submitted but error running upload_exam_unattended.py',
+                })
+            if response.status_code in [200, 201]:
+                try:
+                    self.write({
+                        'honorlock_response': response.json(),
+                        'exam_submit': 'Exam has been submitted'
+                    })
+                except Exception as e:
+                    self.write({
+                        'honorlock_response': response.json(),
+                        'exam_submit_error': str(e)
+                    })
+            else:
+                self.set_status(response.status_code)
+                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -515,6 +830,8 @@ if __name__ == "__main__":
     }
 
     app = tornado.web.Application([
+        (r'/exam-submitted', ExamSubmittedRedirectHandler),
+        (r'/exam-redo', ExamRedoRedirectHandler),
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
         (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
@@ -528,7 +845,15 @@ if __name__ == "__main__":
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler),
         (r'/examStatus', ExamStatusHandler),
-        (r'/examSubmit', ExamSubmitHandler)        
+        (r'/examSubmit', ExamSubmitHandler),
+        (r'/exam-authentication', ExamAuthenticationHandler),     
+        (r'/getAccessInfo', GetAccessInfoHandler),
+        (r'/getClientId', GetClientIdHandler),
+        (r'/getExamInstructions', GetExamInstructionsHandler),
+        (r'/getUserSessionId', GetUserSessionIdHandler),
+        (r'/beginExam', BeginExamHandler),  
+        (r'/endExam', EndExamHandler),
+        (r'/baseUrl', BaseUrlHandler),     
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

@@ -9,35 +9,23 @@ CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
 CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
 MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
 
-if [[ "$MACHINE_NAME" =~ -ex-[A-Za-z0-9]{4}(-[0-9]-[A-Za-z0-9]) ]]; then
-    exam_code="${BASH_REMATCH[1]}"
-    declare -A duration_map
-    duration_map["-1-2"]=120  # 120 minutes (2 hours)
-    duration_map["-2-2"]=240  # 240 minutes (4 hours)
-    duration_map["-3-d"]=240  # 240 minutes (4 hours)
-    duration_map["-5-3"]=240  # 240 minutes (4 hours)
-    duration_map["-4-1"]=240  # 240 minutes (4 hours)
-    duration_map["-1-v"]=120  # 120 minutes (2 hours)
-    duration_map["-1-f"]=120  # 120 minutes (2 hours)
-    duration_map["-5-d"]=240  # 240 minutes (4 hours)
-    duration_map["-6-d"]=240  # 240 minutes (4 hours)
-    duration_map["-7-l"]=480  # 480 minutes (8 hours)
-    # Get duration based on exam_code
-    duration=${duration_map[$exam_code]}
-    echo "Exam Duration: ${duration:-Unknown}"
+LAB_TYPE=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('lab_type', 'Lab'))" 2>/dev/null)
+EXAM_MINUTES=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('exam_hours', '0'))" 2>/dev/null)
+if [ "$LAB_TYPE" = "Exam" ]; then
+    echo "Exam Duration: ${EXAM_MINUTES:-Unknown}"
     if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
         # Update existing value using sed
-        sed -i "s/exam_duration:.*$/exam_duration: ${duration:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
+        sed -i "s/exam_duration:.*$/exam_duration: ${EXAM_MINUTES:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
     else
         # Add new entry if it doesn't exist
-        echo "exam_duration: ${duration:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
+        echo "exam_duration: ${EXAM_MINUTES:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
     fi
     if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
         sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/" /etc/atd/ACCESS_INFO.yaml
     else
         echo "examButtonNeeded: True" >> /etc/atd/ACCESS_INFO.yaml
     fi
-    echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $duration "
+    echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $EXAM_MINUTES "
 else
     if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
         # Update existing value using sed
