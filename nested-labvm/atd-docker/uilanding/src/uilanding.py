@@ -242,7 +242,8 @@ class topoRequestHandler(BaseHandler):
                 disable_links = disable_links,
                 labguides = labguides,
                 topo_cvp = _topo_cvp,
-                menu_options = menu
+                menu_options = menu,
+                lab_type = lab_type
             )
     
 class topoDataHandler(tornado.websocket.WebSocketHandler):

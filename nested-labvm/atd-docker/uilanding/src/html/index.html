@@ -135,7 +135,8 @@
               <div class="common-note">
                 Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
                 </div>
-                <div class="icon-div">
+                <div class="icon-div"></div>
+                {% if lab_type == "Exam" %}
                   <table class="no-border" style="width: 100%;">
                     <tbody style="background-color: transparent;"><tr>
                     <td style="text-align: center;">
@@ -150,6 +151,15 @@
                     </td>
                     </tr>
                     </tbody></table>
+
+                {% else %}
+                <div class="icon-div" style="text-align: center;">
+                <div class="icon"><i class="fa-regular fa-clock"></i></div>
+                <div class="icon-detail">
+                  <h2>Time Remaining</h2>
+                  <time><span id="countdown_timer">00:00:00</span></time>
+                </div>
+                {% end %}
                 </div>
               <!---==============-->
               <section class="topology">
