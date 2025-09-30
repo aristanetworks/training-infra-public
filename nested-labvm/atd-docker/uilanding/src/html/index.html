@@ -1,173 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arista {{ topo_title }}</title>
-    <link rel="stylesheet" href="css/foundation.min.css" />
-    <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
-    <script src="js/atd-ws.js"></script>    
-    <link rel="stylesheet" href="css/variables.css" />
-    <link rel="stylesheet" href="css/typography.css" />
-    <link rel="stylesheet" href="css/overlay.css">
-    <link rel="stylesheet" href="css/style.css" />
-    <link rel="stylesheet" href="css/home.css" />
-  </head>
-  <body>
-    <header></header>
-    <main>
-      <!-------Index with sidebar-->
 
-      <div class="bg-pattern"></div>
-      <div class="grid-container full">
-        <div class="grid-x">
-          <header></header>
-          <div id="overlay"> 
-            <!-- <button id="overlayButton">Start Exam</button> -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arista {{ topo_title }}</title>
+  <link rel="stylesheet" href="css/foundation.min.css" />
+  <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
+  <script src="js/atd-ws.js"></script>
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/typography.css" />
+  <link rel="stylesheet" href="css/overlay.css">
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/home.css" />
+</head>
+
+<body>
+  <header></header>
+  <main>
+    <!-------Index with sidebar-->
+
+    <div class="bg-pattern"></div>
+    <div class="grid-container full">
+      <div class="grid-x">
+        <header></header>
+        <div id="overlay">
+          <!-- <button id="overlayButton">Start Exam</button> -->
           <button id="overlayButton" disabled>CVP is not up yet, please wait till CVP comes online</button>
-            <p>
+          <p>
             <a href="/honorlock-authentication">Click here for Honorlock authentication</a>
-            </p>
-          </div>
-          <aside
-            id="sidebar"
-            class="cell small-12 medium-12 large-3 left-sidebar"
-          >
-            <div class="site-sidebar">
-              <div class="nav-menu">
-                <a href="index.html" class="site-sidebar__logo"
-                  ><img src="images/arista.svg" alt="Arista-logo"
-                /></a>
-                <div class="menu-icon hide-for-large">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
+          </p>
+        </div>
+        <aside id="sidebar" class="cell small-12 medium-12 large-3 left-sidebar">
+          <div class="site-sidebar">
+            <div class="nav-menu">
+              <a href="index.html" class="site-sidebar__logo"><img src="images/arista.svg" alt="Arista-logo" /></a>
+              <div class="menu-icon hide-for-large">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
-              <nav class="site-navigation">
-                <ul>
-                  <li>
-                    <a
-                      data-id="home"
-                      class="site-sidebar__item menu-click current-page"
-                      >Home</a
-                    >
-                  </li>
-                  {% if "labguides" not in disable_links %}
+            </div>
+            <nav class="site-navigation">
+              <ul>
+                <li>
+                  <a data-id="home" class="site-sidebar__item menu-click current-page">Home</a>
+                </li>
+                {% if "labguides" not in disable_links %}
 
-                  <li>
-                    <a
-                      data-id="lab-guides"
-                      class="site-sidebar__item menu-click" target="_blank" href="{{ labguides }}"
-                      >Lab Guides</a
-                    >
-                  </li>
-                  {% end %}
-                  {% if "console" not in disable_links %}
-                  <li>
-                    <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank"> Switch Access </a>
-                  </li>
-                  {% end %}
-                  {% if "cvp" not in disable_links %}
-                  <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)" onmouseout="hideToolTip(this)">
-                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" ><s>CVP</s></a>
-                    <span id="tooltiptext">CVP is Starting, Please wait</span>
-                  </li>
-                  <li id="cvpLoaded">
-                    <a class="site-sidebar__item menu-click" href="/cv" target="_blank" >CVP</a>                
-                 </li>
-                  {% end %}
-                  {% if "cvaas" not in disable_links %}
-                  <li>
-                    <a class="site-sidebar__item menu-click" href="https://www.arista.io/" target="_blank">
-                      CVaaS</a
-                    >
-                  </li>
-                  {% end %}                  
-                  {% if "ide" not in disable_links %}
-                  <li>
-                    <a class="site-sidebar__item menu-click" href="/coder" target="_blank">
-                      Programmability IDE</a
-                    >
-                  </li>
-                  {% end %}
-                  {% if "webui" not in disable_links %}
-                  <li><a class="site-sidebar__item menu-click" href="/firefox" target="_blank" >WebUI</a></li>
-                  {% end %}
-                  {% if "jenkins" not in disable_links %}
-                  <li>
-                    <a class="site-sidebar__item menu-click" href="/jenkins" target="_blank">Jenkins</a>
-                  </li>
-                  {% end %}
-                  {% if "lab_menu" not in disable_links %}
-                  <li>
-                    <a class="site-sidebar__item menu-click" data-id="lab-menu" id="labMenu"  target="_blank"
-                      >Lab Menu</a
-                    >
-                  </li>
-                  {% end %}
-                  <!-- {% if "Tools" not in disable_links %}
+                <li>
+                  <a data-id="lab-guides" class="site-sidebar__item menu-click" target="_blank"
+                    href="{{ labguides }}">Lab Guides</a>
+                </li>
+                {% end %}
+                {% if "console" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank"> Switch Access
+                  </a>
+                </li>
+                {% end %}
+                {% if "cvp" not in disable_links %}
+                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)"
+                  onmouseout="hideToolTip(this)">
+                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank"><s>CVP</s></a>
+                  <span id="tooltiptext">CVP is Starting, Please wait</span>
+                </li>
+                <li id="cvpLoaded">
+                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank">CVP</a>
+                </li>
+                {% end %}
+                {% if "cvaas" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" href="https://www.arista.io/" target="_blank">
+                    CVaaS</a>
+                </li>
+                {% end %}
+                {% if "ide" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" href="/coder" target="_blank">
+                    Programmability IDE</a>
+                </li>
+                {% end %}
+                {% if "webui" not in disable_links %}
+                <li><a class="site-sidebar__item menu-click" href="/firefox" target="_blank">WebUI</a></li>
+                {% end %}
+                {% if "jenkins" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" href="/jenkins" target="_blank">Jenkins</a>
+                </li>
+                {% end %}
+                {% if "lab_menu" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" data-id="lab-menu" id="labMenu" target="_blank">Lab Menu</a>
+                </li>
+                {% end %}
+                <!-- {% if "Tools" not in disable_links %}
                   <li>
                       <a class="site-sidebar__item menu-click" style="color: white;cursor: pointer;" id="tools" data-id="tools-div"  target="_blank">Tools</a>
                   </li>
                   {% end %} -->
-                  <li>
-                    <a class="site-sidebar__item" data-open="passwords-popup" id="myBtn"  target="_blank"
-                      >Passwords</a
-                    >
-                  </li>
-                  {% if "lab_status" not in disable_links %}
-                  <li>
-                    <a
-                      class="site-sidebar__item menu-click"
-                      data-id="lab-status" id="labStaus"  target="_blank"
-                      >Lab Status</a
-                    >
-                  </li>
-                  {% end %}
-                </ul>
-              </nav>
+                <li>
+                  <a class="site-sidebar__item" data-open="passwords-popup" id="myBtn" target="_blank">Passwords</a>
+                </li>
+                {% if "lab_status" not in disable_links %}
+                <li>
+                  <a class="site-sidebar__item menu-click" data-id="lab-status" id="labStaus" target="_blank">Lab
+                    Status</a>
+                </li>
+                {% end %}
+              </ul>
+            </nav>
+          </div>
+        </aside>
+        <main class="cell small-12 medium-12 large-9 right-panel">
+          <div id="home" class="panel active">
+            <h1>Arista {{ topo_title }}</h1>
+            <div class="common-note">
+              Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
             </div>
-          </aside>
-          <main class="cell small-12 medium-12 large-9 right-panel">
-            <div id="home" class="panel active">
-              <h1>Arista {{ topo_title }}</h1>
-              <div class="common-note">
-                Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
-                </div>
-                <div class="icon-div"></div>
-                {% if lab_type == "Exam" %}
-                  <table class="no-border" style="width: 100%;">
-                    <tbody style="background-color: transparent;"><tr>
-                    <td style="text-align: center;">
+
+            {% if lab_type == "Exam" %}
+            <div class="icon-div"></div>
+            <table class="no-border" style="width: 100%;">
+              <tbody style="background-color: transparent;">
+                <tr>
+                  <td style="text-align: center;">
                     <div class="icon"><i class="fa-regular fa-clock"></i></div>
                     <div class="icon-detail">
-                    <h2>Time Remaining</h2>
-                    <time><span id="countdown_timer">00:00:00</span></time>
+                      <h2>Time Remaining</h2>
+                      <time><span id="countdown_timer">00:00:00</span></time>
                     </div>
                   </td>
                   <td style="text-align: center;">
                     <button id="submitButton" class="button">Submit Exam</button>
-                    </td>
-                    </tr>
-                    </tbody></table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-                {% else %}
-                <div class="icon-div" style="text-align: center;">
-                <div class="icon"><i class="fa-regular fa-clock"></i></div>
-                <div class="icon-detail">
-                  <h2>Time Remaining</h2>
-                  <time><span id="countdown_timer">00:00:00</span></time>
-                </div>
-                {% end %}
-                </div>
-              <!---==============-->
-              <section class="topology">
-                <div class="topology-overview">
-                  <div class="white-box text-center">
-                    <!-- <h2>Click on a device to access CLI.</h2> -->
-                    <img src="topo/atd-topo.png" usemap="#image_map" />
-                    <!--  <map name="image_map">
+            {% else %}
+            <div class="icon-div" style="text-align: center;">
+              <div class="icon"><i class="fa-regular fa-clock"></i></div>
+              <div class="icon-detail">
+                <h2>Time Remaining</h2>
+                <time><span id="countdown_timer">00:00:00</span></time>
+              </div>
+              {% end %}
+            </div>
+            <!---==============-->
+            <section class="topology">
+              <div class="topology-overview">
+                <div class="white-box text-center">
+                  <!-- <h2>Click on a device to access CLI.</h2> -->
+                  <img src="topo/atd-topo.png" usemap="#image_map" />
+                  <!--  <map name="image_map">
                         {% for node in NODES %}
                         {% if node == "CVP" %}
                             <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/cv" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
@@ -179,33 +165,33 @@
                             <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
                         {% end %}
                     </map> -->
-                    {% if topo_cvp %}
-                    <span id="cvp_info"></span>
-                    <br /><br />
-                {% end %}
-                  </div>
+                  {% if topo_cvp %}
+                  <span id="cvp_info"></span>
+                  <br /><br />
+                  {% end %}
                 </div>
-              </section>
-            </div>
-            <!-------------------------------------------------------------------------------->
-            <div id="lab-menu" class="panel">
-              <h1>Lab Menu</h1>
-              <div class="lab-buttons" >
-                {% for key, value in menu_options.items() %}
-                <a class="lab-button" id="{{key}}">
-                    <div class="dot"></div>
-                    <span>{{value}}</span>
-                  </a>
-                {% end %}
               </div>
-              <button class="button" id="labBtn">Start Lab</button>
-              <div class="lab-note" id="cvpStatus">
-              </div>
-              <div class="lab-note" id="apiResponse">
-                </div>
+            </section>
+          </div>
+          <!-------------------------------------------------------------------------------->
+          <div id="lab-menu" class="panel">
+            <h1>Lab Menu</h1>
+            <div class="lab-buttons">
+              {% for key, value in menu_options.items() %}
+              <a class="lab-button" id="{{key}}">
+                <div class="dot"></div>
+                <span>{{value}}</span>
+              </a>
+              {% end %}
             </div>
+            <button class="button" id="labBtn">Start Lab</button>
+            <div class="lab-note" id="cvpStatus">
+            </div>
+            <div class="lab-note" id="apiResponse">
+            </div>
+          </div>
 
-            <!-- <div id="tools-div" class="panel">
+          <!-- <div id="tools-div" class="panel">
               <div class="container">
                 <section id="changeLatency" class="mb-3">
                   <h2>Change Latency</h2>
@@ -288,81 +274,77 @@
                 </section>
               </div>
             </div> -->
-            <!-------------------------------------------------------------------------------------->
-            <div id="lab-status" class="panel">
-              <h1>Lab Status</h1>
-              <div class="table-responsive small-table">
-                <table id="labStatusByApi" class="responsive-card-table unstriped">
-                  </tbody>
-                </table>
+          <!-------------------------------------------------------------------------------------->
+          <div id="lab-status" class="panel">
+            <h1>Lab Status</h1>
+            <div class="table-responsive small-table">
+              <table id="labStatusByApi" class="responsive-card-table unstriped">
+                </tbody>
+              </table>
             </div>
-                <div class="lab-note" id = "resetLabs" style="color: white;"> </div>
-                    <p id="lastUpdated" style="color: white;" ></p>
-                    <div id="resetOkMSG" style="color: white;"></div>
-             
-              <!-- <div class="lab-note">
+            <div class="lab-note" id="resetLabs" style="color: white;"> </div>
+            <p id="lastUpdated" style="color: white;"></p>
+            <div id="resetOkMSG" style="color: white;"></div>
+
+            <!-- <div class="lab-note">
                 <b>Last updated: </b>3/27/2024 10:05:40 AM
               </div> -->
 
-                <!--Please <a>Click Here</a> to reset failed switches-->
-              
-            </div>
-          </main>
-        </div>
+            <!--Please <a>Click Here</a> to reset failed switches-->
+
+          </div>
+        </main>
       </div>
+    </div>
 
-      <div class="large reveal pw-popup" id="passwords-popup" data-reveal>
-        <button
-          class="close-button"
-          data-close
-          aria-label="Close reveal"
-          type="button"
-        >
-          <span aria-hidden="true">Close</span>
-        </button>
-        <h3>Usernames and Passwords</h3>
-        <h4>Use the following usernames and passwords to access the ATD:</h4>
-        <div class="table-responsive">
-          <table class="responsive-card-table unstriped">
-            <thead>
-              <tr>
-                <th>Device</th>
-                <th>Username</th>
-                <th>Password</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Credentials</td>
-                <td>arista</td>
-                <td><span>{{ ARISTA_PWD }}</span></td>
-              </tr>
-              <tr>
-                <td>Programmability IDE</td>
-                <td></td>
-                <td>{{ ARISTA_PWD }}</td>
-              </tr>
-              <tr>
-                <td>WebUI</td>
-                <td></td>
-                <td>@rista1</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <div class="large reveal pw-popup" id="passwords-popup" data-reveal>
+      <button class="close-button" data-close aria-label="Close reveal" type="button">
+        <span aria-hidden="true">Close</span>
+      </button>
+      <h3>Usernames and Passwords</h3>
+      <h4>Use the following usernames and passwords to access the ATD:</h4>
+      <div class="table-responsive">
+        <table class="responsive-card-table unstriped">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Username</th>
+              <th>Password</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Credentials</td>
+              <td>arista</td>
+              <td><span>{{ ARISTA_PWD }}</span></td>
+            </tr>
+            <tr>
+              <td>Programmability IDE</td>
+              <td></td>
+              <td>{{ ARISTA_PWD }}</td>
+            </tr>
+            <tr>
+              <td>WebUI</td>
+              <td></td>
+              <td>@rista1</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </main>
+    </div>
+  </main>
 
-    <footer></footer>
-    <script src="js/jquery-3.7.1.min.js"></script>
+  <footer></footer>
+  <script src="js/jquery-3.7.1.min.js"></script>
 
-    <script src="js/foundation.min.js"></script>
+  <script src="js/foundation.min.js"></script>
 
-    <script src="js/script.js"></script>
-    <!-- Bootstrap core JavaScript -->
-    <script src="js/popper.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/backend.js"></script>
-     <script type="module" src="js/honorlock-examsubmit-v1.js"></script>
-  </body>
+  <script src="js/script.js"></script>
+  <!-- Bootstrap core JavaScript -->
+  <script src="js/popper.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script src="js/backend.js"></script>
+  <script type="module" src="js/honorlock-examsubmit-v1.js"></script>
+</body>
+
 </html>
