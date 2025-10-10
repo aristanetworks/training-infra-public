@@ -584,37 +584,37 @@
           - A1-USER-DEFINED-TUNNEL-RIB
         B1:
           - b1-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - B1-USER-DEFINED-TUNNEL-RIB
         C1:
           - c1-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - C1-USER-DEFINED-TUNNEL-RIB
         A2:
           - a2-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - A2-USER-DEFINED-TUNNEL-RIB
         B2:
           - b2-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - B2-USER-DEFINED-TUNNEL-RIB
         C2:
           - c2-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - C2-USER-DEFINED-TUNNEL-RIB
         PE1:
           - pe1-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - PE1-USER-DEFINED-TUNNEL-RIB
         PE2:
           - pe2-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - PE2-USER-DEFINED-TUNNEL-RIB
         P3:
           - p3-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - P3-USER-DEFINED-TUNNEL-RIB
         P4:
           - p4-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - P4-USER-DEFINED-TUNNEL-RIB
         P5:
           - p5-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - P5-USER-DEFINED-TUNNEL-RIB
         P6:
           - p6-BASE
-          - A1-USER-DEFINED-TUNNEL-RIB
+          - P6-USER-DEFINED-TUNNEL-RIB
       DCI:
         A1:
           - a1-BASE
