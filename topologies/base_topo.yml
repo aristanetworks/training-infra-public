@@ -1121,7 +1121,7 @@ topologies:
               ram: 95
             branch:  v2025.1-06162025
             orderable: true
-            image: base-veos-training-lx-veos-2025-1-4321-20250923
+            image: base-veos-training-lx-veos-2025-1-4321-20251003
             eos:
               - 4.32.1F  
     desc: 'Training Lab vEOS. For use by the Arista Training Team.'
