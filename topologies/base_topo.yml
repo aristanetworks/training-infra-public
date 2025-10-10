@@ -1408,7 +1408,7 @@ topologies:
             resources:
               cpu: 72
               ram: 110
-            branch: v2025.1-09032025
+            branch: v2025.1-10102025-hl
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20250731
             eos:
