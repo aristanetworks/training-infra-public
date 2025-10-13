@@ -1395,7 +1395,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251006
+            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251013
             eos:
               - 4.32.1F                
     prod:
