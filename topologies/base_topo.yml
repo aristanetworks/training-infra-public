@@ -3,8 +3,8 @@ topologies:
   training-level1-exam-2:
     dev:
       veos:
-        cpu: 32
-        ram: 64
+        cpu: 72
+        ram: 110
         cvp:
           2023.2.0:
             schema: 1
@@ -19,17 +19,17 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 60
-              ram: 90
+              cpu: 72
+              ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l1-exam-2-2025-1-4301-20251013
+            image: base-veos-training-l1-exam-2-2025-1-4301-20251013 - base-veos-training-l2-exam-2-2025-1-4301-20251013
             eos:
               - 4.32.1F             
     prod:
       veos:
-        cpu: 32
-        ram: 64
+        cpu: 72
+        ram: 110
         cvp:
           2023.2.0:
             schema: 1
@@ -44,8 +44,8 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 60
-              ram: 90
+              cpu: 72
+              ram: 110
             branch: nested/2025.1
             orderable: false
             image: base-veos-training-l1-exam-2-2025-1-4301-20251013
@@ -61,8 +61,8 @@ topologies:
   training-level2-exam-2:
     dev:
       veos:
-        cpu: 32
-        ram: 64
+        cpu: 72
+        ram: 110
         cvp:
           2023.2.0:
             schema: 1
@@ -74,21 +74,41 @@ topologies:
             image: base-veos-training-l2-exam-2-2023-2-4301-20250613
             eos:
               - 4.30.1F  
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 72
+              ram: 110
+            branch: nested/2025.1
+            orderable: true
+            image: base-veos-training-l2-exam-2-2025-1-4301-20251013
+            eos:
+              - 4.32.1F          
     prod:
       veos:
-        cpu: 40
-        ram: 64
+        cpu: 72
+        ram: 110
         cvp:
           2023.2.0:
             schema: 1
             resources:
               cpu: 60
-              ram: 80
+              ram: 110
             branch:  v2023.2-07102025
             orderable: true
             image: base-veos-training-l2-exam-2-2023-2-4301-20250613
             eos:
               - 4.30.1F  
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 72
+              ram: 100
+            branch: nested/2025.1
+            orderable: false
+            image: base-veos-training-l2-exam-2-2025-1-4301-20251013
+            eos:
+              - 4.32.1F        
     desc: 'Level 2 Exam Topoplogy 2. For use by the Arista Training Team.'
     name: 'Training - Level 2 Exam Topology 2'
     title: 'Training Level 2 Exam Exam Topology 2'
