@@ -15,7 +15,17 @@ topologies:
             orderable: true
             image: base-veos-training-l1-exam-2-2023-2-4301-20250613
             eos:
-              - 4.30.1F                 
+              - 4.30.1F          
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2025.1
+            orderable: true
+            image: base-veos-training-l1-exam-2-2025-1-4301-20251013
+            eos:
+              - 4.32.1F             
     prod:
       veos:
         cpu: 32
@@ -31,6 +41,16 @@ topologies:
             image: base-veos-training-l1-exam-2-2023-2-4301-20250613
             eos:
               - 4.30.1F   
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2025.1
+            orderable: false
+            image: base-veos-training-l1-exam-2-2025-1-4301-20251013
+            eos:
+              - 4.32.1F    
     desc: 'Level 1 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 1 Exam -2'
     title: 'Training Level 1 Exam -2'
