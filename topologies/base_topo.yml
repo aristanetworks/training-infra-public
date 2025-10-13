@@ -37,7 +37,7 @@ topologies:
               cpu: 60
               ram: 80
             branch:  v2023.2-07102025
-            orderable: true
+            orderable: false
             image: base-veos-training-l1-exam-2-2023-2-4301-20250613
             eos:
               - 4.30.1F   
@@ -47,7 +47,7 @@ topologies:
               cpu: 72
               ram: 110
             branch: nested/2025.1
-            orderable: false
+            orderable: true
             image: base-veos-training-l1-exam-2-2025-1-4301-20251013
             eos:
               - 4.32.1F    
@@ -95,7 +95,7 @@ topologies:
               cpu: 60
               ram: 110
             branch:  v2023.2-07102025
-            orderable: true
+            orderable: false
             image: base-veos-training-l2-exam-2-2023-2-4301-20250613
             eos:
               - 4.30.1F  
@@ -105,7 +105,7 @@ topologies:
               cpu: 72
               ram: 100
             branch: nested/2025.1
-            orderable: false
+            orderable: true
             image: base-veos-training-l2-exam-2-2025-1-4301-20251013
             eos:
               - 4.32.1F        
