@@ -284,7 +284,7 @@ topologies:
               ram: 90
             branch: v2025.1-10102025-hl
             orderable: true
-            image: base-veos-training-l4-exam-2025-1-4321-20251006
+            image: base-veos-training-l4-v2-2025-1-20251006
             eos:
               - 4.30.1F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
