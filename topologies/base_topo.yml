@@ -76,6 +76,45 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self  
+  training-level4-exam-cvp-2023:
+    #upgrade to 2025
+    dev:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.1:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 110
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-exam-2025-1-4321-20251006
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2023.2.1:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 110
+            branch: v2023.2-10152025
+            orderable: true
+            image: base-veos-training-l4-exam-2025-1-4321-20251006
+            eos:
+              - 4.30.1F
+    desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 4 Exam'
+    title: 'Training Level 4 Exam'
+    disk_size: 500
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    labguides: self 
   training-level1-exam-2:
     dev:
       veos:
