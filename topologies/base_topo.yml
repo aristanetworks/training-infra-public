@@ -83,12 +83,12 @@ topologies:
         cpu: 60
         ram: 110
         cvp:
-          2023.2.1:
+          2024.3.0:
             schema: 1
             resources:
               cpu: 60
               ram: 110
-            branch: nested/2023.2
+            branch: nested/2024.3
             orderable: true
             image: base-veos-training-l4-exam-2025-1-4321-20251006
             eos:
@@ -98,12 +98,12 @@ topologies:
         cpu: 32
         ram: 64
         cvp:
-          2023.2.1:
+          2024.3.0:
             schema: 1
             resources:
               cpu: 60
               ram: 110
-            branch: v2023.2-10152025
+            branch: v2024.3-10152025
             orderable: true
             image: base-veos-training-l4-exam-2025-1-4321-20251006
             eos:
