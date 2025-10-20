@@ -357,7 +357,7 @@ topologies:
             resources:
               cpu: 80
               ram: 110
-            branch: v2025.1-10102025-hl-l4-fix
+            branch: v2025.1-10202025-hl
             orderable: true
             image: base-veos-training-l4-v2-2025-1-20251006
             eos:
@@ -397,7 +397,7 @@ topologies:
             resources:
               cpu: 60
               ram: 90
-            branch: v2025.1-10102025-hl
+            branch: v2025.1-10202025-hl
             orderable: true
             image: base-veos-training-l4-v2-2025-1-20251006
             eos:
@@ -1525,7 +1525,7 @@ topologies:
             resources:
               cpu: 60
               ram: 95
-            branch:  v2025.1-10102025-hl
+            branch:  v2025.1-10202025-hl
             orderable: true
             image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20250924
             eos:
@@ -1563,7 +1563,7 @@ topologies:
             resources:
               cpu: 72
               ram: 110
-            branch: v2025.1-10102025-hl
+            branch: v2025.1-10202025-hl
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20250731
             eos:
@@ -1601,7 +1601,7 @@ topologies:
             resources:
               cpu: 72
               ram: 110
-            branch: v2025.1-10102025-hl
+            branch: v2025.1-10202025-hl
             orderable: true
             image: base-veos-training-l5-ex-2025-4321-20251013
             eos:
