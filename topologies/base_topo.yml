@@ -384,7 +384,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l4-exam-2025-1-4321-20251017
+            image: base-veos-training-l4-exam-2025-1-4321-20251020
             eos:
               - 4.30.1F
     prod:
