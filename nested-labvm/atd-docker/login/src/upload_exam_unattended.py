@@ -193,6 +193,23 @@ def collect_mlag_info(switch, name, outputs_dict):
     except Exception as e:
         print(f"{name}: Failed to get MLAG info: Most likely this is not enabled or configured")
 
+def collect_ospf_info(switch, name, outputs_dict):
+    """Collect OSPF information with error handling."""
+    try:
+        commands = ["show ip ospf", "show ip ospf neighbor", "show ip ospf interface brief"]
+        result = switch.runCmds(1, ["enable"] + commands, "text")
+        
+        ospf_output = "show ip ospf\n"
+        ospf_output += result[1]["output"]
+        ospf_output += "\nshow ip ospf neighbor\n"
+        ospf_output += result[2]["output"]
+        ospf_output += "\nshow ip ospf interface brief\n"
+        ospf_output += result[3]["output"]
+        
+        outputs_dict["OSPF"] = ospf_output
+        print(f"{name}: Got OSPF info")
+    except Exception as e:
+        print(f"{name}: Failed to get OSPF info: Most likely this is not enabled or configured")
 
 def collect_vxlan_info(switch, name, outputs_dict):
     """Collect VXLAN information with error handling."""
