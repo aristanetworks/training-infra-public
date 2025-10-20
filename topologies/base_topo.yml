@@ -374,14 +374,14 @@ topologies:
     #upgrade to 2025
     dev:
       veos:
-        cpu: 60
-        ram: 90
+        cpu: 80
+        ram: 110
         cvp:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 60
-              ram: 90
+              cpu: 80
+              ram: 110
             branch: nested/2025.1
             orderable: true
             image: base-veos-training-l4-exam-2025-1-4321-20251017
