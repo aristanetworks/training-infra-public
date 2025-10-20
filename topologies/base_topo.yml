@@ -389,17 +389,17 @@ topologies:
               - 4.30.1F
     prod:
       veos:
-        cpu: 32
-        ram: 64
+        cpu: 80
+        ram: 110
         cvp:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 60
-              ram: 90
+              cpu: 80
+              ram: 110
             branch: v2025.1-10202025-hl
             orderable: true
-            image: base-veos-training-l4-v2-2025-1-20251006
+            image: base-veos-training-l4-exam-2025-1-4321-20251020
             eos:
               - 4.30.1F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
