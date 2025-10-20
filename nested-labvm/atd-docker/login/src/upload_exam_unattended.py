@@ -399,19 +399,35 @@ def main():
 
 
 
-
 def firewall(action, instanceName, instanceRegion,labProject):
     """
     """
     #get the data from DB if needed
     #call the cloud function or the do the api calls here itself
-    response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
-        print("Access to this lab has been blocked")
+        response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
+        os.system("pkill -KILL -u arista")
+        if response.status_code == 200:
+            print("Access to this lab has been blocked")
+            try:
+                with open(labACCESS, 'r') as f:
+                    access_info = yaml.safe_load(f)
+                if 'customer_details' in access_info and access_info['customer_details'].get('lab_type') == 'Exam':
+                    access_info['customer_details']['lab_type'] = 'Lab'
+                    
+                    # Write back to the file
+                    with open(labACCESS, 'w') as f:
+                        yaml.dump(access_info, f, default_flow_style=False)
+                    
+                    print("Lab type changed from Exam to Lab")
+                
+            except Exception as yaml_error:
+                print(f"Failed to update lab_type: {str(yaml_error)}")
+        
         os.system("pkill -KILL -u arista")
         return(response.json())
     except Exception as e:
-        print("An error occured, please contact the proctor.")
+        print("An error occured, please contact the proctor." + str(e))
         return(False)
 
 main()
