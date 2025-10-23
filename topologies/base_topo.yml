@@ -1578,13 +1578,13 @@ topologies:
   training-level5-exam:
     dev:
       veos:
-        cpu: 96
+        cpu: 80
         ram: 110
         cvp: 
           2025.1.0:
             schema: 1
             resources:
-              cpu: 96
+              cpu: 80
               ram: 110
             branch: nested/2025.1
             orderable: true
@@ -1593,13 +1593,13 @@ topologies:
               - 4.32.1F                
     prod:
       veos:
-        cpu: 72
+        cpu: 80
         ram: 110
         cvp: 
           2025.1.0:
             schema: 1
             resources:
-              cpu: 72
+              cpu: 80
               ram: 110
             branch: v2025.1-10202025-hl
             orderable: true
