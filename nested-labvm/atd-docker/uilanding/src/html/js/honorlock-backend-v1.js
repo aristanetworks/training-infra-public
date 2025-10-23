@@ -64,6 +64,11 @@ async function setSessionSetup() {
         };
 
         const response = await fetch("/getUserSessionId", requestOptions);
+        if (response.status === 200) {
+            console.log('Conflict detected 200 redirected while creating session, redirecting to /exam-redo');
+            window.location.href = '/exam-redo';
+            return;
+        }
         const result = await response.json();
         console.log('getUserSessionId result:', result);
         if (!result || !result.data) {

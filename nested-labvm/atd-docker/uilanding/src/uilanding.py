@@ -484,8 +484,13 @@ class GetUserSessionIdHandler(tornado.web.RequestHandler):
             }
 
             response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
+            if response.status_code == 201:
+                self.set_status(201)
                 self.write(response.json())
+            elif response.status_code == 200:
+                self.set_status(200)
+                self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
+                return
             else:
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
