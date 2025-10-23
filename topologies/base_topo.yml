@@ -1578,17 +1578,17 @@ topologies:
   training-level5-exam:
     dev:
       veos:
-        cpu: 72
+        cpu: 96
         ram: 110
         cvp: 
           2025.1.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 96
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l5-ex-2025-4321-20251013
+            image: base-veos-training-l5-ex-2025-4321-20251023
             eos:
               - 4.32.1F                
     prod:
