@@ -181,6 +181,11 @@ class topoRequestHandler(BaseHandler):
     def get(self):
         host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
+        if lab_type == "Exam" and 'auth' in self.request.arguments and 'honorlock' not in self.request.arguments:
+            # Clear authentication and force re-authentication through Honorlock
+            self.clear_cookie("user")
+            self.redirect('/exam-authentication')
+            return()        
         if not self.current_user:
             if lab_type == "Exam":
 
