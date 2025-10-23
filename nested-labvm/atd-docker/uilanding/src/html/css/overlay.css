@@ -44,6 +44,13 @@
     #overlayButton:hover {
       background-color: #f0f0f0;
     }
+
+    #overlayButton:disabled {
+      background-color: #333333; /* Dark background when disabled */
+      color: #ffffff; /* Pure white text when disabled */
+      pointer-events: none;
+      opacity: 1; /* Remove opacity reduction to keep text pure white */
+    }
     
     #content {
       opacity: 1;
