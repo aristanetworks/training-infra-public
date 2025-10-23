@@ -1603,7 +1603,7 @@ topologies:
               ram: 160
             branch: v2025.1-10202025-hl
             orderable: true
-            image: base-veos-training-l5-ex-2025-4321-20251013
+            image: base-veos-training-l5-ex-2025-4321-20251023
             eos:
               - 4.32.1F    
     desc: 'Training Lab L5 Exam - Honorlock enabled.'
