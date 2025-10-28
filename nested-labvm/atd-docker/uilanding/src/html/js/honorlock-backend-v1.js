@@ -23,7 +23,7 @@ async function getExamInstruction() {
 
         const response = await fetch("/getExamInstructions", requestOptions);
         const result = await response.json();
-        
+
         console.log(result.data);
         const iframe = document.createElement('iframe');
         iframe.id = 'exam-instructions-frame';
@@ -31,12 +31,12 @@ async function getExamInstruction() {
         iframe.style.width = '100%';
         iframe.style.height = '100vh';
         document.body.appendChild(iframe);
-        
+
         const honerIframe = document.getElementById('honer-iframe');
         if (honerIframe) {
             honerIframe.style.display = 'none';
         }
-        
+
         await setSessionSetup();
     } catch (error) {
         console.error('Error in getExamInstruction:', error);
@@ -66,8 +66,8 @@ async function setSessionSetup() {
         const response = await fetch("/getUserSessionId", requestOptions);
         if (response.status === 200) {
             console.log('Conflict detected 200 redirected while creating session, redirecting to /exam-redo');
-            window.location.href = '/exam-redo';
-            return;
+            // window.location.href = '/exam-redo';
+            // return;
         }
         const result = await response.json();
         console.log('getUserSessionId result:', result);
@@ -121,12 +121,21 @@ async function setSessionSetup() {
                 if (beginExamResponse.status === 409) {
                     window.location.href = '/exam-redo';
                     return;
-            }
+                }
                 const beginExamData = await beginExamResponse.json();
+                console.log('Conflict data from beginExam:', beginExamData);
+                if (beginExamData.data && beginExamData.data.event_type === 'Continue') {
+                    console.log('Handling Continue event from beginExam');
+                    console.log(`Exam status: Continue - Exam taker: ${beginExamData.data.exam_taker_name || 'Unknown'}`);
+                    console.log(`Exam continuation detected at: ${beginExamData.data.created_at || 'Unknown time'}`);
+
+                    // You can also display this information to the user if needed
+                    // alert(`Continuing existing exam session for ${beginExamData.data.exam_taker_name}`);
+                }
                 console.log('BeginExamHandler response:', beginExamData);
 
                 console.log('Exam has begun');
-                
+
                 // Hide instructions iframe
                 const instructionsFrame = document.getElementById('exam-instructions-frame');
                 if (instructionsFrame) {
@@ -138,7 +147,7 @@ async function setSessionSetup() {
 
                 // Create and setup exam iframe
                 const examIframe = document.createElement('iframe');
-                
+
                 // Get base URL
                 const baseUrlResponse = await fetch('/baseUrl', {
                     method: 'GET',
@@ -217,7 +226,7 @@ async function setSessionSetup() {
                 // });
 
                 // document.body.appendChild(submitButton);
-                    Honorlock.questionLoaded();
+                Honorlock.questionLoaded();
             } catch (error) {
                 console.error('Error in begin exam handler:', error);
                 alert("Error starting exam. Please refresh and try again.");

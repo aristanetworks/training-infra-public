@@ -30,7 +30,9 @@
             <div id="exam-ended" class="panel active">
               <h1>Exam Session Ended</h1>
               <div class="common-note" style="font-size: 1.5em; margin-top: 40px; text-align: center;">
-                It appears your exam has already been submitted or your browser session was closed.<br>
+                Hi {{ exam_taker_name }},<br><br>
+                Your browser session was closed at {{ session_start_time }}.<br><br>
+                It appears your exam has already been submitted or your browser session was interrupted.<br>
                 For assistance, please contact <a href="mailto:training@arista.com">training@arista.com</a>.
               </div>
             </div>
@@ -39,5 +41,3 @@
       </div>
     </main>
     <footer></footer>
-  </body>
-</html>

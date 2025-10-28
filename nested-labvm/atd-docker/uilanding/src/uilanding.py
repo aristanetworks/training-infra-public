@@ -31,6 +31,7 @@ ArBASE_PATH = '/opt/modules/'
 MODULE_FILE = ArBASE_PATH + 'modules.yaml'
 MENU_BASE_PATH = '/opt/menus/'
 EXAM_END_TIME = 0
+EXAM_START_TIME = 0
 # Open yaml for the default yaml and read what file to lookup for default menu
 default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
 print ("Waiting for labguides-done.txt file existance to start the server")
@@ -268,7 +269,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
                 self.cvp_status = getAPI("cvp_status")
-                self.endexamtime = EXAM_END_TIME                
+                self.endexamtime = EXAM_END_TIME    
+                self.startExamTime = EXAM_START_TIME            
                 if self.cvp_status['status'] == 'UP':
                     self.cvp_tasks = getAPI("cvp_tasks")
                 else:
@@ -288,6 +290,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         try:
             self.uptime = getUptime('192.168.0.1')
             self.endexamtime = EXAM_END_TIME
+            self.startExamTime = EXAM_START_TIME
             self.cvp_status = getAPI("cvp_status")
             if self.cvp_status['status'] == 'UP':
                 self.cvp_tasks = getAPI("cvp_tasks")
@@ -314,7 +317,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'cvp': self.cvp_status,
             'tasks': self.cvp_tasks,
             'uptime': self.uptime,
-            'endexamtime' : EXAM_END_TIME            
+            'endexamtime' : EXAM_END_TIME, 
+            'startExamTime' : EXAM_START_TIME         
         }
         self.write_message(json.dumps({
             'type': mtype,
@@ -489,7 +493,7 @@ class GetUserSessionIdHandler(tornado.web.RequestHandler):
                 self.write(response.json())
             elif response.status_code == 200:
                 self.set_status(200)
-                self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
+                self.write(response.json())
                 return
             else:
                 self.set_status(response.status_code)
@@ -550,7 +554,8 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             self.set_header("Access-Control-Allow-Origin", "*")
             host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
             self.write({
-                'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded"
+                'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded",
+                'examStartTime': host_yaml.get('startExamTime', 0),
             })   
         except Exception as e:    
             self.set_status(500)
@@ -563,7 +568,10 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             exam_duration = host_yaml.get("exam_duration", 0)
             current_time = int(time.time())
             global EXAM_END_TIME
+            global EXAM_START_TIME
+            EXAM_START_TIME = current_time
             EXAM_END_TIME = current_time + (exam_duration * 60)
+            host_yaml['startExamTime'] = EXAM_START_TIME
             host_yaml['endExamTime'] = EXAM_END_TIME
             host_yaml['examButtonNeeded'] = False
             yaml = YAML()
@@ -661,20 +669,35 @@ class ViewConfigHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": "Internal server error"})
-class ExamRedoRedirectHandler(tornado.web.RequestHandler):
+class ExamRedoRedirectHandler(BaseHandler):
     def get(self):
-        self.set_header("Access-Control-Allow-Origin", "*")
-        self.set_header("Content-Type", "text/html")
         try:
-            with open(BASE_PATH + 'exam-redo.html', 'r') as file:
-                html_content = file.read()
-            self.write(html_content)
-        except FileNotFoundError:
-            self.set_status(404)
-            self.write("Error: exam-redo.html not found")
+            # Load access info to get customer details
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            
+            # Get customer name
+            exam_taker_name = host_yaml.get('customer_details', {}).get('exam_taker_full_name', 'Student')
+            
+            # Get start exam time and convert to readable format
+            start_exam_time = host_yaml.get('startExamTime', 0)
+            if start_exam_time:
+                session_start_time = datetime.fromtimestamp(start_exam_time).strftime('%Y-%m-%d %H:%M:%S UTC')
+            else:
+                session_start_time = 'Unknown time'
+            
+            self.render(
+                BASE_PATH + 'exam-redo.html',
+                exam_taker_name=exam_taker_name,
+                session_start_time=session_start_time
+            )
         except Exception as e:
-            self.set_status(500)
-            self.write(f"Error: {str(e)}")
+            print(f"Error in ExamRedoRedirectHandler: {e}")
+            # Fallback rendering with default values
+            self.render(
+                BASE_PATH + 'exam-redo.html',
+                exam_taker_name='Student',
+                session_start_time='Unknown time'
+            )
 class BeginExamHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -702,11 +725,11 @@ class BeginExamHandler(tornado.web.RequestHandler):
                 self.write(response.json())
             elif response.status_code == 409:
                 self.set_status(409)
-                self.write({"error": "Conflict detected, redirecting to /exam-redo", "status_code": response.status_code})
+                self.write(response.json())
                 return
             else:
                 self.set_status(response.status_code)
-                self.write({"error": "Failed to fetch data", "status_code": response.status_code})
+                self.write(response.json())
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})

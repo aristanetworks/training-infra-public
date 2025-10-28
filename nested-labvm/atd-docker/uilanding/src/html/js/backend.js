@@ -27,8 +27,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.response && data.response.trim() === 'startExamButtonNeeded') {
                 addExamButton();
             }
-            else
-            { overlay.style.display = 'none';}
+            if (data.response && data.response.trim() === 'startExamButtonNotNeeded' && data.examStartTime > 0) {
+                window.location.href = '/exam-redo';
+                return;
+            } else {
+                overlay.style.display = 'none';
+            }
         })
         .catch(error => {
             console.error("Error fetching exam status:", error);
