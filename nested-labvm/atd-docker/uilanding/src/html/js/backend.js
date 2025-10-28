@@ -27,10 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.response && data.response.trim() === 'startExamButtonNeeded') {
                 addExamButton();
             }
-            if (data.response && data.response.trim() === 'startExamButtonNotNeeded' && data.examStartTime > 0) {
-                window.location.href = '/exam-redo';
-                return;
-            } else {
+            else {
                 overlay.style.display = 'none';
             }
         })
@@ -47,25 +44,25 @@ function addExamButton() {
 
     document.getElementById('overlayButton').addEventListener('click', function () {
         if (this.disabled) {
-        // Prevent any action if disabled
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-    }
-     alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
-        fetch('/examStatus', { 
+            // Prevent any action if disabled
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
+        fetch('/examStatus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
         })
-        .then(response => response.json())
-        .then(postdataresponse => {
-            console.log("Response from server:", postdataresponse);
-            overlay.style.opacity = 0;
-            overlay.style.visibility = 'hidden';
-            location.reload();
-        })
-        .catch(error => console.error("Error updating exam status:", error));
+            .then(response => response.json())
+            .then(postdataresponse => {
+                console.log("Response from server:", postdataresponse);
+                overlay.style.opacity = 0;
+                overlay.style.visibility = 'hidden';
+                location.reload();
+            })
+            .catch(error => console.error("Error updating exam status:", error));
     });
 }
 // $('#labMenu').click(function (event) {
@@ -131,7 +128,7 @@ function getLabStatus() {
                 labName.innerHTML = values[0];
                 let labStatus = document.createElement("td");
                 let spanElement = document.createElement("span");
-               labStatus.appendChild(spanElement)
+                labStatus.appendChild(spanElement)
                 spanElement.textContent = values[1];
                 if (values[1].indexOf("Ok") >= 0) {
                     //labStatus.style.color = "green"
