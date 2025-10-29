@@ -750,6 +750,18 @@ class BaseUrlHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 class GetAccessInfoHandler(tornado.web.RequestHandler):
+    def validate_field(self, customer_details, field_name, default_value, validated_details, defaulted_fields):
+        """
+        Validate a single field and add to validated_details with default if needed
+        """
+        field_value = customer_details.get(field_name)
+        if field_value is None or str(field_value).strip() == '':
+            validated_details[field_name] = default_value
+            defaulted_fields.append(field_name)
+            print(f"Field '{field_name}' is empty or missing, using default: {default_value}")
+        else:
+            validated_details[field_name] = str(field_value)
+
     def get(self):
         """
         Handler to fetch user details from ACCESS_INFO.yaml file.
@@ -768,28 +780,24 @@ class GetAccessInfoHandler(tornado.web.RequestHandler):
             
             # Extract customer details
             customer_details = host_yaml.get('customer_details', {})
-            
-            if not customer_details:
-                # Return default values if no customer details found
-                self.write({
-                    "customer_details": {
-                        "exam_taker_id": "Arista-test-taker-ID",
-                        "exam_taker_email": "arista-test-taker@arista.com",
-                        "exam_taker_full_name": "Arista Test Taker",
-                        "external_exam_id": "test-course-april_external_id",
-                        "exam_taker_attempt_id": "1"
-                    }
-                })
-            else:
-                # Return the actual customer details from YAML
-                self.write({
-                    "customer_details": {
-                        "exam_taker_id": str(customer_details.get('exam_taker_id', '')),
-                        "exam_taker_email": customer_details.get('exam_taker_email', '').strip(),
-                        "exam_taker_full_name": customer_details.get('exam_taker_full_name', ''),
-                        "external_exam_id": str(customer_details.get('external_exam_id', '')),
-                        "exam_taker_attempt_id": str(customer_details.get('exam_taker_attempt_id', ''))
-                    }
+
+            default_values = {
+                "exam_taker_id": "Arista-test-taker-ID",
+                "exam_taker_email": "arista-test-taker@arista.com", 
+                "exam_taker_full_name": "Arista Test Taker",
+                "external_exam_id": "default-training-exam",
+                "exam_taker_attempt_id": "1",
+                "exam_hours": "240",
+                "lab_type": "Lab",
+                "exam_code": "001"
+            }
+            validated_details = {}
+            defaulted_fields = []
+            # Validate each field using the helper method
+            for field_name, default_value in default_values.items():
+                self.validate_field(customer_details, field_name, default_value, validated_details, defaulted_fields)
+            self.write({
+                    "customer_details": validated_details
                 })
 
         except Exception as e:
@@ -797,13 +805,7 @@ class GetAccessInfoHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write({
                 "error": str(e),
-                    "customer_details": {
-                        "exam_taker_id": "Arista-test-taker-ID",
-                        "exam_taker_email": "arista-test-taker@arista.com",
-                        "exam_taker_full_name": "Arista Test Taker",
-                        "external_exam_id": "test-course-april_external_id",
-                        "exam_taker_attempt_id": "1"
-                    }
+                    "customer_details": default_values
             })
 
 class EndExamHandler(tornado.web.RequestHandler):
