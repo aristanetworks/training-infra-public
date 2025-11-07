@@ -1237,8 +1237,8 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 110
+              cpu: 72
+              ram: 160
             branch: nested/2025.1
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20251003
@@ -1248,7 +1248,7 @@ topologies:
             schema: 1
             resources:
               cpu: 72
-              ram: 110
+              ram: 160
             branch: nested/2025.2
             orderable: true
             image: base-veos-training-lx-veos-2025-2-4321-20250725
@@ -1263,7 +1263,7 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 95
+              ram: 160
             branch:  v2024.3-06162025
             orderable: false
             image: base-veos-training-lx-veos-2024-3-4321-20250307
@@ -1272,7 +1272,7 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 60
+              cpu: 72
               ram: 160
             branch:  v2025.1-06162025
             orderable: true
@@ -1290,7 +1290,7 @@ topologies:
     dev:
       veos:
         cpu: 40
-        ram: 110
+        ram: 160
         cvp:
           2024.3.0:
             schema: 1
@@ -1305,8 +1305,8 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 48
-              ram: 110
+              cpu: 72
+              ram: 160
             branch: nested/2025.1
             orderable: true
             image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
@@ -1315,7 +1315,7 @@ topologies:
     prod:
       veos:
         cpu: 68
-        ram: 110
+        ram: 160
         cvp:
           2024.3.0:
             schema: 1
@@ -1541,7 +1541,7 @@ topologies:
     dev:
       veos:
         cpu: 72
-        ram: 110
+        ram: 160
         cvp: 
           2025.1.0:
             schema: 1
@@ -1556,7 +1556,7 @@ topologies:
     prod:
       veos:
         cpu: 72
-        ram: 110
+        ram: 160
         cvp: 
           2025.1.0:
             schema: 1
