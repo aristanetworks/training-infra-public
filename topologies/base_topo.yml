@@ -1194,7 +1194,7 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 95
+              ram: 160
             branch:  honorlock-nithin
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20250604
@@ -1273,7 +1273,7 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 95
+              ram: 160
             branch:  v2025.1-06162025
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20251003
@@ -1331,7 +1331,7 @@ topologies:
             schema: 1
             resources:
               cpu: 68
-              ram: 110
+              ram: 160
             branch: v2025.1-09032025
             orderable: true
             image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
@@ -1524,7 +1524,7 @@ topologies:
             schema: 1
             resources:
               cpu: 60
-              ram: 95
+              ram: 160
             branch:  v2025.1-10282025-hl
             orderable: true
             image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20250924
@@ -1547,7 +1547,7 @@ topologies:
             schema: 1
             resources:
               cpu: 48
-              ram: 110
+              ram: 160
             branch: nested/2025.1
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
@@ -1562,7 +1562,7 @@ topologies:
             schema: 1
             resources:
               cpu: 72
-              ram: 110
+              ram: 160
             branch: v2025.1-10282025-hl
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
