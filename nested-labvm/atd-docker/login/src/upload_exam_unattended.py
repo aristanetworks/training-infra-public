@@ -28,9 +28,64 @@ except ImportError:
 # Suppress SSL warnings for CVP connections
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 requests.packages.urllib3.disable_warnings()
+labACCESS = '/etc/atd/ACCESS_INFO.yaml'
+EDIT_INSTANCE = 'https://us-central1-{}.cloudfunctions.net/edit-instance'
+def firewall(action, instanceName, instanceRegion,labProject):
+    """
+    """
+    #get the data from DB if needed
+    #call the cloud function or the do the api calls here itself
+    try:
+        response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
+        os.system("pkill -KILL -u arista")
+        if response.status_code == 200:
+            print("Access to this lab has been blocked")
+            try:
+                with open(labACCESS, 'r') as f:
+                    access_info = yaml.safe_load(f)
+                if 'customer_details' in access_info and access_info['customer_details'].get('lab_type') == 'Exam':
+                    access_info['customer_details']['lab_type'] = 'Lab'
+                    
+                    # Write back to the file
+                    with open(labACCESS, 'w') as f:
+                        yaml.dump(access_info, f, default_flow_style=False)
+                    
+                    print("Lab type changed from Exam to Lab")
+                
+            except Exception as yaml_error:
+                print(f"Failed to update lab_type: {str(yaml_error)}")
+        
+        os.system("pkill -KILL -u arista")
+        return(response.json())
+    except Exception as e:
+        print("An error occured, please contact the proctor." + str(e))
+        return(False)
 
+def gradeExam(project, instance, region):
+    #need gcp project and then url
+    grade_url = f"https://us-central1-{project}.cloudfunctions.net/api-grading"
+    headers = {'Content-Type': 'application/json'}
+    # need instance name and region
+    try:
+        grade_response = requests.post(url=grade_url,headers=headers,data=json.dumps({"instance":instance,"zone":region,"source":"cli"}))
+        if grade_response.status_code == 200:
+            marks_dict = grade_response.json()["marks"] # {'V2_L2-Exam': {'score': 10, 'total_points': 195}}
+            score, total_points = 0,0
+            for lab in marks_dict:
+                score = score + marks_dict[lab]['score']
+                total_points = total_points + marks_dict[lab]['total_points']
+            if score/total_points > 0.75:
+                result = "Pass"
+            else:
+                result = "Fail"
+        else:
+            raise Exception
 
-def load_access_info(yaml_path='/etc/atd/ACCESS_INFO.yaml'):
+    except Exception as e:
+        result = "Pending"
+    return result
+
+def load_access_info(yaml_path= labACCESS):
     """Load CVP access information from ACCESS_INFO.yaml"""
     try:
         with open(yaml_path, 'r') as f:
@@ -51,13 +106,18 @@ def load_access_info(yaml_path='/etc/atd/ACCESS_INFO.yaml'):
         # Extract lab details
         lab_name = access_info.get('name', 'unknown')
         topology = access_info.get('topology', 'unknown')
-
+        zone = access_info.get('zone', 'unknown')
+        project = access_info.get('project', 'unknown')
+        lab_type = access_info.get('customer_details', {}).get('lab_type', 'Lab')
         return {
             'host': host,
             'username': username,
             'password': password,
             'lab_name': lab_name,
-            'topology': topology
+            'topology': topology,
+            'zone': zone,
+            'project': project,
+            'lab_type': lab_type
         }
     except FileNotFoundError:
         print(f"Warning: Could not find {yaml_path}")
@@ -87,14 +147,7 @@ def create_metadata_file(output_dir, lab_name, topology):
 
 def create_tarball(output_dir, lab_name):
     """Create a tarball of all collected data"""
-    # Use lab name (without timestamp suffix) for tarball name
-    if lab_name and lab_name != 'unknown':
-        # Remove timestamp suffix if present (e.g., "-1234567890")
-        base_name = lab_name.rsplit('-', 1)[0] if '-' in lab_name else lab_name
-    else:
-        base_name = os.path.basename(output_dir)
-
-    tarball_name = f"results-{base_name}.tar.gz"
+    tarball_name = f"{lab_name[:-11]}.gz"
 
     print(f"\nCreating tarball: {tarball_name}")
 
@@ -2651,9 +2704,7 @@ Examples:
             print(f"eAPI Data Dir:   {os.path.join(args.output_dir, 'eapi_data')}/")
         print(f"{'=' * 80}\n")
 
-        # Create tarball if requested
-        if args.create_tarball:
-            create_tarball(args.output_dir, lab_name)
+        create_tarball(args.output_dir, lab_name)
 
         # Also print to screen for quick review
         print("\n" + "=" * 80)
@@ -2826,10 +2877,12 @@ Examples:
             print(f"└── ... and {len(device_reports) - 3} more device(s)")
         print()
 
-        # Create tarball if requested
-        if args.create_tarball:
-            create_tarball(args.output_dir, lab_name)
-
-
+        create_tarball(args.output_dir, lab_name)
+    print("Exam data collection complete.")
+    print("Submitting your exam for grading...")
+    gradeExam(access_info['project'], lab_name, access_info['zone'])
+    print("Exam submitted for grading.")
+    print("Disconnecting you from the lab environment")
+    firewall("block-firewall", lab_name, access_info['zone'], access_info['project'])
 if __name__ == "__main__":
     main()
