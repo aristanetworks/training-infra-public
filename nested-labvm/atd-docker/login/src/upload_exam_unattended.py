@@ -25,6 +25,14 @@ try:
 except ImportError:
     JSONRPCLIB_AVAILABLE = False
 
+# Configure SSL to disable certificate verification (for lab environments)
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
 # Suppress SSL warnings for CVP connections
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 requests.packages.urllib3.disable_warnings()
@@ -1348,23 +1356,33 @@ class CVPCollector:
     def collect_switch_eapi_data(self, device, password, output_dir):
         """Collect operational data from a switch via eAPI"""
         if not JSONRPCLIB_AVAILABLE:
-            print(f"  Note: jsonrpclib not available - skipping eAPI data collection")
+            print(f"  ✗ ERROR: jsonrpclib not available - Cannot collect switch running configs!")
+            print(f"  Please install jsonrpclib: pip install jsonrpclib-pelix")
             return
 
         device_name = device.get('hostname', device.get('fqdn', 'Unknown'))
         device_ip = device.get('ipAddress', '')
 
         if not device_ip:
-            print(f"  Warning: No IP address for {device_name}, skipping eAPI collection")
+            print(f"  ✗ Warning: No IP address for {device_name}, skipping eAPI collection")
             return
 
-        print(f"  Collecting eAPI data from {device_name} ({device_ip})...")
+        print(f"  → Collecting eAPI data from {device_name} ({device_ip})...")
 
-        # Connect to switch
+        # Connect to switch with SSL verification disabled (using global SSL context)
         try:
-            switch = jsonrpclib.Server(f"https://arista:{password}@{device_ip}/command-api")
+            print(f"    → Attempting to connect to {device_ip} with username '{self.username}'...")
+            # Use the global SSL context that's already configured at module level (lines 26-31)
+            switch = jsonrpclib.Server(
+                f"https://{self.username}:{password}@{device_ip}/command-api"
+            )
+            print(f"    ✓ Connection object created")
         except Exception as e:
-            print(f"  Warning: Failed to connect to {device_name} eAPI: {e}")
+            print(f"  ✗ ERROR: Failed to connect to {device_name} eAPI: {e}")
+            print(f"    Troubleshooting:")
+            print(f"      - Verify eAPI is enabled on switch: 'management api http-commands'")
+            print(f"      - Check IP address is reachable: {device_ip}")
+            print(f"      - Verify credentials: username={self.username}")
             return
 
         # Dictionary to store all outputs
@@ -1396,17 +1414,22 @@ class CVPCollector:
                                      ["show vlan"])
 
         # Save all collected outputs to files
-        self._save_eapi_outputs(device_name, outputs, output_dir)
-
-        print(f"  ✓ Collected eAPI data from {device_name}")
+        if outputs:
+            self._save_eapi_outputs(device_name, outputs, output_dir)
+            print(f"  ✓ Collected eAPI data from {device_name} ({len(outputs)} categories)")
+        else:
+            print(f"  ✗ WARNING: No eAPI data collected from {device_name} - all commands failed!")
+            print(f"     Check if device is reachable and eAPI is enabled")
 
     def _collect_command_output(self, switch, device_name, outputs_dict, output_key, commands):
         """Run a command and store its output with error handling"""
         try:
             result = switch.runCmds(1, ["enable"] + commands, "text")
             outputs_dict[output_key] = result[1]["output"]
+            print(f"    ✓ Collected {output_key}")
         except Exception as e:
-            # Silently skip - command not supported or feature not enabled
+            # Command not supported or feature not enabled
+            print(f"    ⓘ Skipped {output_key} (not available or error: {str(e)[:50]})")
             pass
 
     def _collect_mlag_info(self, switch, device_name, outputs_dict):
@@ -1423,7 +1446,9 @@ class CVPCollector:
             mlag_output += result[3]["output"]
 
             outputs_dict["mlag"] = mlag_output
-        except Exception:
+            print(f"    ✓ Collected mlag info")
+        except Exception as e:
+            print(f"    ⓘ Skipped mlag (not available or error: {str(e)[:50]})")
             pass
 
     def _collect_ospf_info(self, switch, device_name, outputs_dict):
@@ -1440,7 +1465,9 @@ class CVPCollector:
             ospf_output += result[3]["output"]
 
             outputs_dict["ospf"] = ospf_output
-        except Exception:
+            print(f"    ✓ Collected ospf info")
+        except Exception as e:
+            print(f"    ⓘ Skipped ospf (not available or error: {str(e)[:50]})")
             pass
 
     def _collect_vxlan_info(self, switch, device_name, outputs_dict):
@@ -1473,7 +1500,9 @@ class CVPCollector:
             vxlan_output += result[7]["output"]
 
             outputs_dict["vxlan"] = vxlan_output
-        except Exception:
+            print(f"    ✓ Collected vxlan info")
+        except Exception as e:
+            print(f"    ⓘ Skipped vxlan (not available or error: {str(e)[:50]})")
             pass
 
     def _save_eapi_outputs(self, device_name, outputs_dict, output_dir):
@@ -1481,14 +1510,19 @@ class CVPCollector:
         eapi_dir = os.path.join(output_dir, 'eapi_data')
         os.makedirs(eapi_dir, exist_ok=True)
 
+        saved_count = 0
         for output_type, content in outputs_dict.items():
             try:
                 filename = f"{device_name}-{output_type}.txt"
                 complete_path = os.path.join(eapi_dir, filename)
                 with open(complete_path, 'w') as f:
                     f.write(content)
+                saved_count += 1
             except Exception as e:
-                print(f"  Warning: Failed to save {output_type} for {device_name}: {e}")
+                print(f"    ✗ Failed to save {output_type}: {e}")
+
+        if saved_count > 0:
+            print(f"    → Saved {saved_count} file(s) to {eapi_dir}/")
 
     def format_overview_report(self, all_workspaces, dashboards, snapshot_templates, all_change_controls, network_structure, output_dir=None):
         """Format CVP-wide overview report"""
@@ -2586,298 +2620,182 @@ Examples:
     os.makedirs(args.output_dir, exist_ok=True)
     print(f"Output directory: {os.path.abspath(args.output_dir)}\n")
 
+    # Check for jsonrpclib availability (required for switch config collection)
+    if not JSONRPCLIB_AVAILABLE:
+        print("=" * 80)
+        print("WARNING: jsonrpclib is NOT installed!")
+        print("=" * 80)
+        print("Switch running configs will NOT be collected.")
+        print("To fix this, run: pip install jsonrpclib-pelix")
+        print("=" * 80 + "\n")
+
     # Create collector and connect
     collector = CVPCollector(host, username, password)
 
-    # Create metadata file
-    create_metadata_file(args.output_dir, lab_name, topology)
+    # Collecting data for entire CVP environment
+    print("Collecting data for entire CVP environment\n")
 
-    # Determine if we're collecting for all devices or a single device
-    if args.device:
-        # Single device mode (backward compatibility)
-        print(f"\nSingle device mode: {args.device}\n")
+    # Step 1: Collect global CVP data
+    print("\n" + "=" * 80)
+    print("STEP 1: Collecting global CVP data")
+    print("=" * 80 + "\n")
 
-        # Verify device exists
-        device = collector.get_device_info(args.device)
-        if not device:
-            print(f"✗ Device '{args.device}' not found in CVP inventory")
-            sys.exit(1)
+    # Get all workspaces (via gRPC)
+    print("Retrieving all workspaces/studios...")
+    all_workspaces = collector.get_workspaces_grpc(None, args.grpc_port)
+    print(f"✓ Retrieved {len(all_workspaces)} workspace(s)\n")
 
-        print(f"✓ Found device: {device['hostname']} ({device.get('ipAddress', 'N/A')})")
-        print(f"  System MAC: {device.get('systemMacAddress', 'N/A')}")
-        print(f"  Model: {device.get('modelName', 'N/A')}")
-        print("\nCollecting information...\n")
+    # Get all dashboards (already retrieved during workspace collection)
+    dashboards = getattr(collector, 'dashboards_grpc', [])
+    print(f"✓ Retrieved {len(dashboards)} dashboard(s)\n")
 
-        # Collect all information
-        configlets = collector.get_configlets_for_device(args.device)
-        print(f"✓ Retrieved {len(configlets)} configlets")
+    # Get all snapshot templates
+    snapshot_templates = collector.get_all_snapshot_templates()
+    print()
 
-        studios = collector.get_studios_for_device(args.device, args.grpc_port)
-        containers_count = len([s for s in studios if s.get('type') == 'Container'])
-        workspaces_count = len([s for s in studios if s.get('type') == 'Workspace'])
-        print(f"✓ Retrieved {containers_count} container(s) and {workspaces_count} workspace(s)")
+    # Get all change controls
+    print("Retrieving all change controls...")
+    all_change_controls = collector.get_all_change_controls()
+    print(f"✓ Retrieved {len(all_change_controls)} change control(s)\n")
 
-        all_change_controls = collector.get_all_change_controls()
+    # Enrich ALL change controls with detailed action information
+    if all_change_controls:
+        print(f"Retrieving detailed actions for each change control...")
+        for cc in all_change_controls:
+            details = collector.get_change_control_details(cc)
+            if details:
+                cc['action_details'] = details
+        print(f"✓ Retrieved action details for change controls\n")
 
-        # Filter change controls to only this device
+    # Get network provisioning structure (full tree, no specific device)
+    network_structure = collector.get_network_provisioning_structure(None)
+
+    # Step 2: Generate overview report
+    print("=" * 80)
+    print("STEP 2: Generating overview report")
+    print("=" * 80 + "\n")
+
+    overview_report = collector.format_overview_report(
+        all_workspaces,
+        dashboards,
+        snapshot_templates,
+        all_change_controls,
+        network_structure,
+        args.output_dir
+    )
+
+    overview_path = os.path.join(args.output_dir, 'Overview_report.txt')
+    with open(overview_path, 'w') as f:
+        f.write(overview_report)
+    print(f"✓ Overview report saved to: {overview_path}\n")
+
+    # Step 3: Get all devices
+    print("=" * 80)
+    print("STEP 3: Retrieving all devices")
+    print("=" * 80 + "\n")
+
+    all_devices = collector.get_all_devices()
+    print(f"✓ Found {len(all_devices)} device(s)\n")
+
+    # Step 4: Process each device (CVP data + switch configs)
+    print("=" * 80)
+    print("STEP 4: Processing each device")
+    print("=" * 80 + "\n")
+
+    device_reports = []
+    for idx, device in enumerate(all_devices, 1):
+        device_name = device.get('hostname', device.get('fqdn', 'Unknown'))
+        print(f"[{idx}/{len(all_devices)}] Processing device: {device_name}")
+
+        # Create device directory
+        device_dir = os.path.join(args.output_dir, device_name)
+        os.makedirs(device_dir, exist_ok=True)
+
+        # Get device-specific CVP data
+        configlets = collector.get_configlets_for_device(device_name)
+        print(f"  ✓ Retrieved {len(configlets)} configlet(s)")
+
+        # Get device path in hierarchy
+        device_path = collector.get_device_path_in_hierarchy(device)
+
+        # Filter change controls for this device
         device_mac = device.get('systemMacAddress')
-        change_controls = [
+        device_change_controls = [
             cc for cc in all_change_controls
             if cc.get('netElementId') == device_mac or
                (cc.get('workOrderDetails', {}).get('netElementId') == device_mac)
         ]
-        print(f"✓ Retrieved {len(change_controls)} change controls for this device (out of {len(all_change_controls)} total)")
+        print(f"  ✓ Found {len(device_change_controls)} change control(s) for this device")
 
-        # Enrich change controls with detailed action information
-        if change_controls:
-            print(f"  Retrieving detailed actions for each change control...")
-            for cc in change_controls:
-                details = collector.get_change_control_details(cc)
-                if details:
-                    cc['action_details'] = details
-            print(f"  ✓ Retrieved action details for change controls")
-
-        # Get dashboards from gRPC collection (already retrieved during workspace collection)
-        dashboards = getattr(collector, 'dashboards_grpc', [])
-        print(f"✓ Retrieved {len(dashboards)} dashboards via gRPC")
-
-        # Get all snapshot templates
-        snapshot_templates = collector.get_all_snapshot_templates()
-
-        # Get network provisioning structure
-        network_structure = collector.get_network_provisioning_structure(args.device)
-
-        print("\nGenerating report...\n")
-
-        # Format output
-        report = collector.format_output(
-            args.device,
+        # Generate device report
+        device_report = collector.format_device_report(
             device,
             configlets,
-            studios,
-            change_controls,
-            dashboards,
-            snapshot_templates,
-            network_structure,
-            args.output_dir
+            device_path,
+            device_change_controls,
+            device_dir
         )
 
-        # Save raw data as JSON for reference
-        raw_data = {
+        # Save device report
+        device_report_path = os.path.join(device_dir, f'{device_name}_report.txt')
+        with open(device_report_path, 'w') as f:
+            f.write(device_report)
+        print(f"  ✓ Device report saved to: {device_report_path}")
+
+        # ALWAYS collect eAPI data (switch running configs)
+        print(f"  Collecting switch running config via eAPI...")
+        collector.collect_switch_eapi_data(device, password, device_dir)
+
+        # Save device raw data
+        device_raw_data = {
             'device': device,
             'configlets': configlets,
-            'studios': studios,
-            'change_controls': change_controls,
-            'dashboards': dashboards,
-            'snapshot_templates': snapshot_templates,
-            'network_structure': network_structure,
+            'device_path': device_path,
+            'change_controls': device_change_controls,
             'collection_timestamp': datetime.now().isoformat()
         }
+        device_raw_data_file = os.path.join(device_dir, 'raw_data.json')
+        with open(device_raw_data_file, 'w') as f:
+            json.dump(device_raw_data, f, indent=2)
+        print(f"  ✓ Raw data saved to: {device_raw_data_file}\n")
 
-        raw_data_file = os.path.join(args.output_dir, 'raw_data.json')
-        with open(raw_data_file, 'w') as f:
-            json.dump(raw_data, f, indent=2)
-        print(f"✓ Raw data saved to: {raw_data_file}")
+        device_reports.append({
+            'device_name': device_name,
+            'report_path': device_report_path,
+            'device_dir': device_dir
+        })
 
-        # Output report
-        if args.output:
-            output_path = args.output
-        else:
-            output_path = os.path.join(args.output_dir, f'{args.device}_report.txt')
+    # Step 5: Summary
+    print("\n" + "=" * 80)
+    print("COLLECTION COMPLETE")
+    print("=" * 80)
+    print(f"\nOverview Report: {overview_path}")
+    print(f"\nDevice Reports ({len(device_reports)} total):")
+    for dr in device_reports:
+        print(f"  - {dr['device_name']}: {dr['device_dir']}/")
 
-        with open(output_path, 'w') as f:
-            f.write(report)
-        print(f"✓ Report saved to: {output_path}")
+    print(f"\n{'=' * 80}")
+    print("Output Structure:")
+    print(f"{'=' * 80}")
+    print(f"{args.output_dir}/")
+    print(f"├── Overview_report.txt")
+    for dr in device_reports[:3]:  # Show first 3 as examples
+        print(f"├── {dr['device_name']}/")
+        print(f"│   ├── {dr['device_name']}_report.txt")
+        print(f"│   ├── raw_data.json")
+        print(f"│   ├── configlets/")
+        print(f"│   │   ├── *_config.txt")
+        print(f"│   │   └── *_metadata.json")
+        print(f"│   ├── eapi_data/")
+        print(f"│   │   └── running_config.txt")
+        print(f"│   └── workspace_inputs/")
+        print(f"│       ├── *_inputs.json")
+        print(f"│       └── *_metadata.json")
+    if len(device_reports) > 3:
+        print(f"└── ... and {len(device_reports) - 3} more device(s)")
+    print()
 
-        # Collect eAPI data if requested
-        if args.collect_eapi:
-            print(f"\nCollecting eAPI data...")
-            collector.collect_switch_eapi_data(device, password, args.output_dir)
-
-        print(f"\n{'=' * 80}")
-        print(f"EXAM SUBMISSION FILES:")
-        print(f"{'=' * 80}")
-        print(f"Main Report:     {output_path}")
-        print(f"Raw JSON Data:   {raw_data_file}")
-        print(f"Configlets Dir:  {os.path.join(args.output_dir, 'configlets')}/")
-        if args.collect_eapi:
-            print(f"eAPI Data Dir:   {os.path.join(args.output_dir, 'eapi_data')}/")
-        print(f"{'=' * 80}\n")
-
-        create_tarball(args.output_dir, lab_name)
-
-        # Also print to screen for quick review
-        print("\n" + "=" * 80)
-        print("REPORT PREVIEW")
-        print("=" * 80 + "\n")
-        print(report)
-
-    else:
-        # All devices mode - new structure
-        print("All devices mode: Collecting data for entire CVP environment\n")
-
-        # Create metadata file
-        create_metadata_file(args.output_dir, lab_name, topology)
-
-        # Step 1: Collect global CVP data
-        print("\n" + "=" * 80)
-        print("STEP 1: Collecting global CVP data")
-        print("=" * 80 + "\n")
-
-        # Get all workspaces (via gRPC)
-        print("Retrieving all workspaces/studios...")
-        all_workspaces = collector.get_workspaces_grpc(None, args.grpc_port)
-        print(f"✓ Retrieved {len(all_workspaces)} workspace(s)\n")
-
-        # Get all dashboards (already retrieved during workspace collection)
-        dashboards = getattr(collector, 'dashboards_grpc', [])
-        print(f"✓ Retrieved {len(dashboards)} dashboard(s)\n")
-
-        # Get all snapshot templates
-        snapshot_templates = collector.get_all_snapshot_templates()
-        print()
-
-        # Get all change controls
-        print("Retrieving all change controls...")
-        all_change_controls = collector.get_all_change_controls()
-        print(f"✓ Retrieved {len(all_change_controls)} change control(s)\n")
-
-        # Enrich ALL change controls with detailed action information
-        if all_change_controls:
-            print(f"Retrieving detailed actions for each change control...")
-            for cc in all_change_controls:
-                details = collector.get_change_control_details(cc)
-                if details:
-                    cc['action_details'] = details
-            print(f"✓ Retrieved action details for change controls\n")
-
-        # Get network provisioning structure (full tree, no specific device)
-        network_structure = collector.get_network_provisioning_structure(None)
-
-        # Step 2: Generate overview report
-        print("=" * 80)
-        print("STEP 2: Generating overview report")
-        print("=" * 80 + "\n")
-
-        overview_report = collector.format_overview_report(
-            all_workspaces,
-            dashboards,
-            snapshot_templates,
-            all_change_controls,
-            network_structure,
-            args.output_dir
-        )
-
-        overview_path = os.path.join(args.output_dir, 'Overview_report.txt')
-        with open(overview_path, 'w') as f:
-            f.write(overview_report)
-        print(f"✓ Overview report saved to: {overview_path}\n")
-
-        # Step 3: Get all devices
-        print("=" * 80)
-        print("STEP 3: Retrieving all devices")
-        print("=" * 80 + "\n")
-
-        all_devices = collector.get_all_devices()
-        print(f"✓ Found {len(all_devices)} device(s)\n")
-
-        # Step 4: Process each device
-        print("=" * 80)
-        print("STEP 4: Processing each device")
-        print("=" * 80 + "\n")
-
-        device_reports = []
-        for idx, device in enumerate(all_devices, 1):
-            device_name = device.get('hostname', device.get('fqdn', 'Unknown'))
-            print(f"[{idx}/{len(all_devices)}] Processing device: {device_name}")
-
-            # Create device directory
-            device_dir = os.path.join(args.output_dir, device_name)
-            os.makedirs(device_dir, exist_ok=True)
-
-            # Get device-specific data
-            configlets = collector.get_configlets_for_device(device_name)
-            print(f"  ✓ Retrieved {len(configlets)} configlet(s)")
-
-            # Get device path in hierarchy
-            device_path = collector.get_device_path_in_hierarchy(device)
-
-            # Filter change controls for this device
-            device_mac = device.get('systemMacAddress')
-            device_change_controls = [
-                cc for cc in all_change_controls
-                if cc.get('netElementId') == device_mac or
-                   (cc.get('workOrderDetails', {}).get('netElementId') == device_mac)
-            ]
-            print(f"  ✓ Found {len(device_change_controls)} change control(s) for this device")
-
-            # Generate device report
-            device_report = collector.format_device_report(
-                device,
-                configlets,
-                device_path,
-                device_change_controls,
-                device_dir
-            )
-
-            # Save device report
-            device_report_path = os.path.join(device_dir, f'{device_name}_report.txt')
-            with open(device_report_path, 'w') as f:
-                f.write(device_report)
-            print(f"  ✓ Device report saved to: {device_report_path}")
-
-            # Collect eAPI data if requested
-            if args.collect_eapi:
-                collector.collect_switch_eapi_data(device, password, device_dir)
-
-            # Save device raw data
-            device_raw_data = {
-                'device': device,
-                'configlets': configlets,
-                'device_path': device_path,
-                'change_controls': device_change_controls,
-                'collection_timestamp': datetime.now().isoformat()
-            }
-            device_raw_data_file = os.path.join(device_dir, 'raw_data.json')
-            with open(device_raw_data_file, 'w') as f:
-                json.dump(device_raw_data, f, indent=2)
-            print(f"  ✓ Raw data saved to: {device_raw_data_file}\n")
-
-            device_reports.append({
-                'device_name': device_name,
-                'report_path': device_report_path,
-                'device_dir': device_dir
-            })
-
-        # Step 5: Summary
-        print("\n" + "=" * 80)
-        print("COLLECTION COMPLETE")
-        print("=" * 80)
-        print(f"\nOverview Report: {overview_path}")
-        print(f"\nDevice Reports ({len(device_reports)} total):")
-        for dr in device_reports:
-            print(f"  - {dr['device_name']}: {dr['device_dir']}/")
-
-        print(f"\n{'=' * 80}")
-        print("Output Structure:")
-        print(f"{'=' * 80}")
-        print(f"{args.output_dir}/")
-        print(f"├── Overview_report.txt")
-        for dr in device_reports[:3]:  # Show first 3 as examples
-            print(f"├── {dr['device_name']}/")
-            print(f"│   ├── {dr['device_name']}_report.txt")
-            print(f"│   ├── raw_data.json")
-            print(f"│   ├── configlets/")
-            print(f"│   │   ├── *_config.txt")
-            print(f"│   │   └── *_metadata.json")
-            print(f"│   └── workspace_inputs/")
-            print(f"│       ├── *_inputs.json")
-            print(f"│       └── *_metadata.json")
-        if len(device_reports) > 3:
-            print(f"└── ... and {len(device_reports) - 3} more device(s)")
-        print()
-
-        create_tarball(args.output_dir, lab_name)
+    create_tarball(args.output_dir, lab_name)
     print("Exam data collection complete.")
     print("Submitting your exam for grading...")
     gradeExam(access_info['project'], lab_name, access_info['zone'])
