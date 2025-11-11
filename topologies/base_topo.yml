@@ -161,7 +161,7 @@ topologies:
             resources:
               cpu: 72
               ram: 110
-            branch: nested/2025.1
+            branch: v2025.1-10282025-hl
             orderable: true
             image: base-veos-training-l1-exam-2-2025-1-4301-20251013
             eos:
