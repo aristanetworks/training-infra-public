@@ -1,0 +1,33 @@
+# ATD Unit Test Configuration
+# This file defines all configuration parameters for unit testing
+
+# File paths
+paths:
+  access_info: '/etc/atd/ACCESS_INFO.yaml'
+  atd_repo: '/etc/atd/ATD_REPO.yaml'
+  topologies: '/opt/atd/topologies/'
+
+# CVP Configuration
+# Note: CVP credentials (username/password) are loaded from ACCESS_INFO.yaml at runtime
+cvp:
+  host: '192.168.0.5'
+  ssh:
+    port: 22
+    timeout: 10
+  ram_threshold_percent: 80  # Alert threshold for RAM usage
+
+# Web Service Configuration
+web:
+  labguides_url: 'https://192.168.0.1/labguides/index.html'
+  expected_status_code: 200
+  request_timeout: 10
+
+# CVP disk capacity requirements
+cvp_disk:
+  min_capacity_gb: 175  # Minimum CVP disk capacity in GB
+
+# CVP hardware requirements by version
+cvp_hardware:
+  2025.1.0:
+    min_ram_gb: 32  # Minimum RAM in GB
+    min_cpu_cores: 8  # Minimum CPU cores
