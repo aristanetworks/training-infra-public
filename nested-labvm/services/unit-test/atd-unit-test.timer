@@ -1,13 +1,10 @@
 [Unit]
-Description=ATD Unit Test Timer (runs 30 and 60 minutes after boot)
+Description=ATD Unit Test Timer (runs 30 minutes after boot)
 After=multi-user.target
 
 [Timer]
-# Run 30 minutes after system boot
 OnBootSec=30min
-# Run again 60 minutes after system boot
-OnBootSec=60min
-Unit=atd-unit-test.service
+AccuracySec=1s
 
 [Install]
 WantedBy=timers.target

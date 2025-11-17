@@ -1,0 +1,10 @@
+[Unit]
+Description=ATD Unit Test Timer (runs 60 minutes after boot)
+After=multi-user.target
+
+[Timer]
+OnBootSec=60min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

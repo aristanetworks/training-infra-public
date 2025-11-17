@@ -8,6 +8,3 @@ ExecStart=/usr/local/bin/run_unit_tests.sh
 User=root
 StandardOutput=journal
 StandardError=journal
-
-[Install]
-WantedBy=multi-user.target

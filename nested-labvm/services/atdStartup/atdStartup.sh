@@ -202,7 +202,7 @@ rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer 
 sudo systemctl daemon-reload
 sudo systemctl enable exam-submission-check.timer
 sudo systemctl start exam-submission-check.timer
-sudo cp /opt/atd/unit-test/UNIT_TEST_CONFIG.yaml /etc/atd/
+sudo cp /opt/atd/nested-labvm/services/unit-test/UNIT_TEST_CONFIG.yaml /etc/atd/
 sudo mkdir -p /etc/atd/logs
 sudo chmod 755 /etc/atd/logs
 echo "Installing unit test runner to /usr/local/bin/"
@@ -211,8 +211,11 @@ sudo chmod +x /usr/local/bin/run_unit_tests.sh
 echo "Installing unit test timer service"
 rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test.service /etc/systemd/system/
 rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test.timer /etc/systemd/system/
+rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test-60min.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable atd-unit-test.timer
+sudo systemctl enable atd-unit-test-60min.timer
 sudo systemctl start atd-unit-test.timer
+sudo systemctl start atd-unit-test-60min.timer
 echo "Password authentication enabled for SSH"
 sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd
