@@ -93,6 +93,52 @@ def gradeExam(project, instance, region):
         result = "Pending"
     return result
 
+def update_hubspot_handler(email, action, project):
+    """
+    Call the HubSpot Cloud Function to update exam properties
+
+    Args:
+        email: Email address of the user
+        action: Action to perform ('update_exam_start' or 'update_exam_submit')
+        project: GCP project name
+
+    Returns:
+        dict: Response from the Cloud Function or error dict
+    """
+    print( f"Updating HubSpot: {action} for {email} in project {project}" )
+    hubspot_url = f"https://us-central1-{project}.cloudfunctions.net/api-hl-hubspot-handler"
+    headers = {'Content-Type': 'application/json'}
+
+    payload = {
+        "action": action,
+        "email": email
+    }
+
+    try:
+        response = requests.post(url=hubspot_url, headers=headers, json=payload, timeout=60)
+
+        if response.status_code == 200:
+            print(f"Successfully updated HubSpot: {action} for {email}")
+            return response.json()
+        else:
+            error_msg = f"HubSpot update failed with status {response.status_code}"
+            print(error_msg)
+            try:
+                error_detail = response.json()
+                print(f"Error details: {error_detail}")
+                return error_detail
+            except:
+                return {"error": error_msg, "status_code": response.status_code}
+
+    except requests.exceptions.Timeout:
+        error_msg = "HubSpot request timed out"
+        print(error_msg)
+        return {"error": error_msg}
+    except Exception as e:
+        error_msg = f"HubSpot update error: {str(e)}"
+        print(error_msg)
+        return {"error": error_msg}
+
 def load_access_info(yaml_path= labACCESS):
     """Load CVP access information from ACCESS_INFO.yaml"""
     try:
@@ -117,6 +163,7 @@ def load_access_info(yaml_path= labACCESS):
         zone = access_info.get('zone', 'unknown')
         project = access_info.get('project', 'unknown')
         lab_type = access_info.get('customer_details', {}).get('lab_type', 'Lab')
+        customer_email = access_info.get('customer_details', {}).get('exam_taker_email', 'unknown')
         return {
             'host': host,
             'username': username,
@@ -125,7 +172,8 @@ def load_access_info(yaml_path= labACCESS):
             'topology': topology,
             'zone': zone,
             'project': project,
-            'lab_type': lab_type
+            'lab_type': lab_type,
+            'customer_email': customer_email
         }
     except FileNotFoundError:
         print(f"Warning: Could not find {yaml_path}")
@@ -2592,7 +2640,7 @@ Examples:
     if not host or not username or not password:
         print(f"Loading CVP credentials from {args.access_info}...")
         access_info = load_access_info(args.access_info)
-
+        print(f"✓ Loaded credentials from {access_info}")
         if access_info:
             host = host or access_info['host']
             username = username or access_info['username']
@@ -2615,6 +2663,10 @@ Examples:
         print("✗ Missing required CVP credentials")
         print("Please provide --host, --user, and --password")
         sys.exit(1)
+
+    # Update output directory to use lab_name if default was used
+    if args.output_dir == 'cvp_exam_data' and lab_name != 'unknown':
+        args.output_dir = f"{lab_name}_results"
 
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -2801,6 +2853,8 @@ Examples:
     gradeExam(access_info['project'], lab_name, access_info['zone'])
     print("Exam submitted for grading.")
     print("Disconnecting you from the lab environment")
+    if access_info['customer_email'] != "unknown":
+        update_hubspot_handler(access_info['customer_email'], "update_exam_submit", access_info['project'])
     firewall("block-firewall", lab_name, access_info['zone'], access_info['project'])
 if __name__ == "__main__":
     main()
