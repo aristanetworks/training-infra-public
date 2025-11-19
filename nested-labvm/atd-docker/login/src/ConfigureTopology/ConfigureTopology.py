@@ -7,6 +7,8 @@ import paramiko
 from scp import SCPClient
 import os
 import urllib3
+
+from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -173,6 +175,60 @@ class ConfigureTopology():
             return
 
 
+
+    def get_cvprac_client(self, access_info):
+        cvpUsername = access_info['login_info']['jump_host']['user']
+        cvpPassword = access_info['login_info']['jump_host']['pw']
+        cvp_ip = access_info['nodes']['cvp'][0]['ip']
+        clnt = CvpClient()
+        clnt.connect([cvp_ip], cvpUsername, cvpPassword)
+        return clnt
+
+    def reset_studios(self, access_info):
+        self.send_to_syslog("INFO", "Resetting CloudVision Studios...")
+        print("Resetting CloudVision Studios...")
+        try:
+            clnt = self.get_cvprac_client(access_info)
+            # Get all workspaces
+            workspaces = clnt.api.workspace.get_workspaces()
+            for ws in workspaces['workspaces']:
+                if ws['state'] in ['pending', 'submitted', 'conflict']:
+                    self.send_to_syslog("INFO", "Abandoning workspace: {0}".format(ws['key']))
+                    clnt.api.workspace.abandon_workspace(ws['key'])
+            self.send_to_syslog("OK", "CloudVision Studios Reset Complete")
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to reset Studios: {0}".format(str(e)))
+            print("Failed to reset Studios: {0}".format(str(e)))
+
+    def cancel_pending_tasks(self, access_info):
+        self.send_to_syslog("INFO", "Checking for pending tasks to cancel...")
+        try:
+            clnt = self.get_cvprac_client(access_info)
+            tasks = clnt.api.task.get_tasks_by_status('Pending')
+            if tasks:
+                for task in tasks:
+                    self.send_to_syslog("INFO", "Cancelling task: {0}".format(task['workOrderId']))
+                    clnt.api.task.cancel_task(task['workOrderId'])
+                self.send_to_syslog("OK", "All pending tasks cancelled.")
+            else:
+                self.send_to_syslog("INFO", "No pending tasks found.")
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to cancel tasks: {0}".format(str(e)))
+            print("Failed to cancel tasks: {0}".format(str(e)))
+
+    def check_pending_tasks_warning(self, access_info):
+        try:
+            clnt = self.get_cvprac_client(access_info)
+            tasks = clnt.api.task.get_tasks_by_status('Pending')
+            if tasks:
+                msg = "WARNING: Found {0} pending tasks. This might block the lab deployment.".format(len(tasks))
+                self.send_to_syslog("WARNING", msg)
+                print("\n" + "!"*50)
+                print(msg)
+                print("!"*50 + "\n")
+        except:
+            pass
+
     def deploy_lab(self):
 
 
@@ -200,6 +256,13 @@ class ConfigureTopology():
         # Check if the topo has CVP, and if it does, create CVP connection
         if 'cvp' in access_info['nodes']:
             self.client = self.connect_to_cvp(access_info)
+
+            # Handle Reset vs Standard Lab
+            if self.selected_lab == 'reset':
+                self.cancel_pending_tasks(access_info)
+                self.reset_studios(access_info)
+            else:
+                self.check_pending_tasks_warning(access_info)
 
             self.check_for_tasks()
 
