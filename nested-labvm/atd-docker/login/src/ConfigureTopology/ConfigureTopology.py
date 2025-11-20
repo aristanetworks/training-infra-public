@@ -7,7 +7,12 @@ import paramiko
 from scp import SCPClient
 import os
 import urllib3
-
+import requests
+import grpc
+import json
+import ssl
+from google.protobuf.json_format import Parse, MessageToDict
+from arista.workspace.v1 import services as ws_services
 from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -32,6 +37,14 @@ zerotouch cancel
 
 # Create class to handle configuring the topology
 class ConfigureTopology():
+    # Configuration constants
+    RECENT_TASK_LIMIT = 50
+    TASK_CHECK_INTERVAL = 10
+    MAX_TASK_WAIT = 600  # 10 minutes
+    TOPOLOGY_SETTLE_TIME = 15
+    RESET_SETTLE_TIME = 5
+    WORKSPACE_TIMEOUT = 30
+    GRPC_LIST_TIMEOUT = 10
 
     def __init__(self,selected_menu,selected_lab,public_module_flag=False):
         self.selected_menu = selected_menu
@@ -49,8 +62,8 @@ class ConfigureTopology():
                 cvp_clnt = CVPCON(access_info['nodes']['cvp'][0]['ip'], cvpUsername, cvpPassword)
                 self.send_to_syslog("OK","Connected to CVP at {0}".format(access_info['nodes']['cvp'][0]['ip']))
                 return cvp_clnt
-            except:
-                self.send_to_syslog("ERROR", "CVP is currently unavailable....Retrying in 30 seconds.")
+            except Exception as e:
+                self.send_to_syslog("ERROR", "CVP is currently unavailable: {0}. Retrying in 30 seconds.".format(str(e)))
                 time.sleep(30)
 
     def remove_configlets(self,device,lab_configlets):
@@ -155,24 +168,44 @@ class ConfigureTopology():
         veos_ssh.close()
         return(DEVREBOOT)
 
-    def check_for_tasks(self):
-        self.client.getRecentTasks(50)
-        tasks_in_progress = False
-        for task in self.client.tasks['recent']:
-            if 'in progress' in task['workOrderUserDefinedStatus'].lower():
-                self.send_to_syslog('INFO', 'Task Check: Task {0} status: {1}'.format(task['workOrderId'],task['workOrderUserDefinedStatus']))
-                tasks_in_progress = True
-            else:
-                pass
-        
-        if tasks_in_progress:
-            self.send_to_syslog('INFO', 'Tasks in progress. Waiting for 10 seconds.')
-            print('Tasks are currently executing. Waiting 10 seconds...')
-            time.sleep(10)
-            self.check_for_tasks()
+    def check_for_tasks(self, max_wait=None, interval=None):
+        """
+        Check for tasks in progress and wait for them to complete.
 
-        else:
-            return
+        Args:
+            max_wait: Maximum time to wait in seconds (default: class constant MAX_TASK_WAIT)
+            interval: Check interval in seconds (default: class constant TASK_CHECK_INTERVAL)
+
+        Returns:
+            bool: True if all tasks completed, False if timeout
+        """
+        if max_wait is None:
+            max_wait = self.MAX_TASK_WAIT
+        if interval is None:
+            interval = self.TASK_CHECK_INTERVAL
+
+        elapsed = 0
+        while elapsed < max_wait:
+            self.client.getRecentTasks(self.RECENT_TASK_LIMIT)
+            tasks_in_progress = False
+
+            for task in self.client.tasks['recent']:
+                if 'in progress' in task['workOrderUserDefinedStatus'].lower():
+                    self.send_to_syslog('INFO', 'Task Check: Task {0} status: {1}'.format(
+                        task['workOrderId'], task['workOrderUserDefinedStatus']))
+                    tasks_in_progress = True
+
+            if not tasks_in_progress:
+                self.send_to_syslog('OK', 'All tasks completed')
+                return True
+
+            self.send_to_syslog('INFO', 'Tasks in progress. Waiting for {0} seconds...'.format(interval))
+            print('Tasks are currently executing. Waiting {0} seconds...'.format(interval))
+            time.sleep(interval)
+            elapsed += interval
+
+        self.send_to_syslog('ERROR', 'Timeout waiting for tasks to complete after {0} seconds'.format(max_wait))
+        return False
 
 
 
@@ -184,21 +217,180 @@ class ConfigureTopology():
         clnt.connect([cvp_ip], cvpUsername, cvpPassword)
         return clnt
 
+    def get_grpc_channel(self, access_info):
+        cvpUsername = access_info['login_info']['jump_host']['user']
+        cvpPassword = access_info['login_info']['jump_host']['pw']
+        cvp_ip = access_info['nodes']['cvp'][0]['ip']
+        
+        # Get token
+        try:
+            response = requests.post(
+                'https://{0}/cvpservice/login/authenticate.do'.format(cvp_ip),
+                auth=(cvpUsername, cvpPassword),
+                verify=False
+            )
+            token = response.json()['sessionId']
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to get CVP token: {0}".format(str(e)))
+            raise e
+
+        # Get cert
+        try:
+            cert = ssl.get_server_certificate((cvp_ip, 443))
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to get CVP cert: {0}".format(str(e)))
+            raise e
+
+        # Create channel
+        call_creds = grpc.access_token_call_credentials(token)
+        channel_creds = grpc.ssl_channel_credentials(root_certificates=cert.encode())
+        conn_creds = grpc.composite_channel_credentials(channel_creds, call_creds)
+        
+        return grpc.secure_channel('{0}:443'.format(cvp_ip), conn_creds)
+
     def reset_studios(self, access_info):
+        """
+        Reset CloudVision Studios by deleting all user-created workspaces.
+
+        This method removes ALL user workspaces regardless of state (PENDING, SUBMITTED,
+        BUILT, CONFLICT, etc.) while preserving built-in Arista studios. For workspaces
+        in certain states, it attempts to abandon them before deletion.
+
+        Args:
+            access_info: Dictionary containing CVP connection details
+
+        Returns:
+            bool: True if reset successful (with possible warnings), False if critical failure
+        """
         self.send_to_syslog("INFO", "Resetting CloudVision Studios...")
         print("Resetting CloudVision Studios...")
+
+        deleted_count = 0
+        failed_workspaces = []
+
         try:
-            clnt = self.get_cvprac_client(access_info)
+            channel = self.get_grpc_channel(access_info)
+            workspace_stub = ws_services.WorkspaceServiceStub(channel)
+            workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
+
             # Get all workspaces
-            workspaces = clnt.api.workspace.get_workspaces()
-            for ws in workspaces['workspaces']:
-                if ws['state'] in ['pending', 'submitted', 'conflict']:
-                    self.send_to_syslog("INFO", "Abandoning workspace: {0}".format(ws['key']))
-                    clnt.api.workspace.abandon_workspace(ws['key'])
-            self.send_to_syslog("OK", "CloudVision Studios Reset Complete")
+            json_request = json.dumps({})
+            req = Parse(json_request, ws_services.WorkspaceStreamRequest(), False)
+
+            workspaces_to_delete = []
+            for response in workspace_stub.GetAll(req, timeout=self.GRPC_LIST_TIMEOUT):
+                if hasattr(response, 'value') and response.value:
+                    ws = response.value
+                    ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+
+                    # Get display name safely
+                    display_name = ""
+                    if hasattr(ws, 'display_name') and hasattr(ws.display_name, 'value'):
+                        display_name = str(ws.display_name.value) if ws.display_name.value else ""
+                    elif 'display_name' in ws_dict:
+                        dn = ws_dict['display_name']
+                        if isinstance(dn, dict) and 'value' in dn:
+                            display_name = str(dn['value']) if dn['value'] else ""
+                        elif isinstance(dn, str):
+                            display_name = dn
+
+                    display_name = display_name.strip() if display_name else ""
+
+                    # CRITICAL: Filter out built-in Arista studios - DO NOT DELETE THESE
+                    if 'Add built-in studio' in display_name:
+                        self.send_to_syslog("INFO", "Skipping built-in studio: {0}".format(display_name))
+                        continue
+
+                    # Get workspace ID
+                    ws_id = ws_dict.get('key', {}).get('workspace_id', None)
+                    if not ws_id:
+                        self.send_to_syslog("WARNING", "Skipping workspace with no ID: {0}".format(display_name))
+                        continue
+
+                    # Get workspace state for logging
+                    ws_state = ws_dict.get('state', 'UNKNOWN')
+
+                    # Delete ALL user workspaces regardless of state
+                    workspaces_to_delete.append((ws_id, display_name, ws_state))
+                    self.send_to_syslog("INFO", "Found user workspace to delete: {0} (ID: {1}, State: {2})".format(
+                        display_name, ws_id, ws_state))
+
+            # Delete workspaces
+            if workspaces_to_delete:
+                self.send_to_syslog("INFO", "Deleting {0} user workspace(s)...".format(len(workspaces_to_delete)))
+                print("Deleting {0} user workspace(s)...".format(len(workspaces_to_delete)))
+
+                for ws_id, display_name, ws_state in workspaces_to_delete:
+                    try:
+                        # Try to abandon the workspace first (required for some states like BUILT/SUBMITTED)
+                        # This may fail if the workspace is not in a state that can be abandoned, which is OK
+                        try:
+                            json_abandon_req = json.dumps({
+                                "key": {
+                                    "workspace_id": ws_id
+                                }
+                            })
+                            abandon_request = Parse(json_abandon_req, ws_services.WorkspaceConfigSetRequest(), False)
+                            workspace_config_stub.Abandon(abandon_request, timeout=self.WORKSPACE_TIMEOUT)
+                            self.send_to_syslog("INFO", "Abandoned workspace: {0}".format(display_name))
+                        except grpc.RpcError as abandon_error:
+                            # Abandon may fail if workspace is already abandoned or in a state that doesn't need it
+                            # This is not a critical error - continue to delete
+                            if 'not found' not in str(abandon_error).lower():
+                                self.send_to_syslog("INFO", "Abandon not needed for {0}: {1}".format(
+                                    display_name, abandon_error.details() if hasattr(abandon_error, 'details') else str(abandon_error)))
+
+                        # Now delete the workspace
+                        json_req = json.dumps({
+                            "key": {
+                                "workspace_id": ws_id
+                            }
+                        })
+                        request = Parse(json_req, ws_services.WorkspaceConfigDeleteRequest(), False)
+                        workspace_config_stub.Delete(request, timeout=self.WORKSPACE_TIMEOUT)
+
+                        deleted_count += 1
+                        self.send_to_syslog("OK", "Deleted workspace: {0} (State: {1})".format(display_name, ws_state))
+                        print("  ✓ Deleted: {0}".format(display_name))
+
+                    except grpc.RpcError as grpc_error:
+                        error_msg = grpc_error.details() if hasattr(grpc_error, 'details') else str(grpc_error)
+                        self.send_to_syslog("ERROR", "Failed to delete workspace {0}: {1}".format(display_name, error_msg))
+                        print("  ✗ Failed to delete {0}: {1}".format(display_name, error_msg))
+                        failed_workspaces.append((ws_id, display_name, error_msg))
+                    except Exception as e:
+                        self.send_to_syslog("ERROR", "Unexpected error deleting workspace {0}: {1}".format(display_name, str(e)))
+                        print("  ✗ Failed to delete {0}: {1}".format(display_name, str(e)))
+                        failed_workspaces.append((ws_id, display_name, str(e)))
+
+                # Report results
+                if failed_workspaces:
+                    self.send_to_syslog("WARNING", "Studio reset completed with {0} failure(s) out of {1} workspace(s)".format(
+                        len(failed_workspaces), len(workspaces_to_delete)))
+                    print("\nStudio Reset Summary:")
+                    print("  Successfully deleted: {0}".format(deleted_count))
+                    print("  Failed to delete: {0}".format(len(failed_workspaces)))
+                    for ws_id, ws_name, error in failed_workspaces:
+                        print("    - {0}: {1}".format(ws_name, error))
+                    return deleted_count > 0  # Partial success
+                else:
+                    self.send_to_syslog("OK", "CloudVision Studios Reset Complete - {0} workspace(s) deleted".format(deleted_count))
+                    print("\n✓ Successfully deleted all {0} user workspace(s)".format(deleted_count))
+                    return True
+            else:
+                self.send_to_syslog("INFO", "No user workspaces found to delete")
+                print("No user workspaces found to delete")
+                return True
+
+        except grpc.RpcError as grpc_error:
+            error_msg = grpc_error.details() if hasattr(grpc_error, 'details') else str(grpc_error)
+            self.send_to_syslog("ERROR", "gRPC error during studio reset: {0}".format(error_msg))
+            print("Failed to reset Studios (gRPC error): {0}".format(error_msg))
+            return False
         except Exception as e:
             self.send_to_syslog("ERROR", "Failed to reset Studios: {0}".format(str(e)))
             print("Failed to reset Studios: {0}".format(str(e)))
+            return False
 
     def cancel_pending_tasks(self, access_info):
         self.send_to_syslog("INFO", "Checking for pending tasks to cancel...")
@@ -259,8 +451,31 @@ class ConfigureTopology():
 
             # Handle Reset vs Standard Lab
             if self.selected_lab == 'reset':
+                # Step 1: Cancel any pending CVP tasks
+                self.send_to_syslog("INFO", "Step 1/4: Cancelling pending tasks...")
+                print("\n=== CVP Reset Process ===")
+                print("Step 1/4: Cancelling pending tasks...")
                 self.cancel_pending_tasks(access_info)
-                self.reset_studios(access_info)
+
+                # Step 2: Wait for task cancellations to complete
+                self.send_to_syslog("INFO", "Step 2/4: Waiting for task cancellations to settle...")
+                print("Step 2/4: Waiting for task cancellations to settle...")
+                time.sleep(self.RESET_SETTLE_TIME)
+                self.check_for_tasks()
+
+                # Step 3: Delete all user studios/workspaces
+                self.send_to_syslog("INFO", "Step 3/4: Deleting user workspaces...")
+                print("Step 3/4: Deleting user workspaces...")
+                studio_reset_success = self.reset_studios(access_info)
+
+                # Step 4: Wait for studio deletions to settle before applying baseline configs
+                self.send_to_syslog("INFO", "Step 4/4: Resetting devices to baseline configuration...")
+                print("Step 4/4: Resetting devices to baseline configuration...")
+                time.sleep(self.RESET_SETTLE_TIME)
+
+                if not studio_reset_success:
+                    self.send_to_syslog("WARNING", "Studio reset had failures, but continuing with configuration reset...")
+                    print("WARNING: Studio reset had some failures, but continuing with configuration reset...")
             else:
                 self.check_pending_tasks_warning(access_info)
 
@@ -269,7 +484,7 @@ class ConfigureTopology():
             # Config the topology
             self.update_topology(lab_configlets)
             # Wait time for CVP to generate tasks
-            time.sleep(15)
+            time.sleep(self.TOPOLOGY_SETTLE_TIME)
             
             # Execute all tasks generated from reset_devices()
             print('Gathering task information...')
