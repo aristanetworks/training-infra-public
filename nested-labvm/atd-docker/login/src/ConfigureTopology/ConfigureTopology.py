@@ -416,26 +416,24 @@ class ConfigureTopology():
                                 key = ws_dict.get('key', {})
                                 if key.get('workspace_id') == reset_ws_id:
                                     state = ws_dict.get('state', 'UNKNOWN')
-                                    state_str = str(state)
 
-                                    # Only log every 10th check to reduce noise, unless state changes
-                                    if i % 10 == 0 or i < 5:
-                                        self.send_to_syslog("INFO", "Build status check {0}/{1}: {2}".format(i+1, max_build_retries, state))
-                                        print("  Build status check {0}/{1}: {2}".format(i+1, max_build_retries, state))
+                                    # Debug: Log state type and value every check
+                                    self.send_to_syslog("DEBUG", "Build check {0}: state={1}, type={2}, ws_id={3}".format(i+1, state, type(state).__name__, reset_ws_id))
+                                    print("  DEBUG: Build check {0}: state={1}, type={2}".format(i+1, state, type(state).__name__))
 
-                                    # State 5 = BUILT (success)
-                                    if state_str == 'WORKSPACE_STATE_BUILT' or state == 5:
+                                    # Check both string name and numeric value for BUILT
+                                    # MessageToDict may return either the enum name string or numeric value
+                                    if state == 'WORKSPACE_STATE_BUILT' or state == 5:
                                         self.send_to_syslog("OK", "Workspace is BUILT (took {0} seconds)".format((i+1)*3))
                                         print("  ✓ Workspace is BUILT (took {0} seconds)".format((i+1)*3))
                                         found = True
                                         break
-                                    # State 4 = CONFLICTS (error)
-                                    elif state_str == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # Check for CONFLICTS
+                                    elif state == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
-                                    # States 0,1,3 = PENDING/BUILDING (in progress - keep waiting)
-                                    # Anything else - log and keep waiting
+                                    # Continue waiting for other states (PENDING, BUILDING, etc.)
 
                         if found:
                             break
@@ -487,25 +485,23 @@ class ConfigureTopology():
                                 key = ws_dict.get('key', {})
                                 if key.get('workspace_id') == reset_ws_id:
                                     state = ws_dict.get('state', 'UNKNOWN')
-                                    state_str = str(state)
 
-                                    # Only log every 10th check to reduce noise
-                                    if i % 10 == 0 or i < 5:
-                                        self.send_to_syslog("INFO", "Submit status check {0}/{1}: {2}".format(i+1, max_submit_retries, state))
-                                        print("  Submit status check {0}/{1}: {2}".format(i+1, max_submit_retries, state))
+                                    # Debug: Log state type and value every check
+                                    self.send_to_syslog("DEBUG", "Submit check {0}: state={1}, type={2}, ws_id={3}".format(i+1, state, type(state).__name__, reset_ws_id))
+                                    print("  DEBUG: Submit check {0}: state={1}, type={2}".format(i+1, state, type(state).__name__))
 
-                                    # State 2 = SUBMITTED (success)
-                                    if state_str == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
+                                    # Check both string name and numeric value for SUBMITTED
+                                    if state == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
                                         self.send_to_syslog("OK", "Workspace is SUBMITTED (took {0} seconds)".format((i+1)*3))
                                         print("  ✓ Workspace is SUBMITTED (took {0} seconds)".format((i+1)*3))
                                         found = True
                                         break
-                                    # State 4 = CONFLICTS (error)
-                                    elif state_str == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # Check for CONFLICTS
+                                    elif state == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
-                                    # Other states = in progress, keep waiting
+                                    # Continue waiting for other states
 
                         if found:
                             break
