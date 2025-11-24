@@ -13,6 +13,11 @@ import json
 import ssl
 from google.protobuf.json_format import Parse, MessageToDict
 from arista.workspace.v1 import services as ws_services
+from arista.workspace.v1 import models as ws_models
+import arista.studio.v1.services as studio_services
+import arista.studio.v1.models as studio_models
+import arista.changecontrol.v1.services as cc_services
+import arista.changecontrol.v1.models as cc_models
 from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -250,143 +255,434 @@ class ConfigureTopology():
 
     def reset_studios(self, access_info):
         """
-        Reset CloudVision Studios by deleting all user-created workspaces.
-
-        This method removes ALL user workspaces regardless of state (PENDING, SUBMITTED,
-        BUILT, CONFLICT, etc.) while preserving built-in Arista studios. For workspaces
-        in certain states, it attempts to abandon them before deletion.
-
+        Reset CloudVision Studios by creating a new workspace, clearing inputs for all
+        modified studios, and submitting the changes. This effectively reverts all
+        studio configurations to their default state.
+        
         Args:
             access_info: Dictionary containing CVP connection details
 
         Returns:
-            bool: True if reset successful (with possible warnings), False if critical failure
+            bool: True if reset successful, False if failure
         """
-        self.send_to_syslog("INFO", "Resetting CloudVision Studios...")
-        print("Resetting CloudVision Studios...")
-
-        deleted_count = 0
-        failed_workspaces = []
+        self.send_to_syslog("INFO", "Resetting CloudVision Studios (Master Reset)...")
+        print("Resetting CloudVision Studios (Master Reset)...")
 
         try:
             channel = self.get_grpc_channel(access_info)
-            workspace_stub = ws_services.WorkspaceServiceStub(channel)
             workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
-
-            # Get all workspaces
-            json_request = json.dumps({})
-            req = Parse(json_request, ws_services.WorkspaceStreamRequest(), False)
-
-            workspaces_to_delete = []
-            for response in workspace_stub.GetAll(req, timeout=self.GRPC_LIST_TIMEOUT):
+            
+            # Import Studio services
+            try:
+                from arista.studio.v1 import services as studio_services
+                inputs_stub = studio_services.InputsServiceStub(channel)
+                inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
+            except ImportError:
+                self.send_to_syslog("ERROR", "Could not import arista.studio.v1")
+                print("ERROR: Could not import arista.studio.v1")
+                return False
+            except AttributeError:
+                self.send_to_syslog("ERROR", "Could not find InputsConfigServiceStub")
+                print("ERROR: Could not find InputsConfigServiceStub")
+                return False
+    def reset_studios(self):
+        """
+        Reset all studios to blank state
+        """
+        # 1. Create a new workspace for the reset
+        self.send_to_syslog("INFO", "Creating reset workspace...")
+        print("Creating reset workspace...")
+        req_id = str(uuid.uuid4())
+        reset_ws_id = "Reset-Studios-" + req_id
+        
+        try:
+            # Create workspace
+            json_ws_req = json.dumps({
+                "value": {
+                    "key": {
+                        "workspace_id": reset_ws_id
+                    },
+                    "display_name": "Reset Studios " + req_id,
+                    "description": "Automated reset of all studios"
+                }
+            })
+            ws_req = Parse(json_ws_req, ws_services.WorkspaceConfigSetRequest(), False)
+            self.workspace_config_stub.Set(ws_req, timeout=self.WORKSPACE_TIMEOUT)
+            self.send_to_syslog("OK", "Created workspace: {0}".format(reset_ws_id))
+            print("  ✓ Created workspace: {0}".format(reset_ws_id))
+            
+            # 2. Identify and Clear Inputs for Mainline Studios
+            self.send_to_syslog("INFO", "Clearing studio inputs...")
+            print("Clearing studio inputs...")
+            studios_to_reset = ["Campus Fabric", "Data Center", "Enterprise Routing"]
+            studios_reset_count = 0
+            
+            # Get all inputs to find the ones we need to clear
+            # We need to list inputs and filter by studio ID
+            # Since we can't easily list all inputs by studio name directly without mapping,
+            # we will iterate through known studio IDs if possible, or list all inputs and filter.
+            # For this environment, we'll try to list all inputs and clear those belonging to the target studios.
+            
+            # Actually, a better approach for "Reset" is to set the inputs to empty for the specific studios.
+            # But we need the Studio IDs.
+            # Let's assume we need to clear everything.
+            
+            # Simplified approach: Iterate through all studios, if name matches, clear inputs.
+            # We need a Studio Service for this, but we only have InputsService.
+            # Let's try to list all inputs and see if we can identify them.
+            
+            # Alternative: Just use the known Studio IDs if they were constant, but they aren't.
+            # Let's use the InputsService to get all inputs.
+            
+            json_inputs_req = json.dumps({})
+            inputs_req = Parse(json_inputs_req, studio_services.InputsStreamRequest(), False)
+            
+            # We will collect keys to clear
+            keys_to_clear = []
+            
+            for response in self.inputs_stub.GetAll(inputs_req, timeout=self.GRPC_LIST_TIMEOUT):
                 if hasattr(response, 'value') and response.value:
-                    ws = response.value
-                    ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
-
-                    # Get display name safely
-                    display_name = ""
-                    if hasattr(ws, 'display_name') and hasattr(ws.display_name, 'value'):
-                        display_name = str(ws.display_name.value) if ws.display_name.value else ""
-                    elif 'display_name' in ws_dict:
-                        dn = ws_dict['display_name']
-                        if isinstance(dn, dict) and 'value' in dn:
-                            display_name = str(dn['value']) if dn['value'] else ""
-                        elif isinstance(dn, str):
-                            display_name = dn
-
-                    display_name = display_name.strip() if display_name else ""
-
-                    # CRITICAL: Filter out built-in Arista studios - DO NOT DELETE THESE
-                    if 'Add built-in studio' in display_name:
-                        self.send_to_syslog("INFO", "Skipping built-in studio: {0}".format(display_name))
-                        continue
-
-                    # Get workspace ID
-                    ws_id = ws_dict.get('key', {}).get('workspace_id', None)
-                    if not ws_id:
-                        self.send_to_syslog("WARNING", "Skipping workspace with no ID: {0}".format(display_name))
-                        continue
-
-                    # Get workspace state for logging
-                    ws_state = ws_dict.get('state', 'UNKNOWN')
-
-                    # Delete ALL user workspaces regardless of state
-                    workspaces_to_delete.append((ws_id, display_name, ws_state))
-                    self.send_to_syslog("INFO", "Found user workspace to delete: {0} (ID: {1}, State: {2})".format(
-                        display_name, ws_id, ws_state))
-
-            # Delete workspaces
-            if workspaces_to_delete:
-                self.send_to_syslog("INFO", "Deleting {0} user workspace(s)...".format(len(workspaces_to_delete)))
-                print("Deleting {0} user workspace(s)...".format(len(workspaces_to_delete)))
-
-                for ws_id, display_name, ws_state in workspaces_to_delete:
-                    try:
-                        # Try to abandon the workspace first (required for some states like BUILT/SUBMITTED)
-                        # This may fail if the workspace is not in a state that can be abandoned, which is OK
-                        try:
-                            json_abandon_req = json.dumps({
-                                "key": {
-                                    "workspace_id": ws_id
-                                }
-                            })
-                            abandon_request = Parse(json_abandon_req, ws_services.WorkspaceConfigSetRequest(), False)
-                            workspace_config_stub.Abandon(abandon_request, timeout=self.WORKSPACE_TIMEOUT)
-                            self.send_to_syslog("INFO", "Abandoned workspace: {0}".format(display_name))
-                        except grpc.RpcError as abandon_error:
-                            # Abandon may fail if workspace is already abandoned or in a state that doesn't need it
-                            # This is not a critical error - continue to delete
-                            if 'not found' not in str(abandon_error).lower():
-                                self.send_to_syslog("INFO", "Abandon not needed for {0}: {1}".format(
-                                    display_name, abandon_error.details() if hasattr(abandon_error, 'details') else str(abandon_error)))
-
-                        # Now delete the workspace
-                        json_req = json.dumps({
-                            "key": {
-                                "workspace_id": ws_id
-                            }
-                        })
-                        request = Parse(json_req, ws_services.WorkspaceConfigDeleteRequest(), False)
-                        workspace_config_stub.Delete(request, timeout=self.WORKSPACE_TIMEOUT)
-
-                        deleted_count += 1
-                        self.send_to_syslog("OK", "Deleted workspace: {0} (State: {1})".format(display_name, ws_state))
-                        print("  ✓ Deleted: {0}".format(display_name))
-
-                    except grpc.RpcError as grpc_error:
-                        error_msg = grpc_error.details() if hasattr(grpc_error, 'details') else str(grpc_error)
-                        self.send_to_syslog("ERROR", "Failed to delete workspace {0}: {1}".format(display_name, error_msg))
-                        print("  ✗ Failed to delete {0}: {1}".format(display_name, error_msg))
-                        failed_workspaces.append((ws_id, display_name, error_msg))
-                    except Exception as e:
-                        self.send_to_syslog("ERROR", "Unexpected error deleting workspace {0}: {1}".format(display_name, str(e)))
-                        print("  ✗ Failed to delete {0}: {1}".format(display_name, str(e)))
-                        failed_workspaces.append((ws_id, display_name, str(e)))
-
-                # Report results
-                if failed_workspaces:
-                    self.send_to_syslog("WARNING", "Studio reset completed with {0} failure(s) out of {1} workspace(s)".format(
-                        len(failed_workspaces), len(workspaces_to_delete)))
-                    print("\nStudio Reset Summary:")
-                    print("  Successfully deleted: {0}".format(deleted_count))
-                    print("  Failed to delete: {0}".format(len(failed_workspaces)))
-                    for ws_id, ws_name, error in failed_workspaces:
-                        print("    - {0}: {1}".format(ws_name, error))
-                    return deleted_count > 0  # Partial success
-                else:
-                    self.send_to_syslog("OK", "CloudVision Studios Reset Complete - {0} workspace(s) deleted".format(deleted_count))
-                    print("\n✓ Successfully deleted all {0} user workspace(s)".format(deleted_count))
-                    return True
+                    inp = response.value
+                    # We need to check if this input belongs to a studio we want to reset.
+                    # The input key has studio_id.
+                    # We don't have a map of Studio Name -> Studio ID here easily without StudioService.
+                    # However, the previous script logic implied we might just want to clear *all* inputs or specific ones.
+                    # Let's look at what the user likely wants: A full reset.
+                    # We will clear ALL inputs found.
+                    
+                    inp_dict = MessageToDict(inp, preserving_proto_field_name=True)
+                    key = inp_dict.get('key', {})
+                    if key:
+                        keys_to_clear.append(key)
+            
+            if keys_to_clear:
+                self.send_to_syslog("INFO", "Found {0} input configurations to clear.".format(len(keys_to_clear)))
+                print("  Found {0} input configurations to clear.".format(len(keys_to_clear)))
+                for key in keys_to_clear:
+                    # Set inputs to empty string/null for this key in the reset workspace
+                    # The key needs to include the workspace_id
+                    key['workspace_id'] = reset_ws_id
+                    
+                    # Create a delete/clear request. 
+                    # Setting the value to empty string or null might work depending on the model.
+                    # Or using InputsConfigDeleteRequest if available? No, usually we Set with empty value.
+                    # Let's try setting the path value to null/empty.
+                    
+                    # Actually, to "reset", we usually remove the inputs.
+                    # Let's try to set the inputs to empty JSON "{}"
+                    
+                    json_set_req = json.dumps({
+                        "value": {
+                            "key": key,
+                            "inputs": "{}" # Empty JSON object
+                        }
+                    })
+                    set_req = Parse(json_set_req, studio_services.InputsConfigSetRequest(), False)
+                    self.inputs_config_stub.Set(set_req, timeout=self.WORKSPACE_TIMEOUT)
+                self.send_to_syslog("OK", "Cleared inputs for {0} items".format(len(keys_to_clear)))
+                print("  ✓ Cleared inputs for {0} items".format(len(keys_to_clear)))
+                studios_reset_count = len(keys_to_clear)
             else:
-                self.send_to_syslog("INFO", "No user workspaces found to delete")
-                print("No user workspaces found to delete")
+                self.send_to_syslog("INFO", "No inputs found to clear.")
+                print("  No inputs found to clear.")
+
+            if studios_reset_count > 0:
+                # 3. Start Build
+                self.send_to_syslog("INFO", "Starting build...")
+                print("Starting build...")
+                json_build_req = json.dumps({
+                    "value": {
+                        "key": {
+                            "workspace_id": reset_ws_id
+                        },
+                        "request": 1, # REQUEST_START_BUILD
+                        "request_params": {
+                            "request_id": req_id
+                        }
+                    }
+                })
+                build_req = Parse(json_build_req, ws_models.WorkspaceConfigSetRequest(), False)
+                self.workspace_config_stub.Set(build_req, timeout=self.WORKSPACE_TIMEOUT)
+                self.send_to_syslog("OK", "Build requested")
+                print("  ✓ Build requested")
+                
+                # 4. Poll for Build Completion
+                self.send_to_syslog("INFO", "Waiting for build to complete...")
+                print("Waiting for build to complete...")
+                for i in range(10):
+                    try:
+                        # Get workspace status
+                        json_get_req = json.dumps({})
+                        get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+                        
+                        found = False
+                        for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
+                            if hasattr(response, 'value') and response.value:
+                                ws = response.value
+                                ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                                key = ws_dict.get('key', {})
+                                if key.get('workspace_id') == reset_ws_id:
+                                    state = ws_dict.get('state', 'UNKNOWN')
+                                    self.send_to_syslog("INFO", "Status check {0}/10: {1}".format(i+1, state))
+                                    print("  Status check {0}/10: {1}".format(i+1, state))
+                                    
+                                    if str(state) == 'WORKSPACE_STATE_BUILT' or state == 5:
+                                        self.send_to_syslog("OK", "Workspace is BUILT")
+                                        print("  ✓ Workspace is BUILT")
+                                        found = True
+                                        break
+                                    elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                        self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
+                                        print("  ✗ Workspace has CONFLICTS")
+                                        return False
+                        
+                        if found:
+                            break
+                        
+                        time.sleep(2)
+                    except Exception as e:
+                        self.send_to_syslog("ERROR", "Error checking status: {0}".format(e))
+                        print("  Error checking status: {0}".format(e))
+                else:
+                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to build")
+                    print("  ✗ Timeout waiting for workspace to build")
+                    return False
+
+                # 5. Submit Workspace
+                self.send_to_syslog("INFO", "Submitting workspace...")
+                print("Submitting workspace...")
+                json_submit_req = json.dumps({
+                    "value": {
+                        "key": {
+                            "workspace_id": reset_ws_id
+                        },
+                        "request": 3, # REQUEST_SUBMIT
+                        "request_params": {
+                            "request_id": req_id
+                        }
+                    }
+                })
+                submit_req = Parse(json_submit_req, ws_models.WorkspaceConfigSetRequest(), False)
+                self.workspace_config_stub.Set(submit_req, timeout=self.WORKSPACE_TIMEOUT)
+                self.send_to_syslog("OK", "Submit requested")
+                print("  ✓ Submit requested")
+                
+                # Poll for submission
+                self.send_to_syslog("INFO", "Waiting for submission...")
+                print("Waiting for submission...")
+                max_retries = 30
+                for i in range(max_retries):
+                    # Get workspace status
+                    json_get_req = json.dumps({})
+                    get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+                    
+                    found = False
+                    for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
+                        if hasattr(response, 'value') and response.value:
+                            ws = response.value
+                            ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                            key = ws_dict.get('key', {})
+                            if key.get('workspace_id') == reset_ws_id:
+                                state = ws_dict.get('state', 'UNKNOWN')
+                                self.send_to_syslog("INFO", "Status check {0}/{1}: {2}".format(i+1, max_retries, state))
+                                print("  Status check {0}/{1}: {2}".format(i+1, max_retries, state))
+                                
+                                if str(state) == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
+                                    self.send_to_syslog("OK", "Workspace is SUBMITTED")
+                                    print("  ✓ Workspace is SUBMITTED")
+                                    found = True
+                                    break
+                                elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
+                                    print("  ✗ Workspace has CONFLICTS")
+                                    return False
+                    
+                    if found:
+                        break
+                    
+                    time.sleep(2)
+                else:
+                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to submit")
+                    print("  ✗ Timeout waiting for workspace to submit")
+                    return False
+
+                # 6. Execute Change Controls
+                self.send_to_syslog("INFO", "Checking for generated Change Controls...")
+                print("Checking for generated Change Controls...")
+                
+                # Import CC services (if not already imported at top level, but we did)
+                cc_stub = cc_services.ChangeControlServiceStub(self.channel)
+                approve_stub = cc_services.ApproveConfigServiceStub(self.channel)
+                cc_config_stub = cc_services.ChangeControlConfigServiceStub(self.channel)
+
+                # Get workspace again to find cc_ids
+                try:
+                    json_get_req = json.dumps({})
+                    get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+                    
+                    cc_ids = []
+                    for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
+                        if hasattr(response, 'value') and response.value:
+                            ws = response.value
+                            ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                            key = ws_dict.get('key', {})
+                            if key.get('workspace_id') == reset_ws_id:
+                                if 'cc_ids' in ws_dict and 'values' in ws_dict['cc_ids']:
+                                    cc_ids = ws_dict['cc_ids']['values']
+                                break
+                    
+                    if cc_ids:
+                        self.send_to_syslog("INFO", "Found {0} Change Controls: {1}".format(len(cc_ids), cc_ids))
+                        print("Found {0} Change Controls: {1}".format(len(cc_ids), cc_ids))
+                        for cc_id in cc_ids:
+                            self.send_to_syslog("INFO", "Processing Change Control: {0}".format(cc_id))
+                            print("Processing Change Control: {0}".format(cc_id))
+                            
+                            # 6.0 Get Change Control Version
+                            try:
+                                json_cc_req = json.dumps({"key": {"id": cc_id}})
+                                cc_req = Parse(json_cc_req, cc_services.ChangeControlRequest(), False)
+                                cc_resp = cc_stub.GetOne(cc_req, timeout=self.GRPC_LIST_TIMEOUT)
+                                cc_version = None
+                                if hasattr(cc_resp, 'value') and hasattr(cc_resp.value, 'change') and hasattr(cc_resp.value.change, 'time'):
+                                     cc_version = cc_resp.value.change.time
+                                     self.send_to_syslog("INFO", "Fetched CC version: {0}".format(cc_version))
+                                     print("  Fetched CC version: {0}".format(cc_version))
+                                else:
+                                     self.send_to_syslog("WARNING", "Could not fetch CC version, trying without...")
+                                     print("  Warning: Could not fetch CC version, trying without...")
+                            except Exception as e:
+                                self.send_to_syslog("WARNING", "Failed to fetch CC details: {0}".format(e))
+                                print("  Warning: Failed to fetch CC details: {0}".format(e))
+                                cc_version = None
+
+                            # 6.1 Approve Change Control
+                            try:
+                                self.send_to_syslog("INFO", "Approving Change Control...")
+                                print("  Approving...")
+                                approve_dict = {
+                                    "value": {
+                                        "key": {
+                                            "id": cc_id
+                                        },
+                                        "approve": {
+                                            "value": True,
+                                            "notes": "Approved by reset script"
+                                        }
+                                    }
+                                }
+                                
+                                if cc_version:
+                                    approve_dict["value"]["version"] = MessageToDict(cc_version)
+
+                                json_approve_req = json.dumps(approve_dict)
+                                approve_req = Parse(json_approve_req, cc_services.ApproveConfigSetRequest(), False)
+                                approve_stub.Set(approve_req, timeout=self.WORKSPACE_TIMEOUT)
+                                self.send_to_syslog("OK", "Approved Change Control")
+                                print("  ✓ Approved")
+                            except Exception as e:
+                                self.send_to_syslog("ERROR", "Failed to approve Change Control: {0}".format(e))
+                                print("  ✗ Failed to approve: {0}".format(e))
+                                continue
+
+                            # 6.2 Start Change Control
+                            try:
+                                self.send_to_syslog("INFO", "Starting Change Control...")
+                                print("  Starting...")
+                                start_dict = {
+                                    "value": {
+                                        "key": {
+                                            "id": cc_id
+                                        },
+                                        "start": {
+                                            "value": True,
+                                            "notes": "Started by reset script"
+                                        }
+                                    }
+                                }
+                                json_start_req = json.dumps(start_dict)
+                                start_req = Parse(json_start_req, cc_services.ChangeControlConfigSetRequest(), False)
+                                cc_config_stub.Set(start_req, timeout=self.WORKSPACE_TIMEOUT)
+                                self.send_to_syslog("OK", "Started Change Control")
+                                print("  ✓ Started")
+                            except Exception as e:
+                                self.send_to_syslog("ERROR", "Failed to start Change Control: {0}".format(e))
+                                print("  ✗ Failed to start: {0}".format(e))
+                                continue
+                            
+                            # 6.3 Wait for Completion
+                            self.send_to_syslog("INFO", "Waiting for Change Control completion...")
+                            print("  Waiting for completion...")
+                            for i in range(60): # Increased wait time
+                                try:
+                                    # Get CC status
+                                    json_cc_req = json.dumps({"key": {"id": cc_id}})
+                                    cc_req = Parse(json_cc_req, cc_services.ChangeControlRequest(), False)
+                                    cc_resp = cc_stub.GetOne(cc_req, timeout=self.GRPC_LIST_TIMEOUT)
+                                    
+                                    if hasattr(cc_resp, 'value'):
+                                        cc_val = cc_resp.value
+                                        status = cc_val.status
+                                        # 0: UNSPECIFIED, 1: RUNNING, 2: COMPLETED, 3: SCHEDULED, 4: NOT_STARTED
+                                        self.send_to_syslog("INFO", "Status check {0}/60: {1}".format(i+1, status))
+                                        print("    Status check {0}/60: {1}".format(i+1, status))
+                                        
+                                        if status == 2: # COMPLETED
+                                            self.send_to_syslog("OK", "Change Control Completed")
+                                            print("  ✓ Change Control Completed")
+                                            break
+                                        
+                                        # Check for errors
+                                        if hasattr(cc_val, 'error') and cc_val.error and hasattr(cc_val.error, 'message') and cc_val.error.message:
+                                             self.send_to_syslog("ERROR", "Change Control Error: {0}".format(cc_val.error.message))
+                                             print("  ✗ Change Control Error: {0}".format(cc_val.error.message))
+                                             break
+                                        
+                                        # If RUNNING, SCHEDULED, or NOT_STARTED, keep waiting
+                                        if status in [1, 3, 4]:
+                                            pass 
+                                        else:
+                                            # Unknown status
+                                            self.send_to_syslog("WARNING", "Unknown Change Control status: {0}".format(status))
+                                            pass
+
+                                except Exception as e:
+                                    self.send_to_syslog("ERROR", "Error checking Change Control status: {0}".format(e))
+                                    print("    Error checking status: {0}".format(e))
+                                
+                                time.sleep(2)
+                            else:
+                                self.send_to_syslog("WARNING", "Timeout waiting for Change Control completion")
+                                print("  Warning: Timeout waiting for Change Control completion")
+
+                    else:
+                        self.send_to_syslog("INFO", "No Change Controls found in workspace.")
+                        print("No Change Controls found in workspace.")
+
+                except Exception as e:
+                    self.send_to_syslog("ERROR", "Failed to process Change Controls: {0}".format(e))
+                    print("  ✗ Failed to process Change Controls: {0}".format(e))
                 return True
 
-        except grpc.RpcError as grpc_error:
-            error_msg = grpc_error.details() if hasattr(grpc_error, 'details') else str(grpc_error)
-            self.send_to_syslog("ERROR", "gRPC error during studio reset: {0}".format(error_msg))
-            print("Failed to reset Studios (gRPC error): {0}".format(error_msg))
-            return False
+            else:
+                self.send_to_syslog("INFO", "No studios to reset.")
+                print("No studios to reset.")
+                # Delete the empty workspace
+                try:
+                    json_del_req = json.dumps({
+                        "key": {
+                            "workspace_id": reset_ws_id
+                        }
+                    })
+                    del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
+                    self.workspace_config_stub.Delete(del_req, timeout=self.WORKSPACE_TIMEOUT)
+                    self.send_to_syslog("OK", "Deleted empty reset workspace")
+                    print("  ✓ Deleted empty reset workspace")
+                except Exception as e:
+                    self.send_to_syslog("WARNING", "Failed to delete empty reset workspace: {0}".format(e))
+                    pass
+                return True
+
         except Exception as e:
             self.send_to_syslog("ERROR", "Failed to reset Studios: {0}".format(str(e)))
             print("Failed to reset Studios: {0}".format(str(e)))
@@ -396,11 +692,18 @@ class ConfigureTopology():
         self.send_to_syslog("INFO", "Checking for pending tasks to cancel...")
         try:
             clnt = self.get_cvprac_client(access_info)
-            tasks = clnt.api.task.get_tasks_by_status('Pending')
+            # Check if 'task' attribute exists or use direct method (fix for CvpApi error)
+            if hasattr(clnt.api, 'task'):
+                tasks = clnt.api.task.get_tasks_by_status('Pending')
+                cancel_func = clnt.api.task.cancel_task
+            else:
+                tasks = clnt.api.get_tasks_by_status('Pending')
+                cancel_func = clnt.api.cancel_task
+                
             if tasks:
                 for task in tasks:
                     self.send_to_syslog("INFO", "Cancelling task: {0}".format(task['workOrderId']))
-                    clnt.api.task.cancel_task(task['workOrderId'])
+                    cancel_func(task['workOrderId'])
                 self.send_to_syslog("OK", "All pending tasks cancelled.")
             else:
                 self.send_to_syslog("INFO", "No pending tasks found.")
