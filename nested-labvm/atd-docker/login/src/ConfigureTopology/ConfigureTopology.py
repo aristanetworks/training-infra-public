@@ -340,6 +340,8 @@ class ConfigureTopology():
 
                 self.send_to_syslog("OK", "Found {0} studios with mainline configuration: {1}".format(len(studios_to_reset), list(studios_to_reset)))
                 print("Found {0} studios with mainline configuration: {1}".format(len(studios_to_reset), list(studios_to_reset)))
+                print("  DEBUG: studios_to_reset set: {0}".format(studios_to_reset))
+                print("  DEBUG: Will enter reset block: {0}".format(bool(studios_to_reset)))
 
             except Exception as e:
                 self.send_to_syslog("ERROR", "Failed to list inputs: {0}".format(e))
@@ -373,6 +375,7 @@ class ConfigureTopology():
                 # 3.5. Start Build
                 self.send_to_syslog("INFO", "Starting build for reset workspace...")
                 print("\nStarting build for reset workspace...")
+                print("  DEBUG: About to build workspace ID: {0}".format(reset_ws_id))
                 try:
                     req_id = str(uuid.uuid4())
                     json_build_req = json.dumps({
@@ -386,10 +389,12 @@ class ConfigureTopology():
                             }
                         }
                     })
+                    print("  DEBUG: Build request JSON: {0}".format(json_build_req))
                     build_req = Parse(json_build_req, ws_services.WorkspaceConfigSetRequest(), False)
                     response = self.workspace_config_stub.Set(build_req, timeout=self.WORKSPACE_TIMEOUT)
-                    self.send_to_syslog("OK", "Build request sent")
-                    print("  ✓ Build request sent")
+                    print("  DEBUG: Build request response received")
+                    self.send_to_syslog("OK", "Build request sent for workspace {0}".format(reset_ws_id))
+                    print("  ✓ Build request sent for workspace {0}".format(reset_ws_id))
 
                     # Wait for build to complete
                     self.send_to_syslog("INFO", "Waiting for build to complete...")
@@ -401,6 +406,7 @@ class ConfigureTopology():
                 # 4. Poll for Build Completion
                 self.send_to_syslog("INFO", "Polling for build completion...")
                 print("Waiting for build to complete...")
+                print("  DEBUG: Will poll for workspace ID: {0}".format(reset_ws_id))
                 max_build_retries = 60  # 60 retries × 3 seconds = 3 minutes
                 for i in range(max_build_retries):
                     try:
@@ -409,12 +415,20 @@ class ConfigureTopology():
                         get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
 
                         found = False
+                        ws_found_in_list = False
                         for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
                             if hasattr(response, 'value') and response.value:
                                 ws = response.value
                                 ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
                                 key = ws_dict.get('key', {})
-                                if key.get('workspace_id') == reset_ws_id:
+                                ws_id_in_response = key.get('workspace_id')
+
+                                # Debug first check only
+                                if i == 0:
+                                    print("  DEBUG: Found workspace in GetAll: {0}".format(ws_id_in_response))
+
+                                if ws_id_in_response == reset_ws_id:
+                                    ws_found_in_list = True
                                     state = ws_dict.get('state', 'UNKNOWN')
 
                                     # Debug: Log state type and value every check
@@ -434,6 +448,10 @@ class ConfigureTopology():
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
                                     # Continue waiting for other states (PENDING, BUILDING, etc.)
+
+                        # Check if workspace was found in the list at all
+                        if not ws_found_in_list and i < 3:
+                            print("  WARNING: Workspace {0} not found in GetAll response on check {1}".format(reset_ws_id, i+1))
 
                         if found:
                             break
