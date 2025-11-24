@@ -403,110 +403,50 @@ class ConfigureTopology():
                     self.send_to_syslog("ERROR", "Failed to start build: {0}".format(e))
                     print("  ✗ Failed to start/wait for build: {0}".format(e))
 
-                # 4. Poll for Build Completion
-                self.send_to_syslog("INFO", "Polling for build completion...")
+                # 4. Poll for Build Completion (Match standalone exactly)
                 print("Waiting for build to complete...")
-                print("  DEBUG: Will poll for workspace ID: {0}".format(reset_ws_id))
-                max_build_retries = 60  # 60 retries × 3 seconds = 3 minutes
-                for i in range(max_build_retries):
+                for i in range(10):  # 10 retries × 2 seconds = 20 seconds
                     try:
                         # Get workspace status
                         json_get_req = json.dumps({})
                         get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
 
                         found = False
-                        ws_found_in_list = False
                         for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
                             if hasattr(response, 'value') and response.value:
                                 ws = response.value
                                 ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
                                 key = ws_dict.get('key', {})
-                                ws_id_in_response = key.get('workspace_id')
-
-                                # Debug first check only
-                                if i == 0:
-                                    print("  DEBUG: Found workspace in GetAll: {0}".format(ws_id_in_response))
-
-                                if ws_id_in_response == reset_ws_id:
-                                    ws_found_in_list = True
+                                if key.get('workspace_id') == reset_ws_id:
                                     state = ws_dict.get('state', 'UNKNOWN')
-                                    needs_build = ws_dict.get('needs_build', True)
+                                    print("  Status check {0}/10: {1}".format(i+1, state))
 
-                                    # Check for CONFLICTS first
-                                    if state == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # Match standalone: check for WORKSPACE_STATE_BUILT
+                                    if str(state) == 'WORKSPACE_STATE_BUILT' or state == 5:
+                                        self.send_to_syslog("OK", "Workspace is BUILT")
+                                        print("  ✓ Workspace is BUILT")
+                                        found = True
+                                        break
+                                    elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
 
-                                    # Check if build is complete by checking needs_build flag
-                                    # When CVP finishes the build, needs_build becomes False
-                                    # This works whether or not there were actual changes to build
-                                    if not needs_build:
-                                        self.send_to_syslog("OK", "Workspace build complete (took {0} seconds)".format((i+1)*3))
-                                        print("  ✓ Workspace build complete (took {0} seconds)".format((i+1)*3))
-                                        found = True
-                                        break
-
-                                    # Still building - log status
-                                    self.send_to_syslog("INFO", "Build check {0}/{1}: needs_build={2}, state={3}".format(i+1, max_build_retries, needs_build, state))
-                                    if i % 10 == 0:  # Print every 10th check to avoid spam
-                                        print("  Build check {0}/{1}: needs_build={2}".format(i+1, max_build_retries, needs_build))
-
-                        # Check if workspace was found in the list at all
-                        if not ws_found_in_list and i < 3:
-                            print("  WARNING: Workspace {0} not found in GetAll response on check {1}".format(reset_ws_id, i+1))
-
                         if found:
                             break
 
-                        time.sleep(3)
+                        time.sleep(2)
                     except Exception as e:
                         self.send_to_syslog("ERROR", "Error checking status: {0}".format(e))
                         print("  Error checking status: {0}".format(e))
                 else:
-                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to build (waited {0} seconds)".format(max_build_retries*3))
-                    print("  ✗ Timeout waiting for workspace to build (waited {0} seconds)".format(max_build_retries*3))
+                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to build")
+                    print("  ✗ Timeout waiting for workspace to build")
                     return False
 
-                # Check if there are any changes to submit
-                # If no change controls were generated, studios are already clean - we're done
-                cc_ids_to_check = []
-                try:
-                    json_get_req = json.dumps({})
-                    get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
-                    for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
-                        if hasattr(response, 'value') and response.value:
-                            ws = response.value
-                            ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
-                            key = ws_dict.get('key', {})
-                            if key.get('workspace_id') == reset_ws_id:
-                                if 'cc_ids' in ws_dict and 'values' in ws_dict['cc_ids']:
-                                    cc_ids_to_check = ws_dict['cc_ids']['values']
-                                break
-                except Exception as e:
-                    self.send_to_syslog("WARNING", "Failed to check for change controls: {0}".format(e))
-
-                if not cc_ids_to_check:
-                    self.send_to_syslog("OK", "No changes needed - Studios already in reset state")
-                    print("  ✓ No changes needed - Studios already in reset state")
-                    # Delete the workspace since we don't need it
-                    try:
-                        json_del_req = json.dumps({
-                            "key": {
-                                "workspace_id": reset_ws_id
-                            }
-                        })
-                        del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
-                        self.workspace_config_stub.Delete(del_req, timeout=self.WORKSPACE_TIMEOUT)
-                        self.send_to_syslog("OK", "Deleted workspace (no changes to apply)")
-                        print("  ✓ Deleted workspace")
-                    except Exception as e:
-                        self.send_to_syslog("WARNING", "Failed to delete workspace: {0}".format(e))
-                    return True
-
-                # 4. Submit the workspace
-                self.send_to_syslog("INFO", "Submitting reset workspace with {0} change controls...".format(len(cc_ids_to_check)))
-                print("Submitting reset workspace with {0} change controls...".format(len(cc_ids_to_check)))
+                # 4. Submit the workspace (ALWAYS submit like standalone)
+                self.send_to_syslog("INFO", "Submitting reset workspace...")
+                print("Submitting reset workspace...")
                 try:
                     req_id = str(uuid.uuid4())
                     json_submit_req = json.dumps({
@@ -615,12 +555,12 @@ class ConfigureTopology():
                                     cc_resp = cc_stub.GetOne(cc_req, timeout=self.GRPC_LIST_TIMEOUT)
                                     cc_version = None
                                     if hasattr(cc_resp, 'value') and hasattr(cc_resp.value, 'change') and hasattr(cc_resp.value.change, 'time'):
-                                         cc_version = cc_resp.value.change.time
-                                         self.send_to_syslog("INFO", "Fetched CC version: {0}".format(cc_version))
-                                         print("  Fetched CC version: {0}".format(cc_version))
+                                            cc_version = cc_resp.value.change.time
+                                            self.send_to_syslog("INFO", "Fetched CC version: {0}".format(cc_version))
+                                            print("  Fetched CC version: {0}".format(cc_version))
                                     else:
-                                         self.send_to_syslog("WARNING", "Could not fetch CC version, trying without...")
-                                         print("  Warning: Could not fetch CC version, trying without...")
+                                            self.send_to_syslog("WARNING", "Could not fetch CC version, trying without...")
+                                            print("  Warning: Could not fetch CC version, trying without...")
                                 except Exception as e:
                                     self.send_to_syslog("WARNING", "Failed to fetch CC details: {0}".format(e))
                                     print("  Warning: Failed to fetch CC details: {0}".format(e))
@@ -704,9 +644,9 @@ class ConfigureTopology():
 
                                             # Check for errors
                                             if hasattr(cc_val, 'error') and cc_val.error and hasattr(cc_val.error, 'message') and cc_val.error.message:
-                                                 self.send_to_syslog("ERROR", "Change Control Error: {0}".format(cc_val.error.message))
-                                                 print("  ✗ Change Control Error: {0}".format(cc_val.error.message))
-                                                 break
+                                                    self.send_to_syslog("ERROR", "Change Control Error: {0}".format(cc_val.error.message))
+                                                    print("  ✗ Change Control Error: {0}".format(cc_val.error.message))
+                                                    break
 
                                             # If RUNNING, SCHEDULED, or NOT_STARTED, keep waiting
                                             if status in [1, 3, 4]:
@@ -736,8 +676,6 @@ class ConfigureTopology():
                 except Exception as e:
                     self.send_to_syslog("ERROR", "Failed to submit/execute workspace: {0}".format(e))
                     print("  ✗ Failed to submit/execute workspace: {0}".format(e))
-
-                return True
 
             else:
                 self.send_to_syslog("INFO", "No studios to reset.")
