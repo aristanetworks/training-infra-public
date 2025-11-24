@@ -430,30 +430,27 @@ class ConfigureTopology():
                                 if ws_id_in_response == reset_ws_id:
                                     ws_found_in_list = True
                                     state = ws_dict.get('state', 'UNKNOWN')
+                                    needs_build = ws_dict.get('needs_build', True)
 
-                                    # Debug: On first 3 checks, dump entire workspace dict
-                                    if i < 3:
-                                        print("  DEBUG: Full workspace dict on check {0}:".format(i+1))
-                                        for k, v in ws_dict.items():
-                                            print("    {0}: {1}".format(k, v))
-
-                                    # Debug: Log state type and value every check
-                                    self.send_to_syslog("DEBUG", "Build check {0}: state={1}, type={2}, ws_id={3}".format(i+1, state, type(state).__name__, reset_ws_id))
-                                    print("  DEBUG: Build check {0}: state={1}, type={2}".format(i+1, state, type(state).__name__))
-
-                                    # Check both string name and numeric value for BUILT
-                                    # MessageToDict may return either the enum name string or numeric value
-                                    if state == 'WORKSPACE_STATE_BUILT' or state == 5:
-                                        self.send_to_syslog("OK", "Workspace is BUILT (took {0} seconds)".format((i+1)*3))
-                                        print("  ✓ Workspace is BUILT (took {0} seconds)".format((i+1)*3))
-                                        found = True
-                                        break
-                                    # Check for CONFLICTS
-                                    elif state == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # Check for CONFLICTS first
+                                    if state == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
-                                    # Continue waiting for other states (PENDING, BUILDING, etc.)
+
+                                    # Check if build is complete by checking needs_build flag
+                                    # When CVP finishes the build, needs_build becomes False
+                                    # This works whether or not there were actual changes to build
+                                    if not needs_build:
+                                        self.send_to_syslog("OK", "Workspace build complete (took {0} seconds)".format((i+1)*3))
+                                        print("  ✓ Workspace build complete (took {0} seconds)".format((i+1)*3))
+                                        found = True
+                                        break
+
+                                    # Still building - log status
+                                    self.send_to_syslog("INFO", "Build check {0}/{1}: needs_build={2}, state={3}".format(i+1, max_build_retries, needs_build, state))
+                                    if i % 10 == 0:  # Print every 10th check to avoid spam
+                                        print("  Build check {0}/{1}: needs_build={2}".format(i+1, max_build_retries, needs_build))
 
                         # Check if workspace was found in the list at all
                         if not ws_found_in_list and i < 3:
@@ -471,9 +468,45 @@ class ConfigureTopology():
                     print("  ✗ Timeout waiting for workspace to build (waited {0} seconds)".format(max_build_retries*3))
                     return False
 
+                # Check if there are any changes to submit
+                # If no change controls were generated, studios are already clean - we're done
+                cc_ids_to_check = []
+                try:
+                    json_get_req = json.dumps({})
+                    get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+                    for response in self.workspace_stub.GetAll(get_req, timeout=self.GRPC_LIST_TIMEOUT):
+                        if hasattr(response, 'value') and response.value:
+                            ws = response.value
+                            ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                            key = ws_dict.get('key', {})
+                            if key.get('workspace_id') == reset_ws_id:
+                                if 'cc_ids' in ws_dict and 'values' in ws_dict['cc_ids']:
+                                    cc_ids_to_check = ws_dict['cc_ids']['values']
+                                break
+                except Exception as e:
+                    self.send_to_syslog("WARNING", "Failed to check for change controls: {0}".format(e))
+
+                if not cc_ids_to_check:
+                    self.send_to_syslog("OK", "No changes needed - Studios already in reset state")
+                    print("  ✓ No changes needed - Studios already in reset state")
+                    # Delete the workspace since we don't need it
+                    try:
+                        json_del_req = json.dumps({
+                            "key": {
+                                "workspace_id": reset_ws_id
+                            }
+                        })
+                        del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
+                        self.workspace_config_stub.Delete(del_req, timeout=self.WORKSPACE_TIMEOUT)
+                        self.send_to_syslog("OK", "Deleted workspace (no changes to apply)")
+                        print("  ✓ Deleted workspace")
+                    except Exception as e:
+                        self.send_to_syslog("WARNING", "Failed to delete workspace: {0}".format(e))
+                    return True
+
                 # 4. Submit the workspace
-                self.send_to_syslog("INFO", "Submitting reset workspace...")
-                print("Submitting reset workspace...")
+                self.send_to_syslog("INFO", "Submitting reset workspace with {0} change controls...".format(len(cc_ids_to_check)))
+                print("Submitting reset workspace with {0} change controls...".format(len(cc_ids_to_check)))
                 try:
                     req_id = str(uuid.uuid4())
                     json_submit_req = json.dumps({
