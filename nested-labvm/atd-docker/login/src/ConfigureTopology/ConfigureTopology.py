@@ -7,6 +7,14 @@ import paramiko
 from scp import SCPClient
 import os
 import urllib3
+import requests
+import grpc
+import json
+import ssl
+import uuid
+from google.protobuf.json_format import Parse, MessageToDict
+from arista.workspace.v1 import services as ws_services
+from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -620,6 +628,13 @@ class ConfigureTopology():
         # Check if the topo has CVP, and if it does, create CVP connection
         if 'cvp' in access_info['nodes']:
             self.client = self.connect_to_cvp(access_info)
+
+            # Handle Reset vs Standard Lab
+            if self.selected_lab == 'reset':
+                self.send_to_syslog("INFO", "Performing CVP Studio reset...")
+                print("\n=== CVP Studio Reset ===")
+                self.reset_studios(access_info)
+                self.send_to_syslog("OK", "CVP Studio reset completed")
 
             self.check_for_tasks()
 
