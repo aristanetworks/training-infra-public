@@ -401,7 +401,8 @@ class ConfigureTopology():
                 # 4. Poll for Build Completion
                 self.send_to_syslog("INFO", "Polling for build completion...")
                 print("Waiting for build to complete...")
-                for i in range(10):
+                max_build_retries = 60  # 60 retries × 3 seconds = 3 minutes
+                for i in range(max_build_retries):
                     try:
                         # Get workspace status
                         json_get_req = json.dumps({})
@@ -415,29 +416,37 @@ class ConfigureTopology():
                                 key = ws_dict.get('key', {})
                                 if key.get('workspace_id') == reset_ws_id:
                                     state = ws_dict.get('state', 'UNKNOWN')
-                                    self.send_to_syslog("INFO", "Status check {0}/10: {1}".format(i+1, state))
-                                    print("  Status check {0}/10: {1}".format(i+1, state))
+                                    state_str = str(state)
 
-                                    if str(state) == 'WORKSPACE_STATE_BUILT' or state == 5:
-                                        self.send_to_syslog("OK", "Workspace is BUILT")
-                                        print("  ✓ Workspace is BUILT")
+                                    # Only log every 10th check to reduce noise, unless state changes
+                                    if i % 10 == 0 or i < 5:
+                                        self.send_to_syslog("INFO", "Build status check {0}/{1}: {2}".format(i+1, max_build_retries, state))
+                                        print("  Build status check {0}/{1}: {2}".format(i+1, max_build_retries, state))
+
+                                    # State 5 = BUILT (success)
+                                    if state_str == 'WORKSPACE_STATE_BUILT' or state == 5:
+                                        self.send_to_syslog("OK", "Workspace is BUILT (took {0} seconds)".format((i+1)*3))
+                                        print("  ✓ Workspace is BUILT (took {0} seconds)".format((i+1)*3))
                                         found = True
                                         break
-                                    elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # State 4 = CONFLICTS (error)
+                                    elif state_str == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
+                                    # States 0,1,3 = PENDING/BUILDING (in progress - keep waiting)
+                                    # Anything else - log and keep waiting
 
                         if found:
                             break
 
-                        time.sleep(2)
+                        time.sleep(3)
                     except Exception as e:
                         self.send_to_syslog("ERROR", "Error checking status: {0}".format(e))
                         print("  Error checking status: {0}".format(e))
                 else:
-                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to build")
-                    print("  ✗ Timeout waiting for workspace to build")
+                    self.send_to_syslog("ERROR", "Timeout waiting for workspace to build (waited {0} seconds)".format(max_build_retries*3))
+                    print("  ✗ Timeout waiting for workspace to build (waited {0} seconds)".format(max_build_retries*3))
                     return False
 
                 # 4. Submit the workspace
@@ -464,8 +473,8 @@ class ConfigureTopology():
                     # 5. Wait for Workspace to be SUBMITTED
                     self.send_to_syslog("INFO", "Waiting for workspace to be SUBMITTED...")
                     print("Waiting for workspace to be SUBMITTED...")
-                    max_retries = 20
-                    for i in range(max_retries):
+                    max_submit_retries = 60  # 60 retries × 3 seconds = 3 minutes
+                    for i in range(max_submit_retries):
                         # Get workspace status
                         json_get_req = json.dumps({})
                         get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
@@ -478,26 +487,33 @@ class ConfigureTopology():
                                 key = ws_dict.get('key', {})
                                 if key.get('workspace_id') == reset_ws_id:
                                     state = ws_dict.get('state', 'UNKNOWN')
-                                    self.send_to_syslog("INFO", "Status check {0}/{1}: {2}".format(i+1, max_retries, state))
-                                    print("  Status check {0}/{1}: {2}".format(i+1, max_retries, state))
+                                    state_str = str(state)
 
-                                    if str(state) == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
-                                        self.send_to_syslog("OK", "Workspace is SUBMITTED")
-                                        print("  ✓ Workspace is SUBMITTED")
+                                    # Only log every 10th check to reduce noise
+                                    if i % 10 == 0 or i < 5:
+                                        self.send_to_syslog("INFO", "Submit status check {0}/{1}: {2}".format(i+1, max_submit_retries, state))
+                                        print("  Submit status check {0}/{1}: {2}".format(i+1, max_submit_retries, state))
+
+                                    # State 2 = SUBMITTED (success)
+                                    if state_str == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
+                                        self.send_to_syslog("OK", "Workspace is SUBMITTED (took {0} seconds)".format((i+1)*3))
+                                        print("  ✓ Workspace is SUBMITTED (took {0} seconds)".format((i+1)*3))
                                         found = True
                                         break
-                                    elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                    # State 4 = CONFLICTS (error)
+                                    elif state_str == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
                                         self.send_to_syslog("ERROR", "Workspace has CONFLICTS")
                                         print("  ✗ Workspace has CONFLICTS")
                                         return False
+                                    # Other states = in progress, keep waiting
 
                         if found:
                             break
 
-                        time.sleep(2)
+                        time.sleep(3)
                     else:
-                        self.send_to_syslog("ERROR", "Timeout waiting for workspace to submit")
-                        print("  ✗ Timeout waiting for workspace to submit")
+                        self.send_to_syslog("ERROR", "Timeout waiting for workspace to submit (waited {0} seconds)".format(max_submit_retries*3))
+                        print("  ✗ Timeout waiting for workspace to submit (waited {0} seconds)".format(max_submit_retries*3))
                         return False
 
                     # 6. Execute Change Controls
