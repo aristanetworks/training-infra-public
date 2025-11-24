@@ -431,6 +431,12 @@ class ConfigureTopology():
                                     ws_found_in_list = True
                                     state = ws_dict.get('state', 'UNKNOWN')
 
+                                    # Debug: On first 3 checks, dump entire workspace dict
+                                    if i < 3:
+                                        print("  DEBUG: Full workspace dict on check {0}:".format(i+1))
+                                        for k, v in ws_dict.items():
+                                            print("    {0}: {1}".format(k, v))
+
                                     # Debug: Log state type and value every check
                                     self.send_to_syslog("DEBUG", "Build check {0}: state={1}, type={2}, ws_id={3}".format(i+1, state, type(state).__name__, reset_ws_id))
                                     print("  DEBUG: Build check {0}: state={1}, type={2}".format(i+1, state, type(state).__name__))
