@@ -11,6 +11,7 @@ import requests
 import grpc
 import json
 import ssl
+import uuid
 from google.protobuf.json_format import Parse, MessageToDict
 from arista.workspace.v1 import services as ws_services
 from arista.workspace.v1 import models as ws_models
@@ -255,47 +256,31 @@ class ConfigureTopology():
 
     def reset_studios(self, access_info):
         """
-        Reset CloudVision Studios by creating a new workspace, clearing inputs for all
-        modified studios, and submitting the changes. This effectively reverts all
-        studio configurations to their default state.
-        
-        Args:
-            access_info: Dictionary containing CVP connection details
-
-        Returns:
-            bool: True if reset successful, False if failure
+        Reset all studios to blank state
         """
         self.send_to_syslog("INFO", "Resetting CloudVision Studios (Master Reset)...")
         print("Resetting CloudVision Studios (Master Reset)...")
 
+        # Extract credentials
+        self.cvp_ip = access_info['nodes']['cvp'][0]['ip']
+        self.username = access_info['login_info']['jump_host']['user']
+        self.password = access_info['login_info']['jump_host']['pw']
+
         try:
+            # Initialize gRPC channel and stubs
             channel = self.get_grpc_channel(access_info)
-            workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
+            self.workspace_stub = ws_services.WorkspaceServiceStub(channel)
+            self.workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
+            self.inputs_stub = studio_services.InputsServiceStub(channel)
+            self.inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
+            self.channel = channel # Save for CC stubs later
+
+            # 1. Create a new workspace for the reset
+            self.send_to_syslog("INFO", "Creating reset workspace...")
+            print("Creating reset workspace...")
+            req_id = str(uuid.uuid4())
+            reset_ws_id = "Reset-Studios-" + req_id
             
-            # Import Studio services
-            try:
-                from arista.studio.v1 import services as studio_services
-                inputs_stub = studio_services.InputsServiceStub(channel)
-                inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
-            except ImportError:
-                self.send_to_syslog("ERROR", "Could not import arista.studio.v1")
-                print("ERROR: Could not import arista.studio.v1")
-                return False
-            except AttributeError:
-                self.send_to_syslog("ERROR", "Could not find InputsConfigServiceStub")
-                print("ERROR: Could not find InputsConfigServiceStub")
-                return False
-    def reset_studios(self):
-        """
-        Reset all studios to blank state
-        """
-        # 1. Create a new workspace for the reset
-        self.send_to_syslog("INFO", "Creating reset workspace...")
-        print("Creating reset workspace...")
-        req_id = str(uuid.uuid4())
-        reset_ws_id = "Reset-Studios-" + req_id
-        
-        try:
             # Create workspace
             json_ws_req = json.dumps({
                 "value": {
