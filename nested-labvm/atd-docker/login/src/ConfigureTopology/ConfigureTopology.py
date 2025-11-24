@@ -15,10 +15,6 @@ import uuid
 from google.protobuf.json_format import Parse, MessageToDict
 from arista.workspace.v1 import services as ws_services
 from arista.workspace.v1 import models as ws_models
-import arista.studio.v1.services as studio_services
-import arista.studio.v1.models as studio_models
-import arista.changecontrol.v1.services as cc_services
-import arista.changecontrol.v1.models as cc_models
 from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -271,8 +267,17 @@ class ConfigureTopology():
             channel = self.get_grpc_channel(access_info)
             self.workspace_stub = ws_services.WorkspaceServiceStub(channel)
             self.workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
-            self.inputs_stub = studio_services.InputsServiceStub(channel)
-            self.inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
+            
+            # Import Studio services locally
+            try:
+                import arista.studio.v1.services as studio_services
+                self.inputs_stub = studio_services.InputsServiceStub(channel)
+                self.inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
+            except ImportError:
+                self.send_to_syslog("ERROR", "Could not import arista.studio.v1")
+                print("ERROR: Could not import arista.studio.v1")
+                return False
+
             self.channel = channel # Save for CC stubs later
 
             # 1. Create a new workspace for the reset
@@ -495,10 +500,17 @@ class ConfigureTopology():
                 self.send_to_syslog("INFO", "Checking for generated Change Controls...")
                 print("Checking for generated Change Controls...")
                 
-                # Import CC services (if not already imported at top level, but we did)
-                cc_stub = cc_services.ChangeControlServiceStub(self.channel)
-                approve_stub = cc_services.ApproveConfigServiceStub(self.channel)
-                cc_config_stub = cc_services.ChangeControlConfigServiceStub(self.channel)
+                # Import CC services locally
+                try:
+                    import arista.changecontrol.v1.services as cc_services
+                    import arista.changecontrol.v1.models as cc_models
+                    cc_stub = cc_services.ChangeControlServiceStub(self.channel)
+                    approve_stub = cc_services.ApproveConfigServiceStub(self.channel)
+                    cc_config_stub = cc_services.ChangeControlConfigServiceStub(self.channel)
+                except ImportError:
+                    self.send_to_syslog("ERROR", "Could not import arista.changecontrol.v1")
+                    print("ERROR: Could not import arista.changecontrol.v1")
+                    return False
 
                 # Get workspace again to find cc_ids
                 try:
