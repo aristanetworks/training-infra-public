@@ -77,6 +77,7 @@ class CloudLoggingManager:
 
     _instance = None
     _initialized = False
+    _setup_done = False  # Track if setup has been called
 
     def __new__(cls):
         if cls._instance is None:
@@ -105,6 +106,11 @@ class CloudLoggingManager:
         Returns:
             True if setup successful, False otherwise
         """
+        # If setup has already been called, skip to avoid duplicate handlers
+        if CloudLoggingManager._setup_done:
+            self.logger.debug(f"Cloud Logging already setup, skipping duplicate setup for {service_name}")
+            return True
+
         if not CLOUD_LOGGING_AVAILABLE:
             self.logger.warning("Cloud Logging not available (google-cloud-logging not installed)")
             return False
@@ -127,12 +133,12 @@ class CloudLoggingManager:
             self.cloud_handler = self.client.get_default_handler(labels=labels)
             self.cloud_handler.setLevel(logging.INFO)
 
-            # Add to root logger so all loggers use it (only if not already added)
+            # Add to root logger so all loggers use it
             root_logger = logging.getLogger()
+            root_logger.addHandler(self.cloud_handler)
 
-            # Check if this handler is already attached to avoid duplicates
-            if self.cloud_handler not in root_logger.handlers:
-                root_logger.addHandler(self.cloud_handler)
+            # Mark setup as done to prevent duplicate handlers
+            CloudLoggingManager._setup_done = True
 
             self.logger.info(f"Cloud Logging enabled for service: {service_name}, lab: {self.hostname}")
             return True
