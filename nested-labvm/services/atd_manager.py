@@ -48,6 +48,11 @@ from dataclasses import dataclass, field
 
 import yaml
 
+# Suppress gRPC fork warnings to reduce log noise
+# These INFO-level messages appear when subprocess calls happen during Cloud Logging
+os.environ['GRPC_VERBOSITY'] = 'ERROR'
+os.environ['GRPC_TRACE'] = ''
+
 # Try to import Cloud Logging (optional dependency)
 try:
     from google.cloud import logging as cloud_logging
