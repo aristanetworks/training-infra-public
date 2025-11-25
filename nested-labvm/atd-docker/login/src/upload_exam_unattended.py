@@ -211,6 +211,14 @@ def create_tarball(output_dir, lab_name):
         with tarfile.open(tarball_name, "w:gz") as tar:
             tar.add(output_dir, arcname=os.path.basename(output_dir))
 
+            # Add apps/coder directory if it exists (student's lab work)
+            coder_path = "apps/coder/"
+            if os.path.exists(coder_path):
+                tar.add(coder_path, arcname=os.path.basename(output_dir))
+                print(f"✓ Added {coder_path} to tarball")
+            else:
+                print(f"⚠ Warning: {coder_path} not found, skipping")
+
         print(f"✓ Tarball created: {tarball_name}")
         print(f"  Location: {os.path.abspath(tarball_name)}")
         return tarball_name
