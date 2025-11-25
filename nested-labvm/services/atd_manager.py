@@ -127,9 +127,12 @@ class CloudLoggingManager:
             self.cloud_handler = self.client.get_default_handler(labels=labels)
             self.cloud_handler.setLevel(logging.INFO)
 
-            # Add to root logger so all loggers use it
+            # Add to root logger so all loggers use it (only if not already added)
             root_logger = logging.getLogger()
-            root_logger.addHandler(self.cloud_handler)
+
+            # Check if this handler is already attached to avoid duplicates
+            if self.cloud_handler not in root_logger.handlers:
+                root_logger.addHandler(self.cloud_handler)
 
             self.logger.info(f"Cloud Logging enabled for service: {service_name}, lab: {self.hostname}")
             return True
