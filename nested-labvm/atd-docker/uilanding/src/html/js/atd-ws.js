@@ -22,6 +22,11 @@ function createWS(SOCK_URL) {
     ws = new WebSocket(SOCK_URL);
     ws.onopen = function()
     {
+        // Update connectivity monitor
+        if (window.ConnectivityMonitor) {
+            window.ConnectivityMonitor.updateWSStatus(true);
+        }
+
         // Web Socket is connected, send data using send()
         ws.send(JSON.stringify({
             type:"hello",
@@ -32,6 +37,11 @@ function createWS(SOCK_URL) {
     };
     
     ws.onclose = function(evt) {
+        // Update connectivity monitor
+        if (window.ConnectivityMonitor) {
+            window.ConnectivityMonitor.updateWSStatus(false);
+        }
+
         if ( !evt.wasClean ) {
             setTimeout(function() {
                 createWS(SOCK_URL);
@@ -83,8 +93,13 @@ function createWS(SOCK_URL) {
             }
         }
         if (received_msg['type'] == 'ping') {
+            // Update connectivity monitor on successful ping
+            if (window.ConnectivityMonitor) {
+                window.ConnectivityMonitor.updateWSStatus(true);
+            }
+
             ws.send(JSON.stringify({
-                type: "pong", 
+                type: "pong",
                 data: {
                     message: 'pong'
                 }
