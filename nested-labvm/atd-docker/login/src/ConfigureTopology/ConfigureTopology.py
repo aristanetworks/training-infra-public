@@ -367,7 +367,7 @@ class ConfigureTopology():
                                         state = ws_dict.get('state', 'UNKNOWN')
                                         print("  Status check {0}/10: {1}".format(i+1, state))
 
-                                        if str(state) == 'WORKSPACE_STATE_BUILT' or state == 5:
+                                        if str(state) == 'WORKSPACE_STATE_BUILT' or str(state) == 'BUILT' or state == 6:
                                             print("  ✓ Workspace is BUILT")
                                             found = True
                                             break
@@ -382,8 +382,7 @@ class ConfigureTopology():
                         except Exception as e:
                             print("  Error checking status: {0}".format(e))
                     else:
-                        print("  ✗ Timeout waiting for workspace to build")
-                        return False
+                        print("  Warning: Timeout waiting for build. Attempting submit anyway...")
 
                 except Exception as e:
                     print("  ✗ Failed to start/wait for build: {0}".format(e))
