@@ -1651,7 +1651,7 @@ class ATDUpdate:
             )
 
             # Update utils module
-            self.file_manager.create_directory('/usr/local/lib/atd-services/utils')
+            self.file_manager.ensure_directory('/usr/local/lib/atd-services/utils')
             self.file_manager.rsync(
                 f'{self.config.atd_opt_path}/nested-labvm/services/utils/',
                 '/usr/local/lib/atd-services/utils/'
