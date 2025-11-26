@@ -892,6 +892,15 @@ class FileManager:
 
     def sed_replace(self, file_path: str, pattern: str, replacement: str) -> bool:
         """Perform sed-like replacement in a file"""
+        # Skip binary files (images, etc.)
+        binary_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg',
+                            '.pdf', '.zip', '.tar', '.gz', '.bz2', '.xz',
+                            '.exe', '.dll', '.so', '.dylib', '.pyc'}
+
+        if any(file_path.lower().endswith(ext) for ext in binary_extensions):
+            self.logger.debug(f"Skipping binary file: {file_path}")
+            return False
+
         try:
             with open(file_path, 'r') as f:
                 content = f.read()
@@ -902,6 +911,9 @@ class FileManager:
                 f.write(content)
 
             return True
+        except UnicodeDecodeError:
+            self.logger.debug(f"Skipping binary file (decode error): {file_path}")
+            return False
         except Exception as e:
             self.logger.error(f"Sed replace failed for {file_path}: {e}")
             return False
@@ -1618,7 +1630,7 @@ class ATDUpdate:
             # Update git repository
             self.git_manager.update_to_branch(branch, repo)
 
-            # Update scripts
+            # Update shell scripts
             self.file_manager.rsync(
                 f'{self.config.atd_opt_path}/nested-labvm/services/atdUpdate/atdUpdate.sh',
                 '/usr/local/bin/'
@@ -1626,6 +1638,23 @@ class ATDUpdate:
             self.file_manager.rsync(
                 f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/atdStartup.sh',
                 '/usr/local/bin/'
+            )
+
+            # Update Python scripts
+            self.file_manager.rsync(
+                f'{self.config.atd_opt_path}/nested-labvm/services/atdUpdate/atdUpdate.py',
+                '/usr/local/bin/'
+            )
+            self.file_manager.rsync(
+                f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/atdStartup.py',
+                '/usr/local/bin/'
+            )
+
+            # Update utils module
+            self.file_manager.create_directory('/usr/local/lib/atd-services/utils')
+            self.file_manager.rsync(
+                f'{self.config.atd_opt_path}/nested-labvm/services/utils/',
+                '/usr/local/lib/atd-services/utils/'
             )
 
             # Execute startup

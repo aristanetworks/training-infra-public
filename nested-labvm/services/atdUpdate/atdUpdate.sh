@@ -1,47 +1,38 @@
 #!/bin/bash
+#
+# ATD Update Wrapper Script
+# This script is called by external systems and delegates to the Python implementation
+#
+# The Python script (atdUpdate.py) handles:
+#   - Git operations (fetch, checkout, pull)
+#   - Syncing scripts to /usr/local/bin/
+#   - Running ATD Startup
+#
+# Usage: sudo sh /usr/local/bin/atdUpdate.sh
+#
 
-BRANCH=$(cat /etc/atd/ATD_REPO.yaml | python3 -m shyaml get-value atd-public-branch)
+echo "Starting ATD Update (Python Edition)"
 
-if  [ -z "$(cat /etc/atd/ATD_REPO.yaml | grep repo)" ]
-then
-    REPO="https://github.com/aristanetworks/atd-public.git"
+# First time: ensure Python files are in place from the git repo
+# If they don't exist in /usr/local/bin/, copy them from the repo
+if [ ! -f "/usr/local/bin/atdUpdate.py" ] || [ ! -d "/usr/local/lib/atd-services/utils" ]; then
+    echo "Initializing Python files for first run..."
+    mkdir -p /usr/local/lib/atd-services/utils
+    rsync -av /opt/atd/nested-labvm/services/atdUpdate/atdUpdate.py /usr/local/bin/ 2>/dev/null || true
+    rsync -av /opt/atd/nested-labvm/services/atdStartup/atdStartup.py /usr/local/bin/ 2>/dev/null || true
+    rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/utils/ 2>/dev/null || true
+fi
+
+# Run the Python script (which handles git, sync, and startup)
+python3 /usr/local/bin/atdUpdate.py
+
+# Capture exit code
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "ATD Update completed successfully"
 else
-    REPO=$(cat /etc/atd/ATD_REPO.yaml | python3 -m shyaml get-value public-repo)
+    echo "ATD Update failed with exit code: $EXIT_CODE"
 fi
 
-# Perform git repo check
-cd /opt/atd
-
-# Check the current repo compared to the targeted repo
-if [[ ! "$(git remote get-url origin)" = "$REPO" ]]
-then
-    echo "Repos do not match, updating to $REPO"
-    git remote set-url origin $REPO
-fi
-
-# Fetch updates from the remote repo
-git fetch
-
-# Perform check on the current branch/tag to the targeted
-if [[ "$(git branch --show-current)" = "$BRANCH" ]]
-then
-    echo "Target branch matches current branch"
-    git checkout .
-    git pull
-else
-    echo "Branches do not match, updating to branch $BRANCH"
-    git checkout .
-    git checkout $BRANCH
-    git pull
-fi
-
-# Update atdUpdate script
-
-rsync -av /opt/atd/nested-labvm/services/atdUpdate/atdUpdate.sh /usr/local/bin/
-
-# Update atdStartup script
-
-rsync -av /opt/atd/nested-labvm/services/atdStartup/atdStartup.sh /usr/local/bin/
-
-echo "Executing atdStartup"
-bash /usr/local/bin/atdStartup.sh
+exit $EXIT_CODE

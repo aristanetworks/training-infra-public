@@ -14,10 +14,13 @@ Or via the wrapper shell script:
 import sys
 import os
 
-# Add the services directory to path for imports
-sys.path.insert(0, '/opt/atd/nested-labvm/services')
+# Add paths for imports (check deployment location first, then dev location)
+if os.path.exists('/usr/local/lib/atd-services'):
+    sys.path.insert(0, '/usr/local/lib/atd-services')
+else:
+    sys.path.insert(0, '/opt/atd/nested-labvm/services')
 
-from atd_manager import ATDStartup, ATDConfig
+from utils.atd_manager import ATDStartup, ATDConfig
 
 
 def main():
