@@ -16,6 +16,38 @@
 </head>
 
 <body>
+  <!-- Connectivity Status Badge -->
+  <div id="connectivity-badge" class="connectivity-badge" title="System Connectivity Status">
+    <span class="connectivity-icon">
+      <i class="fa-solid fa-circle-check"></i>
+    </span>
+    <span class="connectivity-text">Connected</span>
+  </div>
+
+  <!-- Connectivity Details Popup -->
+  <div id="connectivity-details" class="connectivity-details" style="display: none;">
+    <div class="connectivity-detail-header">
+      <h4>Connectivity Status</h4>
+      <button class="connectivity-close-btn" type="button">&times;</button>
+    </div>
+    <div class="connectivity-detail-body">
+      <div class="status-item">
+        <span class="status-label">WebSocket:</span>
+        <span id="ws-status-text" class="status-value">Checking...</span>
+        <span id="ws-status-icon" class="status-icon"></span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">CVP gRPC:</span>
+        <span id="grpc-status-text" class="status-value">Checking...</span>
+        <span id="grpc-status-icon" class="status-icon"></span>
+      </div>
+      <div class="status-note">
+        <i class="fa-solid fa-info-circle"></i>
+        <span id="connectivity-message">Monitoring connectivity...</span>
+      </div>
+    </div>
+  </div>
+
   <header></header>
   <main>
     <!-------Index with sidebar-->
@@ -342,6 +374,7 @@
   <script src="js/bootstrap.min.js"></script>
   <script src="js/backend.js"></script>
   <script type="module" src="js/honorlock-examsubmit-v1.js"></script>
+  <script src="js/connectivity-monitor.js"></script>
 </body>
 
 </html>
