@@ -7,6 +7,14 @@ import paramiko
 from scp import SCPClient
 import os
 import urllib3
+import requests
+import grpc
+import json
+import ssl
+import uuid
+from google.protobuf.json_format import Parse, MessageToDict
+from arista.workspace.v1 import services as ws_services
+from cvprac.cvp_client import CvpClient
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -172,6 +180,425 @@ class ConfigureTopology():
         else:
             return
 
+    def get_cvprac_client(self, access_info):
+        cvpUsername = access_info['login_info']['jump_host']['user']
+        cvpPassword = access_info['login_info']['jump_host']['pw']
+        cvp_ip = access_info['nodes']['cvp'][0]['ip']
+        clnt = CvpClient()
+        clnt.connect([cvp_ip], cvpUsername, cvpPassword)
+        return clnt
+
+    def get_grpc_channel(self, access_info):
+        cvpUsername = access_info['login_info']['jump_host']['user']
+        cvpPassword = access_info['login_info']['jump_host']['pw']
+        cvp_ip = access_info['nodes']['cvp'][0]['ip']
+
+        # Get token
+        try:
+            response = requests.post(
+                'https://{0}/cvpservice/login/authenticate.do'.format(cvp_ip),
+                auth=(cvpUsername, cvpPassword),
+                verify=False
+            )
+            token = response.json()['sessionId']
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to get CVP token: {0}".format(str(e)))
+            raise e
+
+        # Get cert
+        try:
+            cert = ssl.get_server_certificate((cvp_ip, 443))
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to get CVP cert: {0}".format(str(e)))
+            raise e
+
+        # Create channel
+        call_creds = grpc.access_token_call_credentials(token)
+        channel_creds = grpc.ssl_channel_credentials(root_certificates=cert.encode())
+        conn_creds = grpc.composite_channel_credentials(channel_creds, call_creds)
+
+        return grpc.secure_channel('{0}:443'.format(cvp_ip), conn_creds)
+
+    def reset_studios(self, access_info):
+        """
+        Reset all studios to blank state (Master Reset) - logic from standalone_reset.py
+        """
+        self.send_to_syslog("INFO", "Resetting CloudVision Studios (Master Reset)...")
+        print("Resetting CloudVision Studios (Master Reset)...")
+
+        try:
+            channel = self.get_grpc_channel(access_info)
+            workspace_stub = ws_services.WorkspaceServiceStub(channel)
+            workspace_config_stub = ws_services.WorkspaceConfigServiceStub(channel)
+
+            # Import Studio services
+            try:
+                from arista.studio.v1 import services as studio_services
+                from arista.studio.v1 import models as studio_models
+                inputs_stub = studio_services.InputsServiceStub(channel)
+                inputs_config_stub = studio_services.InputsConfigServiceStub(channel)
+            except ImportError:
+                self.send_to_syslog("ERROR", "Could not import arista.studio.v1")
+                print("ERROR: Could not import arista.studio.v1")
+                return False
+            except AttributeError:
+                self.send_to_syslog("ERROR", "Could not find InputsConfigServiceStub")
+                print("ERROR: Could not find InputsConfigServiceStub")
+                return False
+
+            # 1. Create a new workspace for the reset
+            reset_ws_id = str(uuid.uuid4())
+            reset_ws_name = "Reset_Studios_" + reset_ws_id[:8]
+            self.send_to_syslog("INFO", "Creating reset workspace: {0} ({1})".format(reset_ws_name, reset_ws_id))
+            print("Creating reset workspace: {0} ({1})".format(reset_ws_name, reset_ws_id))
+
+            try:
+                # Create workspace
+                json_ws_req = json.dumps({
+                    "value": {
+                        "key": {
+                            "workspace_id": reset_ws_id
+                        },
+                        "display_name": reset_ws_name
+                    }
+                })
+                ws_req = Parse(json_ws_req, ws_services.WorkspaceConfigSetRequest(), False)
+                workspace_config_stub.Set(ws_req, timeout=30)
+                self.send_to_syslog("OK", "Workspace created")
+                print("  ✓ Workspace created")
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to create workspace: {0}".format(e))
+                print("  ✗ Failed to create workspace: {0}".format(e))
+                return False
+
+            # 2. Identify studios to reset (Mainline configs)
+            self.send_to_syslog("INFO", "Identifying studios with mainline configuration...")
+            print("Identifying studios with mainline configuration...")
+            studios_to_reset = set()
+
+            try:
+                def get_value(field):
+                    if hasattr(field, 'value'):
+                        return field.value
+                    return field
+
+                # Get all inputs for mainline (workspace_id="")
+                json_inputs_req = json.dumps({})
+                inputs_req = Parse(json_inputs_req, studio_services.InputsStreamRequest(), False)
+
+                for response in inputs_stub.GetAll(inputs_req, timeout=10):
+                    if hasattr(response, 'value') and response.value:
+                        val = response.value
+                        key = val.key
+
+                        s_id = get_value(key.studio_id)
+                        w_id = get_value(key.workspace_id)
+
+                        # Check if it's mainline (empty workspace_id)
+                        if w_id == "":
+                            studios_to_reset.add(s_id)
+
+                self.send_to_syslog("OK", "Found {0} studios with mainline configuration: {1}".format(len(studios_to_reset), list(studios_to_reset)))
+                print("Found {0} studios with mainline configuration: {1}".format(len(studios_to_reset), list(studios_to_reset)))
+
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to list inputs: {0}".format(e))
+                print("  ✗ Failed to list inputs: {0}".format(e))
+
+            # 3. Clear inputs for these studios in the new workspace
+            if studios_to_reset:
+                self.send_to_syslog("INFO", "Clearing inputs for {0} studios...".format(len(studios_to_reset)))
+                print("Clearing inputs for {0} studios...".format(len(studios_to_reset)))
+                for studio_id in studios_to_reset:
+                    try:
+                        # Set inputs with remove=True
+                        json_set_req = json.dumps({
+                            "value": {
+                                "key": {
+                                    "studio_id": studio_id,
+                                    "workspace_id": reset_ws_id,
+                                    "path": {}  # Root path
+                                },
+                                "remove": True
+                            }
+                        })
+                        set_req = Parse(json_set_req, studio_services.InputsConfigSetRequest(), False)
+                        inputs_config_stub.Set(set_req, timeout=30)
+                        self.send_to_syslog("OK", "Cleared inputs for {0}".format(studio_id))
+                        print("  ✓ Cleared inputs for {0}".format(studio_id))
+                    except Exception as e:
+                        self.send_to_syslog("ERROR", "Failed to clear inputs for {0}: {1}".format(studio_id, e))
+                        print("  ✗ Failed to clear inputs for {0}: {1}".format(studio_id, e))
+
+                # 3.5. Start Build
+                print("\nStarting build for reset workspace...")
+                try:
+                    req_id = str(uuid.uuid4())
+                    json_build_req = json.dumps({
+                        "value": {
+                            "key": {
+                                "workspace_id": reset_ws_id
+                            },
+                            "request": 1,  # REQUEST_START_BUILD
+                            "request_params": {
+                                "request_id": req_id
+                            }
+                        }
+                    })
+                    build_req = Parse(json_build_req, ws_services.WorkspaceConfigSetRequest(), False)
+                    response = workspace_config_stub.Set(build_req, timeout=30)
+                    print("  ✓ Build request sent")
+                    print("Waiting for build to complete...")
+                    # 4. Poll for Build Completion
+                    print("Waiting for build to complete...")
+                    for i in range(10):
+                        try:
+                            # Get workspace status
+                            json_get_req = json.dumps({})
+                            get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+
+                            found = False
+                            for response in workspace_stub.GetAll(get_req, timeout=10):
+                                if hasattr(response, 'value') and response.value:
+                                    ws = response.value
+                                    ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                                    key = ws_dict.get('key', {})
+                                    if key.get('workspace_id') == reset_ws_id:
+                                        state = ws_dict.get('state', 'UNKNOWN')
+                                        print("  Status check {0}/10: {1}".format(i+1, state))
+
+                                        if str(state) == 'WORKSPACE_STATE_BUILT' or str(state) == 'BUILT' or state == 6:
+                                            print("  ✓ Workspace is BUILT")
+                                            found = True
+                                            break
+                                        elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                            print("  ✗ Workspace has CONFLICTS")
+                                            return False
+
+                            if found:
+                                break
+
+                            time.sleep(2)
+                        except Exception as e:
+                            print("  Error checking status: {0}".format(e))
+                    else:
+                        print("  Warning: Timeout waiting for build. Attempting submit anyway...")
+
+                except Exception as e:
+                    print("  ✗ Failed to start/wait for build: {0}".format(e))
+
+                # 4. Submit the workspace
+                print("Submitting reset workspace...")
+                try:
+                    req_id = str(uuid.uuid4())
+                    json_submit_req = json.dumps({
+                        "value": {
+                            "key": {
+                                "workspace_id": reset_ws_id
+                            },
+                            "request": 3,  # REQUEST_SUBMIT
+                            "request_params": {
+                                "request_id": req_id
+                            }
+                        }
+                    })
+                    submit_req = Parse(json_submit_req, ws_services.WorkspaceConfigSetRequest(), False)
+                    workspace_config_stub.Set(submit_req, timeout=30)
+                    print("  ✓ Workspace submit request sent")
+
+                    # 5. Wait for Workspace to be SUBMITTED
+                    print("Waiting for workspace to be SUBMITTED...")
+                    max_retries = 20
+                    for i in range(max_retries):
+                        # Get workspace status
+                        json_get_req = json.dumps({})
+                        get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+
+                        found = False
+                        for response in workspace_stub.GetAll(get_req, timeout=10):
+                            if hasattr(response, 'value') and response.value:
+                                ws = response.value
+                                ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                                key = ws_dict.get('key', {})
+                                if key.get('workspace_id') == reset_ws_id:
+                                    state = ws_dict.get('state', 'UNKNOWN')
+                                    print("  Status check {0}/{1}: {2}".format(i+1, max_retries, state))
+
+                                    if str(state) == 'WORKSPACE_STATE_SUBMITTED' or state == 2:
+                                        print("  ✓ Workspace is SUBMITTED")
+                                        found = True
+                                        break
+                                    elif str(state) == 'WORKSPACE_STATE_CONFLICTS' or state == 4:
+                                        print("  ✗ Workspace has CONFLICTS")
+                                        return False
+
+                        if found:
+                            break
+
+                        time.sleep(2)
+                    else:
+                        print("  ✗ Timeout waiting for workspace to submit")
+                        return False
+
+                    # 6. Execute Change Controls
+                    print("Checking for generated Change Controls...")
+
+                    # Import CC services
+                    try:
+                        from arista.changecontrol.v1 import services as cc_services
+                        from arista.changecontrol.v1 import models as cc_models
+                        cc_stub = cc_services.ChangeControlServiceStub(channel)
+                        approve_stub = cc_services.ApproveConfigServiceStub(channel)
+                        cc_config_stub = cc_services.ChangeControlConfigServiceStub(channel)
+                    except ImportError:
+                        print("  ✗ Could not import CC services")
+                        return False
+
+                    # Get workspace again to find cc_ids
+                    try:
+                        json_get_req = json.dumps({})
+                        get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+
+                        cc_ids = []
+                        for response in workspace_stub.GetAll(get_req, timeout=10):
+                            if hasattr(response, 'value') and response.value:
+                                ws = response.value
+                                ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                                key = ws_dict.get('key', {})
+                                if key.get('workspace_id') == reset_ws_id:
+                                    if 'cc_ids' in ws_dict and 'values' in ws_dict['cc_ids']:
+                                        cc_ids = ws_dict['cc_ids']['values']
+                                    break
+
+                        if cc_ids:
+                            print("Found {0} Change Controls: {1}".format(len(cc_ids), cc_ids))
+                            for cc_id in cc_ids:
+                                print("Processing Change Control: {0}".format(cc_id))
+
+                                # 6.0 Get Change Control Version
+                                try:
+                                    json_cc_req = json.dumps({"key": {"id": cc_id}})
+                                    cc_req = Parse(json_cc_req, cc_services.ChangeControlRequest(), False)
+                                    cc_resp = cc_stub.GetOne(cc_req, timeout=10)
+                                    cc_version = None
+                                    if hasattr(cc_resp, 'value') and hasattr(cc_resp.value, 'change') and hasattr(cc_resp.value.change, 'time'):
+                                        cc_version = cc_resp.value.change.time
+                                        print("  Fetched CC version: {0}".format(cc_version))
+                                    else:
+                                        print("  Warning: Could not fetch CC version, trying without...")
+                                except Exception as e:
+                                    print("  Warning: Failed to fetch CC details: {0}".format(e))
+                                    cc_version = None
+
+                                # 6.1 Approve Change Control
+                                try:
+                                    print("  Approving...")
+                                    approve_dict = {
+                                        "value": {
+                                            "key": {
+                                                "id": cc_id
+                                            },
+                                            "approve": {
+                                                "value": True,
+                                                "notes": "Approved by reset script"
+                                            }
+                                        }
+                                    }
+
+                                    if cc_version:
+                                        approve_dict["value"]["version"] = MessageToDict(cc_version)
+
+                                    json_approve_req = json.dumps(approve_dict)
+                                    approve_req = Parse(json_approve_req, cc_services.ApproveConfigSetRequest(), False)
+                                    approve_stub.Set(approve_req, timeout=30)
+                                    print("  ✓ Approved")
+                                except Exception as e:
+                                    print("  ✗ Failed to approve: {0}".format(e))
+                                    continue
+
+                                # 6.2 Start Change Control
+                                try:
+                                    print("  Starting...")
+                                    start_dict = {
+                                        "value": {
+                                            "key": {
+                                                "id": cc_id
+                                            },
+                                            "start": {
+                                                "value": True,
+                                                "notes": "Started by reset script"
+                                            }
+                                        }
+                                    }
+                                    json_start_req = json.dumps(start_dict)
+                                    start_req = Parse(json_start_req, cc_services.ChangeControlConfigSetRequest(), False)
+                                    cc_config_stub.Set(start_req, timeout=30)
+                                    print("  ✓ Started")
+                                except Exception as e:
+                                    print("  ✗ Failed to start: {0}".format(e))
+                                    continue
+
+                                # 6.3 Wait for Completion
+                                print("  Waiting for completion...")
+                                for i in range(60):
+                                    try:
+                                        # Get CC status
+                                        json_cc_req = json.dumps({"key": {"id": cc_id}})
+                                        cc_req = Parse(json_cc_req, cc_services.ChangeControlRequest(), False)
+                                        cc_resp = cc_stub.GetOne(cc_req, timeout=10)
+
+                                        if hasattr(cc_resp, 'value'):
+                                            cc_val = cc_resp.value
+                                            status = cc_val.status
+                                            print("    Status check {0}/60: {1}".format(i+1, status))
+
+                                            if status == 2:  # COMPLETED
+                                                print("  ✓ Change Control Completed")
+                                                break
+
+                                            # Check for errors
+                                            if hasattr(cc_val, 'error') and cc_val.error and hasattr(cc_val.error, 'message') and cc_val.error.message:
+                                                print("  ✗ Change Control Error: {0}".format(cc_val.error.message))
+                                                break
+
+                                            if status in [1, 3, 4]:
+                                                pass
+
+                                    except Exception as e:
+                                        print("    Error checking status: {0}".format(e))
+
+                                    time.sleep(2)
+                                else:
+                                    print("  Warning: Timeout waiting for Change Control completion")
+
+                        else:
+                            print("No Change Controls found in workspace.")
+
+                    except Exception as e:
+                        print("  ✗ Failed to process Change Controls: {0}".format(e))
+
+                except Exception as e:
+                    print("  ✗ Failed to submit/execute workspace: {0}".format(e))
+            else:
+                print("No studios to reset.")
+                # Delete the empty workspace
+                try:
+                    json_del_req = json.dumps({
+                        "key": {
+                            "workspace_id": reset_ws_id
+                        }
+                    })
+                    del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
+                    workspace_config_stub.Delete(del_req, timeout=30)
+                    print("  ✓ Deleted empty reset workspace")
+                except:
+                    pass
+
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to reset Studios: {0}".format(str(e)))
+            print("Failed to reset Studios: {0}".format(str(e)))
+            return False
+
 
     def deploy_lab(self):
 
@@ -200,6 +627,13 @@ class ConfigureTopology():
         # Check if the topo has CVP, and if it does, create CVP connection
         if 'cvp' in access_info['nodes']:
             self.client = self.connect_to_cvp(access_info)
+
+            # Handle Reset vs Standard Lab
+            if self.selected_lab == 'reset':
+                self.send_to_syslog("INFO", "Performing CVP Studio reset...")
+                print("\n=== CVP Studio Reset ===")
+                self.reset_studios(access_info)
+                self.send_to_syslog("OK", "CVP Studio reset completed")
 
             self.check_for_tasks()
 
