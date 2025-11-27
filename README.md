@@ -1,4 +1,5 @@
-Arista Test Drive (ATD)
+Arista Training Labs
 
-- This is the public repo for documentation related to ATD
-- For questions/support, please contact atd-help@arista.com
+- This is the public repo for documentation related to ATL
+- For questions/support, please contact training@arista.com
+
