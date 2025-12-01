@@ -11,7 +11,7 @@ RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.5/fixuid-0.
 RUN apt update && \
     apt install -y openssh-server vim sudo screen libvirt-clients libvirt-dev
 
-RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib-pelix google-cloud-storage cloudvision
+RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib-pelix google-cloud-storage cloudvision google-cloud-logging
 
 RUN mkdir /var/run/sshd
 
@@ -28,6 +28,10 @@ RUN echo 'arista ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 WORKDIR /home/arista
 
 RUN mkdir .ssh
+
+COPY src/cloud_logging_utils.py /usr/local/lib/python3.9/site-packages/
+
+RUN chmod 644 /usr/local/lib/python3.9/site-packages/cloud_logging_utils.py
 
 COPY src/login.py /usr/local/bin
 

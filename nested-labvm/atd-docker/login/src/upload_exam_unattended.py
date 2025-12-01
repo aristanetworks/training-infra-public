@@ -17,6 +17,7 @@ import tarfile
 from datetime import datetime, timezone
 from cvprac.cvp_client import CvpClient
 from cvprac.cvp_client_errors import CvpApiError
+from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
 
 # Try to import jsonrpclib for switch eAPI access
 try:
@@ -38,42 +39,58 @@ warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 requests.packages.urllib3.disable_warnings()
 labACCESS = '/etc/atd/ACCESS_INFO.yaml'
 EDIT_INSTANCE = 'https://us-central1-{}.cloudfunctions.net/edit-instance'
-def firewall(action, instanceName, instanceRegion,labProject):
+def firewall(action, instanceName, instanceRegion,labProject, logger=None):
     """
+    Block or unblock firewall access for lab instance
     """
-    #get the data from DB if needed
-    #call the cloud function or the do the api calls here itself
+    if logger:
+        log_operation_start(logger, 'firewall-action', action=action, instance=instanceName)
+
     try:
         response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
         os.system("pkill -KILL -u arista")
         if response.status_code == 200:
             print("Access to this lab has been blocked")
+            if logger:
+                logger.info("Lab access blocked successfully", extra={'labels': {'action': action, 'instance': instanceName, 'status': 'success'}})
             try:
                 with open(labACCESS, 'r') as f:
                     access_info = yaml.safe_load(f)
                 if 'customer_details' in access_info and access_info['customer_details'].get('lab_type') == 'Exam':
                     access_info['customer_details']['lab_type'] = 'Lab'
-                    
+
                     # Write back to the file
                     with open(labACCESS, 'w') as f:
                         yaml.dump(access_info, f, default_flow_style=False)
-                    
+
                     print("Lab type changed from Exam to Lab")
-                
+                    if logger:
+                        logger.info("Lab type changed from Exam to Lab", extra={'labels': {'instance': instanceName}})
+
             except Exception as yaml_error:
                 print(f"Failed to update lab_type: {str(yaml_error)}")
-        
+                if logger:
+                    logger.error(f"Failed to update lab_type: {str(yaml_error)}", extra={'labels': {'instance': instanceName, 'error': str(yaml_error)}})
+
         os.system("pkill -KILL -u arista")
+        if logger:
+            log_operation_success(logger, 'firewall-action', action=action, instance=instanceName)
         return(response.json())
     except Exception as e:
-        print("An error occured, please contact the proctor." + str(e))
+        error_msg = "An error occured, please contact the proctor." + str(e)
+        print(error_msg)
+        if logger:
+            log_operation_error(logger, 'firewall-action', str(e), action=action, instance=instanceName)
         return(False)
 
-def gradeExam(project, instance, region):
-    #need gcp project and then url
+def gradeExam(project, instance, region, logger=None):
+    """Submit exam for grading"""
+    if logger:
+        log_operation_start(logger, 'exam-grading', instance=instance, region=region)
+
     grade_url = f"https://us-central1-{project}.cloudfunctions.net/api-grading"
     headers = {'Content-Type': 'application/json'}
-    # need instance name and region
+
     try:
         grade_response = requests.post(url=grade_url,headers=headers,data=json.dumps({"instance":instance,"zone":region,"source":"cli"}))
         if grade_response.status_code == 200:
@@ -86,14 +103,27 @@ def gradeExam(project, instance, region):
                 result = "Pass"
             else:
                 result = "Fail"
+
+            if logger:
+                logger.info(f"Exam graded: {result}", extra={'labels': {
+                    'operation': 'exam-grading',
+                    'instance': instance,
+                    'result': result,
+                    'score': score,
+                    'total_points': total_points
+                }})
+                log_operation_success(logger, 'exam-grading', instance=instance, result=result, score=score)
         else:
             raise Exception
 
     except Exception as e:
         result = "Pending"
+        if logger:
+            log_operation_error(logger, 'exam-grading', str(e), instance=instance, result='Pending')
+
     return result
 
-def update_hubspot_handler(email, action, project):
+def update_hubspot_handler(email, action, project, logger=None):
     """
     Call the HubSpot Cloud Function to update exam properties
 
@@ -101,11 +131,15 @@ def update_hubspot_handler(email, action, project):
         email: Email address of the user
         action: Action to perform ('update_exam_start' or 'update_exam_submit')
         project: GCP project name
+        logger: Logger instance for cloud logging
 
     Returns:
         dict: Response from the Cloud Function or error dict
     """
     print( f"Updating HubSpot: {action} for {email} in project {project}" )
+    if logger:
+        log_operation_start(logger, 'hubspot-update', action=action, email=email)
+
     hubspot_url = f"https://us-central1-{project}.cloudfunctions.net/api-hl-hubspot-handler"
     headers = {'Content-Type': 'application/json'}
 
@@ -119,10 +153,14 @@ def update_hubspot_handler(email, action, project):
 
         if response.status_code == 200:
             print(f"Successfully updated HubSpot: {action} for {email}")
+            if logger:
+                log_operation_success(logger, 'hubspot-update', action=action, email=email)
             return response.json()
         else:
             error_msg = f"HubSpot update failed with status {response.status_code}"
             print(error_msg)
+            if logger:
+                log_operation_error(logger, 'hubspot-update', error_msg, action=action, email=email, status_code=response.status_code)
             try:
                 error_detail = response.json()
                 print(f"Error details: {error_detail}")
@@ -133,10 +171,14 @@ def update_hubspot_handler(email, action, project):
     except requests.exceptions.Timeout:
         error_msg = "HubSpot request timed out"
         print(error_msg)
+        if logger:
+            log_operation_error(logger, 'hubspot-update', error_msg, action=action, email=email)
         return {"error": error_msg}
     except Exception as e:
         error_msg = f"HubSpot update error: {str(e)}"
         print(error_msg)
+        if logger:
+            log_operation_error(logger, 'hubspot-update', str(e), action=action, email=email)
         return {"error": error_msg}
 
 def load_access_info(yaml_path= labACCESS):
@@ -2588,6 +2630,10 @@ class CVPCollector:
 
 def main():
     """Main function"""
+    # Initialize cloud logging
+    logger = setup_cloud_logging('upload_exam_unattended')
+    logger.info("Starting exam upload process")
+
     parser = argparse.ArgumentParser(
         description='Collect information from Arista CloudVision Portal',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -2849,12 +2895,15 @@ Examples:
 
     create_tarball(args.output_dir, lab_name)
     print("Exam data collection complete.")
+    logger.info("Exam data collection complete", extra={'labels': {'lab_name': lab_name, 'operation': 'exam-submit'}})
+
     print("Submitting your exam for grading...")
-    gradeExam(access_info['project'], lab_name, access_info['zone'])
+    gradeExam(access_info['project'], lab_name, access_info['zone'], logger)
     print("Exam submitted for grading.")
+
     print("Disconnecting you from the lab environment")
     if access_info['customer_email'] != "unknown":
-        update_hubspot_handler(access_info['customer_email'], "update_exam_submit", access_info['project'])
-    firewall("block-firewall", lab_name, access_info['zone'], access_info['project'])
+        update_hubspot_handler(access_info['customer_email'], "update_exam_submit", access_info['project'], logger)
+    firewall("block-firewall", lab_name, access_info['zone'], access_info['project'], logger)
 if __name__ == "__main__":
     main()

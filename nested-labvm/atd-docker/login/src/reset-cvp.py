@@ -2,6 +2,11 @@
 import jsonrpclib
 import ssl
 import yaml
+from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+
+# Initialize cloud logging
+logger = setup_cloud_logging('reset-cvp')
+
 #static files
 labACCESS = '/etc/atd/ACCESS_INFO.yaml'
 try:
@@ -12,7 +17,12 @@ else:
     ssl._create_default_https_context = _create_unverified_https_context
 def resetLab(allHosts,labPassword):
     user = 'arista'
+    log_operation_start(logger, 'cvp-reset', host_count=len(allHosts))
+    successful_resets = 0
+    failed_resets = 0
+
     for IPaddress in allHosts:
+        logger.info(f"Resetting CVP config on {IPaddress}", extra={'labels': {'ip': IPaddress, 'operation': 'cvp-reset'}})
         switch = jsonrpclib.Server("https://arista:{password}@{ipaddress}/command-api".format(password = labPassword, ipaddress = IPaddress))
         try:
             config = switch.runCmds(1,["enable",
@@ -31,9 +41,16 @@ def resetLab(allHosts,labPassword):
                                        "write memory"
                                        ],"text")
             runConfig = (config[1]["output"])
+            logger.info(f"Successfully reset CVP config on {IPaddress}", extra={'labels': {'ip': IPaddress, 'status': 'success'}})
+            successful_resets += 1
         except Exception as e:
-            print(str(e))
-            print("Check eAPI is enabled on {switch}".format(switch = name))
+            error_msg = str(e)
+            print(error_msg)
+            print(f"Check eAPI is enabled on {IPaddress}")
+            logger.error(f"Failed to reset CVP config on {IPaddress}: {error_msg}", extra={'labels': {'ip': IPaddress, 'error': error_msg}})
+            failed_resets += 1
+
+    log_operation_success(logger, 'cvp-reset', successful=successful_resets, failed=failed_resets)
 def readLabDetails():
     # get the lab password and the topolgy in use
     with open(labACCESS) as f:
@@ -49,7 +66,13 @@ def readAtdTopo(labTopology):
             hosts.append(a[key]['ip_addr'])
     return hosts
 def main():
+    logger.info("Starting CVP reset process")
     labPassword, labTopology = readLabDetails()
+    logger.info(f"Loaded lab topology: {labTopology}", extra={'labels': {'topology': labTopology}})
+
     allHosts = readAtdTopo(labTopology)
+    logger.info(f"Found {len(allHosts)} hosts to reset", extra={'labels': {'host_count': str(len(allHosts))}})
+
     resetLab(allHosts,labPassword)
+    logger.info("CVP reset process completed")
 main()
