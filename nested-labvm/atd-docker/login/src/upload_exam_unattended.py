@@ -77,7 +77,7 @@ def firewall(action, instanceName, instanceRegion,labProject, logger=None):
             log_operation_success(logger, 'firewall-action', action=action, instance=instanceName)
         return(response.json())
     except Exception as e:
-        error_msg = "An error occured, please contact the proctor." + str(e)
+        error_msg = "An error occurred, please contact the proctor." + str(e)
         print(error_msg)
         if logger:
             log_operation_error(logger, 'firewall-action', str(e), action=action, instance=instanceName)

@@ -2,7 +2,7 @@
 import jsonrpclib
 import ssl
 import yaml
-from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success
 
 # Initialize cloud logging
 logger = setup_cloud_logging('reset-cvp')

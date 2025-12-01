@@ -70,6 +70,31 @@ def sort_veos(vd):
     fin_l.append(tmp_d[t_veos])
   return(fin_l)
 
+def get_device_name_for_logging(user_input, device_dict, veos_info_sorted):
+    """
+    Helper function to get device name for logging purposes
+
+    Parameters:
+    user_input = User's menu selection
+    device_dict = Dictionary mapping selections to device IPs
+    veos_info_sorted = Sorted list of device information
+
+    Returns:
+    device_name = The hostname of the device, or 'unknown' if not found
+    """
+    # Check if user input is directly a hostname
+    if user_input.lower() in [v['hostname'] for v in veos_info_sorted]:
+        return user_input.lower()
+
+    # Try to find hostname by matching IP address
+    selected_ip = device_dict.get(user_input, '')
+    for device in veos_info_sorted:
+        if device['ip_addr'] == selected_ip:
+            return device['hostname']
+
+    # Default to unknown if not found
+    return 'unknown'
+
 def send_to_syslog(mstat,mtype):
     """
     Function to send output from service file to Syslog
@@ -132,7 +157,7 @@ def device_menu():
     try:
       if user_input.lower() in device_dict:
           # Find the device name for logging
-          device_name = user_input.lower() if user_input.lower() in [v['hostname'] for v in veos_info_sorted] else [v['hostname'] for v in veos_info_sorted if v['ip_addr'] == device_dict.get(user_input, '')][0] if any(v['ip_addr'] == device_dict.get(user_input, '') for v in veos_info_sorted) else 'unknown'
+          device_name = get_device_name_for_logging(user_input, device_dict, veos_info_sorted)
           logger.info(f"User selected SSH to device", extra={'labels': {'menu': 'DEVICE_SSH', 'action': 'ssh_device', 'device': device_name, 'selection': user_input}})
           os.system('ssh -o StrictHostKeyChecking=no ' + device_dict[user_input])
           logger.info(f"User returned from SSH session", extra={'labels': {'menu': 'DEVICE_SSH', 'action': 'ssh_return', 'device': device_name}})

@@ -6,7 +6,7 @@ import jsonrpclib,ssl,sys,subprocess,paramiko,jsonrpclib,requests,json
 from paramiko import SSHClient
 import yaml
 from scp import SCPClient
-from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success
 
 # Initialize cloud logging
 logger = setup_cloud_logging('update-token')
