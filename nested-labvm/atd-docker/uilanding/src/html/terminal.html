@@ -104,7 +104,8 @@
 
     /* Hide content when collapsed */
     .device-sidebar.collapsed .device-tree,
-    .device-sidebar.collapsed .credentials-panel {
+    .device-sidebar.collapsed .credentials-panel,
+    .device-sidebar.collapsed .jump-server-link {
       display: none;
     }
 
@@ -112,6 +113,54 @@
       flex: 1;
       overflow-y: auto;
       padding: 8px 0;
+    }
+
+    .jump-server-link {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      margin: 0 8px 8px 8px;
+      background: rgba(77, 168, 218, 0.1);
+      border: 1px solid #4da8da;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #4da8da;
+      transition: all 0.15s;
+    }
+
+    .jump-server-link:hover {
+      background: rgba(77, 168, 218, 0.2);
+    }
+
+    .jump-server-link.connected {
+      background: rgba(74, 222, 128, 0.1);
+      border-color: #4ade80;
+      color: #4ade80;
+    }
+
+    .jump-server-link .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 10px;
+      background: transparent;
+      border: 1px solid currentColor;
+    }
+
+    .jump-server-link.connected .status-dot {
+      background: #4ade80;
+      border-color: #4ade80;
+    }
+
+    .jump-server-link .server-name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .jump-server-link .server-ip {
+      font-size: 11px;
+      opacity: 0.7;
     }
 
     .device-group {
@@ -722,7 +771,14 @@
         <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">&#9776;</button>
       </div>
       <div class="device-tree" id="deviceTree">
-        <div class="loading">Loading devices</div>
+        <div class="jump-server-link" id="jumpServerLink" data-ip="192.168.0.1" data-name="Jump Server">
+          <span class="status-dot"></span>
+          <span class="server-name">Jump Server</span>
+          <span class="server-ip">192.168.0.1</span>
+        </div>
+        <div id="deviceGroups">
+          <div class="loading">Loading devices</div>
+        </div>
       </div>
       <div class="credentials-panel">
         <div class="label">Username: <span class="value">arista</span></div>
@@ -824,10 +880,20 @@
 
       init() {
         this.loadDevices();
+        this.setupJumpServer();
         this.setupPanelToggles();
         this.setupSidebarToggle();
         this.setupTabOverflow();
         this.setupSplitView();
+      },
+
+      setupJumpServer() {
+        const jumpLink = document.getElementById('jumpServerLink');
+        jumpLink.addEventListener('click', () => {
+          const ip = jumpLink.dataset.ip;
+          const name = jumpLink.dataset.name;
+          this.openTerminal(name, ip);
+        });
       },
 
       async loadDevices() {
@@ -837,13 +903,13 @@
           this.renderDeviceTree(data.groups);
         } catch (error) {
           console.error('Failed to load devices:', error);
-          document.getElementById('deviceTree').innerHTML =
+          document.getElementById('deviceGroups').innerHTML =
             '<div class="loading" style="color: #e74c3c;">Failed to load devices</div>';
         }
       },
 
       renderDeviceTree(groups) {
-        const tree = document.getElementById('deviceTree');
+        const tree = document.getElementById('deviceGroups');
         tree.innerHTML = '';
 
         groups.forEach(group => {
@@ -997,9 +1063,16 @@
       },
 
       updateDeviceStatus(ip, connected) {
+        // Check regular device items
         const deviceEl = document.querySelector(`.device-item[data-ip="${ip}"]`);
         if (deviceEl) {
           deviceEl.classList.toggle('connected', connected);
+        }
+
+        // Check jump server link
+        const jumpLink = document.getElementById('jumpServerLink');
+        if (jumpLink && jumpLink.dataset.ip === ip) {
+          jumpLink.classList.toggle('connected', connected);
         }
       },
 
