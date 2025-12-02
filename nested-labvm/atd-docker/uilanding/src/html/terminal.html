@@ -677,7 +677,11 @@
         const frameEl = document.getElementById('frame-' + tabId);
 
         if (tabEl) tabEl.classList.add('active');
-        if (frameEl) frameEl.classList.add('active');
+        if (frameEl) {
+          frameEl.classList.add('active');
+          // Focus the iframe so keyboard input goes to the terminal
+          setTimeout(() => frameEl.focus(), 50);
+        }
 
         this.activeTabId = tabId;
       },
