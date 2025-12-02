@@ -454,6 +454,127 @@
       font-size: 14px;
     }
 
+    /* Split view container */
+    .split-container {
+      display: none;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .split-container.visible {
+      display: flex;
+    }
+
+    .split-container.visible ~ .terminal-frames {
+      display: none;
+    }
+
+    .split-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .split-pane:first-child {
+      border-right: 2px solid #0f3460;
+    }
+
+    .split-pane-header {
+      padding: 8px 12px;
+      background: #0f3460;
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .split-pane-header .pane-label {
+      font-weight: 500;
+    }
+
+    .split-pane-header .pane-device {
+      color: #4da8da;
+    }
+
+    .split-pane-header.next-target {
+      background: #1a4a6e;
+      border-left: 3px solid #4da8da;
+    }
+
+    .split-pane-header.next-target .pane-label::after {
+      content: ' (next)';
+      font-size: 10px;
+      color: #4ade80;
+    }
+
+    .split-pane-content {
+      flex: 1;
+      position: relative;
+      background: #1a1a2e;
+    }
+
+    .split-pane-content iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .split-pane-empty {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .split-pane-empty p {
+      margin-bottom: 12px;
+    }
+
+    .split-pane-select {
+      padding: 8px 16px;
+      background: #4da8da;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .split-pane-select:hover {
+      background: #3d9acc;
+    }
+
+    .split-toggle {
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid #666;
+      border-radius: 4px;
+      color: #888;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .split-toggle:hover {
+      border-color: #4da8da;
+      color: #4da8da;
+    }
+
+    .split-toggle.active {
+      background: #4da8da;
+      border-color: #4da8da;
+      color: #fff;
+    }
+
     /* Side panel (shared styles for topology and labguides) */
     .side-panel {
       width: 50%;
@@ -606,12 +727,39 @@
           <div class="tab-overflow-menu" id="tabOverflowMenu"></div>
         </div>
         <div class="tab-placeholder"></div>
+        <button class="split-toggle" id="splitToggle">Split View</button>
         <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
         <button class="panel-toggle" id="topoToggle">Topology</button>
       </div>
 
       <!-- Terminal Area -->
       <div class="terminal-area" id="terminalArea">
+        <!-- Split View Container (hidden by default) -->
+        <div class="split-container" id="splitContainer">
+          <div class="split-pane" id="splitLeft">
+            <div class="split-pane-header">
+              <span class="pane-label">Left</span>
+              <span class="pane-device" id="leftDevice">No device</span>
+            </div>
+            <div class="split-pane-content" id="leftContent">
+              <div class="split-pane-empty">
+                <p>Select a device from the sidebar</p>
+              </div>
+            </div>
+          </div>
+          <div class="split-pane" id="splitRight">
+            <div class="split-pane-header">
+              <span class="pane-label">Right</span>
+              <span class="pane-device" id="rightDevice">No device</span>
+            </div>
+            <div class="split-pane-content" id="rightContent">
+              <div class="split-pane-empty">
+                <p>Select a device from the sidebar</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Terminal Frames Container -->
         <div class="terminal-frames" id="terminalFrames">
           <div class="empty-state" id="emptyState">
@@ -650,12 +798,17 @@
     const TerminalManager = {
       tabs: [],
       activeTabId: null,
+      splitMode: false,
+      splitLeft: { device: null, iframe: null },
+      splitRight: { device: null, iframe: null },
+      nextSplitPane: 'left', // Alternates between 'left' and 'right'
 
       init() {
         this.loadDevices();
         this.setupPanelToggles();
         this.setupSidebarToggle();
         this.setupTabOverflow();
+        this.setupSplitView();
       },
 
       async loadDevices() {
@@ -711,6 +864,12 @@
       },
 
       openTerminal(name, ip) {
+        // If in split mode, open in split pane instead
+        if (this.splitMode) {
+          this.openInSplitPane(name, ip);
+          return;
+        }
+
         // Check if tab already exists
         const existingTab = this.tabs.find(t => t.ip === ip);
         if (existingTab) {
@@ -931,6 +1090,123 @@
         } else {
           overflow.classList.remove('visible');
         }
+      },
+
+      setupSplitView() {
+        const splitToggle = document.getElementById('splitToggle');
+        const splitContainer = document.getElementById('splitContainer');
+
+        splitToggle.addEventListener('click', () => {
+          if (this.splitMode) {
+            this.exitSplitMode();
+          } else {
+            this.enterSplitMode();
+          }
+        });
+      },
+
+      enterSplitMode() {
+        this.splitMode = true;
+        this.nextSplitPane = 'left';
+
+        const splitContainer = document.getElementById('splitContainer');
+        const splitToggle = document.getElementById('splitToggle');
+
+        splitContainer.classList.add('visible');
+        splitToggle.classList.add('active');
+        splitToggle.textContent = 'Exit Split';
+
+        // Clear any existing split iframes
+        this.clearSplitPane('left');
+        this.clearSplitPane('right');
+
+        // Update pane headers
+        document.getElementById('leftDevice').textContent = 'Click a device';
+        document.getElementById('rightDevice').textContent = 'Click a device';
+
+        // Show empty state in panes
+        document.getElementById('leftContent').innerHTML = `
+          <div class="split-pane-empty">
+            <p>Click a device from the sidebar</p>
+          </div>
+        `;
+        document.getElementById('rightContent').innerHTML = `
+          <div class="split-pane-empty">
+            <p>Click a device from the sidebar</p>
+          </div>
+        `;
+
+        // Highlight the first pane as the target
+        this.updateSplitPaneIndicator();
+      },
+
+      updateSplitPaneIndicator() {
+        const leftHeader = document.querySelector('#splitLeft .split-pane-header');
+        const rightHeader = document.querySelector('#splitRight .split-pane-header');
+
+        leftHeader.classList.toggle('next-target', this.nextSplitPane === 'left');
+        rightHeader.classList.toggle('next-target', this.nextSplitPane === 'right');
+      },
+
+      exitSplitMode() {
+        this.splitMode = false;
+
+        const splitContainer = document.getElementById('splitContainer');
+        const splitToggle = document.getElementById('splitToggle');
+
+        splitContainer.classList.remove('visible');
+        splitToggle.classList.remove('active');
+        splitToggle.textContent = 'Split View';
+
+        // Clean up split iframes
+        this.clearSplitPane('left');
+        this.clearSplitPane('right');
+
+        // If we have tabs, make sure one is active
+        if (this.tabs.length > 0 && this.activeTabId) {
+          this.activateTab(this.activeTabId);
+        }
+      },
+
+      clearSplitPane(pane) {
+        const paneData = pane === 'left' ? this.splitLeft : this.splitRight;
+        if (paneData.iframe) {
+          paneData.iframe.remove();
+          paneData.iframe = null;
+        }
+        paneData.device = null;
+      },
+
+      openInSplitPane(name, ip) {
+        const pane = this.nextSplitPane;
+        const contentEl = document.getElementById(pane === 'left' ? 'leftContent' : 'rightContent');
+        const deviceEl = document.getElementById(pane === 'left' ? 'leftDevice' : 'rightDevice');
+        const paneData = pane === 'left' ? this.splitLeft : this.splitRight;
+
+        // Clear previous iframe if exists
+        this.clearSplitPane(pane);
+
+        // Create new iframe
+        const iframe = document.createElement('iframe');
+        iframe.src = `/ssh/host/${ip}`;
+        iframe.title = `SSH to ${name}`;
+
+        contentEl.innerHTML = '';
+        contentEl.appendChild(iframe);
+
+        // Update state
+        paneData.device = { name, ip };
+        paneData.iframe = iframe;
+        deviceEl.textContent = name;
+
+        // Alternate pane for next click
+        this.nextSplitPane = pane === 'left' ? 'right' : 'left';
+
+        // Update the visual indicator
+        this.updateSplitPaneIndicator();
+
+        // Focus the iframe
+        setTimeout(() => iframe.focus(), 50);
       }
     };
 
