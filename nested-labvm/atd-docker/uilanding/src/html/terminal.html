@@ -435,88 +435,6 @@
       display: block;
     }
 
-    /* Split view */
-    .terminal-frames.split-view {
-      display: flex;
-    }
-
-    .split-pane {
-      flex: 1;
-      position: relative;
-      display: none;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .terminal-frames.split-view .split-pane {
-      display: flex;
-    }
-
-    .split-pane:first-child {
-      border-right: 2px solid #0f3460;
-    }
-
-    .split-pane-header {
-      padding: 6px 12px;
-      background: #0f3460;
-      font-size: 11px;
-      color: #888;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .split-pane-header .pane-title {
-      color: #4da8da;
-      font-weight: 500;
-    }
-
-    .split-pane-content {
-      flex: 1;
-      position: relative;
-    }
-
-    .split-pane .terminal-frame {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    .split-pane .empty-pane {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #666;
-      font-size: 13px;
-    }
-
-    .split-toggle {
-      padding: 6px 12px;
-      background: transparent;
-      border: 1px solid #888;
-      border-radius: 4px;
-      color: #888;
-      font-size: 11px;
-      cursor: pointer;
-      margin-left: 8px;
-    }
-
-    .split-toggle:hover {
-      border-color: #4da8da;
-      color: #4da8da;
-    }
-
-    .split-toggle.active {
-      background: #4da8da;
-      border-color: #4da8da;
-      color: #fff;
-    }
-
     .empty-state {
       position: absolute;
       top: 50%;
@@ -688,7 +606,6 @@
           <div class="tab-overflow-menu" id="tabOverflowMenu"></div>
         </div>
         <div class="tab-placeholder"></div>
-        <button class="split-toggle" id="splitToggle">Split View</button>
         <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
         <button class="panel-toggle" id="topoToggle">Topology</button>
       </div>
@@ -700,23 +617,6 @@
           <div class="empty-state" id="emptyState">
             <h2>No terminals open</h2>
             <p>Click a device on the left to open a terminal</p>
-          </div>
-          <!-- Split panes (hidden by default) -->
-          <div class="split-pane" id="splitPaneLeft">
-            <div class="split-pane-header">
-              <span>Left: <span class="pane-title" id="leftPaneTitle">None</span></span>
-            </div>
-            <div class="split-pane-content" id="leftPaneContent">
-              <div class="empty-pane">Click a tab to show here</div>
-            </div>
-          </div>
-          <div class="split-pane" id="splitPaneRight">
-            <div class="split-pane-header">
-              <span>Right: <span class="pane-title" id="rightPaneTitle">None</span></span>
-            </div>
-            <div class="split-pane-content" id="rightPaneContent">
-              <div class="empty-pane">Click a tab to show here</div>
-            </div>
           </div>
         </div>
 
@@ -750,17 +650,12 @@
     const TerminalManager = {
       tabs: [],
       activeTabId: null,
-      splitMode: false,
-      leftPaneTabId: null,
-      rightPaneTabId: null,
-      activePane: 'left', // which pane receives the next tab click
 
       init() {
         this.loadDevices();
         this.setupPanelToggles();
         this.setupSidebarToggle();
         this.setupTabOverflow();
-        this.setupSplitView();
       },
 
       async loadDevices() {
@@ -870,69 +765,25 @@
       },
 
       activateTab(tabId) {
-        if (this.splitMode) {
-          // In split mode, assign to the active pane
-          this.assignToPane(tabId, this.activePane);
-          // Toggle active pane for next click
-          this.activePane = this.activePane === 'left' ? 'right' : 'left';
-        } else {
-          // Normal mode - single terminal view
-          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.terminal-frame').forEach(f => f.classList.remove('active'));
+        // Deactivate all tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.terminal-frame').forEach(f => f.classList.remove('active'));
 
-          const tabEl = document.getElementById(tabId);
-          const frameEl = document.getElementById('frame-' + tabId);
-
-          if (tabEl) tabEl.classList.add('active');
-          if (frameEl) {
-            frameEl.classList.add('active');
-            setTimeout(() => frameEl.focus(), 50);
-          }
-
-          this.activeTabId = tabId;
-        }
-
-        // Update overflow menu to reflect active state
-        this.updateTabOverflow();
-      },
-
-      assignToPane(tabId, pane) {
-        const tab = this.tabs.find(t => t.id === tabId);
-        if (!tab) return;
-
-        const paneContent = document.getElementById(pane === 'left' ? 'leftPaneContent' : 'rightPaneContent');
-        const paneTitle = document.getElementById(pane === 'left' ? 'leftPaneTitle' : 'rightPaneTitle');
+        // Activate selected tab
+        const tabEl = document.getElementById(tabId);
         const frameEl = document.getElementById('frame-' + tabId);
 
-        // Clear previous content
-        paneContent.innerHTML = '';
-
+        if (tabEl) tabEl.classList.add('active');
         if (frameEl) {
-          // Move the iframe to this pane
-          paneContent.appendChild(frameEl);
           frameEl.classList.add('active');
-          frameEl.style.display = 'block';
+          // Focus the iframe so keyboard input goes to the terminal
           setTimeout(() => frameEl.focus(), 50);
         }
 
-        // Update pane title
-        paneTitle.textContent = tab.name;
-
-        // Update state
-        if (pane === 'left') {
-          this.leftPaneTabId = tabId;
-        } else {
-          this.rightPaneTabId = tabId;
-        }
-
-        // Update tab styling
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        const leftTab = document.getElementById(this.leftPaneTabId);
-        const rightTab = document.getElementById(this.rightPaneTabId);
-        if (leftTab) leftTab.classList.add('active');
-        if (rightTab) rightTab.classList.add('active');
-
         this.activeTabId = tabId;
+
+        // Update overflow menu to reflect active state
+        this.updateTabOverflow();
       },
 
       closeTab(tabId) {
@@ -1029,85 +880,6 @@
           toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9776;';
           toggleBtn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
         });
-      },
-
-      setupSplitView() {
-        const splitToggle = document.getElementById('splitToggle');
-        const terminalFrames = document.getElementById('terminalFrames');
-
-        splitToggle.addEventListener('click', () => {
-          if (this.splitMode) {
-            this.exitSplitMode();
-          } else {
-            this.enterSplitMode();
-          }
-        });
-      },
-
-      enterSplitMode() {
-        const terminalFrames = document.getElementById('terminalFrames');
-        const splitToggle = document.getElementById('splitToggle');
-        const emptyState = document.getElementById('emptyState');
-
-        this.splitMode = true;
-        terminalFrames.classList.add('split-view');
-        splitToggle.classList.add('active');
-        splitToggle.textContent = 'Exit Split';
-        emptyState.style.display = 'none';
-
-        // Reset pane assignments
-        this.leftPaneTabId = null;
-        this.rightPaneTabId = null;
-        this.activePane = 'left';
-
-        // Reset pane content
-        document.getElementById('leftPaneContent').innerHTML = '<div class="empty-pane">Click a tab to show here</div>';
-        document.getElementById('rightPaneContent').innerHTML = '<div class="empty-pane">Click a tab to show here</div>';
-        document.getElementById('leftPaneTitle').textContent = 'None';
-        document.getElementById('rightPaneTitle').textContent = 'None';
-
-        // If there's an active tab, put it in the left pane
-        if (this.activeTabId) {
-          this.assignToPane(this.activeTabId, 'left');
-        }
-      },
-
-      exitSplitMode() {
-        const terminalFrames = document.getElementById('terminalFrames');
-        const splitToggle = document.getElementById('splitToggle');
-
-        this.splitMode = false;
-        terminalFrames.classList.remove('split-view');
-        splitToggle.classList.remove('active');
-        splitToggle.textContent = 'Split View';
-
-        // Move all iframes back to the main container
-        const leftContent = document.getElementById('leftPaneContent');
-        const rightContent = document.getElementById('rightPaneContent');
-
-        // Move iframes back
-        document.querySelectorAll('.split-pane .terminal-frame').forEach(frame => {
-          frame.classList.remove('active');
-          frame.style.display = '';
-          terminalFrames.appendChild(frame);
-        });
-
-        // Clear pane content
-        leftContent.innerHTML = '<div class="empty-pane">Click a tab to show here</div>';
-        rightContent.innerHTML = '<div class="empty-pane">Click a tab to show here</div>';
-
-        // Reset state
-        this.leftPaneTabId = null;
-        this.rightPaneTabId = null;
-
-        // Reactivate the last active tab or show empty state
-        if (this.tabs.length > 0) {
-          const tabToActivate = this.activeTabId || this.tabs[0].id;
-          this.activeTabId = null; // Reset so activateTab works
-          this.activateTab(tabToActivate);
-        } else {
-          document.getElementById('emptyState').style.display = 'block';
-        }
       },
 
       setupTabOverflow() {
