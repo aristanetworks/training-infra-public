@@ -1052,7 +1052,7 @@ if __name__ == "__main__":
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
-        (r'/api/devices', DevicesAPIHandler),
+        (r'/td-api/devices', DevicesAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

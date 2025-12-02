@@ -456,7 +456,7 @@
 
       async loadDevices() {
         try {
-          const response = await fetch('/api/devices');
+          const response = await fetch('/td-api/devices');
           const data = await response.json();
           this.renderDeviceTree(data.groups);
         } catch (error) {
