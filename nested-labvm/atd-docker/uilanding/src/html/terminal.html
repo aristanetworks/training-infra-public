@@ -278,22 +278,26 @@
       text-overflow: ellipsis;
     }
 
-    .tab .close-btn {
-      margin-left: 8px;
+    .tab .tab-btn {
+      margin-left: 6px;
       width: 16px;
       height: 16px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1;
       color: #666;
     }
 
-    .tab .close-btn:hover {
+    .tab .tab-btn:hover {
       background: rgba(255, 255, 255, 0.1);
       color: #fff;
+    }
+
+    .tab .reload-btn {
+      font-size: 11px;
     }
 
     .tab-placeholder {
@@ -371,16 +375,37 @@
     /* Side panel (shared styles for topology and labguides) */
     .side-panel {
       width: 50%;
-      max-width: 600px;
-      min-width: 300px;
+      max-width: 80%;
+      min-width: 200px;
       background: #16213e;
       border-left: 1px solid #0f3460;
       display: none;
       flex-direction: column;
+      position: relative;
     }
 
     .side-panel.visible {
       display: flex;
+    }
+
+    .resize-handle {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: ew-resize;
+      background: transparent;
+      z-index: 10;
+    }
+
+    .resize-handle:hover,
+    .resize-handle.dragging {
+      background: #4da8da;
+    }
+
+    .side-panel.resizing {
+      user-select: none;
     }
 
     .side-panel-header {
@@ -529,6 +554,7 @@
 
         <!-- Lab Guides Panel -->
         <div class="side-panel labguides-panel" id="labguidesPanel">
+          <div class="resize-handle" data-panel="labguidesPanel"></div>
           <div class="side-panel-header">
             <h3>Lab Guides</h3>
             <button class="side-panel-close" id="labguidesClose">&times;</button>
@@ -540,6 +566,7 @@
 
         <!-- Topology Panel -->
         <div class="side-panel topology-panel" id="topologyPanel">
+          <div class="resize-handle" data-panel="topologyPanel"></div>
           <div class="side-panel-header">
             <h3>Topology Diagram</h3>
             <button class="side-panel-close" id="topoClose">&times;</button>
@@ -562,6 +589,7 @@
         this.loadDevices();
         this.setupPanelToggles();
         this.setupSidebarToggle();
+        this.setupResizeHandles();
       },
 
       async loadDevices() {
@@ -638,10 +666,15 @@
         tabEl.id = tabId;
         tabEl.innerHTML = `
           <span class="tab-name">${name}</span>
-          <span class="close-btn" title="Close">&times;</span>
+          <span class="tab-btn reload-btn" title="Reload">&#8635;</span>
+          <span class="tab-btn close-btn" title="Close">&times;</span>
         `;
 
         tabEl.querySelector('.tab-name').addEventListener('click', () => this.activateTab(tabId));
+        tabEl.querySelector('.reload-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.reloadTab(tabId);
+        });
         tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
           e.stopPropagation();
           this.closeTab(tabId);
@@ -723,6 +756,13 @@
         }
       },
 
+      reloadTab(tabId) {
+        const frameEl = document.getElementById('frame-' + tabId);
+        if (frameEl) {
+          frameEl.src = frameEl.src;
+        }
+      },
+
       setupPanelToggles() {
         // Topology panel
         const topoToggle = document.getElementById('topoToggle');
@@ -776,6 +816,49 @@
           // Change icon based on state
           toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9776;';
           toggleBtn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
+        });
+      },
+
+      setupResizeHandles() {
+        const handles = document.querySelectorAll('.resize-handle');
+
+        handles.forEach(handle => {
+          let isResizing = false;
+          let startX = 0;
+          let startWidth = 0;
+          const panelId = handle.dataset.panel;
+          const panel = document.getElementById(panelId);
+          const terminalArea = document.getElementById('terminalArea');
+
+          handle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = panel.offsetWidth;
+            handle.classList.add('dragging');
+            panel.classList.add('resizing');
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+          });
+
+          document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const diff = startX - e.clientX;
+            const newWidth = Math.min(
+              Math.max(startWidth + diff, 200),
+              terminalArea.offsetWidth * 0.8
+            );
+            panel.style.width = newWidth + 'px';
+          });
+
+          document.addEventListener('mouseup', () => {
+            if (isResizing) {
+              isResizing = false;
+              handle.classList.remove('dragging');
+              panel.classList.remove('resizing');
+              document.body.style.cursor = '';
+            }
+          });
         });
       }
     };
