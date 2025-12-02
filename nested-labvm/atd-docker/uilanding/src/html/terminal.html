@@ -231,16 +231,33 @@
       border-bottom: 1px solid #16213e;
       height: 40px;
       padding: 0 8px;
-      overflow-x: auto;
     }
 
-    .tab-bar::-webkit-scrollbar {
+    .tabs-scroll-area {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      padding-right: 8px;
+    }
+
+    .tabs-scroll-area::-webkit-scrollbar {
       height: 4px;
     }
 
-    .tab-bar::-webkit-scrollbar-thumb {
+    .tabs-scroll-area::-webkit-scrollbar-thumb {
       background: #4da8da;
       border-radius: 2px;
+    }
+
+    .tab-bar-actions {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      gap: 8px;
+      padding-left: 8px;
+      border-left: 1px solid #16213e;
     }
 
     .tab {
@@ -296,19 +313,17 @@
       color: #fff;
     }
 
-    .tab-placeholder {
-      flex: 1;
-    }
-
     /* Tab overflow dropdown */
     .tab-overflow {
       position: relative;
       display: none;
+      flex-shrink: 0;
       margin-right: 8px;
     }
 
     .tab-overflow.visible {
-      display: block;
+      display: flex;
+      align-items: center;
     }
 
     .tab-overflow-btn {
@@ -561,7 +576,6 @@
       color: #888;
       font-size: 11px;
       cursor: pointer;
-      margin-left: 8px;
     }
 
     .split-toggle:hover {
@@ -656,7 +670,6 @@
       color: #4da8da;
       font-size: 11px;
       cursor: pointer;
-      margin-left: 8px;
       white-space: nowrap;
     }
 
@@ -726,10 +739,14 @@
           </button>
           <div class="tab-overflow-menu" id="tabOverflowMenu"></div>
         </div>
-        <div class="tab-placeholder"></div>
-        <button class="split-toggle" id="splitToggle">Split View</button>
-        <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
-        <button class="panel-toggle" id="topoToggle">Topology</button>
+        <div class="tabs-scroll-area" id="tabsScrollArea">
+          <!-- Tabs are inserted here dynamically -->
+        </div>
+        <div class="tab-bar-actions">
+          <button class="split-toggle" id="splitToggle">Split View</button>
+          <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
+          <button class="panel-toggle" id="topoToggle">Topology</button>
+        </div>
       </div>
 
       <!-- Terminal Area -->
@@ -883,8 +900,7 @@
         this.tabs.push(tab);
 
         // Create tab element
-        const tabBar = document.getElementById('tabBar');
-        const placeholder = tabBar.querySelector('.tab-placeholder');
+        const tabsScrollArea = document.getElementById('tabsScrollArea');
 
         const tabEl = document.createElement('div');
         tabEl.className = 'tab';
@@ -900,7 +916,7 @@
           this.closeTab(tabId);
         });
 
-        tabBar.insertBefore(tabEl, placeholder);
+        tabsScrollArea.appendChild(tabEl);
 
         // Create iframe
         const terminalFrames = document.getElementById('terminalFrames');
