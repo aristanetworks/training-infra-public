@@ -300,6 +300,92 @@
       flex: 1;
     }
 
+    /* Tab overflow dropdown */
+    .tab-overflow {
+      position: relative;
+      display: none;
+      margin-right: 8px;
+    }
+
+    .tab-overflow.visible {
+      display: block;
+    }
+
+    .tab-overflow-btn {
+      padding: 6px 10px;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #888;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tab-overflow-btn:hover {
+      background: #1a1a2e;
+      color: #fff;
+    }
+
+    .tab-overflow-btn .count {
+      background: #4da8da;
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .tab-overflow-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      min-width: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-overflow-menu.open {
+      display: block;
+    }
+
+    .tab-overflow-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .tab-overflow-item:last-child {
+      border-bottom: none;
+    }
+
+    .tab-overflow-item:hover {
+      background: rgba(77, 168, 218, 0.15);
+    }
+
+    .tab-overflow-item.active {
+      color: #4da8da;
+      background: rgba(77, 168, 218, 0.1);
+    }
+
+    .tab-overflow-item .device-ip {
+      font-size: 10px;
+      color: #666;
+    }
+
     .topology-toggle {
       padding: 6px 12px;
       background: transparent;
@@ -512,6 +598,13 @@
     <main class="main-content">
       <!-- Tab Bar -->
       <div class="tab-bar" id="tabBar">
+        <div class="tab-overflow" id="tabOverflow">
+          <button class="tab-overflow-btn" id="tabOverflowBtn">
+            <span>All Tabs</span>
+            <span class="count" id="tabCount">0</span>
+          </button>
+          <div class="tab-overflow-menu" id="tabOverflowMenu"></div>
+        </div>
         <div class="tab-placeholder"></div>
         <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
         <button class="panel-toggle" id="topoToggle">Topology</button>
@@ -562,6 +655,7 @@
         this.loadDevices();
         this.setupPanelToggles();
         this.setupSidebarToggle();
+        this.setupTabOverflow();
       },
 
       async loadDevices() {
@@ -665,6 +759,9 @@
 
         // Hide empty state
         document.getElementById('emptyState').style.display = 'none';
+
+        // Update overflow menu
+        this.updateTabOverflow();
       },
 
       activateTab(tabId) {
@@ -684,6 +781,9 @@
         }
 
         this.activeTabId = tabId;
+
+        // Update overflow menu to reflect active state
+        this.updateTabOverflow();
       },
 
       closeTab(tabId) {
@@ -714,6 +814,9 @@
           this.activeTabId = null;
           document.getElementById('emptyState').style.display = 'block';
         }
+
+        // Update overflow menu
+        this.updateTabOverflow();
       },
 
       updateDeviceStatus(ip, connected) {
@@ -777,6 +880,57 @@
           toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9776;';
           toggleBtn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
         });
+      },
+
+      setupTabOverflow() {
+        const overflowBtn = document.getElementById('tabOverflowBtn');
+        const overflowMenu = document.getElementById('tabOverflowMenu');
+
+        // Toggle menu on button click
+        overflowBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          overflowMenu.classList.toggle('open');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', () => {
+          overflowMenu.classList.remove('open');
+        });
+
+        // Prevent menu from closing when clicking inside it
+        overflowMenu.addEventListener('click', (e) => {
+          e.stopPropagation();
+        });
+      },
+
+      updateTabOverflow() {
+        const overflow = document.getElementById('tabOverflow');
+        const menu = document.getElementById('tabOverflowMenu');
+        const count = document.getElementById('tabCount');
+
+        // Show/hide dropdown based on tab count
+        if (this.tabs.length > 0) {
+          overflow.classList.add('visible');
+          count.textContent = this.tabs.length;
+
+          // Rebuild menu
+          menu.innerHTML = '';
+          this.tabs.forEach(tab => {
+            const item = document.createElement('div');
+            item.className = 'tab-overflow-item' + (tab.id === this.activeTabId ? ' active' : '');
+            item.innerHTML = `
+              <span>${tab.name}</span>
+              <span class="device-ip">${tab.ip}</span>
+            `;
+            item.addEventListener('click', () => {
+              this.activateTab(tab.id);
+              menu.classList.remove('open');
+            });
+            menu.appendChild(item);
+          });
+        } else {
+          overflow.classList.remove('visible');
+        }
       }
     };
 
