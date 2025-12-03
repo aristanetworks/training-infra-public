@@ -23,6 +23,10 @@ if [ ! -f "/usr/local/bin/atdUpdate.py" ] || [ ! -d "/usr/local/lib/atd-services
     rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/utils/ 2>/dev/null || true
 fi
 
+# Install google-cloud-logging package
+echo "Installing google-cloud-logging package..."
+pip3 install --upgrade google-cloud-logging 2>/dev/null || echo "Warning: Failed to install google-cloud-logging package"
+
 # Run the Python script (which handles git, sync, and startup)
 python3 /usr/local/bin/atdUpdate.py
 
