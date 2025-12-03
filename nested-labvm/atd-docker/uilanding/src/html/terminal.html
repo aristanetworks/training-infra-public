@@ -954,12 +954,20 @@
             deviceEl.className = 'device-item';
             deviceEl.dataset.ip = device.ip;
             deviceEl.dataset.name = device.name;
+            deviceEl.tabIndex = 0;
             deviceEl.innerHTML = `
               <span class="status-dot"></span>
               <span class="device-name">${device.name}</span>
               <span class="device-ip">${device.ip}</span>
             `;
-            deviceEl.addEventListener('click', () => this.openTerminal(device.name, device.ip));
+            const openTerminalHandler = () => this.openTerminal(device.name, device.ip);
+            deviceEl.addEventListener('click', openTerminalHandler);
+            deviceEl.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openTerminalHandler();
+              }
+            });
             devicesEl.appendChild(deviceEl);
           });
 
@@ -1194,10 +1202,17 @@
           this.tabs.forEach(tab => {
             const item = document.createElement('div');
             item.className = 'tab-overflow-item' + (tab.id === this.activeTabId ? ' active' : '');
-            item.innerHTML = `
-              <span>${tab.name}</span>
-              <span class="device-ip">${tab.ip}</span>
-            `;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = tab.name;
+
+            const ipSpan = document.createElement('span');
+            ipSpan.className = 'device-ip';
+            ipSpan.textContent = tab.ip;
+
+            item.appendChild(nameSpan);
+            item.appendChild(ipSpan);
+
             item.addEventListener('click', () => {
               this.activateTab(tab.id);
               menu.classList.remove('open');

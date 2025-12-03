@@ -902,10 +902,15 @@ class TerminalPageHandler(BaseHandler):
         )
 
 
-class DevicesAPIHandler(tornado.web.RequestHandler):
+class DevicesAPIHandler(BaseHandler):
     """API endpoint to return device list grouped by type for terminal page."""
 
     def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
