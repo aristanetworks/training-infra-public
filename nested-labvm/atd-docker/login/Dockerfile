@@ -31,11 +31,11 @@ RUN mkdir .ssh
 
 COPY src/cloud_logging_utils.py /usr/local/lib/python3.9/site-packages/
 
-RUN chmod 644 /usr/local/lib/python3.9/site-packages/cloud_logging_utils.py
-
 COPY src/login.py /usr/local/bin
 
 COPY src/callConfigTopo.py /usr/local/bin
+
+COPY src/cloud_logging_utils.py /usr/local/bin 
 
 COPY src/resetVMs.py /usr/local/bin
 
@@ -79,6 +79,8 @@ RUN chmod +x /usr/local/bin/localGrading.py
 RUN chmod +x /usr/local/bin/saveRunning.py
 
 RUN chmod +x /usr/local/bin/uploadRunningConfigs.py
+
+RUN chmod +x /usr/local/bin/cloud_logging_utils.py
 
 RUN mkdir /usr/local/bin/ConfigureTopology
 
