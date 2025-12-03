@@ -883,6 +883,96 @@ class GetAccessInfoHandler(tornado.web.RequestHandler):
                     "customer_details": default_values
             })
 
+class TerminalPageHandler(BaseHandler):
+    """Handler for the tabbed terminal page."""
+
+    def get(self):
+        if not self.current_user:
+            if 'auth' in self.request.arguments:
+                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            else:
+                self.redirect('/login')
+            return
+
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        self.render(
+            BASE_PATH + 'terminal.html',
+            topo_title=TITLE,
+            ARISTA_PWD=host_yaml['login_info']['jump_host']['pw'],
+        )
+
+
+class DevicesAPIHandler(BaseHandler):
+    """API endpoint to return device list grouped by type for terminal page."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            nodes = MOD_YAML['topology']['nodes']
+
+            # Define grouping patterns (order matters - more specific first)
+            group_patterns = [
+                ('Spine', ['Spine']),
+                ('Borderleaf', ['BorderLeaf', 'Borderleaf', 'BL']),
+                ('Leaf', ['Leaf']),
+                ('Host', ['Host']),
+                ('Core', ['Core', 'DCI']),
+                ('ISP', ['ISP', 'Internet']),
+            ]
+
+            # Group devices
+            groups = {name: [] for name, _ in group_patterns}
+            groups['Other'] = []
+
+            for device_name, device_info in nodes.items():
+                matched = False
+                for group_name, prefixes in group_patterns:
+                    for prefix in prefixes:
+                        if device_name.startswith(prefix) or prefix in device_name:
+                            groups[group_name].append({
+                                'name': device_name,
+                                'ip': device_info.get('ip', ''),
+                            })
+                            matched = True
+                            break
+                    if matched:
+                        break
+
+                if not matched:
+                    groups['Other'].append({
+                        'name': device_name,
+                        'ip': device_info.get('ip', ''),
+                    })
+
+            # Sort devices within each group and remove empty groups
+            result = []
+            for group_name, _ in group_patterns + [('Other', [])]:
+                devices = groups[group_name]
+                if devices:
+                    # Sort by name
+                    devices.sort(key=lambda x: x['name'])
+                    result.append({
+                        'group': group_name,
+                        'devices': devices
+                    })
+
+            self.write(json.dumps({
+                'topology': TITLE,
+                'groups': result
+            }))
+
+        except Exception as e:
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
 class EndExamHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -965,7 +1055,9 @@ if __name__ == "__main__":
         (r'/getUserSessionId', GetUserSessionIdHandler),
         (r'/beginExam', BeginExamHandler),  
         (r'/endExam', EndExamHandler),
-        (r'/baseUrl', BaseUrlHandler),     
+        (r'/baseUrl', BaseUrlHandler),
+        (r'/terminal', TerminalPageHandler),
+        (r'/td-api/devices', DevicesAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
