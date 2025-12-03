@@ -918,13 +918,14 @@ class TopologyAPIHandler(BaseHandler):
         'isp': 0,
         'core': 1,
         'dci': 1,
-        'spine': 2,
+        'p': 1,
+        'borderleaf': 2,
         'pe': 2,
-        'p': 3,
-        'borderleaf': 3,
+        'ce': 2,
+        'spine': 3,
         'leaf': 4,
-        'oob': 5,
         'host': 5,
+        'oob': 5,
         'other': 6
     }
 
@@ -954,6 +955,8 @@ class TopologyAPIHandler(BaseHandler):
             return 'oob'
         elif device_name.startswith('PE'):
             return 'pe'
+        elif device_name.startswith('CE'):
+            return 'ce'
         elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
             return 'p'
         elif device_name.startswith('A') and len(device_name) > 1 and device_name[1].isdigit():
@@ -964,6 +967,19 @@ class TopologyAPIHandler(BaseHandler):
             return 'leaf'
         else:
             return 'other'
+
+    @staticmethod
+    def extract_datacenter(device_name):
+        """
+        Extract datacenter identifier from device name.
+        E.g., 'spine1-DC1' -> 'DC1', 'leaf2-DC2' -> 'DC2', 'host1' -> ''
+        """
+        import re
+        # Match -DC followed by number or letter at end of name
+        match = re.search(r'-?(DC\d+|dc\d+)$', device_name, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        return ''  # No datacenter suffix
 
     @staticmethod
     def get_sort_key(device_name):
@@ -985,42 +1001,80 @@ class TopologyAPIHandler(BaseHandler):
     @staticmethod
     def calculate_positions(nodes_data):
         """
-        Calculate x,y positions for nodes based on tier and sorted order.
-        Organizes nodes in rows by device type, sorted by name within each row.
+        Calculate x,y positions for nodes based on tier, datacenter, and sorted order.
+        Organizes nodes in rows by device type, grouped by datacenter with spacing.
         """
-        # Group nodes by tier
+        import re
+
+        # Group nodes by tier, then by datacenter
         tiers = {}
         for node in nodes_data:
             device_type = node['data']['device_type']
             tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 6)
-            if tier not in tiers:
-                tiers[tier] = []
-            tiers[tier].append(node)
+            dc = TopologyAPIHandler.extract_datacenter(node['data']['id'])
 
-        # Sort nodes within each tier by name (natural sort)
+            if tier not in tiers:
+                tiers[tier] = {}
+            if dc not in tiers[tier]:
+                tiers[tier][dc] = []
+            tiers[tier][dc].append(node)
+
+        # Sort nodes within each tier/dc group by name (natural sort)
         for tier in tiers:
-            tiers[tier].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
+            for dc in tiers[tier]:
+                tiers[tier][dc].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
 
         # Calculate positions
-        NODE_SPACING_X = 150  # Horizontal spacing between nodes
-        NODE_SPACING_Y = 120  # Vertical spacing between tiers
-        PADDING = 100         # Left padding
+        NODE_SPACING_X = 150   # Horizontal spacing between nodes
+        NODE_SPACING_Y = 120   # Vertical spacing between tiers
+        DC_SPACING = 80        # Extra spacing between datacenter groups
+        PADDING = 100          # Left padding
 
-        # Find the widest tier to center others
-        max_width = max(len(nodes) for nodes in tiers.values()) if tiers else 1
+        # Calculate max width considering DC groups and spacing
+        max_width = 0
+        for tier in tiers:
+            tier_width = 0
+            dc_keys = sorted(tiers[tier].keys())  # Sort DCs: '', 'DC1', 'DC2', etc.
+            for i, dc in enumerate(dc_keys):
+                tier_width += len(tiers[tier][dc]) * NODE_SPACING_X
+                if i < len(dc_keys) - 1:  # Add DC spacing between groups
+                    tier_width += DC_SPACING
+            max_width = max(max_width, tier_width)
 
+        if max_width == 0:
+            max_width = NODE_SPACING_X
+
+        # Position nodes
         for tier_num in sorted(tiers.keys()):
-            tier_nodes = tiers[tier_num]
-            tier_width = len(tier_nodes)
+            tier_dcs = tiers[tier_num]
+            dc_keys = sorted(tier_dcs.keys())  # Sort: '', 'DC1', 'DC2', 'DC3'
 
-            # Center this tier relative to the widest tier
-            start_x = PADDING + (max_width - tier_width) * NODE_SPACING_X / 2
+            # Calculate this tier's total width
+            tier_width = 0
+            for i, dc in enumerate(dc_keys):
+                tier_width += len(tier_dcs[dc]) * NODE_SPACING_X
+                if i < len(dc_keys) - 1:
+                    tier_width += DC_SPACING
 
-            for i, node in enumerate(tier_nodes):
-                node['position'] = {
-                    'x': start_x + i * NODE_SPACING_X,
-                    'y': PADDING + tier_num * NODE_SPACING_Y
-                }
+            # Center this tier
+            start_x = PADDING + (max_width - tier_width) / 2
+            current_x = start_x
+
+            for i, dc in enumerate(dc_keys):
+                dc_nodes = tier_dcs[dc]
+
+                for node in dc_nodes:
+                    node['position'] = {
+                        'x': current_x,
+                        'y': PADDING + tier_num * NODE_SPACING_Y
+                    }
+                    # Store DC info for potential UI use
+                    node['data']['datacenter'] = dc if dc else 'default'
+                    current_x += NODE_SPACING_X
+
+                # Add spacing after each DC group (except last)
+                if i < len(dc_keys) - 1:
+                    current_x += DC_SPACING
 
         return nodes_data
 
