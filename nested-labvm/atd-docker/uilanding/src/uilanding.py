@@ -912,6 +912,22 @@ class TopologyAPIHandler(BaseHandler):
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
 
+    # Device type to tier mapping (lower tier = higher in diagram)
+    DEVICE_TIERS = {
+        'internet': 0,
+        'isp': 0,
+        'core': 1,
+        'dci': 1,
+        'spine': 2,
+        'pe': 2,
+        'p': 3,
+        'borderleaf': 3,
+        'leaf': 4,
+        'oob': 5,
+        'host': 5,
+        'other': 6
+    }
+
     @staticmethod
     def classify_device_type(device_name):
         """Classify device type based on naming pattern."""
@@ -948,6 +964,65 @@ class TopologyAPIHandler(BaseHandler):
             return 'leaf'
         else:
             return 'other'
+
+    @staticmethod
+    def get_sort_key(device_name):
+        """
+        Generate a sort key for natural ordering of device names.
+        E.g., spine1, spine2, spine10 sorts correctly (not spine1, spine10, spine2)
+        """
+        import re
+        # Split name into text and number parts
+        parts = re.split(r'(\d+)', device_name)
+        result = []
+        for part in parts:
+            if part.isdigit():
+                result.append(int(part))
+            else:
+                result.append(part.lower())
+        return result
+
+    @staticmethod
+    def calculate_positions(nodes_data):
+        """
+        Calculate x,y positions for nodes based on tier and sorted order.
+        Organizes nodes in rows by device type, sorted by name within each row.
+        """
+        # Group nodes by tier
+        tiers = {}
+        for node in nodes_data:
+            device_type = node['data']['device_type']
+            tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 6)
+            if tier not in tiers:
+                tiers[tier] = []
+            tiers[tier].append(node)
+
+        # Sort nodes within each tier by name (natural sort)
+        for tier in tiers:
+            tiers[tier].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
+
+        # Calculate positions
+        NODE_SPACING_X = 150  # Horizontal spacing between nodes
+        NODE_SPACING_Y = 120  # Vertical spacing between tiers
+        PADDING = 100         # Left padding
+
+        # Find the widest tier to center others
+        max_width = max(len(nodes) for nodes in tiers.values()) if tiers else 1
+
+        for tier_num in sorted(tiers.keys()):
+            tier_nodes = tiers[tier_num]
+            tier_width = len(tier_nodes)
+
+            # Center this tier relative to the widest tier
+            start_x = PADDING + (max_width - tier_width) * NODE_SPACING_X / 2
+
+            for i, node in enumerate(tier_nodes):
+                node['position'] = {
+                    'x': start_x + i * NODE_SPACING_X,
+                    'y': PADDING + tier_num * NODE_SPACING_Y
+                }
+
+        return nodes_data
 
     def parse_topology(self, topo_path):
         """
@@ -1074,6 +1149,9 @@ class TopologyAPIHandler(BaseHandler):
                     },
                     'classes': f"device-type-{device_type} status-unknown"
                 })
+
+        # Calculate positions based on device type tiers and natural name sorting
+        nodes = self.calculate_positions(nodes)
 
         return {
             'data': {

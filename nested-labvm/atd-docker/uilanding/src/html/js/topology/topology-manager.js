@@ -16,7 +16,7 @@ export class TopologyManager {
         this.options = {
             apiUrl: options.apiUrl || '/td-api/topology',
             wsUrl: options.wsUrl || this.getDefaultWsUrl(),
-            layout: options.layout || 'dagre',
+            layout: options.layout || 'preset',  // Default to preset (server-calculated positions)
             enableStatus: options.enableStatus !== false,
             enableFilters: options.enableFilters !== false,
             ...options

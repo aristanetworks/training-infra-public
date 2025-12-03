@@ -1,7 +1,23 @@
 /**
  * Layout Configuration for ATL Topology Diagram
- * Uses Dagre for hierarchical network layouts
+ * Uses preset layout with server-calculated positions for organized display
  */
+
+/**
+ * Get Preset layout configuration
+ * Uses positions calculated by the server based on device tiers
+ * Best for organized, predictable layouts
+ */
+export function getPresetLayout() {
+    return {
+        name: 'preset',
+        fit: true,
+        padding: 50,
+        animate: true,
+        animationDuration: 500,
+        animationEasing: 'ease-out-cubic'
+    };
+}
 
 /**
  * Get Dagre hierarchical layout configuration
@@ -135,11 +151,13 @@ export function getGridLayout() {
 
 /**
  * Get layout by name
- * @param {string} layoutName - Name of the layout ('dagre', 'cose', 'concentric', 'grid')
+ * @param {string} layoutName - Name of the layout ('preset', 'dagre', 'cose', 'concentric', 'grid')
  * @returns {Object} Layout configuration
  */
 export function getLayout(layoutName) {
     switch (layoutName) {
+        case 'preset':
+            return getPresetLayout();
         case 'dagre':
             return getDagreLayout();
         case 'cose':
@@ -149,7 +167,7 @@ export function getLayout(layoutName) {
         case 'grid':
             return getGridLayout();
         default:
-            return getDagreLayout();
+            return getPresetLayout();  // Default to preset (server-calculated positions)
     }
 }
 
@@ -157,7 +175,8 @@ export function getLayout(layoutName) {
  * Available layout options for UI
  */
 export const LAYOUT_OPTIONS = [
-    { id: 'dagre', name: 'Hierarchical', description: 'Best for spine-leaf topologies' },
+    { id: 'preset', name: 'Organized', description: 'Tiered layout by device type (default)' },
+    { id: 'dagre', name: 'Hierarchical', description: 'Auto-arranged spine-leaf layout' },
     { id: 'cose', name: 'Force-Directed', description: 'Organic clustering layout' },
     { id: 'concentric', name: 'Concentric', description: 'Circles by device importance' },
     { id: 'grid', name: 'Grid', description: 'Simple grid arrangement' }

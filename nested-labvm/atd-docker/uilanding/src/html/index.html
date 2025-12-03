@@ -421,7 +421,7 @@
           try {
             topoManager = new TopologyManager('interactive-topology', {
               apiUrl: '/td-api/topology',
-              layout: 'dagre',
+              layout: 'preset',  // Use server-calculated positions for organized layout
               enableStatus: true,
               enableFilters: true
             });
@@ -477,7 +477,7 @@
       if (resetBtn) {
         resetBtn.addEventListener('click', function() {
           if (topoManager) {
-            topoManager.setLayout('dagre');
+            topoManager.setLayout('preset');  // Reset to organized layout
             topoManager.resetFilters();
             document.querySelectorAll('#filter-controls input[type="checkbox"]').forEach(cb => cb.checked = true);
             document.getElementById('device-search').value = '';
