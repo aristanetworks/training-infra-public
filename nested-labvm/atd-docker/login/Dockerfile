@@ -11,7 +11,7 @@ RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.5/fixuid-0.
 RUN apt update && \
     apt install -y openssh-server vim sudo screen libvirt-clients libvirt-dev
 
-RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib-pelix google-cloud-storage cloudvision
+RUN pip install ruamel.yaml rcvpapi cvprac pyaml paramiko scp urllib3 libvirt-python jsonrpclib-pelix google-cloud-storage cloudvision google-cloud-logging
 
 RUN mkdir -p /var/run/sshd
 
@@ -29,9 +29,13 @@ WORKDIR /home/arista
 
 RUN mkdir .ssh
 
+COPY src/cloud_logging_utils.py /usr/local/lib/python3.9/site-packages/
+
 COPY src/login.py /usr/local/bin
 
 COPY src/callConfigTopo.py /usr/local/bin
+
+COPY src/cloud_logging_utils.py /usr/local/bin 
 
 COPY src/resetVMs.py /usr/local/bin
 
@@ -75,6 +79,8 @@ RUN chmod +x /usr/local/bin/localGrading.py
 RUN chmod +x /usr/local/bin/saveRunning.py
 
 RUN chmod +x /usr/local/bin/uploadRunningConfigs.py
+
+RUN chmod +x /usr/local/bin/cloud_logging_utils.py
 
 RUN mkdir /usr/local/bin/ConfigureTopology
 

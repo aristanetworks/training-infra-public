@@ -5,9 +5,12 @@ import jsonrpclib
 import yaml
 import ssl
 import sys
-import traceback 
-import json 
+import traceback
+import json
 import requests
+from cloud_logging_utils import setup_cloud_logging
+
+logger = setup_cloud_logging('qa-steps')
 TOPO_API = 'atd-conftopo'
 try:
     _create_unverified_https_context = ssl._create_unverified_context
@@ -64,10 +67,13 @@ def getAPI(action):
         return (e)
 
 def main():
+    logger.info("Starting QA steps validation")
     status = 0
     switches={}
     labPassword, labTopology = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
+    logger.info(f"Validating {len(allHostsName)} hosts", extra={'labels': {'host_count': str(len(allHostsName))}})
+
     try:
         for name, ip in zip(allHostsName,allHostsIP):
             name=name.replace('-','')
@@ -76,15 +82,22 @@ def main():
             switches[name]["hostname"]=switch.runCmds(1,["show hostname"])[0]["hostname"]
             switches[name]["ztp_mode"]=switch.runCmds(1,["show zerotouch"])[0]['mode']
             if name != switches[name]['hostname'] or switches[name]['ztp_mode']!='disabled':
+                logger.error(f"QA validation failed for {name}", extra={'labels': {'device': name, 'status': 'failed'}})
                 return("failed")
+            logger.info(f"QA validation passed for {name}", extra={'labels': {'device': name, 'status': 'passed'}})
+
         switches["cvp_status"]=getAPI("cvp_tasks")
         if isinstance(switches["cvp_status"], Exception):
+            logger.error("CVP API call failed", extra={'labels': {'status': 'failed'}})
             return("failed")
         elif switches["cvp_status"]['status'] == 'Complete':
+            logger.info("All QA steps completed successfully", extra={'labels': {'status': 'success'}})
             return("success")
         else:
+            logger.warning("QA steps validation failed", extra={'labels': {'status': 'failed'}})
             return ("failed")
     except Exception as e:
         print(e)
+        logger.error(f"QA validation error: {str(e)}", extra={'labels': {'error': str(e)}})
         return("failed")
 print(main())                                                                                                                                                                                                       

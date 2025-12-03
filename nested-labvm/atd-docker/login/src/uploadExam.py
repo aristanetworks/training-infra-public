@@ -12,6 +12,7 @@ from ftplib import FTP
 import json
 from base64 import b64decode, b64encode
 import requests
+from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
 
 
 try:
@@ -254,11 +255,14 @@ def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
             print("Switch {switch} config and output saved".format(switch = name))
 
 
-def gradeExam(project, instance, region):
-    #need gcp project and then url
+def gradeExam(project, instance, region, logger=None):
+    """Submit exam for grading"""
+    if logger:
+        log_operation_start(logger, 'exam-grading', instance=instance, region=region)
+
     grade_url = f"https://us-central1-{project}.cloudfunctions.net/api-grading"
     headers = {'Content-Type': 'application/json'}
-    # need instance name and region
+
     try:
         grade_response = requests.post(url=grade_url,headers=headers,data=json.dumps({"instance":instance,"zone":region,"source":"cli"}))
         if grade_response.status_code == 200:
@@ -271,17 +275,31 @@ def gradeExam(project, instance, region):
                 result = "Pass"
             else:
                 result = "Fail"
+
+            if logger:
+                logger.info(f"Exam graded: {result}", extra={'labels': {
+                    'operation': 'exam-grading',
+                    'instance': instance,
+                    'result': result,
+                    'score': score,
+                    'total_points': total_points
+                }})
+                log_operation_success(logger, 'exam-grading', instance=instance, result=result, score=score)
         else:
             raise Exception
 
     except Exception as e:
         result = "Pending"
-    return result
-    # then call CF
-    # return the exam result
+        if logger:
+            log_operation_error(logger, 'exam-grading', str(e), instance=instance, result='Pending')
 
-def updateHubspot(result, doceboid, courseid):
-    # need docebo user id, course id
+    return result
+
+def updateHubspot(result, doceboid, courseid, logger=None):
+    """Update HubSpot with exam result"""
+    if logger:
+        log_operation_start(logger, 'hubspot-update', result=result, docebo_user_id=doceboid, course_id=courseid)
+
     try:
         # get access token
         metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/attributes/hubspot_pat"
@@ -331,18 +349,28 @@ def updateHubspot(result, doceboid, courseid):
         update_response = requests.patch(url=update_url,data=json.dumps(update_data),headers=headers)
         if update_response.status_code != 200:
             raise Exception
-    except Exception:
+
+        if logger:
+            log_operation_success(logger, 'hubspot-update', result=result, docebo_user_id=doceboid, course_id=courseid)
+        return None
+    except Exception as e:
+        if logger:
+            log_operation_error(logger, 'hubspot-update', str(e), result=result, docebo_user_id=doceboid, course_id=courseid)
         return None
 
 
 
 
 def main():
+    # Initialize cloud logging
+    logger = setup_cloud_logging('uploadExam')
+    logger.info("Starting exam upload process")
+
     labPassword, labTopology, labName, labZone, labProject = readLabDetails()
-    #print(labZone)
+    logger.info("Lab details loaded", extra={'labels': {'lab_name': labName, 'topology': labTopology}})
+
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
-    #fullName, email, candidateID = getUserInfo()
     getUserInfo()
     folder = str(labName[:-11])
     if not os.path.exists(folder):
@@ -350,47 +378,55 @@ def main():
             os.makedirs(folder)
         except OSError as exc: # Guard against race condition
             raise
+
+    logger.info("Collecting switch details", extra={'labels': {'lab_name': labName, 'operation': 'exam-submit'}})
     grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword)
-    tarFile = "results-" + folder #+ "-" + candidateID
+    tarFile = "results-" + folder
+
     grabCVPInfo(labPassword,folder)
-    #createUserFile(fullName,email,candidateID,folder,labName,labTopology)
     print("This file will be created and uploaded " + tarFile)
     with tarfile.open(tarFile, "w:gz") as tar:
         tar.add(os.getcwd() + "/" + folder, arcname=os.path.basename(tarFile))
         tar.add("apps/coder/",arcname=os.path.basename(tarFile))
-    # ftpUpload(tarFile)
-    # print("Upload complete")
+
+    logger.info("Exam data collection complete", extra={'labels': {'lab_name': labName, 'operation': 'exam-submit'}})
+
     # grade and update
     if labName.split("-")[2] == "rct":
         print("Grading the exam. Please wait for 1-2 minutes here")
-        result = gradeExam(labProject, labName, labZone)
+        result = gradeExam(labProject, labName, labZone, logger)
         if result != "Pending":
             userId = labName.split("-")[0][1:]
             courseId = labName.split("-")[1][1:]
-            updateHubspot(result,userId,courseId)
+            updateHubspot(result,userId,courseId, logger)
             print("Grading completed")
         else:
             print("Contact the support team for the results")
     else:
-        result = gradeExam(labProject, labName, labZone)            
+        result = gradeExam(labProject, labName, labZone, logger)
+
     print("Disconneting you from the lab environment")
-    firewall("block-firewall",labName,labZone,labProject)
+    firewall("block-firewall",labName,labZone,labProject, logger)
 
 
 
 
-def firewall(action, instanceName, instanceRegion,labProject):
-    """
-    """
-    #get the data from DB if needed
-    #call the cloud function or the do the api calls here itself
+def firewall(action, instanceName, instanceRegion,labProject, logger=None):
+    """Block or unblock firewall access for lab instance"""
+    if logger:
+        log_operation_start(logger, 'firewall-action', action=action, instance=instanceName)
+
     response = requests.get(EDIT_INSTANCE.format(labProject) + "?function={0}&instance={1}&zone={2}".format(action, instanceName, instanceRegion))
     try:
         print("Response from edit-instance CF: {}".format(response.json()))
+        if logger:
+            log_operation_success(logger, 'firewall-action', action=action, instance=instanceName)
         os.system("pkill -KILL -u arista")
         return(response.json())
     except Exception as e:
         print("Response from edit-instance CF: {}".format(e))
+        if logger:
+            log_operation_error(logger, 'firewall-action', str(e), action=action, instance=instanceName)
         return(False)
 
 main()

@@ -15,6 +15,17 @@ import uuid
 from google.protobuf.json_format import Parse, MessageToDict
 from arista.workspace.v1 import services as ws_services
 from cvprac.cvp_client import CvpClient
+
+# Try to import cloud_logging_utils from site-packages (Docker) or parent directory (local)
+try:
+    from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+except ImportError:
+    # If not in site-packages, try relative import from parent directory
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -40,9 +51,16 @@ zerotouch cancel
 class ConfigureTopology():
 
     def __init__(self,selected_menu,selected_lab,public_module_flag=False):
+        self.logger = setup_cloud_logging('ConfigureTopology')
+        self.logger.info(f"ConfigureTopology initialized", extra={'labels': {
+            'menu': selected_menu,
+            'lab': selected_lab,
+            'operation': 'configure-topology'
+        }})
         self.selected_menu = selected_menu
         self.selected_lab = selected_lab
         self.public_module_flag = public_module_flag
+        log_operation_start(self.logger, 'deploy-lab', menu=selected_menu, lab=selected_lab)
         self.deploy_lab()
 
     def connect_to_cvp(self,access_info):
@@ -131,6 +149,16 @@ class ConfigureTopology():
         syslog.syslog("[{0}] {1}".format(mstat,mmes.expandtabs(7 - len(mstat))))
         if DEBUG:
             print("[{0}] {1}".format(mstat,mmes.expandtabs(7 - len(mstat))))
+
+        # Also log to cloud logging
+        if mstat == 'ERROR':
+            self.logger.error(mtype, extra={'labels': {'status': mstat, 'menu': self.selected_menu, 'lab': self.selected_lab}})
+        elif mstat == 'INFO':
+            self.logger.info(mtype, extra={'labels': {'status': mstat, 'menu': self.selected_menu, 'lab': self.selected_lab}})
+        elif mstat == 'OK':
+            self.logger.info(mtype, extra={'labels': {'status': mstat, 'menu': self.selected_menu, 'lab': self.selected_lab}})
+        else:
+            self.logger.info(f"[{mstat}] {mtype}", extra={'labels': {'status': mstat, 'menu': self.selected_menu, 'lab': self.selected_lab}})
 
 
     def push_bare_config(self,veos_host, veos_ip, veos_config):

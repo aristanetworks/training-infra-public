@@ -6,6 +6,9 @@ import jsonrpclib
 import yaml
 import ssl
 import sys
+from cloud_logging_utils import setup_cloud_logging
+
+logger = setup_cloud_logging('lab_status')
 
 try:
     _create_unverified_https_context = ssl._create_unverified_context
@@ -56,6 +59,7 @@ def _get_libvirt_machine(machine):
 
 
 def main():
+    logger.info("Checking lab status")
     labPassword, labTopology = readLabDetails()
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     switch_status=[]
@@ -65,6 +69,9 @@ def main():
             switch.runCmds(1,["show version"])
         except:
             print("{switch},Down".format(switch = name))
+            logger.warning(f"Switch {name} is Down", extra={'labels': {'device': name, 'status': 'down'}})
         else:
             print("{switch},Ok".format(switch = name))
+            logger.info(f"Switch {name} is Ok", extra={'labels': {'device': name, 'status': 'ok'}})
+    logger.info("Lab status check completed")
 main()

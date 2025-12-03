@@ -9,6 +9,9 @@ import os
 
 import json
 import requests
+from cloud_logging_utils import setup_cloud_logging
+
+logger = setup_cloud_logging('localGrading')
 
 
 try:
@@ -73,7 +76,10 @@ def grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword):
 
 
 def main():
+    logger.info("Starting local grading config collection")
     labPassword, labTopology, labName = readLabDetails()
+    logger.info(f"Lab: {labName}, Topology: {labTopology}", extra={'labels': {'lab_name': labName, 'topology': labTopology}})
+
     allHostsIP, allHostsName = readAtdTopo(labTopology)
     restarted = 0
     folder = "running-configs"
@@ -82,7 +88,9 @@ def main():
             os.makedirs(folder)
         except OSError as exc: # Guard against race condition
             raise
+    logger.info(f"Collecting configs from {len(allHostsName)} hosts", extra={'labels': {'host_count': str(len(allHostsName))}})
     grabSwitchDetails(allHostsName,allHostsIP,folder,labPassword)
+    logger.info("Config collection completed")
 
 
 main()

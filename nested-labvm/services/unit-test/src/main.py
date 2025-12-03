@@ -10,6 +10,7 @@ import logging
 import yaml
 import os
 import time
+import socket
 from datetime import datetime
 
 # Import test modules
@@ -18,6 +19,13 @@ import test_cvp_ssh
 import test_web
 import test_cvp_inventory
 import test_node_ssh
+
+# Try to import Cloud Logging (optional dependency)
+try:
+    from google.cloud import logging as cloud_logging
+    CLOUD_LOGGING_AVAILABLE = True
+except ImportError:
+    CLOUD_LOGGING_AVAILABLE = False
 
 # Log directory
 LOG_DIR = '/etc/atd/logs'
@@ -28,7 +36,7 @@ logger = None
 
 def setup_logging():
     """
-    Setup logging to both console and file with epoch timestamp
+    Setup logging to console, file, and optionally Cloud Logging
     Configures the root logger so all modules use the same handlers
 
     Returns:
@@ -65,6 +73,36 @@ def setup_logging():
     # Add handlers to root logger (this will affect all loggers in all modules)
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
+
+    # Setup Cloud Logging if available
+    if CLOUD_LOGGING_AVAILABLE:
+        try:
+            # Get hostname for labeling
+            hostname = socket.gethostname()
+
+            # Initialize Cloud Logging client
+            client = cloud_logging.Client()
+
+            # Create a Cloud Logging handler with structured labels
+            cloud_handler = client.get_default_handler(
+                labels={
+                    'service': 'atd-unit-tests',
+                    'lab_name': hostname,
+                    'log_type': 'unit_test',
+                    'environment': 'production'
+                }
+            )
+            cloud_handler.setLevel(logging.INFO)
+
+            # Add cloud handler to root logger
+            root_logger.addHandler(cloud_handler)
+
+            print(f"✓ Cloud Logging enabled for lab: {hostname}")
+
+        except Exception as e:
+            print(f"⚠ Cloud Logging setup failed (continuing with local logs): {e}")
+    else:
+        print("⚠ Cloud Logging not available (google-cloud-logging not installed)")
 
     # Get logger for this module
     log = logging.getLogger(__name__)
