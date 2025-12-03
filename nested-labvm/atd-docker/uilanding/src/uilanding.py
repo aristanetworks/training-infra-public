@@ -17,6 +17,7 @@ import traceback
 import os
 import subprocess
 import time
+import threading
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -902,6 +903,240 @@ class TerminalPageHandler(BaseHandler):
         )
 
 
+class TopologyAPIHandler(BaseHandler):
+    """API endpoint to return topology data for interactive Cytoscape.js diagram."""
+
+    # Thread-safe cache for parsed topology data (30 second TTL)
+    _cache = {}
+    _cache_time = 0
+    _cache_lock = threading.Lock()
+    CACHE_TTL = 30
+
+    @staticmethod
+    def classify_device_type(device_name):
+        """Classify device type based on naming pattern."""
+        name_lower = device_name.lower()
+
+        # Order matters: more specific patterns first
+        if 'borderleaf' in name_lower or device_name.startswith('BL'):
+            return 'borderleaf'
+        elif 'spine' in name_lower:
+            return 'spine'
+        elif 'leaf' in name_lower:
+            return 'leaf'
+        elif 'host' in name_lower:
+            return 'host'
+        elif 'dci' in name_lower or device_name == 'DCI':
+            return 'dci'
+        elif 'internet' in name_lower:
+            return 'internet'
+        elif 'isp' in name_lower:
+            return 'isp'
+        elif 'core' in name_lower:
+            return 'core'
+        elif 'oob' in name_lower:
+            return 'oob'
+        elif device_name.startswith('PE'):
+            return 'pe'
+        elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
+            return 'p'
+        elif device_name.startswith('A') and len(device_name) > 1 and device_name[1].isdigit():
+            return 'leaf'
+        elif device_name.startswith('B') and len(device_name) > 1 and device_name[1].isdigit():
+            return 'leaf'
+        elif device_name.startswith('C') and len(device_name) > 1 and device_name[1].isdigit():
+            return 'leaf'
+        else:
+            return 'other'
+
+    def parse_topology(self, topo_path):
+        """
+        Parse topo_build.yml and return Cytoscape.js formatted data.
+
+        Returns:
+            dict: Success with 'data' key containing topology
+            dict: Error with 'error' and 'error_type' keys
+        """
+        # Try to open and parse the file
+        try:
+            with open(topo_path, 'r') as f:
+                topo_data = YAML().load(f)
+        except FileNotFoundError:
+            return {'error': f'Topology file not found: {topo_path}', 'error_type': 'not_found'}
+        except PermissionError:
+            return {'error': f'Permission denied accessing: {topo_path}', 'error_type': 'permission'}
+        except Exception as e:
+            pS(f"Error parsing topology file: {e}")
+            return {'error': f'Failed to parse topology file: {str(e)}', 'error_type': 'parse_error'}
+
+        # Validate topo_data structure
+        if topo_data is None:
+            return {'error': 'Topology file is empty', 'error_type': 'empty_file'}
+
+        if 'nodes' not in topo_data:
+            return {'error': 'Topology file missing "nodes" key', 'error_type': 'invalid_format'}
+
+        if not topo_data['nodes']:
+            # Empty nodes list - return empty topology (valid case)
+            pS("Warning: Topology file has no nodes")
+            return {
+                'data': {
+                    'metadata': {
+                        'topology_name': TOPO,
+                        'node_count': 0,
+                        'edge_count': 0,
+                        'generated_at': datetime.now().isoformat()
+                    },
+                    'nodes': [],
+                    'edges': []
+                }
+            }
+
+        nodes = []
+        edges = []
+        edge_set = set()  # Track edges to avoid duplicates
+
+        for node_entry in topo_data['nodes']:
+            # Validate node entry is a dict
+            if not isinstance(node_entry, dict):
+                pS(f"Warning: Invalid node entry format (not a dict): {node_entry}")
+                continue
+
+            # Each entry is a dict with device name as key
+            for device_name, device_info in node_entry.items():
+                # Validate device_info is a dict
+                if not isinstance(device_info, dict):
+                    pS(f"Warning: Invalid device info for {device_name} (not a dict)")
+                    continue
+
+                device_type = self.classify_device_type(device_name)
+                ip_addr = device_info.get('ip_addr', 'N/A')
+                sys_mac = device_info.get('sys_mac', 'N/A')
+                neighbors = device_info.get('neighbors', [])
+
+                # Validate neighbors is a list
+                if not isinstance(neighbors, list):
+                    pS(f"Warning: Invalid neighbors format for {device_name}")
+                    neighbors = []
+
+                # Build port info for tooltip
+                ports = []
+                for neighbor in neighbors:
+                    if not isinstance(neighbor, dict):
+                        continue
+
+                    ports.append({
+                        'port': neighbor.get('port', ''),
+                        'neighbor': neighbor.get('neighborDevice', ''),
+                        'neighbor_port': neighbor.get('neighborPort', '')
+                    })
+
+                    # Create edge (deduplicate by sorting node names)
+                    neighbor_device = neighbor.get('neighborDevice', '')
+                    if neighbor_device:
+                        edge_key = tuple(sorted([device_name, neighbor_device]))
+                        if edge_key not in edge_set:
+                            edge_set.add(edge_key)
+                            source_port = neighbor.get('port', '')
+                            target_port = neighbor.get('neighborPort', '')
+                            edges.append({
+                                'data': {
+                                    'id': f"{device_name}-{neighbor_device}",
+                                    'source': device_name,
+                                    'target': neighbor_device,
+                                    'source_port': source_port,
+                                    'target_port': target_port,
+                                    'label': f"{source_port} ↔ {target_port}" if source_port and target_port else ''
+                                }
+                            })
+
+                # Create node
+                nodes.append({
+                    'data': {
+                        'id': device_name,
+                        'label': device_name,
+                        'ip': ip_addr,
+                        'sys_mac': sys_mac,
+                        'device_type': device_type,
+                        'status': 'unknown',
+                        'ports': ports
+                    },
+                    'classes': f"device-type-{device_type} status-unknown"
+                })
+
+        return {
+            'data': {
+                'metadata': {
+                    'topology_name': TOPO,
+                    'node_count': len(nodes),
+                    'edge_count': len(edges),
+                    'generated_at': datetime.now().isoformat()
+                },
+                'nodes': nodes,
+                'edges': edges
+            }
+        }
+
+    def options(self):
+        """Handle CORS preflight requests."""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.set_header("Access-Control-Max-Age", "86400")  # Cache preflight for 24 hours
+        self.set_status(204)
+        self.finish()
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            current_time = time.time()
+
+            # Thread-safe cache check
+            with TopologyAPIHandler._cache_lock:
+                if (TopologyAPIHandler._cache and
+                    current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL):
+                    self.write(json.dumps(TopologyAPIHandler._cache))
+                    return
+
+            # Parse topology file (outside lock to avoid blocking)
+            topo_path = f"/opt/atd/topologies/{TOPO}/topo_build.yml"
+            result = self.parse_topology(topo_path)
+
+            # Check for errors
+            if 'error' in result:
+                error_type = result.get('error_type', 'unknown')
+                if error_type == 'not_found':
+                    self.set_status(404)
+                elif error_type == 'permission':
+                    self.set_status(403)
+                else:
+                    self.set_status(500)
+                self.write(json.dumps({'error': result['error']}))
+                return
+
+            topology_data = result['data']
+
+            # Thread-safe cache update
+            with TopologyAPIHandler._cache_lock:
+                TopologyAPIHandler._cache = topology_data
+                TopologyAPIHandler._cache_time = current_time
+
+            self.write(json.dumps(topology_data))
+
+        except Exception as e:
+            pS(f"Error in TopologyAPIHandler: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': f'Internal server error: {str(e)}'}))
+
+
 class DevicesAPIHandler(BaseHandler):
     """API endpoint to return device list grouped by type for terminal page."""
 
@@ -1058,6 +1293,7 @@ if __name__ == "__main__":
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
+        (r'/td-api/topology', TopologyAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
