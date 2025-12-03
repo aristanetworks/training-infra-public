@@ -996,6 +996,14 @@ class TopologyAPIHandler(BaseHandler):
         edges = []
         edge_set = set()  # Track edges to avoid duplicates
 
+        # First pass: collect all valid node names
+        valid_node_names = set()
+        for node_entry in topo_data['nodes']:
+            if isinstance(node_entry, dict):
+                for device_name in node_entry.keys():
+                    valid_node_names.add(device_name)
+
+        # Second pass: build nodes and edges
         for node_entry in topo_data['nodes']:
             # Validate node entry is a dict
             if not isinstance(node_entry, dict):
@@ -1025,15 +1033,16 @@ class TopologyAPIHandler(BaseHandler):
                     if not isinstance(neighbor, dict):
                         continue
 
+                    neighbor_device = neighbor.get('neighborDevice', '')
+
                     ports.append({
                         'port': neighbor.get('port', ''),
-                        'neighbor': neighbor.get('neighborDevice', ''),
+                        'neighbor': neighbor_device,
                         'neighbor_port': neighbor.get('neighborPort', '')
                     })
 
-                    # Create edge (deduplicate by sorting node names)
-                    neighbor_device = neighbor.get('neighborDevice', '')
-                    if neighbor_device:
+                    # Create edge only if both nodes exist (prevents Cytoscape.js errors)
+                    if neighbor_device and neighbor_device in valid_node_names:
                         edge_key = tuple(sorted([device_name, neighbor_device]))
                         if edge_key not in edge_set:
                             edge_set.add(edge_key)
@@ -1049,6 +1058,8 @@ class TopologyAPIHandler(BaseHandler):
                                     'label': f"{source_port} ↔ {target_port}" if source_port and target_port else ''
                                 }
                             })
+                    elif neighbor_device:
+                        pS(f"Warning: Skipping edge {device_name}->{neighbor_device}: target node not in topology")
 
                 # Create node
                 nodes.append({
