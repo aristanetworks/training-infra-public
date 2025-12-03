@@ -121,7 +121,22 @@ class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
         except FileNotFoundError:
             self.set_status(404)
             self.write("Error: exam-submitted.html not found")
-        except Exception as e:      
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error: {str(e)}")
+
+class ExamAlreadyRunningHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Content-Type", "text/html")
+        try:
+            with open(BASE_PATH + 'exam-already-running.html', 'r') as file:
+                html_content = file.read()
+            self.write(html_content)
+        except FileNotFoundError:
+            self.set_status(404)
+            self.write("Error: exam-already-running.html not found")
+        except Exception as e:
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 class ExamAuthenticationHandler(tornado.web.RequestHandler):
@@ -409,6 +424,52 @@ def pS(mtype):
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
+def update_hubspot_handler(email, action, project):
+    """
+    Call the HubSpot Cloud Function to update exam properties
+
+    Args:
+        email: Email address of the user
+        action: Action to perform ('update_exam_start' or 'update_exam_submit')
+        project: GCP project name
+
+    Returns:
+        dict: Response from the Cloud Function or error dict
+    """
+    print(f"Updating HubSpot: {action} for {email} in project {project}")
+    hubspot_url = f"https://us-central1-{project}.cloudfunctions.net/api-hl-hubspot-handler"
+    headers = {'Content-Type': 'application/json'}
+
+    payload = {
+        "action": action,
+        "email": email
+    }
+
+    try:
+        response = requests.post(url=hubspot_url, headers=headers, json=payload, timeout=60)
+
+        if response.status_code == 200:
+            print(f"Successfully updated HubSpot: {action} for {email}")
+            return response.json()
+        else:
+            error_msg = f"HubSpot update failed with status {response.status_code}"
+            print(error_msg)
+            try:
+                error_detail = response.json()
+                print(f"Error details: {error_detail}")
+                return error_detail
+            except:
+                return {"error": error_msg, "status_code": response.status_code}
+
+    except requests.exceptions.Timeout:
+        error_msg = "HubSpot request timed out"
+        print(error_msg)
+        return {"error": error_msg}
+    except Exception as e:
+        error_msg = f"HubSpot update error: {str(e)}"
+        print(error_msg)
+        return {"error": error_msg}
+
 class GetClientIdHandler(tornado.web.RequestHandler):
     def get(self):
         """
@@ -576,11 +637,25 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             host_yaml['examButtonNeeded'] = False
             yaml = YAML()
             with open(ATD_ACCESS_PATH, "w") as file:
-                yaml.dump(host_yaml, file)         
+                yaml.dump(host_yaml, file)
+
+            # Call HubSpot to update exam start time
+            try:
+                customer_email = host_yaml.get('customer_details', {}).get('exam_taker_email', '')
+                if customer_email and customer_email != 'arista-test-taker@arista.com':
+                    print(f"Calling HubSpot to update exam start time for {customer_email}")
+                    hubspot_response = update_hubspot_handler(customer_email, 'update_exam_start', PROJECT)
+                    print(f"HubSpot response: {hubspot_response}")
+                else:
+                    print(f"Skipping HubSpot update - no valid customer email found")
+            except Exception as hubspot_error:
+                # Don't fail the exam start if HubSpot update fails
+                print(f"Warning: HubSpot update failed but exam started successfully: {hubspot_error}")
+
             self.write({
                 'response':f'Status updated to ExamButtonNotNeeded'
-                    })     
-        except Exception as e:    
+                    })
+        except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)}) 
 
@@ -867,6 +942,7 @@ if __name__ == "__main__":
 
     app = tornado.web.Application([
         (r'/exam-submitted', ExamSubmittedRedirectHandler),
+        (r'/exam-already-running', ExamAlreadyRunningHandler),
         (r'/exam-redo', ExamRedoRedirectHandler),
         (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
         (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),

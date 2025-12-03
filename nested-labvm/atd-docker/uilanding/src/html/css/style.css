@@ -467,3 +467,200 @@ h3.m-b-10 {
 label{
   color: white;
 }
+
+/* ============================================
+   Connectivity Monitor Badge
+   ============================================ */
+
+/* Connectivity Badge - Fixed top-right */
+.connectivity-badge {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(7, 28, 53, 0.95);
+  border: 2px solid var(--neon-green);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.connectivity-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.connectivity-badge.warning {
+  border-color: var(--secondary-color);
+  animation: pulse-warning 2s infinite;
+}
+
+.connectivity-badge.critical {
+  border-color: var(--red);
+  animation: pulse-critical 1.5s infinite;
+}
+
+.connectivity-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.connectivity-badge.healthy .connectivity-icon {
+  color: var(--neon-green);
+}
+
+.connectivity-badge.warning .connectivity-icon {
+  color: var(--secondary-color);
+}
+
+.connectivity-badge.critical .connectivity-icon {
+  color: var(--red);
+}
+
+/* Pulsing animation for warnings */
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes pulse-critical {
+  0%, 100% { border-color: var(--red); }
+  50% { border-color: #ff4444; }
+}
+
+/* Detailed status popup */
+.connectivity-details {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 999;
+  width: 320px;
+  background: var(--primary-color);
+  border: 2px solid var(--secondary-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  color: white;
+}
+
+.connectivity-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--secondary-color);
+}
+
+.connectivity-detail-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--secondary-color);
+}
+
+.connectivity-close-btn {
+  background: none;
+  border: none;
+  color: var(--secondary-color);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.connectivity-close-btn:hover {
+  color: var(--neon-green);
+}
+
+.connectivity-detail-body {
+  padding: 16px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(251, 181, 0, 0.3);
+}
+
+.status-item:last-of-type {
+  border-bottom: none;
+}
+
+.status-label {
+  font-weight: 600;
+  color: var(--secondary-color);
+  min-width: 90px;
+}
+
+.status-value {
+  flex: 1;
+  text-align: right;
+  margin-right: 8px;
+  font-size: 13px;
+}
+
+.status-icon {
+  font-size: 18px;
+}
+
+.status-icon.ok {
+  color: var(--neon-green);
+}
+
+.status-icon.warning {
+  color: var(--secondary-color);
+}
+
+.status-icon.error {
+  color: var(--red);
+}
+
+.status-note {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(251, 181, 0, 0.1);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+}
+
+.status-note i {
+  color: var(--secondary-color);
+  margin-right: 8px;
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 63.9375em) {
+  .connectivity-badge {
+    top: 60px;  /* Move below mobile menu */
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    z-index: 100;  /* Lower than mobile menu */
+  }
+
+  .connectivity-icon {
+    font-size: 14px;
+    margin-right: 6px;
+  }
+
+  .connectivity-details {
+    top: 100px;  /* Position below badge */
+    right: 10px;
+    width: calc(100vw - 40px);
+    max-width: 320px;
+    z-index: 99;  /* Below badge */
+  }
+}

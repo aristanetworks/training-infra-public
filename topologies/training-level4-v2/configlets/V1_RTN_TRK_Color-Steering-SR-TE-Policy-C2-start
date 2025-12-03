@@ -1,0 +1,11 @@
+interface Loopback0
+ip address 192.168.30.2/32
+!
+interface Ethernet1
+no switchport
+ip address 192.168.32.2/30
+mtu 1500
+no shutdown
+!
+interface Ethernet2
+shutdown

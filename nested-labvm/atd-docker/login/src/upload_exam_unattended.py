@@ -253,6 +253,14 @@ def create_tarball(output_dir, lab_name):
         with tarfile.open(tarball_name, "w:gz") as tar:
             tar.add(output_dir, arcname=os.path.basename(output_dir))
 
+            # Add apps/coder directory if it exists (student's lab work)
+            coder_path = "apps/coder/"
+            if os.path.exists(coder_path):
+                tar.add(coder_path, arcname=os.path.basename(output_dir))
+                print(f"✓ Added {coder_path} to tarball")
+            else:
+                print(f"⚠ Warning: {coder_path} not found, skipping")
+
         print(f"✓ Tarball created: {tarball_name}")
         print(f"  Location: {os.path.abspath(tarball_name)}")
         return tarball_name
@@ -383,6 +391,100 @@ class CVPCollector:
                     valid_configlets.append({'name': item, 'config': 'N/A - Only name available'})
 
         return valid_configlets
+
+    def get_configlet_builders(self):
+        """Get all configlet builders from CVP including Python code and form layouts"""
+        builders = []
+        try:
+            # Get all configlets and filter for builders
+            all_configlets = self.client.api.get_configlets()
+
+            if not all_configlets:
+                return []
+
+            # Extract configlet list from response
+            configlet_list = []
+            if isinstance(all_configlets, dict):
+                if 'data' in all_configlets:
+                    configlet_list = all_configlets['data']
+                elif 'configlets' in all_configlets:
+                    configlet_list = all_configlets['configlets']
+                else:
+                    configlet_list = [all_configlets]
+            elif isinstance(all_configlets, list):
+                configlet_list = all_configlets
+
+            for configlet in configlet_list:
+                if not isinstance(configlet, dict):
+                    continue
+
+                # Check if this is a configlet builder
+                is_builder = (
+                    configlet.get('isAutoBuilder') == 'true' or
+                    configlet.get('isAutoBuilder') is True or
+                    configlet.get('type') == 'Builder'
+                )
+
+                if is_builder:
+                    builder_key = configlet.get('key')
+                    builder_name = configlet.get('name', 'Unknown')
+
+                    if builder_key:
+                        try:
+                            # Get full builder details including Python code
+                            builder_details = self.client.api.get_configlet_builder(builder_key)
+                            if builder_details:
+                                # Handle nested 'data' wrapper from API response
+                                if 'data' in builder_details:
+                                    builder_data = builder_details['data']
+                                else:
+                                    builder_data = builder_details
+
+                                # Extract script code - try multiple possible field names
+                                main_script = {}
+                                script_code = None
+
+                                # Try different possible locations for the script
+                                if 'main_script' in builder_data:
+                                    if isinstance(builder_data['main_script'], dict):
+                                        script_code = builder_data['main_script'].get('data', '')
+                                    else:
+                                        script_code = builder_data['main_script']
+                                elif 'MainScript' in builder_data:
+                                    if isinstance(builder_data['MainScript'], dict):
+                                        script_code = builder_data['MainScript'].get('Data', '')
+                                    else:
+                                        script_code = builder_data['MainScript']
+                                elif 'config' in builder_data:
+                                    script_code = builder_data['config']
+
+                                if script_code:
+                                    main_script = {'Data': script_code}
+
+                                # Extract form list - try multiple possible field names
+                                form_list = (
+                                    builder_data.get('formList') or
+                                    builder_data.get('FormList') or
+                                    builder_data.get('form_list') or
+                                    []
+                                )
+
+                                builders.append({
+                                    'name': builder_name,
+                                    'key': builder_key,
+                                    'type': 'ConfigletBuilder',
+                                    'main_script': main_script,
+                                    'form_list': form_list,
+                                    'metadata': configlet,
+                                    'raw_builder_response': builder_details  # Keep raw for debugging
+                                })
+                        except Exception as e:
+                            print(f"  Note: Could not get builder details for {builder_name}: {e}")
+
+        except Exception as e:
+            print(f"Error getting configlet builders: {e}")
+
+        return builders
 
     def _extract_protobuf_value(self, obj, default='N/A'):
         """Helper to safely extract value from protobuf objects"""
@@ -1443,6 +1545,49 @@ class CVPCollector:
 
         return saved_files
 
+    def save_configlet_builders_to_files(self, builders, output_dir):
+        """Save configlet builders to files including Python code and form layouts"""
+        builders_dir = os.path.join(output_dir, 'configlet_builders')
+        os.makedirs(builders_dir, exist_ok=True)
+
+        saved_files = []
+        for idx, builder in enumerate(builders, 1):
+            try:
+                name = builder.get('name', f'builder_{idx}')
+                # Sanitize filename
+                safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).strip()
+                if not safe_name:
+                    safe_name = f'builder_{idx}'
+                safe_name = safe_name.replace(' ', '_')
+
+                # Save the Python code as .py file
+                main_script = builder.get('main_script', {})
+                if main_script and main_script.get('Data'):
+                    py_file = os.path.join(builders_dir, f'{safe_name}.py')
+                    with open(py_file, 'w') as f:
+                        f.write(main_script['Data'])
+                    saved_files.append(py_file)
+
+                # Save form layout as .form file (YAML format for consistency)
+                form_list = builder.get('form_list', [])
+                if form_list:
+                    form_file = os.path.join(builders_dir, f'{safe_name}.form')
+                    with open(form_file, 'w') as f:
+                        yaml.dump({'FormList': form_list}, f, default_flow_style=False)
+                    saved_files.append(form_file)
+
+                # Save full metadata as JSON
+                metadata_file = os.path.join(builders_dir, f'{safe_name}_metadata.json')
+                with open(metadata_file, 'w') as f:
+                    json.dump(builder, f, indent=2)
+                saved_files.append(metadata_file)
+
+            except Exception as e:
+                print(f"Warning: Error saving builder {idx}: {e}")
+                continue
+
+        return saved_files
+
     def collect_switch_eapi_data(self, device, password, output_dir):
         """Collect operational data from a switch via eAPI"""
         if not JSONRPCLIB_AVAILABLE:
@@ -1614,7 +1759,7 @@ class CVPCollector:
         if saved_count > 0:
             print(f"    → Saved {saved_count} file(s) to {eapi_dir}/")
 
-    def format_overview_report(self, all_workspaces, dashboards, snapshot_templates, all_change_controls, network_structure, output_dir=None):
+    def format_overview_report(self, all_workspaces, dashboards, snapshot_templates, all_change_controls, network_structure, configlet_builders=None, output_dir=None):
         """Format CVP-wide overview report"""
         output = []
         output.append("=" * 100)
@@ -1801,6 +1946,44 @@ class CVPCollector:
                 output.append("")
         else:
             output.append("No snapshot templates configured")
+        output.append("")
+
+        # Configlet Builders Section
+        output.append("─" * 100)
+        output.append("CONFIGLET BUILDERS")
+        output.append("─" * 100)
+        if configlet_builders:
+            output.append(f"Total Configlet Builders: {len(configlet_builders)}\n")
+            for idx, builder in enumerate(configlet_builders, 1):
+                output.append(f"\n[Configlet Builder {idx}]")
+                output.append(f"Name:         {builder.get('name', 'Unknown')}")
+                output.append(f"Type:         ConfigletBuilder")
+
+                # Show Python code preview
+                main_script = builder.get('main_script', {})
+                if main_script and main_script.get('Data'):
+                    code_lines = main_script['Data'].split('\n')
+                    output.append(f"Code Lines:   {len(code_lines)}")
+                    output.append(f"\nCode Preview (first 10 lines):")
+                    output.append("  " + "-" * 80)
+                    for line in code_lines[:10]:
+                        output.append(f"  {line}")
+                    if len(code_lines) > 10:
+                        output.append(f"  ... ({len(code_lines) - 10} more lines)")
+                    output.append("  " + "-" * 80)
+
+                # Show form fields
+                form_list = builder.get('form_list', [])
+                if form_list:
+                    output.append(f"\nForm Fields: {len(form_list)} field(s)")
+                    for field in form_list:
+                        field_label = field.get('fieldLabel', 'Unknown')
+                        field_type = field.get('type', 'Unknown')
+                        output.append(f"  - {field_label}: {field_type}")
+
+                output.append("")
+        else:
+            output.append("No configlet builders found")
         output.append("")
 
         # Dashboards Section
@@ -2751,6 +2934,16 @@ Examples:
     snapshot_templates = collector.get_all_snapshot_templates()
     print()
 
+    # Get all configlet builders
+    print("Retrieving all configlet builders...")
+    all_configlet_builders = collector.get_configlet_builders()
+    print(f"✓ Retrieved {len(all_configlet_builders)} configlet builder(s)\n")
+
+    # Save configlet builders to files
+    if all_configlet_builders:
+        saved_builder_files = collector.save_configlet_builders_to_files(all_configlet_builders, args.output_dir)
+        print(f"✓ Saved {len(saved_builder_files)} configlet builder file(s)\n")
+
     # Get all change controls
     print("Retrieving all change controls...")
     all_change_controls = collector.get_all_change_controls()
@@ -2779,6 +2972,7 @@ Examples:
         snapshot_templates,
         all_change_controls,
         network_structure,
+        all_configlet_builders,
         args.output_dir
     )
 
@@ -2877,6 +3071,10 @@ Examples:
     print(f"{'=' * 80}")
     print(f"{args.output_dir}/")
     print(f"├── Overview_report.txt")
+    print(f"├── configlet_builders/")
+    print(f"│   ├── *.py")
+    print(f"│   ├── *.form")
+    print(f"│   └── *_metadata.json")
     for dr in device_reports[:3]:  # Show first 3 as examples
         print(f"├── {dr['device_name']}/")
         print(f"│   ├── {dr['device_name']}_report.txt")

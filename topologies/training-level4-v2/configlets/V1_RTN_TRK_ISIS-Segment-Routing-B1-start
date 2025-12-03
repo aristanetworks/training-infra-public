@@ -1,0 +1,26 @@
+!
+interface Ethernet1
+  no switchport
+  ip address 192.168.21.2/30
+
+interface Loopback0
+   ip address 192.168.2.1/32
+!
+interface Loopback1
+   ip address 192.168.2.11/32
+!
+
+new
+
+!
+ip route 0.0.0.0/0 192.168.21.1
+!
+int loop0
+   ip address 192.168.20.1/32
+!
+int eth1
+   no switchport
+   ip address 192.168.21.2/30
+   mtu 1500
+   no shut
+!
