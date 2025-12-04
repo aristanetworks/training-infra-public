@@ -913,21 +913,29 @@ class TopologyAPIHandler(BaseHandler):
     CACHE_TTL = 30
 
     # Device type to tier mapping (lower tier = higher in diagram)
+    # Tier 0: Internet (top, cloud/WAN edge)
+    # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.)
+    # Tier 2: DCI, core, P routers (inter-DC connectivity)
+    # Tier 3: Borderleaf, PE, CE (DC edge)
+    # Tier 4: Spines
+    # Tier 5: Leafs
+    # Tier 6: Hosts, customers, OOB
+    # Tier 7: Other
     DEVICE_TIERS = {
         'internet': 0,
-        'isp': 0,
-        'core': 1,
-        'dci': 1,
-        'p': 1,
-        'borderleaf': 2,
-        'pe': 2,
-        'ce': 2,
-        'spine': 3,
-        'leaf': 4,
-        'host': 5,
-        'customer': 5,
-        'oob': 5,
-        'other': 6
+        'isp': 1,
+        'core': 2,
+        'dci': 2,
+        'p': 2,
+        'borderleaf': 3,
+        'pe': 3,
+        'ce': 3,
+        'spine': 4,
+        'leaf': 5,
+        'host': 6,
+        'customer': 6,
+        'oob': 6,
+        'other': 7
     }
 
     @staticmethod
@@ -978,6 +986,20 @@ class TopologyAPIHandler(BaseHandler):
         if match:
             return match.group(1).upper()
         return ''  # No datacenter suffix
+
+    @staticmethod
+    def extract_isp_provider(device_name):
+        """
+        Extract ISP provider identifier from device name.
+        E.g., 'core1-ISP1' -> 'ISP1', 'core2-ISP2' -> 'ISP2', 'internet' -> ''
+        Used for grouping ISP devices by provider in the topology layout.
+        """
+        import re
+        # Match -ISP followed by number
+        match = re.search(r'-?(ISP\d+)$', device_name, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        return ''  # No ISP suffix
 
     @staticmethod
     def get_sort_key(device_name):
@@ -1187,23 +1209,30 @@ class TopologyAPIHandler(BaseHandler):
             return TopologyAPIHandler.calculate_wan_positions(nodes_data, edges_data)
 
         # Standard datacenter layout (tier-based)
-        # Group nodes by tier, then by datacenter
+        # Group nodes by tier, then by grouping key (datacenter or ISP provider)
         tiers = {}
+        ISP_TIER = TopologyAPIHandler.DEVICE_TIERS.get('isp', 1)
+
         for node in nodes_data:
             device_type = node['data']['device_type']
-            tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 6)
-            dc = TopologyAPIHandler.extract_datacenter(node['data']['id'])
+            tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 7)
+
+            # For ISP tier, group by ISP provider (ISP1, ISP2) instead of datacenter
+            if tier == ISP_TIER:
+                group_key = TopologyAPIHandler.extract_isp_provider(node['data']['id'])
+            else:
+                group_key = TopologyAPIHandler.extract_datacenter(node['data']['id'])
 
             if tier not in tiers:
                 tiers[tier] = {}
-            if dc not in tiers[tier]:
-                tiers[tier][dc] = []
-            tiers[tier][dc].append(node)
+            if group_key not in tiers[tier]:
+                tiers[tier][group_key] = []
+            tiers[tier][group_key].append(node)
 
-        # Sort nodes within each tier/dc group by name (natural sort)
+        # Sort nodes within each tier/group by name (natural sort)
         for tier in tiers:
-            for dc in tiers[tier]:
-                tiers[tier][dc].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
+            for group_key in tiers[tier]:
+                tiers[tier][group_key].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
 
         # Calculate positions
         NODE_SPACING_X = 150   # Horizontal spacing between nodes
@@ -1211,50 +1240,55 @@ class TopologyAPIHandler(BaseHandler):
         DC_SPACING = 80        # Extra spacing between datacenter groups
         PADDING = 100          # Left padding
 
-        # Calculate max width considering DC groups and spacing
+        # Calculate max width considering groups and spacing
+        # Groups can be DCs (DC1, DC2) or ISP providers (ISP1, ISP2) depending on tier
         max_width = 0
         for tier in tiers:
             tier_width = 0
-            dc_keys = sorted(tiers[tier].keys())  # Sort DCs: '', 'DC1', 'DC2', etc.
-            for i, dc in enumerate(dc_keys):
-                tier_width += len(tiers[tier][dc]) * NODE_SPACING_X
-                if i < len(dc_keys) - 1:  # Add DC spacing between groups
+            group_keys = sorted(tiers[tier].keys())  # Sort: '', 'DC1', 'DC2' or 'ISP1', 'ISP2'
+            for i, gk in enumerate(group_keys):
+                tier_width += len(tiers[tier][gk]) * NODE_SPACING_X
+                if i < len(group_keys) - 1:  # Add spacing between groups
                     tier_width += DC_SPACING
             max_width = max(max_width, tier_width)
 
         if max_width == 0:
             max_width = NODE_SPACING_X
 
-        # Position nodes
+        # Position nodes by tier
         for tier_num in sorted(tiers.keys()):
-            tier_dcs = tiers[tier_num]
-            dc_keys = sorted(tier_dcs.keys())  # Sort: '', 'DC1', 'DC2', 'DC3'
+            tier_groups = tiers[tier_num]
+            group_keys = sorted(tier_groups.keys())  # Sort: '', 'DC1', 'DC2' or 'ISP1', 'ISP2'
 
             # Calculate this tier's total width
             tier_width = 0
-            for i, dc in enumerate(dc_keys):
-                tier_width += len(tier_dcs[dc]) * NODE_SPACING_X
-                if i < len(dc_keys) - 1:
+            for i, gk in enumerate(group_keys):
+                tier_width += len(tier_groups[gk]) * NODE_SPACING_X
+                if i < len(group_keys) - 1:
                     tier_width += DC_SPACING
 
             # Center this tier
             start_x = PADDING + (max_width - tier_width) / 2
             current_x = start_x
 
-            for i, dc in enumerate(dc_keys):
-                dc_nodes = tier_dcs[dc]
+            for i, group_key in enumerate(group_keys):
+                group_nodes = tier_groups[group_key]
 
-                for node in dc_nodes:
+                for node in group_nodes:
                     node['position'] = {
                         'x': current_x,
                         'y': PADDING + tier_num * NODE_SPACING_Y
                     }
-                    # Store DC info for potential UI use
-                    node['data']['datacenter'] = dc if dc else 'default'
+                    # Store grouping info for potential UI use
+                    if tier_num == ISP_TIER:
+                        node['data']['isp_provider'] = group_key if group_key else 'default'
+                        node['data']['datacenter'] = 'shared'  # ISP devices are shared across DCs
+                    else:
+                        node['data']['datacenter'] = group_key if group_key else 'default'
                     current_x += NODE_SPACING_X
 
-                # Add spacing after each DC group (except last)
-                if i < len(dc_keys) - 1:
+                # Add spacing after each group (except last)
+                if i < len(group_keys) - 1:
                     current_x += DC_SPACING
 
         return nodes_data
