@@ -8,11 +8,14 @@ export class EventManager {
         this.cy = cy;
         this.container = container;
         this.tooltip = null;
+        this.contextMenu = null;
         this.focusMode = false;
         this.focusedNode = null;
+        this.terminalWindow = null;  // Reference to terminal window for tab reuse
 
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
+        this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
 
         this.registerHandlers();
     }
@@ -21,11 +24,11 @@ export class EventManager {
      * Register all event handlers
      */
     registerHandlers() {
-        // Node click - open SSH
-        this.cy.on('tap', 'node', (evt) => this.handleNodeClick(evt));
+        // Node click - open SSH (removed - now via context menu)
+        // this.cy.on('tap', 'node', (evt) => this.handleNodeClick(evt));
 
-        // Node right-click - focus mode
-        this.cy.on('cxttap', 'node', (evt) => this.handleNodeRightClick(evt));
+        // Node right-click - show context menu
+        this.cy.on('cxttap', 'node', (evt) => this.showContextMenu(evt));
 
         // Node hover - show tooltip (only when not in focus mode)
         this.cy.on('mouseover', 'node', (evt) => this.handleNodeMouseOver(evt));
@@ -38,6 +41,7 @@ export class EventManager {
         // Background click - clear selections and exit focus mode
         this.cy.on('tap', (evt) => {
             if (evt.target === this.cy) {
+                this.hideContextMenu();
                 this.exitFocusMode();
                 this.clearHighlights();
             }
@@ -50,30 +54,179 @@ export class EventManager {
 
         // Keyboard shortcuts (using stored reference for cleanup)
         document.addEventListener('keydown', this.boundKeyDownHandler);
+
+        // Click anywhere to close context menu
+        document.addEventListener('click', this.boundClickHandler);
     }
 
     /**
-     * Handle node click - open SSH session in terminal page
+     * Handle clicks on document to close context menu
      */
-    handleNodeClick(evt) {
-        const node = evt.target;
-        const ip = node.data('ip');
-        const deviceName = node.data('label');
-
-        if (ip && ip !== 'N/A') {
-            // Navigate to terminal page with device parameters
-            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip)}`;
-            window.open(terminalUrl, 'terminal-page');
+    handleDocumentClick(evt) {
+        if (this.contextMenu && !this.contextMenu.contains(evt.target)) {
+            this.hideContextMenu();
         }
     }
 
     /**
-     * Handle node right-click - enter focus mode
-     * Zooms to the node and highlights only its connections
+     * Open SSH session in terminal page
+     * Uses postMessage to communicate with existing terminal window
      */
-    handleNodeRightClick(evt) {
-        const node = evt.target;
+    openTerminal(deviceName, ip) {
+        if (!ip || ip === 'N/A') return;
 
+        const deviceData = { type: 'openDevice', device: deviceName, ip: ip };
+
+        // Check if we have an existing terminal window that's still open
+        if (this.terminalWindow && !this.terminalWindow.closed) {
+            // Send message to existing terminal window to open new tab
+            this.terminalWindow.postMessage(deviceData, window.location.origin);
+            this.terminalWindow.focus();
+        } else {
+            // Open new terminal window with device parameters
+            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip)}`;
+            this.terminalWindow = window.open(terminalUrl, 'terminal-page');
+        }
+    }
+
+    /**
+     * Show context menu for a node
+     */
+    showContextMenu(evt) {
+        const node = evt.target;
+        const data = node.data();
+
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Menu items
+        const menuItems = [
+            {
+                label: 'Open Terminal',
+                icon: '⌨',
+                action: () => {
+                    this.openTerminal(data.label, data.ip);
+                    this.hideContextMenu();
+                },
+                disabled: !data.ip || data.ip === 'N/A'
+            },
+            {
+                label: 'Focus on Device',
+                icon: '🎯',
+                action: () => {
+                    this.enterFocusMode(node);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Copy IP Address',
+                icon: '📋',
+                action: () => {
+                    if (data.ip && data.ip !== 'N/A') {
+                        navigator.clipboard.writeText(data.ip);
+                    }
+                    this.hideContextMenu();
+                },
+                disabled: !data.ip || data.ip === 'N/A'
+            }
+        ];
+
+        // Build menu HTML
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'context-menu-separator';
+                menu.appendChild(sep);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+
+                const icon = document.createElement('span');
+                icon.className = 'context-menu-icon';
+                icon.textContent = item.icon;
+
+                const label = document.createElement('span');
+                label.className = 'context-menu-label';
+                label.textContent = item.label;
+
+                menuItem.appendChild(icon);
+                menuItem.appendChild(label);
+
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.action();
+                    });
+                }
+
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Add header with device name
+        const header = document.createElement('div');
+        header.className = 'context-menu-header';
+        header.textContent = data.label;
+        menu.insertBefore(header, menu.firstChild);
+
+        // Position menu
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if off-screen
+        this.adjustMenuPosition(menu);
+    }
+
+    /**
+     * Adjust context menu position to keep it on screen
+     */
+    adjustMenuPosition(menu) {
+        const rect = menu.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        if (rect.right > viewportWidth - 10) {
+            menu.style.left = (viewportWidth - rect.width - 10) + 'px';
+        }
+        if (rect.bottom > viewportHeight - 10) {
+            menu.style.top = (viewportHeight - rect.height - 10) + 'px';
+        }
+    }
+
+    /**
+     * Hide context menu
+     */
+    hideContextMenu() {
+        if (this.contextMenu) {
+            this.contextMenu.remove();
+            this.contextMenu = null;
+        }
+        const existing = document.getElementById('topo-context-menu');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
+     * Enter focus mode for a node
+     */
+    enterFocusMode(node) {
         // If already focused on this node, exit focus mode
         if (this.focusMode && this.focusedNode === node.id()) {
             this.exitFocusMode();
@@ -288,7 +441,7 @@ export class EventManager {
                 ${portsHtml}
             </div>
             <div class="tooltip-footer">
-                Click to open terminal
+                Right-click for options
             </div>
         `;
 
@@ -399,8 +552,9 @@ export class EventManager {
      * Handle keyboard shortcuts
      */
     handleKeyDown(evt) {
-        // Escape - exit focus mode, clear selection and highlights
+        // Escape - close context menu, exit focus mode, clear selection and highlights
         if (evt.key === 'Escape') {
+            this.hideContextMenu();
             if (this.focusMode) {
                 this.exitFocusMode();
             } else {
@@ -414,6 +568,7 @@ export class EventManager {
         if (evt.key === 'f' && !evt.ctrlKey && !evt.metaKey) {
             const activeElement = document.activeElement;
             if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                this.hideContextMenu();
                 this.exitFocusMode();
                 this.cy.fit(50);
             }
@@ -423,6 +578,7 @@ export class EventManager {
         if (evt.key === 'r' && !evt.ctrlKey && !evt.metaKey) {
             const activeElement = document.activeElement;
             if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                this.hideContextMenu();
                 this.exitFocusMode();
                 this.cy.reset();
             }
@@ -466,10 +622,12 @@ export class EventManager {
      */
     destroy() {
         this.hideTooltip();
+        this.hideContextMenu();
         this.hideFocusIndicator();
 
-        // Remove global keydown listener to prevent memory leak
+        // Remove global listeners to prevent memory leak
         document.removeEventListener('keydown', this.boundKeyDownHandler);
+        document.removeEventListener('click', this.boundClickHandler);
 
         // Remove all Cytoscape event listeners
         this.cy.removeAllListeners();

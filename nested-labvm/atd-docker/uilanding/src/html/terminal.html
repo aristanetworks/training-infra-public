@@ -1346,7 +1346,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       TerminalManager.init();
 
-      // Handle URL parameters from topology diagram clicks
+      // Handle URL parameters from topology diagram clicks (first open)
       const urlParams = new URLSearchParams(window.location.search);
       const deviceName = urlParams.get('device');
       const deviceIp = urlParams.get('ip');
@@ -1359,6 +1359,17 @@
           window.history.replaceState({}, '', '/terminal');
         }, 500);
       }
+
+      // Listen for messages from topology diagram (subsequent opens)
+      window.addEventListener('message', (event) => {
+        // Verify origin for security
+        if (event.origin !== window.location.origin) return;
+
+        const data = event.data;
+        if (data && data.type === 'openDevice' && data.device && data.ip) {
+          TerminalManager.openTerminal(data.device, data.ip);
+        }
+      });
     });
   </script>
 </body>
