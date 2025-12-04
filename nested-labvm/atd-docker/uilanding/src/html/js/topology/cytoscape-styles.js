@@ -157,6 +157,27 @@ export function getCytoscapeStyles() {
             }
         },
         {
+            selector: '.device-type-gw',
+            style: {
+                'shape': 'pentagon',
+                'background-color': '#d4a400',
+                'border-color': '#071c35',
+                'width': 55,
+                'height': 55
+            }
+        },
+        {
+            selector: '.device-type-rr',
+            style: {
+                'shape': 'star',
+                'background-color': '#008b8b',
+                'border-color': '#071c35',
+                'color': '#ffffff',
+                'width': 60,
+                'height': 60
+            }
+        },
+        {
             selector: '.device-type-other',
             style: {
                 'shape': 'rectangle',

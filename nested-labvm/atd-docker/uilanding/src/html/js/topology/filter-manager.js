@@ -178,6 +178,8 @@ export const DEVICE_TYPE_INFO = {
     'pe': { label: 'PE Routers', color: '#4c5cae' },
     'p': { label: 'P Routers', color: '#6b7cc9' },
     'ce': { label: 'CE Routers', color: '#4c5cae' },
+    'gw': { label: 'WAN Gateways', color: '#d4a400' },
+    'rr': { label: 'Route Reflectors', color: '#008b8b' },
     'customer': { label: 'Customer', color: '#78d82c' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },

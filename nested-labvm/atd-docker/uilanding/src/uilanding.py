@@ -914,9 +914,9 @@ class TopologyAPIHandler(BaseHandler):
 
     # Device type to tier mapping (lower tier = higher in diagram)
     # Tier 0: Internet (top, cloud/WAN edge)
-    # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.)
+    # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.), Route Reflectors
     # Tier 2: DCI, core, P routers (inter-DC connectivity)
-    # Tier 3: Borderleaf, PE, CE (DC edge)
+    # Tier 3: Borderleaf, PE, CE, GW (DC edge / WAN gateways)
     # Tier 4: Spines
     # Tier 5: Leafs
     # Tier 6: Hosts, customers, OOB
@@ -924,12 +924,14 @@ class TopologyAPIHandler(BaseHandler):
     DEVICE_TIERS = {
         'internet': 0,
         'isp': 1,
+        'rr': 1,
         'core': 2,
         'dci': 2,
         'p': 2,
         'borderleaf': 3,
         'pe': 3,
         'ce': 3,
+        'gw': 3,
         'spine': 4,
         'leaf': 5,
         'host': 6,
@@ -962,6 +964,12 @@ class TopologyAPIHandler(BaseHandler):
             return 'core'
         elif 'oob' in name_lower:
             return 'oob'
+        # Route Reflector: RR or RR1, RR2, etc.
+        elif device_name == 'RR' or (device_name.startswith('RR') and len(device_name) > 2 and device_name[2].isdigit()):
+            return 'rr'
+        # WAN Gateways: GW11, GW12, GW21, GW22, GW31, etc. (GW + DC number + device number)
+        elif device_name.startswith('GW') and len(device_name) > 2 and device_name[2].isdigit():
+            return 'gw'
         elif device_name.startswith('PE'):
             return 'pe'
         elif device_name.startswith('CE'):
@@ -979,12 +987,20 @@ class TopologyAPIHandler(BaseHandler):
         """
         Extract datacenter identifier from device name.
         E.g., 'spine1-DC1' -> 'DC1', 'leaf2-DC2' -> 'DC2', 'host1' -> ''
+        Also handles WAN Gateway naming: 'GW11' -> 'DC1', 'GW21' -> 'DC2', 'GW31' -> 'DC3'
         """
         import re
         # Match -DC followed by number or letter at end of name
         match = re.search(r'-?(DC\d+|dc\d+)$', device_name, re.IGNORECASE)
         if match:
             return match.group(1).upper()
+
+        # Handle GW device naming: GW11, GW12 -> DC1, GW21, GW22 -> DC2, GW31 -> DC3
+        # First digit after GW is the DC number
+        if device_name.startswith('GW') and len(device_name) >= 3 and device_name[2].isdigit():
+            dc_num = device_name[2]
+            return f'DC{dc_num}'
+
         return ''  # No datacenter suffix
 
     @staticmethod
@@ -1519,6 +1535,8 @@ class DevicesAPIHandler(BaseHandler):
                 ('Host', ['Host']),
                 ('Core', ['Core', 'DCI']),
                 ('ISP', ['ISP', 'Internet']),
+                ('Route Reflectors', ['RR']),
+                ('WAN Gateways', ['GW']),
                 ('PE Routers', ['PE']),
                 ('P Routers', ['P']),
                 ('Customer', []),  # Special handling for A, B, C, D prefixed devices

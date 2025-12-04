@@ -309,6 +309,8 @@
 .tooltip-type.device-type-isp,
 .tooltip-type.device-type-internet { background-color: #e30909; }
 .tooltip-type.device-type-oob { background-color: #808080; }
+.tooltip-type.device-type-gw { background-color: #d4a400; color: #071c35; }
+.tooltip-type.device-type-rr { background-color: #008b8b; }
 .tooltip-type.device-type-other { background-color: #666666; }
 
 .tooltip-body {
