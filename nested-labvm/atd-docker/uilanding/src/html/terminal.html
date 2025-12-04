@@ -1345,6 +1345,20 @@
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       TerminalManager.init();
+
+      // Handle URL parameters from topology diagram clicks
+      const urlParams = new URLSearchParams(window.location.search);
+      const deviceName = urlParams.get('device');
+      const deviceIp = urlParams.get('ip');
+
+      if (deviceName && deviceIp) {
+        // Open the device terminal after a short delay to ensure devices are loaded
+        setTimeout(() => {
+          TerminalManager.openTerminal(deviceName, deviceIp);
+          // Clear URL params to prevent reopening on refresh
+          window.history.replaceState({}, '', '/terminal');
+        }, 500);
+      }
     });
   </script>
 </body>

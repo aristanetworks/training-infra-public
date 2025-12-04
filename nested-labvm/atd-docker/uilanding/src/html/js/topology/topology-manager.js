@@ -28,6 +28,7 @@ export class TopologyManager {
         this.statusUpdater = null;
         this.isInitialized = false;
         this.topologyData = null;
+        this.originalPositions = {};  // Store original positions for reset
     }
 
     /**
@@ -112,6 +113,16 @@ export class TopologyManager {
             ...this.topologyData.nodes,
             ...this.topologyData.edges
         ];
+
+        // Store original positions for reset functionality
+        this.topologyData.nodes.forEach(node => {
+            if (node.position) {
+                this.originalPositions[node.data.id] = {
+                    x: node.position.x,
+                    y: node.position.y
+                };
+            }
+        });
 
         // Create Cytoscape instance
         this.cy = cytoscape({
@@ -208,8 +219,32 @@ export class TopologyManager {
     setLayout(layoutName) {
         if (!this.cy) return;
 
-        const layout = getLayout(layoutName);
-        this.cy.layout(layout).run();
+        // For preset layout, restore original server-calculated positions with animation
+        if (layoutName === 'preset' && Object.keys(this.originalPositions).length > 0) {
+            this.cy.nodes().forEach(node => {
+                const originalPos = this.originalPositions[node.id()];
+                if (originalPos) {
+                    node.animate({
+                        position: originalPos
+                    }, {
+                        duration: 400,
+                        easing: 'ease-out-cubic'
+                    });
+                }
+            });
+            // Fit after animation completes
+            setTimeout(() => {
+                this.cy.animate({
+                    fit: { padding: 50 }
+                }, {
+                    duration: 200
+                });
+            }, 400);
+        } else {
+            const layout = getLayout(layoutName);
+            this.cy.layout(layout).run();
+        }
+
         this.options.layout = layoutName;
     }
 
@@ -330,10 +365,11 @@ export class TopologyManager {
     }
 
     /**
-     * Clear all highlights
+     * Clear all highlights and exit focus mode
      */
     clearHighlights() {
         if (this.eventManager) {
+            this.eventManager.exitFocusMode();
             this.eventManager.clearHighlights();
         }
     }

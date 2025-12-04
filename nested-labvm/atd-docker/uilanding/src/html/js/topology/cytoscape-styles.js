@@ -264,6 +264,20 @@ export function getCytoscapeStyles() {
                 'width': 3,
                 'opacity': 1
             }
+        },
+
+        // ==========================================
+        // Focus Mode States (right-click to focus)
+        // ==========================================
+        {
+            selector: 'node.focused',
+            style: {
+                'border-color': '#fbb500',
+                'border-width': 5,
+                'z-index': 9999,
+                'font-size': 14,
+                'font-weight': 700
+            }
         }
     ];
 }

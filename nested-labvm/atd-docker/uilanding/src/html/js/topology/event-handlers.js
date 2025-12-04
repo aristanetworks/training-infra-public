@@ -8,6 +8,8 @@ export class EventManager {
         this.cy = cy;
         this.container = container;
         this.tooltip = null;
+        this.focusMode = false;
+        this.focusedNode = null;
 
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
@@ -22,7 +24,10 @@ export class EventManager {
         // Node click - open SSH
         this.cy.on('tap', 'node', (evt) => this.handleNodeClick(evt));
 
-        // Node hover - show tooltip
+        // Node right-click - focus mode
+        this.cy.on('cxttap', 'node', (evt) => this.handleNodeRightClick(evt));
+
+        // Node hover - show tooltip (only when not in focus mode)
         this.cy.on('mouseover', 'node', (evt) => this.handleNodeMouseOver(evt));
         this.cy.on('mouseout', 'node', (evt) => this.handleNodeMouseOut(evt));
 
@@ -30,11 +35,17 @@ export class EventManager {
         this.cy.on('mouseover', 'edge', (evt) => this.handleEdgeMouseOver(evt));
         this.cy.on('mouseout', 'edge', (evt) => this.handleEdgeMouseOut(evt));
 
-        // Background click - clear selections
+        // Background click - clear selections and exit focus mode
         this.cy.on('tap', (evt) => {
             if (evt.target === this.cy) {
+                this.exitFocusMode();
                 this.clearHighlights();
             }
+        });
+
+        // Prevent browser context menu on the topology container
+        this.container.addEventListener('contextmenu', (evt) => {
+            evt.preventDefault();
         });
 
         // Keyboard shortcuts (using stored reference for cleanup)
@@ -42,7 +53,7 @@ export class EventManager {
     }
 
     /**
-     * Handle node click - open SSH session
+     * Handle node click - open SSH session in terminal page
      */
     handleNodeClick(evt) {
         const node = evt.target;
@@ -50,9 +61,114 @@ export class EventManager {
         const deviceName = node.data('label');
 
         if (ip && ip !== 'N/A') {
-            // Open SSH in new tab
-            const sshUrl = `/ssh/host/${ip}`;
-            window.open(sshUrl, `ssh-${deviceName}`, 'noopener,noreferrer');
+            // Navigate to terminal page with device parameters
+            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip)}`;
+            window.open(terminalUrl, 'terminal-page');
+        }
+    }
+
+    /**
+     * Handle node right-click - enter focus mode
+     * Zooms to the node and highlights only its connections
+     */
+    handleNodeRightClick(evt) {
+        const node = evt.target;
+
+        // If already focused on this node, exit focus mode
+        if (this.focusMode && this.focusedNode === node.id()) {
+            this.exitFocusMode();
+            return;
+        }
+
+        // Enter focus mode
+        this.focusMode = true;
+        this.focusedNode = node.id();
+
+        // Clear any existing highlights
+        this.cy.elements().removeClass('highlighted faded hover focused');
+
+        // Get connected elements
+        const connectedEdges = node.connectedEdges();
+        const connectedNodes = connectedEdges.connectedNodes();
+
+        // Apply focus styling
+        node.addClass('focused');
+        connectedEdges.addClass('highlighted');
+        connectedNodes.addClass('highlighted');
+
+        // Fade everything else
+        this.cy.elements()
+            .not(node)
+            .not(connectedEdges)
+            .not(connectedNodes)
+            .addClass('faded');
+
+        // Animate zoom to the focused node
+        this.cy.animate({
+            center: { eles: node },
+            zoom: 1.5
+        }, {
+            duration: 400,
+            easing: 'ease-out-cubic'
+        });
+
+        // Show focus mode indicator
+        this.showFocusIndicator(node.data('label'));
+    }
+
+    /**
+     * Exit focus mode and restore normal view
+     */
+    exitFocusMode() {
+        if (!this.focusMode) return;
+
+        this.focusMode = false;
+        this.focusedNode = null;
+
+        // Clear all focus-related classes
+        this.cy.elements().removeClass('highlighted faded hover focused');
+
+        // Hide focus indicator
+        this.hideFocusIndicator();
+
+        // Fit the graph back to view
+        this.cy.animate({
+            fit: { padding: 50 }
+        }, {
+            duration: 400,
+            easing: 'ease-out-cubic'
+        });
+    }
+
+    /**
+     * Show focus mode indicator
+     */
+    showFocusIndicator(deviceName) {
+        this.hideFocusIndicator();
+
+        const indicator = document.createElement('div');
+        indicator.id = 'focus-indicator';
+        indicator.className = 'focus-mode-indicator';
+        indicator.innerHTML = `
+            <span class="focus-label">Focus: <strong>${deviceName}</strong></span>
+            <button class="focus-exit-btn" title="Exit focus mode (Esc)">×</button>
+        `;
+
+        // Add click handler to exit button
+        indicator.querySelector('.focus-exit-btn').addEventListener('click', () => {
+            this.exitFocusMode();
+        });
+
+        this.container.appendChild(indicator);
+    }
+
+    /**
+     * Hide focus mode indicator
+     */
+    hideFocusIndicator() {
+        const existing = document.getElementById('focus-indicator');
+        if (existing) {
+            existing.remove();
         }
     }
 
@@ -60,6 +176,9 @@ export class EventManager {
      * Handle node mouse over - show tooltip and highlight connections
      */
     handleNodeMouseOver(evt) {
+        // Don't show hover effects in focus mode
+        if (this.focusMode) return;
+
         const node = evt.target;
         node.addClass('hover');
 
@@ -81,6 +200,9 @@ export class EventManager {
      * Handle node mouse out - hide tooltip and clear highlights
      */
     handleNodeMouseOut(evt) {
+        // Don't clear in focus mode
+        if (this.focusMode) return;
+
         const node = evt.target;
         node.removeClass('hover');
         this.hideTooltip();
@@ -166,7 +288,7 @@ export class EventManager {
                 ${portsHtml}
             </div>
             <div class="tooltip-footer">
-                Click to open SSH session
+                Click to open terminal
             </div>
         `;
 
@@ -277,25 +399,31 @@ export class EventManager {
      * Handle keyboard shortcuts
      */
     handleKeyDown(evt) {
-        // Escape - clear selection and highlights
+        // Escape - exit focus mode, clear selection and highlights
         if (evt.key === 'Escape') {
-            this.cy.$(':selected').unselect();
-            this.clearHighlights();
+            if (this.focusMode) {
+                this.exitFocusMode();
+            } else {
+                this.cy.$(':selected').unselect();
+                this.clearHighlights();
+            }
             this.hideTooltip();
         }
 
-        // 'f' - fit graph to view
+        // 'f' - fit graph to view (exits focus mode first)
         if (evt.key === 'f' && !evt.ctrlKey && !evt.metaKey) {
             const activeElement = document.activeElement;
             if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                this.exitFocusMode();
                 this.cy.fit(50);
             }
         }
 
-        // 'r' - reset zoom
+        // 'r' - reset zoom (exits focus mode first)
         if (evt.key === 'r' && !evt.ctrlKey && !evt.metaKey) {
             const activeElement = document.activeElement;
             if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                this.exitFocusMode();
                 this.cy.reset();
             }
         }
@@ -338,6 +466,7 @@ export class EventManager {
      */
     destroy() {
         this.hideTooltip();
+        this.hideFocusIndicator();
 
         // Remove global keydown listener to prevent memory leak
         document.removeEventListener('keydown', this.boundKeyDownHandler);

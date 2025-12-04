@@ -1026,7 +1026,7 @@ class TopologyAPIHandler(BaseHandler):
 
         # Calculate positions
         NODE_SPACING_X = 150   # Horizontal spacing between nodes
-        NODE_SPACING_Y = 120   # Vertical spacing between tiers
+        NODE_SPACING_Y = 180   # Vertical spacing between tiers
         DC_SPACING = 80        # Extra spacing between datacenter groups
         PADDING = 100          # Left padding
 

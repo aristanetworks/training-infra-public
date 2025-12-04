@@ -9,9 +9,11 @@
 #interactive-topology {
     position: relative;
     width: 100%;
-    height: 600px;
+    min-height: 650px;
+    height: calc(100vh - 280px);  /* Dynamic height based on viewport */
+    max-height: 1000px;
     border: 3px solid #fbb500;
-    border-radius: 8px;
+    border-radius: 0;
     background-color: #ffffff;
     overflow: hidden;
 }
@@ -23,87 +25,117 @@
 }
 
 /* ==========================================
-   Topology Controls
+   Topology Controls - Minimal Style
    ========================================== */
 .topology-controls {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
     align-items: center;
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #f5f5f5;
-    border-radius: 8px;
+    gap: 8px;
+    margin-bottom: 10px;
 }
 
 .topology-controls .button {
     margin: 0;
-    padding: 8px 15px;
-    font-size: 13px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     background-color: #071c35;
     color: #ffffff;
-    border: none;
-    border-radius: 4px;
+    border: 1px solid #071c35;
+    border-radius: 0;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .topology-controls .button:hover {
-    background-color: #0a2548;
+    background-color: #fbb500;
+    border-color: #fbb500;
+    color: #071c35;
 }
 
 .topology-controls .button.active {
     background-color: #fbb500;
+    border-color: #fbb500;
     color: #071c35;
 }
 
 .topology-controls .button i {
-    margin-right: 5px;
+    margin-right: 6px;
 }
 
-/* Filter Controls */
+/* Filter Controls - Styled to match ATL theme */
 #filter-controls {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
     align-items: center;
-    flex: 1;
+    gap: 8px;
+    margin-left: auto;
 }
 
 #filter-controls input[type="text"] {
     padding: 8px 12px;
-    border: 2px solid #ddd;
-    border-radius: 4px;
-    font-size: 13px;
-    width: 180px;
-    transition: border-color 0.2s;
+    border: 1px solid #071c35;
+    border-radius: 0;
+    font-size: 12px;
+    font-family: "Proxima Nova", -apple-system, sans-serif;
+    width: 150px;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 #filter-controls input[type="text"]:focus {
     border-color: #fbb500;
     outline: none;
+    box-shadow: 0 0 0 2px rgba(251, 181, 0, 0.2);
 }
 
 #filter-controls label {
     display: flex;
     align-items: center;
     gap: 5px;
-    font-size: 13px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
     color: #071c35;
     cursor: pointer;
-    padding: 5px 10px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+    padding: 6px 10px;
+    background: #071c35;
+    color: #fff;
+    border: 1px solid #071c35;
+    transition: all 0.2s;
 }
 
 #filter-controls label:hover {
-    background-color: #e8e8e8;
+    background-color: #fbb500;
+    border-color: #fbb500;
+    color: #071c35;
+}
+
+#filter-controls label:has(input:checked) {
+    background: #071c35;
+    color: #fff;
+}
+
+#filter-controls label:has(input:not(:checked)) {
+    background: #fff;
+    color: #071c35;
+    opacity: 0.6;
 }
 
 #filter-controls input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     accent-color: #fbb500;
+    margin: 0;
+}
+
+#filter-controls .button {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 /* Layout Selector */
@@ -428,6 +460,69 @@
 .status-dot.unknown { background-color: #808080; }
 
 /* ==========================================
+   Focus Mode Indicator
+   ========================================== */
+.focus-mode-indicator {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background-color: #071c35;
+    color: #ffffff;
+    border: 2px solid #fbb500;
+    border-radius: 0;
+    font-family: "Proxima Nova", -apple-system, sans-serif;
+    font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: focusSlideIn 0.3s ease-out;
+}
+
+@keyframes focusSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.focus-mode-indicator .focus-label {
+    color: #ffffff;
+}
+
+.focus-mode-indicator .focus-label strong {
+    color: #fbb500;
+    font-weight: 600;
+}
+
+.focus-mode-indicator .focus-exit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.focus-mode-indicator .focus-exit-btn:hover {
+    background-color: #fbb500;
+    border-color: #fbb500;
+    color: #071c35;
+}
+
+/* ==========================================
    View Toggle
    ========================================== */
 .view-toggle-container {
@@ -447,7 +542,8 @@
    ========================================== */
 @media (max-width: 768px) {
     #interactive-topology {
-        height: 400px;
+        min-height: 450px;
+        height: 500px;
     }
 
     .topology-controls {
