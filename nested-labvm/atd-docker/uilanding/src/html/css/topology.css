@@ -303,6 +303,7 @@
 .tooltip-type.device-type-pe { background-color: #4c5cae; }
 .tooltip-type.device-type-p { background-color: #6b7cc9; }
 .tooltip-type.device-type-ce { background-color: #4c5cae; }
+.tooltip-type.device-type-customer { background-color: #78d82c; color: #071c35; }
 .tooltip-type.device-type-core { background-color: #071c35; }
 .tooltip-type.device-type-dci { background-color: #051431; }
 .tooltip-type.device-type-isp,

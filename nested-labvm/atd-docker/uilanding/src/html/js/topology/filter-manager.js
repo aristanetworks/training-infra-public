@@ -178,9 +178,10 @@ export const DEVICE_TYPE_INFO = {
     'pe': { label: 'PE Routers', color: '#4c5cae' },
     'p': { label: 'P Routers', color: '#6b7cc9' },
     'ce': { label: 'CE Routers', color: '#4c5cae' },
+    'customer': { label: 'Customer', color: '#78d82c' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },
     'internet': { label: 'Internet', color: '#e30909' },
     'oob': { label: 'OOB', color: '#808080' },
-    'other': { label: 'Devices', color: '#666666' }
+    'other': { label: 'Other', color: '#666666' }
 };

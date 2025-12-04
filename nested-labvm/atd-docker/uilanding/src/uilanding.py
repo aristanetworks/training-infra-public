@@ -925,6 +925,7 @@ class TopologyAPIHandler(BaseHandler):
         'spine': 3,
         'leaf': 4,
         'host': 5,
+        'customer': 5,
         'oob': 5,
         'other': 6
     }
@@ -959,6 +960,9 @@ class TopologyAPIHandler(BaseHandler):
             return 'ce'
         elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
             return 'p'
+        # Customer devices: A1, A2, B1, B2, C1, C2, D1, D2, etc.
+        elif device_name[0] in ('A', 'B', 'C', 'D') and len(device_name) > 1 and device_name[1].isdigit():
+            return 'customer'
         else:
             return 'other'
 
@@ -1070,7 +1074,7 @@ class TopologyAPIHandler(BaseHandler):
                 p_routers.append(node)
             elif dtype == 'pe':
                 pe_routers.append(node)
-            elif dtype in ('ce', 'host', 'leaf', 'other'):
+            elif dtype in ('ce', 'host', 'leaf', 'customer', 'other'):
                 customer_devices.append(node)
             else:
                 other_devices.append(node)
@@ -1481,6 +1485,9 @@ class DevicesAPIHandler(BaseHandler):
                 ('Host', ['Host']),
                 ('Core', ['Core', 'DCI']),
                 ('ISP', ['ISP', 'Internet']),
+                ('PE Routers', ['PE']),
+                ('P Routers', ['P']),
+                ('Customer', []),  # Special handling for A, B, C, D prefixed devices
             ]
 
             # Group devices
@@ -1489,17 +1496,36 @@ class DevicesAPIHandler(BaseHandler):
 
             for device_name, device_info in nodes.items():
                 matched = False
-                for group_name, prefixes in group_patterns:
-                    for prefix in prefixes:
-                        if device_name.startswith(prefix) or prefix in device_name:
-                            groups[group_name].append({
-                                'name': device_name,
-                                'ip': device_info.get('ip', ''),
-                            })
-                            matched = True
+
+                # Special handling for Customer devices (A1, B1, C1, D1, etc.)
+                if len(device_name) > 1 and device_name[0] in ('A', 'B', 'C', 'D') and device_name[1].isdigit():
+                    groups['Customer'].append({
+                        'name': device_name,
+                        'ip': device_info.get('ip', ''),
+                    })
+                    matched = True
+
+                # Special handling for P routers (P1, P2, etc. but not PE)
+                elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
+                    groups['P Routers'].append({
+                        'name': device_name,
+                        'ip': device_info.get('ip', ''),
+                    })
+                    matched = True
+
+                # Check other patterns
+                if not matched:
+                    for group_name, prefixes in group_patterns:
+                        for prefix in prefixes:
+                            if prefix and (device_name.startswith(prefix) or prefix in device_name):
+                                groups[group_name].append({
+                                    'name': device_name,
+                                    'ip': device_info.get('ip', ''),
+                                })
+                                matched = True
+                                break
+                        if matched:
                             break
-                    if matched:
-                        break
 
                 if not matched:
                     groups['Other'].append({
