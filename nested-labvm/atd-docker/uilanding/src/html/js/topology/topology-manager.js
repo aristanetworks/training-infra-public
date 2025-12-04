@@ -62,6 +62,7 @@ export class TopologyManager {
             this.initCytoscape();
 
             // Setup components
+            console.log('[TopologyManager] onOpenTerminal option:', this.options.onOpenTerminal ? 'provided' : 'not provided');
             this.eventManager = new EventManager(this.cy, this.container, {
                 onOpenTerminal: this.options.onOpenTerminal
             });

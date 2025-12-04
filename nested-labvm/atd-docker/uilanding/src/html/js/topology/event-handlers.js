@@ -16,6 +16,7 @@ export class EventManager {
 
         // Custom terminal handler (for embedding in terminal page)
         this.customTerminalHandler = options.onOpenTerminal || null;
+        console.log('[EventManager] Custom terminal handler:', this.customTerminalHandler ? 'provided' : 'not provided');
 
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
@@ -82,7 +83,17 @@ export class EventManager {
 
         // Use custom handler if provided (e.g., when embedded in terminal page)
         if (this.customTerminalHandler) {
+            console.log('[EventManager] Using custom terminal handler for', deviceName, ip);
             this.customTerminalHandler(deviceName, ip);
+            return;
+        }
+
+        console.log('[EventManager] Using default terminal handler for', deviceName, ip);
+
+        // Check if we're already on the terminal page - if so, use TerminalManager directly
+        if (window.location.pathname === '/terminal' && typeof TerminalManager !== 'undefined') {
+            console.log('[EventManager] On terminal page, using TerminalManager directly');
+            TerminalManager.openTerminal(deviceName, ip);
             return;
         }
 

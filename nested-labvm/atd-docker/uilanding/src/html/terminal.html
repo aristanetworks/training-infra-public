@@ -1467,7 +1467,7 @@
             enableFilters: false,  // Using our own compact controls
             // Custom terminal handler for opening devices in this page's tabs
             onOpenTerminal: (deviceName, ip) => {
-              this.openTerminal(deviceName, ip);
+              TerminalManager.openTerminal(deviceName, ip);
             }
           });
 
