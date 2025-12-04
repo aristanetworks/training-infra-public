@@ -106,6 +106,16 @@ export function getCytoscapeStyles() {
             }
         },
         {
+            selector: '.device-type-ce',
+            style: {
+                'shape': 'round-rectangle',
+                'background-color': '#4c5cae',
+                'border-color': '#071c35',
+                'width': 45,
+                'height': 45
+            }
+        },
+        {
             selector: '.device-type-dci',
             style: {
                 'shape': 'octagon',

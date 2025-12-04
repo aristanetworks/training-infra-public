@@ -445,11 +445,10 @@ export class EventManager {
             </div>
         `;
 
-        // Position tooltip
+        // Position tooltip using fixed positioning
         const renderedPos = evt.renderedPosition;
         const containerRect = this.container.getBoundingClientRect();
 
-        tooltip.style.position = 'absolute';
         tooltip.style.left = (renderedPos.x + containerRect.left + 15) + 'px';
         tooltip.style.top = (renderedPos.y + containerRect.top - 10) + 'px';
 
@@ -489,10 +488,10 @@ export class EventManager {
             </div>
         `;
 
+        // Position tooltip using fixed positioning
         const renderedPos = evt.renderedPosition;
         const containerRect = this.container.getBoundingClientRect();
 
-        tooltip.style.position = 'absolute';
         tooltip.style.left = (renderedPos.x + containerRect.left + 15) + 'px';
         tooltip.style.top = (renderedPos.y + containerRect.top - 10) + 'px';
 

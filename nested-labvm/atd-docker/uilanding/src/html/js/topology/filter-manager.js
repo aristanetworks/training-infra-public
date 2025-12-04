@@ -171,15 +171,16 @@ export class FilterManager {
  */
 export const DEVICE_TYPE_INFO = {
     'spine': { label: 'Spines', color: '#4c5cae' },
-    'leaf': { label: 'Leaves', color: '#78d82c' },
-    'borderleaf': { label: 'Borderleaves', color: '#fbb500' },
+    'leaf': { label: 'Leafs', color: '#78d82c' },
+    'borderleaf': { label: 'Borderleafs', color: '#fbb500' },
     'host': { label: 'Hosts', color: '#dae0fe' },
     'core': { label: 'Core', color: '#071c35' },
     'pe': { label: 'PE Routers', color: '#4c5cae' },
     'p': { label: 'P Routers', color: '#6b7cc9' },
+    'ce': { label: 'CE Routers', color: '#4c5cae' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },
     'internet': { label: 'Internet', color: '#e30909' },
     'oob': { label: 'OOB', color: '#808080' },
-    'other': { label: 'Other', color: '#666666' }
+    'other': { label: 'Devices', color: '#666666' }
 };

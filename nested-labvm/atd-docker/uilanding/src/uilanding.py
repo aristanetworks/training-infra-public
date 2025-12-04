@@ -959,12 +959,6 @@ class TopologyAPIHandler(BaseHandler):
             return 'ce'
         elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
             return 'p'
-        elif device_name.startswith('A') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'leaf'
-        elif device_name.startswith('B') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'leaf'
-        elif device_name.startswith('C') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'leaf'
         else:
             return 'other'
 
@@ -999,13 +993,196 @@ class TopologyAPIHandler(BaseHandler):
         return result
 
     @staticmethod
-    def calculate_positions(nodes_data):
+    def detect_topology_type(nodes_data):
         """
-        Calculate x,y positions for nodes based on tier, datacenter, and sorted order.
-        Organizes nodes in rows by device type, grouped by datacenter with spacing.
+        Detect the type of topology based on device types present.
+        Returns: 'wan' for P-router mesh topologies, 'datacenter' for spine-leaf
+        """
+        device_types = set(node['data']['device_type'] for node in nodes_data)
+
+        has_p_routers = 'p' in device_types
+        has_pe_routers = 'pe' in device_types
+        has_spines = 'spine' in device_types
+        has_leaves = 'leaf' in device_types
+
+        # WAN topology: has P and PE routers, no spines
+        if has_p_routers and has_pe_routers and not has_spines:
+            return 'wan'
+
+        # Datacenter topology: has spines or leaves
+        if has_spines or has_leaves:
+            return 'datacenter'
+
+        # Default to datacenter layout
+        return 'datacenter'
+
+    @staticmethod
+    def extract_site_number(device_name):
+        """
+        Extract site number from device name for WAN topology positioning.
+        E.g., 'PE1' -> 1, 'A2' -> 2, 'PE-1' -> 1, 'SiteA-1' -> 1
+        Returns 1 for "left" side, 2 for "right" side, 0 for center (P routers)
         """
         import re
 
+        # Look for trailing number
+        match = re.search(r'[-_]?(\d+)$', device_name)
+        if match:
+            num = int(match.group(1))
+            # Odd numbers = site 1 (left), Even numbers = site 2 (right)
+            return 1 if num % 2 == 1 else 2
+
+        return 0  # No number found - treat as center
+
+    @staticmethod
+    def calculate_wan_positions(nodes_data, edges_data):
+        """
+        Calculate positions for WAN topology with P-router mesh in center.
+        Layout: Left customers -> Left PEs -> P mesh -> Right PEs -> Right customers
+        """
+        import re
+
+        NODE_SPACING_X = 180   # Horizontal spacing
+        NODE_SPACING_Y = 120   # Vertical spacing
+        COLUMN_SPACING = 200   # Extra spacing between columns
+        PADDING = 100
+
+        # Build adjacency for graph analysis
+        adjacency = {}
+        for node in nodes_data:
+            adjacency[node['data']['id']] = set()
+        for edge in edges_data:
+            src = edge['data']['source']
+            tgt = edge['data']['target']
+            if src in adjacency and tgt in adjacency:
+                adjacency[src].add(tgt)
+                adjacency[tgt].add(src)
+
+        # Categorize nodes
+        p_routers = []
+        pe_routers = []
+        customer_devices = []  # CE, hosts, or other edge devices
+        other_devices = []
+
+        for node in nodes_data:
+            dtype = node['data']['device_type']
+            if dtype == 'p':
+                p_routers.append(node)
+            elif dtype == 'pe':
+                pe_routers.append(node)
+            elif dtype in ('ce', 'host', 'leaf', 'other'):
+                customer_devices.append(node)
+            else:
+                other_devices.append(node)
+
+        # Determine which side each PE is on using graph analysis
+        # PEs are on "left" if their connected customers have odd site numbers
+        pe_sides = {}
+        for pe in pe_routers:
+            pe_id = pe['data']['id']
+            pe_neighbors = adjacency.get(pe_id, set())
+
+            # Check connected devices (excluding P routers)
+            side_votes = []
+            for neighbor in pe_neighbors:
+                neighbor_node = next((n for n in nodes_data if n['data']['id'] == neighbor), None)
+                if neighbor_node and neighbor_node['data']['device_type'] != 'p':
+                    site = TopologyAPIHandler.extract_site_number(neighbor)
+                    if site > 0:
+                        side_votes.append(site)
+
+            # Also consider the PE's own name
+            pe_site = TopologyAPIHandler.extract_site_number(pe_id)
+            if pe_site > 0:
+                side_votes.append(pe_site)
+
+            # Majority vote, default to name-based
+            if side_votes:
+                pe_sides[pe_id] = 1 if side_votes.count(1) >= side_votes.count(2) else 2
+            else:
+                pe_sides[pe_id] = pe_site if pe_site > 0 else 1
+
+        # Determine customer sides based on their PE connections
+        customer_sides = {}
+        for cust in customer_devices:
+            cust_id = cust['data']['id']
+            cust_neighbors = adjacency.get(cust_id, set())
+
+            # Find connected PEs
+            for neighbor in cust_neighbors:
+                if neighbor in pe_sides:
+                    customer_sides[cust_id] = pe_sides[neighbor]
+                    break
+
+            # Fallback to name-based
+            if cust_id not in customer_sides:
+                site = TopologyAPIHandler.extract_site_number(cust_id)
+                customer_sides[cust_id] = site if site > 0 else 1
+
+        # Split into columns (left to right)
+        left_customers = [n for n in customer_devices if customer_sides.get(n['data']['id'], 1) == 1]
+        left_pes = [n for n in pe_routers if pe_sides.get(n['data']['id'], 1) == 1]
+        right_pes = [n for n in pe_routers if pe_sides.get(n['data']['id'], 2) == 2]
+        right_customers = [n for n in customer_devices if customer_sides.get(n['data']['id'], 1) == 2]
+
+        # Sort each group by name
+        for group in [left_customers, left_pes, p_routers, right_pes, right_customers]:
+            group.sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
+
+        # Calculate column X positions
+        columns = [left_customers, left_pes, p_routers, right_pes, right_customers]
+        column_names = ['left_cust', 'left_pe', 'p_mesh', 'right_pe', 'right_cust']
+
+        # Find max height (most nodes in any column)
+        max_height = max(len(col) for col in columns) if columns else 1
+
+        # Position each column
+        current_x = PADDING
+        for col_idx, column in enumerate(columns):
+            if not column:
+                continue
+
+            # Center column vertically
+            col_height = len(column) * NODE_SPACING_Y
+            start_y = PADDING + (max_height * NODE_SPACING_Y - col_height) / 2
+
+            for row_idx, node in enumerate(column):
+                node['position'] = {
+                    'x': current_x,
+                    'y': start_y + row_idx * NODE_SPACING_Y
+                }
+                node['data']['wan_column'] = column_names[col_idx]
+
+            current_x += COLUMN_SPACING
+
+        # Position any other devices at the top
+        if other_devices:
+            other_devices.sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
+            for idx, node in enumerate(other_devices):
+                node['position'] = {
+                    'x': PADDING + idx * NODE_SPACING_X,
+                    'y': PADDING / 2
+                }
+                node['data']['wan_column'] = 'other'
+
+        return nodes_data
+
+    @staticmethod
+    def calculate_positions(nodes_data, edges_data=None):
+        """
+        Calculate x,y positions for nodes based on topology type.
+        Automatically detects WAN vs datacenter topologies.
+        """
+        import re
+
+        # Detect topology type
+        topo_type = TopologyAPIHandler.detect_topology_type(nodes_data)
+
+        # Use WAN layout for P-router mesh topologies
+        if topo_type == 'wan' and edges_data:
+            return TopologyAPIHandler.calculate_wan_positions(nodes_data, edges_data)
+
+        # Standard datacenter layout (tier-based)
         # Group nodes by tier, then by datacenter
         tiers = {}
         for node in nodes_data:
@@ -1205,7 +1382,8 @@ class TopologyAPIHandler(BaseHandler):
                 })
 
         # Calculate positions based on device type tiers and natural name sorting
-        nodes = self.calculate_positions(nodes)
+        # Pass edges for WAN topology detection which uses graph adjacency
+        nodes = self.calculate_positions(nodes, edges)
 
         return {
             'data': {

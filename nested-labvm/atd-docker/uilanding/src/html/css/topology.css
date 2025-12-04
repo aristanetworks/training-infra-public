@@ -71,6 +71,14 @@
     align-items: center;
     gap: 8px;
     margin-left: auto;
+    flex-wrap: wrap;
+}
+
+#device-type-filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 #filter-controls input[type="text"] {
@@ -89,7 +97,7 @@
     box-shadow: 0 0 0 2px rgba(251, 181, 0, 0.2);
 }
 
-#filter-controls label {
+#device-type-filters label {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -97,7 +105,6 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    color: #071c35;
     cursor: pointer;
     padding: 6px 10px;
     background: #071c35;
@@ -106,24 +113,24 @@
     transition: all 0.2s;
 }
 
-#filter-controls label:hover {
+#device-type-filters label:hover {
     background-color: #fbb500;
     border-color: #fbb500;
     color: #071c35;
 }
 
-#filter-controls label:has(input:checked) {
+#device-type-filters label:has(input:checked) {
     background: #071c35;
     color: #fff;
 }
 
-#filter-controls label:has(input:not(:checked)) {
+#device-type-filters label:has(input:not(:checked)) {
     background: #fff;
     color: #071c35;
     opacity: 0.6;
 }
 
-#filter-controls input[type="checkbox"] {
+#device-type-filters input[type="checkbox"] {
     width: 12px;
     height: 12px;
     accent-color: #fbb500;
@@ -295,6 +302,13 @@
 .tooltip-type.device-type-host { background-color: #dae0fe; color: #071c35; }
 .tooltip-type.device-type-pe { background-color: #4c5cae; }
 .tooltip-type.device-type-p { background-color: #6b7cc9; }
+.tooltip-type.device-type-ce { background-color: #4c5cae; }
+.tooltip-type.device-type-core { background-color: #071c35; }
+.tooltip-type.device-type-dci { background-color: #051431; }
+.tooltip-type.device-type-isp,
+.tooltip-type.device-type-internet { background-color: #e30909; }
+.tooltip-type.device-type-oob { background-color: #808080; }
+.tooltip-type.device-type-other { background-color: #666666; }
 
 .tooltip-body {
     padding: 10px 12px;

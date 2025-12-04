@@ -190,11 +190,7 @@
                     </button>
                     <div id="filter-controls" style="display: none;">
                       <input type="text" id="device-search" placeholder="Search devices..." />
-                      <label><input type="checkbox" checked data-filter="spine"> Spines</label>
-                      <label><input type="checkbox" checked data-filter="leaf"> Leafs</label>
-                      <label><input type="checkbox" checked data-filter="host"> Hosts</label>
-                      <label><input type="checkbox" checked data-filter="pe"> PE</label>
-                      <label><input type="checkbox" checked data-filter="p"> P</label>
+                      <div id="device-type-filters"></div>
                       <button id="reset-layout" class="button">Reset Layout</button>
                       <button id="fit-view" class="button">Fit View</button>
                     </div>
@@ -446,17 +442,61 @@
       }
     });
 
+    // Device type display names
+    const deviceTypeNames = {
+      'spine': 'Spines',
+      'leaf': 'Leafs',
+      'borderleaf': 'Borderleafs',
+      'host': 'Hosts',
+      'pe': 'PE Routers',
+      'p': 'P Routers',
+      'ce': 'CE Routers',
+      'core': 'Core',
+      'dci': 'DCI',
+      'isp': 'ISP',
+      'internet': 'Internet',
+      'oob': 'OOB',
+      'other': 'Devices'
+    };
+
+    // Build dynamic filter checkboxes based on device types in topology
+    function buildFilterCheckboxes() {
+      const filtersContainer = document.getElementById('device-type-filters');
+      if (!filtersContainer || !topoManager) return;
+
+      // Get device type counts from topology
+      const counts = topoManager.getDeviceTypeCounts();
+
+      // Clear existing checkboxes
+      filtersContainer.innerHTML = '';
+
+      // Create checkbox for each device type that exists
+      Object.keys(counts).forEach(deviceType => {
+        if (counts[deviceType] > 0) {
+          const label = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = true;
+          checkbox.dataset.filter = deviceType;
+
+          checkbox.addEventListener('change', function() {
+            if (topoManager) {
+              topoManager.toggleDeviceType(deviceType);
+            }
+          });
+
+          const displayName = deviceTypeNames[deviceType] || deviceType;
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(` ${displayName}`));
+          filtersContainer.appendChild(label);
+        }
+      });
+    }
+
     // Setup filter controls
     function setupFilters() {
-      // Device type filter checkboxes
-      document.querySelectorAll('#filter-controls input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-          const filterType = this.dataset.filter;
-          if (topoManager && filterType) {
-            topoManager.toggleDeviceType(filterType);
-          }
-        });
-      });
+      // Build dynamic checkboxes
+      buildFilterCheckboxes();
 
       // Search input
       const searchInput = document.getElementById('device-search');
@@ -480,7 +520,7 @@
             topoManager.clearHighlights();    // Exit focus mode and clear highlights
             topoManager.setLayout('preset');  // Reset to organized layout
             topoManager.resetFilters();
-            document.querySelectorAll('#filter-controls input[type="checkbox"]').forEach(cb => cb.checked = true);
+            document.querySelectorAll('#device-type-filters input[type="checkbox"]').forEach(cb => cb.checked = true);
             document.getElementById('device-search').value = '';
           }
         });
