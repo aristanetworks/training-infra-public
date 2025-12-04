@@ -4,14 +4,18 @@
  */
 
 export class EventManager {
-    constructor(cy, container) {
+    constructor(cy, container, options = {}) {
         this.cy = cy;
         this.container = container;
+        this.options = options;
         this.tooltip = null;
         this.contextMenu = null;
         this.focusMode = false;
         this.focusedNode = null;
         this.terminalWindow = null;  // Reference to terminal window for tab reuse
+
+        // Custom terminal handler (for embedding in terminal page)
+        this.customTerminalHandler = options.onOpenTerminal || null;
 
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
@@ -70,10 +74,17 @@ export class EventManager {
 
     /**
      * Open SSH session in terminal page
-     * Uses postMessage to communicate with existing terminal window
+     * Uses postMessage to communicate with existing terminal window,
+     * or calls custom handler if provided (for embedding in terminal page)
      */
     openTerminal(deviceName, ip) {
         if (!ip || ip === 'N/A') return;
+
+        // Use custom handler if provided (e.g., when embedded in terminal page)
+        if (this.customTerminalHandler) {
+            this.customTerminalHandler(deviceName, ip);
+            return;
+        }
 
         const deviceData = { type: 'openDevice', device: deviceName, ip: ip };
 

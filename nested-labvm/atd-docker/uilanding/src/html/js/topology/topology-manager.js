@@ -62,7 +62,9 @@ export class TopologyManager {
             this.initCytoscape();
 
             // Setup components
-            this.eventManager = new EventManager(this.cy, this.container);
+            this.eventManager = new EventManager(this.cy, this.container, {
+                onOpenTerminal: this.options.onOpenTerminal
+            });
 
             if (this.options.enableFilters) {
                 this.filterManager = new FilterManager(this.cy, this.container);

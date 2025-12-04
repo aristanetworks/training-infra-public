@@ -358,17 +358,19 @@
     margin: 0;
     padding: 0 0 0 15px;
     font-size: 11px;
+    color: #333;
 }
 
 .tooltip-ports li {
     padding: 2px 0;
     font-family: "Monaco", "Consolas", monospace;
+    color: #071c35;
 }
 
 .tooltip-ports em {
     display: block;
     margin-top: 5px;
-    color: #999;
+    color: #666;
     font-size: 11px;
 }
 
@@ -377,7 +379,7 @@
     background-color: #f8f8f8;
     border-radius: 0 0 6px 6px;
     font-size: 11px;
-    color: #888;
+    color: #666;
     text-align: center;
     font-style: italic;
 }

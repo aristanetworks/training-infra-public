@@ -221,9 +221,9 @@ export function getCytoscapeStyles() {
                 'font-family': '"Proxima Nova", sans-serif',
                 'text-rotation': 'autorotate',
                 'text-margin-y': -10,
-                'color': '#666666',
+                'color': '#333333',
                 'text-outline-color': '#ffffff',
-                'text-outline-width': 1
+                'text-outline-width': 2
             }
         },
 

@@ -791,6 +791,28 @@
       color: var(--primary-color);
     }
 
+    /* Tooltip overrides for terminal page - ensure visibility */
+    .topology-tooltip {
+      z-index: 100000 !important;
+    }
+
+    .topology-tooltip .tooltip-value {
+      color: #071c35 !important;
+    }
+
+    .topology-tooltip .tooltip-value.status-unknown {
+      color: #666666 !important;
+    }
+
+    .topology-tooltip .tooltip-footer {
+      color: #666666 !important;
+    }
+
+    /* Context menu z-index for terminal page */
+    .topology-context-menu {
+      z-index: 100001 !important;
+    }
+
     /* Lab guides panel */
     .labguides-panel .side-panel-content {
       padding: 0;
@@ -1433,18 +1455,24 @@
           // Dynamically import the TopologyManager module
           const { TopologyManager } = await import('./js/topology/topology-manager.js');
 
+          // Clear the loading text before initializing
+          const topoContainer = document.getElementById('terminal-topology');
+          topoContainer.textContent = '';
+          topoContainer.classList.remove('loading');
+
           this.topoManager = new TopologyManager('terminal-topology', {
             apiUrl: '/td-api/topology',
             layout: 'preset',
             enableStatus: true,
-            enableFilters: false  // Using our own compact controls
+            enableFilters: false,  // Using our own compact controls
+            // Custom terminal handler for opening devices in this page's tabs
+            onOpenTerminal: (deviceName, ip) => {
+              this.openTerminal(deviceName, ip);
+            }
           });
 
           await this.topoManager.init();
           this.topoInitialized = true;
-
-          // Remove loading state
-          document.getElementById('terminal-topology').classList.remove('loading');
 
           // Setup compact controls
           this.setupTopoControls();
