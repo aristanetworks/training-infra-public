@@ -1,3 +1,6 @@
+// Global flag to indicate if this is an exam lab
+window.isExamLab = true;
+
 const labStaustext = document.getElementById("labStatusByApi");
 labStaustext.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
 let failedSwitches = []
@@ -15,55 +18,68 @@ if (resetRequestSubmittedTime) {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-    const overlay = document.getElementById('overlay');
+    // const overlay = document.getElementById('overlay');
     // Show loading indicator while fetching status
-    overlay.style.display = 'flex';
-    overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
+    // overlay.style.display = 'flex';
+    // overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
 
     fetch('/examStatus') // Fetch exam status from the Flask server
         .then(response => response.json())
         .then(data => {
             console.log("Response from server:", data); // Log the response
+
+            // Hide initial loading overlay
+            // var initialLoading = document.getElementById('initialLoadingOverlay');
+            // if (initialLoading) {
+            //     initialLoading.style.display = 'none';
+            // }
+
             if (data.response && data.response.trim() === 'startExamButtonNeeded') {
+                // Set flag to indicate this is an exam lab
+                window.isExamLab = true;
+                // Set up the CVP modal button for exam labs
                 addExamButton();
+            } else {
+                window.isExamLab = false;
             }
-            else {
-                overlay.style.display = 'none';
-            }
+
         })
         .catch(error => {
             console.error("Error fetching exam status:", error);
-            document.getElementById('overlay').style.display = 'none';
+
+            // Hide initial loading overlay on error
         });
 });
 
 
 function addExamButton() {
-    const overlay = document.getElementById('overlay');
-    overlay.innerHTML = '<button id="overlayButton" disabled>CVP is not up yet, please wait till CVP comes online</button>';
+    // Set up CVP modal Start Exam button
+    const cvpModalBtn = document.getElementById('cvpStartExamBtn');
+    const cvpModal = document.getElementById('cvpWaitingModal');
 
-    document.getElementById('overlayButton').addEventListener('click', function () {
-        if (this.disabled) {
-            // Prevent any action if disabled
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-        alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
-        fetch('/examStatus', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
-        })
-            .then(response => response.json())
-            .then(postdataresponse => {
-                console.log("Response from server:", postdataresponse);
-                overlay.style.opacity = 0;
-                overlay.style.visibility = 'hidden';
-                location.reload();
+    if (cvpModalBtn) {
+        cvpModalBtn.addEventListener('click', function () {
+            if (this.disabled) {
+                return false;
+            }
+            alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
+            fetch('/examStatus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
             })
-            .catch(error => console.error("Error updating exam status:", error));
-    });
+                .then(response => response.json())
+                .then(postdataresponse => {
+                    console.log("Response from server:", postdataresponse);
+                    if (cvpModal) {
+                        cvpModal.style.opacity = 0;
+                        cvpModal.style.visibility = 'hidden';
+                    }
+                    location.reload();
+                })
+                .catch(error => console.error("Error updating exam status:", error));
+        });
+    }
 }
 // $('#labMenu').click(function (event) {
 //     document.getElementById('lab-menu').style.display = 'block'

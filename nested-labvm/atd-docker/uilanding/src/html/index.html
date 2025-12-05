@@ -52,14 +52,68 @@
   <main>
     <!-------Index with sidebar-->
 
+    <!-- Initial Loading Overlay -->
+    <div id="initialLoadingOverlay" class="cvp-modal" style="display: flex;">
+      <div class="cvp-modal-content">
+        <div class="cvp-modal-header">
+          <div class="cvp-loading-icon">
+            <div class="loading-spinner"></div>
+          </div>
+          <h2>Services Starting</h2>
+        </div>
+        <div class="cvp-modal-body">
+          <p class="cvp-main-message">
+            Lab services are booting up...
+          </p>
+          <div class="cvp-notice">
+            <i class="fa-solid fa-info-circle"></i>
+            <p>Please wait while we establish connection to the lab environment.</p>
+          </div>
+          <p class="cvp-suggestion">
+            This should only take a few seconds.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CVP Waiting Modal -->
+    <div id="cvpWaitingModal" class="cvp-modal" style="display: none;">
+      <div class="cvp-modal-content">
+        <div class="cvp-modal-header">
+          <div class="cvp-loading-icon" id="cvpLoadingIcon">
+            <div class="loading-spinner"></div>
+          </div>
+          <div class="cvp-ready-icon" id="cvpReadyIcon" style="display: none;">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <h2 id="cvpModalTitle">CVP is Starting</h2>
+        </div>
+        <div class="cvp-modal-body">
+          <p class="cvp-main-message" id="cvpModalMessage">
+            Please wait for CVP to start, this can take <strong>15 minutes</strong>.
+          </p>
+          <div class="cvp-notice">
+            <i class="fa-solid fa-info-circle"></i>
+            <p id="cvpNoticeText">This time is <strong>NOT</strong> part of your allocated exam.</p>
+          </div>
+          <p class="cvp-suggestion" id="cvpSuggestion">
+            Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.
+          </p>
+          <div class="cvp-button-container">
+            <button id="cvpStartExamBtn" class="cvp-start-exam-btn" disabled>Start Exam</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="bg-pattern"></div>
     <div class="grid-container full">
       <div class="grid-x">
         <header></header>
-        <div id="overlay">
-          <!-- <button id="overlayButton">Start Exam</button> -->
+        <!-- <div id="overlay">
+           <button id="overlayButton">Start Exam</button>
           <button id="overlayButton" disabled>Loading..</button>
-        </div>
+        </div> -->
         <aside id="sidebar" class="cell small-12 medium-12 large-3 left-sidebar">
           <div class="site-sidebar">
             <div class="nav-menu">

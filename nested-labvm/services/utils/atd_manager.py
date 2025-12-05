@@ -1562,10 +1562,10 @@ class ATDStartup:
         shutil.copy(os.path.join(unit_test_dir, 'atd-unit-test.service'), '/etc/systemd/system/')
 
         self.systemd_manager.daemon_reload()
-        self.systemd_manager.enable('atd-unit-test.timer')
-        self.systemd_manager.enable('atd-unit-test-60min.timer')
-        self.systemd_manager.start('atd-unit-test.timer')
-        self.systemd_manager.start('atd-unit-test-60min.timer')
+        # self.systemd_manager.enable('atd-unit-test.timer')
+        # self.systemd_manager.enable('atd-unit-test-60min.timer')
+        # self.systemd_manager.start('atd-unit-test.timer')
+        # self.systemd_manager.start('atd-unit-test-60min.timer')
 
     def _enable_ssh_password_auth(self) -> None:
         """Enable password authentication for SSH"""

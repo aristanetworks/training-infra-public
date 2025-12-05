@@ -2,58 +2,275 @@
 <html lang="en">
 
 <head>
-
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Arista ATD Lab">
+    <meta name="description" content="Arista Training Lab">
 
-    <title>Arista ATD</title>
+    <title>Arista Traing Lab - Login</title>
 
-    <!-- Bootstrap core CSS -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!-- Modern CSS -->
+    <link rel="stylesheet" href="css/foundation.min.css" />
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/typography.css" />
+    <link rel="stylesheet" href="css/style.css" />
 
-    <!-- Custom styles for this template -->
-    <link href="css/simple-sidebar.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--navy-blue);
+            position: relative;
+            overflow: hidden;
+        }
 
+        /* Background pattern */
+        .bg-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url(../images/hero-bg.png);
+            background-size: cover;
+            background-position: center;
+            opacity: 0.1;
+            z-index: 0;
+        }
+
+        /* Login container */
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--navy-blue) 100%);
+            border: 3px solid var(--secondary-color);
+            border-radius: 12px;
+            padding: 50px 40px;
+            box-shadow: 0 8px 32px rgba(251, 181, 0, 0.3);
+            animation: fadeIn 0.6s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Logo */
+        .login-logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-logo img {
+            max-width: 200px;
+            height: auto;
+        }
+
+        /* Header */
+        .login-header {
+            text-align: center;
+            margin-bottom: 35px;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 20px;
+        }
+
+        .login-header h1 {
+            color: var(--secondary-color);
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .login-header p {
+            color: var(--light-purple);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        /* Form */
+        .login-form {
+            margin-top: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--secondary-color);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid var(--secondary-color);
+            border-radius: 6px;
+            font-size: 16px;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="password"]:focus {
+            outline: none;
+            border-color: var(--neon-green);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(120, 216, 44, 0.2);
+        }
+
+        .form-group input[type="text"]::placeholder,
+        .form-group input[type="password"]::placeholder {
+            color: #999;
+        }
+
+        /* Submit button */
+        .submit-btn {
+            width: 100%;
+            padding: 16px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #ffc52f 100%);
+            color: var(--primary-color);
+            box-shadow: 0 4px 15px rgba(251, 181, 0, 0.4);
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(251, 181, 0, 0.6);
+            background: linear-gradient(135deg, #ffc52f 0%, var(--secondary-color) 100%);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(251, 181, 0, 0.4);
+        }
+
+        /* Message */
+        .login-message {
+            margin-top: 25px;
+            padding: 15px 20px;
+            background: rgba(227, 9, 9, 0.15);
+            border-left: 4px solid var(--red);
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .login-message.error {
+            background: rgba(227, 9, 9, 0.15);
+            border-left-color: var(--red);
+        }
+
+        .login-message.success {
+            background: rgba(120, 216, 44, 0.15);
+            border-left-color: var(--neon-green);
+        }
+
+        /* Responsive */
+        @media screen and (max-width: 63.9375em) {
+            .login-box {
+                padding: 40px 30px;
+            }
+
+            .login-header h1 {
+                font-size: 24px;
+            }
+
+            .submit-btn {
+                font-size: 16px;
+                padding: 14px 30px;
+            }
+        }
+
+        @media screen and (max-width: 39.9375em) {
+            .login-box {
+                padding: 30px 20px;
+            }
+
+            .login-header h1 {
+                font-size: 20px;
+            }
+
+            .login-logo img {
+                max-width: 150px;
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <div id="wrapper" class="toggled">
+    <div class="bg-pattern"></div>
 
-        <!-- Sidebar -->
-        <div id="sidebar-wrapper">
-            <ul class="sidebar-nav">
-                <br>
-                <img src="images/logotransparent.png" class="arista-logo">
-                <hr class="hr">
-            </ul>
-        </div>
-        <!-- /#sidebar-wrapper -->
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <img src="images/arista.svg" alt="Arista Networks Logo">
+            </div>
 
-        <!-- Page Content -->
-        <div id="page-content-wrapper">
-            <div class="container-fluid">
-                <h1>Arista Test Drive Lab</h1>
-                Please login to access your lab.
-                <form action="/login" method="post">
-                Username: <input type="text" name="name"><br />
-                Password: <input type="password" name="pwd"><br />
-                <input type="submit" value="Sign In">
-                </form>
+            <div class="login-header">
+                <h1>Training Lab</h1>
+                <p>Please login to access your lab</p>
+            </div>
+
+            <form action="/login" method="post" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="name" placeholder="Enter your username" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="pwd" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="submit-btn">Sign In</button>
+            </form>
+
+            {% if LOGIN_MESSAGE %}
+            <div class="login-message error">
                 {{LOGIN_MESSAGE}}
             </div>
+            {% end %}
         </div>
-        <!-- /#page-content-wrapper -->
-
     </div>
-    <!-- /#wrapper -->
 
-    <!-- Bootstrap core JavaScript -->
-    <script src="js/jquery.min.js"></script>
-    <script src="js/popper.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-
-
+    <!-- Scripts -->
+    <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/foundation.min.js"></script>
 </body>
 
 </html>
