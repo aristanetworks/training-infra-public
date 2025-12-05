@@ -189,21 +189,32 @@ export function getCytoscapeStyles() {
         },
 
         // ==========================================
-        // Status Styles
+        // Status Styles - Visual indicators for device reachability
         // ==========================================
         {
             selector: '.status-up',
             style: {
                 'border-color': '#78d82c',
-                'border-width': 3
+                'border-width': 4,
+                'border-opacity': 1
             }
         },
         {
             selector: '.status-down',
             style: {
                 'border-color': '#e30909',
+                'border-width': 5,
+                'border-opacity': 1,
+                'opacity': 0.8
+            }
+        },
+        {
+            selector: '.status-error',
+            style: {
+                'border-color': '#ff8c00',
                 'border-width': 4,
-                'opacity': 0.7
+                'border-style': 'dashed',
+                'opacity': 0.9
             }
         },
         {
@@ -216,7 +227,9 @@ export function getCytoscapeStyles() {
         {
             selector: '.status-unknown',
             style: {
-                'border-style': 'dashed'
+                'border-color': '#808080',
+                'border-style': 'dashed',
+                'border-width': 2
             }
         },
 
@@ -320,6 +333,46 @@ export function getCytoscapeStyles() {
                 'z-index': 9999,
                 'font-size': 14,
                 'font-weight': 700
+            }
+        },
+
+        // ==========================================
+        // Edge Utilization States (based on interface stats)
+        // ==========================================
+        {
+            selector: 'edge.utilization-low',
+            style: {
+                'line-color': '#78d82c',
+                'width': 2
+            }
+        },
+        {
+            selector: 'edge.utilization-medium',
+            style: {
+                'line-color': '#fbb500',
+                'width': 3
+            }
+        },
+        {
+            selector: 'edge.utilization-high',
+            style: {
+                'line-color': '#ff8c00',
+                'width': 3
+            }
+        },
+        {
+            selector: 'edge.utilization-critical',
+            style: {
+                'line-color': '#e30909',
+                'width': 4
+            }
+        },
+        {
+            selector: 'edge.has-errors',
+            style: {
+                'line-color': '#e30909',
+                'line-style': 'dashed',
+                'width': 3
             }
         }
     ];

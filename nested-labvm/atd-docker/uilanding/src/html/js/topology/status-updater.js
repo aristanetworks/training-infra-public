@@ -12,6 +12,11 @@ export class StatusUpdater {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
         this.statusCallbacks = [];
+
+        // Device status polling
+        this.statusPollInterval = null;
+        this.statusPollDelay = 30000; // 30 seconds
+        this.isPolling = false;
     }
 
     /**
@@ -133,11 +138,11 @@ export class StatusUpdater {
         // Update node data
         node.data('status', status);
 
-        // Update CSS classes
-        node.removeClass('status-up status-down status-init status-unknown');
+        // Update CSS classes - remove all status classes first
+        node.removeClass('status-up status-down status-init status-unknown status-error');
         node.addClass(`status-${status}`);
 
-        // Update classes string
+        // Update classes string - preserve device type and add status
         const deviceType = node.data('device_type');
         node.classes(`device-type-${deviceType} status-${status}`);
     }
@@ -231,9 +236,104 @@ export class StatusUpdater {
     }
 
     /**
+     * Start polling device status via eAPI
+     */
+    startStatusPolling() {
+        if (this.isPolling) {
+            return;
+        }
+
+        this.isPolling = true;
+        console.log('[TopologyStatus] Starting device status polling');
+
+        // Initial check
+        this.pollDeviceStatus();
+
+        // Set up interval
+        this.statusPollInterval = setInterval(() => {
+            this.pollDeviceStatus();
+        }, this.statusPollDelay);
+    }
+
+    /**
+     * Stop polling device status
+     */
+    stopStatusPolling() {
+        if (this.statusPollInterval) {
+            clearInterval(this.statusPollInterval);
+            this.statusPollInterval = null;
+        }
+        this.isPolling = false;
+        console.log('[TopologyStatus] Stopped device status polling');
+    }
+
+    /**
+     * Poll all device statuses from API
+     */
+    async pollDeviceStatus() {
+        try {
+            const response = await fetch('/td-api/device-status');
+
+            if (!response.ok) {
+                console.error('[TopologyStatus] Failed to fetch device status:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data.devices) {
+                Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
+                    this.updateNodeStatus(nodeId, deviceStatus.status || 'unknown');
+
+                    // Also update the node data with version info if available
+                    const node = this.cy.$id(nodeId);
+                    if (!node.empty() && deviceStatus.version) {
+                        node.data('version', deviceStatus.version);
+                    }
+                });
+
+                // Notify callbacks
+                this.statusCallbacks.forEach(callback => {
+                    try {
+                        callback({ devices: data.devices });
+                    } catch (error) {
+                        console.error('[TopologyStatus] Callback error', error);
+                    }
+                });
+
+                console.log('[TopologyStatus] Updated status for', Object.keys(data.devices).length, 'devices');
+            }
+        } catch (error) {
+            console.error('[TopologyStatus] Error polling device status:', error);
+        }
+    }
+
+    /**
+     * Check status of a single device
+     */
+    async checkSingleDevice(nodeId) {
+        try {
+            const response = await fetch(`/td-api/device-status?device=${encodeURIComponent(nodeId)}`);
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json();
+            this.updateNodeStatus(nodeId, data.status || 'unknown');
+
+            return data;
+        } catch (error) {
+            console.error('[TopologyStatus] Error checking device:', nodeId, error);
+            return null;
+        }
+    }
+
+    /**
      * Destroy status updater
      */
     destroy() {
+        this.stopStatusPolling();
         this.disconnect();
         this.statusCallbacks = [];
     }

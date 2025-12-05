@@ -403,10 +403,27 @@
     color: #071c35;
 }
 
-.tooltip-value.status-up { color: #78d82c; }
-.tooltip-value.status-down { color: #e30909; }
+.tooltip-value.status-up { color: #78d82c; font-weight: 600; }
+.tooltip-value.status-down { color: #e30909; font-weight: 600; }
+.tooltip-value.status-error { color: #ff8c00; font-weight: 600; }
 .tooltip-value.status-init { color: #fbb500; }
 .tooltip-value.status-unknown { color: #808080; }
+
+/* Status indicator dot */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.status-indicator.status-up { background-color: #78d82c; }
+.status-indicator.status-down { background-color: #e30909; }
+.status-indicator.status-error { background-color: #ff8c00; }
+.status-indicator.status-init { background-color: #fbb500; }
+.status-indicator.status-unknown { background-color: #808080; }
 
 .tooltip-ports {
     margin-top: 10px;
@@ -453,6 +470,72 @@
 /* Edge Tooltip */
 .topology-tooltip.edge-tooltip .tooltip-header {
     background-color: #4c5cae;
+}
+
+/* Edge Stats Tooltip Sections */
+.tooltip-section {
+    padding: 8px 0;
+    border-bottom: 1px dashed #ddd;
+}
+
+.tooltip-section:last-child {
+    border-bottom: none;
+}
+
+.section-title {
+    display: block;
+    font-weight: 600;
+    color: #071c35;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-family: "Monaco", "Consolas", monospace;
+}
+
+/* Stats Loading State */
+.tooltip-stats-loading {
+    color: #666;
+    font-style: italic;
+    font-size: 11px;
+    padding: 4px 0;
+}
+
+.tooltip-stats-loading::after {
+    content: '';
+    animation: loadingDots 1.4s infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+/* Stats Error State */
+.tooltip-error {
+    color: #e30909;
+    font-style: italic;
+}
+
+/* Utilization Colors in Tooltip */
+.utilization-high {
+    color: #ff8c00;
+    font-weight: 600;
+}
+
+.utilization-medium {
+    color: #fbb500;
+    font-weight: 500;
+}
+
+/* Error Indicators */
+.has-errors {
+    color: #e30909;
+    font-weight: 600;
+}
+
+.no-errors {
+    color: #78d82c;
 }
 
 /* ==========================================

@@ -22,6 +22,12 @@ export class EventManager {
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
         this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
 
+        // Interface stats cache and debounce
+        this.statsCache = {};  // { 'device:interface': { timestamp, data } }
+        this.statsCacheTTL = 10000;  // 10 seconds
+        this.statsDebounceTimer = null;
+        this.statsDebounceDelay = 300;  // ms before fetching stats
+
         this.registerHandlers();
     }
 
@@ -442,6 +448,10 @@ export class EventManager {
             `;
         }
 
+        // Format status display with indicator dot
+        const status = data.status || 'unknown';
+        const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1);
+
         tooltip.innerHTML = `
             <div class="tooltip-header">
                 <strong>${data.label}</strong>
@@ -458,8 +468,16 @@ export class EventManager {
                 </div>
                 <div class="tooltip-row">
                     <span class="tooltip-label">Status:</span>
-                    <span class="tooltip-value status-${data.status}">${data.status}</span>
+                    <span class="tooltip-value status-${status}">
+                        <span class="status-indicator status-${status}"></span>${statusDisplay}
+                    </span>
                 </div>
+                ${data.version ? `
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Version:</span>
+                    <span class="tooltip-value">${data.version}</span>
+                </div>
+                ` : ''}
                 ${portsHtml}
             </div>
             <div class="tooltip-footer">
@@ -482,7 +500,7 @@ export class EventManager {
     }
 
     /**
-     * Show tooltip for an edge
+     * Show tooltip for an edge with interface statistics
      */
     showEdgeTooltip(evt) {
         const edge = evt.target;
@@ -490,22 +508,28 @@ export class EventManager {
 
         this.hideTooltip();
 
+        // Clear any pending stats fetch
+        if (this.statsDebounceTimer) {
+            clearTimeout(this.statsDebounceTimer);
+        }
+
         const tooltip = document.createElement('div');
         tooltip.id = 'topo-tooltip';
         tooltip.className = 'topology-tooltip edge-tooltip';
 
+        // Initial tooltip with loading state for stats
         tooltip.innerHTML = `
             <div class="tooltip-header">
-                <strong>Link</strong>
+                <strong>Link Statistics</strong>
             </div>
             <div class="tooltip-body">
-                <div class="tooltip-row">
-                    <span class="tooltip-label">From:</span>
-                    <span class="tooltip-value">${data.source}:${data.source_port}</span>
+                <div class="tooltip-section">
+                    <span class="section-title">${data.source}:${data.source_port}</span>
+                    <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
-                <div class="tooltip-row">
-                    <span class="tooltip-label">To:</span>
-                    <span class="tooltip-value">${data.target}:${data.target_port}</span>
+                <div class="tooltip-section">
+                    <span class="section-title">${data.target}:${data.target_port}</span>
+                    <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
             </div>
         `;
@@ -521,6 +545,223 @@ export class EventManager {
         this.tooltip = tooltip;
 
         this.adjustTooltipPosition(tooltip);
+
+        // Debounce the stats fetch to avoid excessive API calls
+        this.statsDebounceTimer = setTimeout(() => {
+            this.fetchAndDisplayEdgeStats(edge, tooltip);
+        }, this.statsDebounceDelay);
+    }
+
+    /**
+     * Fetch interface stats for both ends of an edge and update tooltip
+     */
+    async fetchAndDisplayEdgeStats(edge, tooltip) {
+        const data = edge.data();
+
+        try {
+            // Fetch stats for both interfaces in parallel
+            const [sourceStats, targetStats] = await Promise.all([
+                this.fetchInterfaceStats(data.source, data.source_port),
+                this.fetchInterfaceStats(data.target, data.target_port)
+            ]);
+
+            // Check if tooltip is still visible (user might have moved away)
+            if (!this.tooltip || this.tooltip !== tooltip) {
+                return;
+            }
+
+            // Update tooltip with stats
+            tooltip.innerHTML = this.buildEdgeStatsTooltipHTML(data, sourceStats, targetStats);
+            this.adjustTooltipPosition(tooltip);
+
+            // Update edge styling based on utilization
+            this.updateEdgeUtilizationClass(edge, sourceStats, targetStats);
+
+        } catch (error) {
+            console.error('[EventManager] Error fetching edge stats:', error);
+
+            // Check if tooltip is still visible
+            if (!this.tooltip || this.tooltip !== tooltip) {
+                return;
+            }
+
+            // Show error state
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <strong>Link</strong>
+                </div>
+                <div class="tooltip-body">
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">From:</span>
+                        <span class="tooltip-value">${data.source}:${data.source_port}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">To:</span>
+                        <span class="tooltip-value">${data.target}:${data.target_port}</span>
+                    </div>
+                    <div class="tooltip-row tooltip-error">
+                        <span class="tooltip-value">Stats unavailable</span>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Fetch interface stats from API with caching
+     */
+    async fetchInterfaceStats(device, interfaceName) {
+        const cacheKey = `${device}:${interfaceName}`;
+        const now = Date.now();
+
+        // Check cache
+        if (this.statsCache[cacheKey]) {
+            const cached = this.statsCache[cacheKey];
+            if (now - cached.timestamp < this.statsCacheTTL) {
+                return cached.data;
+            }
+        }
+
+        // Fetch from API
+        const response = await fetch(`/td-api/interface-stats?device=${encodeURIComponent(device)}&interface=${encodeURIComponent(interfaceName)}`);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Cache the result
+        this.statsCache[cacheKey] = {
+            timestamp: now,
+            data: data
+        };
+
+        return data;
+    }
+
+    /**
+     * Build HTML for edge stats tooltip
+     */
+    buildEdgeStatsTooltipHTML(edgeData, sourceStats, targetStats) {
+        const formatRate = (bps) => {
+            if (bps >= 1000000000) {
+                return `${(bps / 1000000000).toFixed(2)} Gbps`;
+            } else if (bps >= 1000000) {
+                return `${(bps / 1000000).toFixed(2)} Mbps`;
+            } else if (bps >= 1000) {
+                return `${(bps / 1000).toFixed(2)} Kbps`;
+            }
+            return `${bps.toFixed(0)} bps`;
+        };
+
+        const formatUtilization = (pct) => {
+            if (pct > 80) {
+                return `<span class="utilization-high">${pct.toFixed(1)}%</span>`;
+            } else if (pct > 50) {
+                return `<span class="utilization-medium">${pct.toFixed(1)}%</span>`;
+            }
+            return `${pct.toFixed(1)}%`;
+        };
+
+        const formatErrors = (errors) => {
+            if (errors > 0) {
+                return `<span class="has-errors">${errors}</span>`;
+            }
+            return `<span class="no-errors">0</span>`;
+        };
+
+        const buildInterfaceSection = (title, stats) => {
+            if (!stats || !stats.stats) {
+                return `
+                    <div class="tooltip-section">
+                        <span class="section-title">${title}</span>
+                        <div class="tooltip-row">
+                            <span class="tooltip-value">Stats unavailable</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const s = stats.stats;
+            const statusClass = s.operational_status === 'connected' ? 'status-up' : 'status-down';
+
+            return `
+                <div class="tooltip-section">
+                    <span class="section-title">${title}</span>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Status:</span>
+                        <span class="tooltip-value ${statusClass}">${s.operational_status}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">TX:</span>
+                        <span class="tooltip-value">${formatRate(s.out_rate_bps)} (${formatUtilization(s.utilization_out)})</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">RX:</span>
+                        <span class="tooltip-value">${formatRate(s.in_rate_bps)} (${formatUtilization(s.utilization_in)})</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Errors:</span>
+                        <span class="tooltip-value">${formatErrors(s.in_errors + s.out_errors)}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Calculate time since last update
+        let updateInfo = '';
+        if (sourceStats && sourceStats.stats && sourceStats.stats.last_updated) {
+            const lastUpdate = new Date(sourceStats.stats.last_updated);
+            const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
+            updateInfo = `<div class="tooltip-footer">Updated: ${secondsAgo}s ago</div>`;
+        }
+
+        return `
+            <div class="tooltip-header">
+                <strong>Link Statistics</strong>
+            </div>
+            <div class="tooltip-body">
+                ${buildInterfaceSection(`${edgeData.source}:${edgeData.source_port}`, sourceStats)}
+                ${buildInterfaceSection(`${edgeData.target}:${edgeData.target_port}`, targetStats)}
+            </div>
+            ${updateInfo}
+        `;
+    }
+
+    /**
+     * Update edge CSS class based on utilization
+     */
+    updateEdgeUtilizationClass(edge, sourceStats, targetStats) {
+        // Remove existing utilization classes
+        edge.removeClass('utilization-low utilization-medium utilization-high utilization-critical has-errors');
+
+        // Get max utilization from either end
+        let maxUtilization = 0;
+        let hasErrors = false;
+
+        if (sourceStats && sourceStats.stats) {
+            maxUtilization = Math.max(maxUtilization, sourceStats.stats.utilization_in, sourceStats.stats.utilization_out);
+            hasErrors = hasErrors || (sourceStats.stats.in_errors + sourceStats.stats.out_errors) > 0;
+        }
+        if (targetStats && targetStats.stats) {
+            maxUtilization = Math.max(maxUtilization, targetStats.stats.utilization_in, targetStats.stats.utilization_out);
+            hasErrors = hasErrors || (targetStats.stats.in_errors + targetStats.stats.out_errors) > 0;
+        }
+
+        // Apply appropriate class
+        if (hasErrors) {
+            edge.addClass('has-errors');
+        } else if (maxUtilization > 95) {
+            edge.addClass('utilization-critical');
+        } else if (maxUtilization > 80) {
+            edge.addClass('utilization-high');
+        } else if (maxUtilization > 50) {
+            edge.addClass('utilization-medium');
+        } else if (maxUtilization > 25) {
+            edge.addClass('utilization-low');
+        }
     }
 
     /**

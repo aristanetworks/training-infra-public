@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y openssh-client sshpass
 
 RUN pip install --upgrade pip
 
-RUN pip install tornado requests ruamel.yaml docker 
+RUN pip install tornado requests ruamel.yaml docker pyeapi
 
 RUN mkdir -p /opt/topo/html
 

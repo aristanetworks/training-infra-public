@@ -74,6 +74,8 @@ export class TopologyManager {
             if (this.options.enableStatus) {
                 this.statusUpdater = new StatusUpdater(this.cy, this.options.wsUrl);
                 this.statusUpdater.connect();
+                // Start polling device status via eAPI for real-time status indicators
+                this.statusUpdater.startStatusPolling();
             }
 
             this.isInitialized = true;
