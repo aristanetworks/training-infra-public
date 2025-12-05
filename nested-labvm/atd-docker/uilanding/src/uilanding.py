@@ -1403,16 +1403,46 @@ class TopologyAPIHandler(BaseHandler):
 
                     # Create edge only if both nodes exist (prevents Cytoscape.js errors)
                     if neighbor_device and neighbor_device in valid_node_names:
-                        edge_key = tuple(sorted([device_name, neighbor_device]))
+                        # Get port values with None-safety
+                        device_port = neighbor.get('port') or ''
+                        neighbor_port = neighbor.get('neighborPort') or ''
+
+                        # Create edge key that includes ports to support multiple links
+                        # between the same device pair (e.g., MLAG, port-channel, redundancy)
+                        port_pair = tuple(sorted([device_port, neighbor_port]))
+                        edge_key = (tuple(sorted([device_name, neighbor_device])), port_pair)
+
                         if edge_key not in edge_set:
                             edge_set.add(edge_key)
-                            source_port = neighbor.get('port', '')
-                            target_port = neighbor.get('neighborPort', '')
+
+                            # Use alphabetically sorted order for source/target to ensure
+                            # consistent port assignment regardless of processing order.
+                            # edge_key[0][0] is the alphabetically first device name.
+                            sorted_devices = edge_key[0]
+                            if device_name == sorted_devices[0]:
+                                # Current device is alphabetically first, so it's the source.
+                                # Ports stay as-is: device_port -> source, neighbor_port -> target
+                                source_node = device_name
+                                target_node = neighbor_device
+                                source_port = device_port
+                                target_port = neighbor_port
+                            else:
+                                # Neighbor device is alphabetically first, so it becomes source.
+                                # Since we're processing from device_name's perspective, swap ports:
+                                # neighbor_port belongs to the alphabetically-first (source) node
+                                # device_port belongs to the alphabetically-second (target) node
+                                source_node = neighbor_device
+                                target_node = device_name
+                                source_port = neighbor_port
+                                target_port = device_port
+
+                            # Use unique edge ID that includes ports to support parallel links
+                            edge_id = f"{source_node}-{target_node}-{source_port}-{target_port}"
                             edges.append({
                                 'data': {
-                                    'id': f"{device_name}-{neighbor_device}",
-                                    'source': device_name,
-                                    'target': neighbor_device,
+                                    'id': edge_id,
+                                    'source': source_node,
+                                    'target': target_node,
                                     'source_port': source_port,
                                     'target_port': target_port,
                                     'label': f"{source_port} ↔ {target_port}" if source_port and target_port else ''
