@@ -7,6 +7,7 @@
   <title>Terminal - {{ topo_title }}</title>
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/typography.css" />
+  <link rel="stylesheet" href="css/topology.css" />
   <style>
     * {
       margin: 0;
@@ -714,13 +715,102 @@
 
     /* Topology panel */
     .topology-panel .side-panel-content {
-      padding: 16px;
+      padding: 0;
+      flex-direction: column;
+      align-items: stretch;
     }
 
     .topology-panel .side-panel-content img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+    }
+
+    /* Compact topology controls for side panel */
+    .topology-panel .topo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 12px;
+      background: var(--primary-color);
+      border-bottom: 1px solid rgba(251, 181, 0, 0.3);
+    }
+
+    .topology-panel .topo-controls input[type="text"] {
+      flex: 1;
+      min-width: 100px;
+      padding: 6px 10px;
+      border: 1px solid rgba(251, 181, 0, 0.5);
+      border-radius: 0;
+      background: var(--navy-blue);
+      color: #fff;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    .topology-panel .topo-controls input[type="text"]::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .topology-panel .topo-controls input[type="text"]:focus {
+      border-color: var(--secondary-color);
+      outline: none;
+    }
+
+    .topology-panel .topo-controls .topo-btn {
+      padding: 6px 10px;
+      background: transparent;
+      border: 1px solid rgba(251, 181, 0, 0.5);
+      color: var(--secondary-color);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .topology-panel .topo-controls .topo-btn:hover {
+      background: rgba(251, 181, 0, 0.15);
+      border-color: var(--secondary-color);
+    }
+
+    /* Interactive topology container in side panel */
+    .topology-panel #terminal-topology {
+      flex: 1;
+      min-height: 300px;
+      background: #ffffff;
+      border: 2px solid var(--secondary-color);
+      margin: 12px;
+    }
+
+    .topology-panel #terminal-topology.loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-color);
+    }
+
+    /* Tooltip overrides for terminal page - ensure visibility */
+    .topology-tooltip {
+      z-index: 100000 !important;
+    }
+
+    .topology-tooltip .tooltip-value {
+      color: #071c35 !important;
+    }
+
+    .topology-tooltip .tooltip-value.status-unknown {
+      color: #666666 !important;
+    }
+
+    .topology-tooltip .tooltip-footer {
+      color: #666666 !important;
+    }
+
+    /* Context menu z-index for terminal page */
+    .topology-context-menu {
+      z-index: 100001 !important;
     }
 
     /* Lab guides panel */
@@ -786,6 +876,10 @@
 </head>
 
 <body>
+  <!-- Cytoscape.js for Interactive Topology -->
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
   <div class="terminal-container">
     <!-- Device Sidebar -->
     <aside class="device-sidebar" id="deviceSidebar">
@@ -887,7 +981,12 @@
             <button class="side-panel-close" id="topoClose">&times;</button>
           </div>
           <div class="side-panel-content">
-            <img src="/topo/atd-topo.png" alt="Topology Diagram" />
+            <div class="topo-controls">
+              <input type="text" id="topo-search" placeholder="Search..." />
+              <button class="topo-btn" id="topo-reset">Reset</button>
+              <button class="topo-btn" id="topo-fit">Fit</button>
+            </div>
+            <div id="terminal-topology" class="loading">Loading topology...</div>
           </div>
         </div>
       </div>
@@ -1129,6 +1228,10 @@
           if (isVisible) {
             labguidesPanel.classList.remove('visible');
             labguidesToggle.classList.remove('active');
+            // Fit topology to panel after it becomes visible
+            if (this.topoManager) {
+              setTimeout(() => this.topoManager.fit(), 100);
+            }
           }
         });
 
@@ -1339,12 +1442,119 @@
 
         // Focus the iframe
         setTimeout(() => iframe.focus(), 50);
+      },
+
+      // Topology Manager for side panel
+      topoManager: null,
+      topoInitialized: false,
+
+      async initTopology() {
+        if (this.topoInitialized) return;
+
+        try {
+          // Dynamically import the TopologyManager module
+          const { TopologyManager } = await import('./js/topology/topology-manager.js');
+
+          // Clear the loading text before initializing
+          const topoContainer = document.getElementById('terminal-topology');
+          topoContainer.textContent = '';
+          topoContainer.classList.remove('loading');
+
+          this.topoManager = new TopologyManager('terminal-topology', {
+            apiUrl: '/td-api/topology',
+            layout: 'preset',
+            enableStatus: true,
+            enableFilters: false,  // Using our own compact controls
+            // Custom terminal handler for opening devices in this page's tabs
+            onOpenTerminal: (deviceName, ip) => {
+              TerminalManager.openTerminal(deviceName, ip);
+            }
+          });
+
+          await this.topoManager.init();
+          this.topoInitialized = true;
+
+          // Setup compact controls
+          this.setupTopoControls();
+
+        } catch (error) {
+          console.error('Failed to initialize topology:', error);
+          document.getElementById('terminal-topology').innerHTML =
+            '<div style="padding: 20px; text-align: center; color: #e74c3c;">Failed to load topology</div>';
+        }
+      },
+
+      setupTopoControls() {
+        // Search input
+        const searchInput = document.getElementById('topo-search');
+        if (searchInput) {
+          let searchTimeout;
+          searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+              if (this.topoManager) {
+                this.topoManager.search(searchInput.value);
+              }
+            }, 300);
+          });
+        }
+
+        // Reset button
+        const resetBtn = document.getElementById('topo-reset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            if (this.topoManager) {
+              this.topoManager.clearHighlights();
+              this.topoManager.setLayout('preset');
+              this.topoManager.resetFilters();
+              document.getElementById('topo-search').value = '';
+            }
+          });
+        }
+
+        // Fit button
+        const fitBtn = document.getElementById('topo-fit');
+        if (fitBtn) {
+          fitBtn.addEventListener('click', () => {
+            if (this.topoManager) {
+              this.topoManager.fit();
+            }
+          });
+        }
       }
     };
 
     // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       TerminalManager.init();
+
+      // Initialize topology when panel is opened
+      await TerminalManager.initTopology();
+
+      // Handle URL parameters from topology diagram clicks (first open)
+      const urlParams = new URLSearchParams(window.location.search);
+      const deviceName = urlParams.get('device');
+      const deviceIp = urlParams.get('ip');
+
+      if (deviceName && deviceIp) {
+        // Open the device terminal after a short delay to ensure devices are loaded
+        setTimeout(() => {
+          TerminalManager.openTerminal(deviceName, deviceIp);
+          // Clear URL params to prevent reopening on refresh
+          window.history.replaceState({}, '', '/terminal');
+        }, 500);
+      }
+
+      // Listen for messages from topology diagram (subsequent opens)
+      window.addEventListener('message', (event) => {
+        // Verify origin for security
+        if (event.origin !== window.location.origin) return;
+
+        const data = event.data;
+        if (data && data.type === 'openDevice' && data.device && data.ip) {
+          TerminalManager.openTerminal(data.device, data.ip);
+        }
+      });
     });
   </script>
 </body>

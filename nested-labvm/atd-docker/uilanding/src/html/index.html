@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/overlay.css">
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/home.css" />
+  <link rel="stylesheet" href="css/topology.css" />
 </head>
 
 <body>
@@ -235,21 +236,28 @@
             <!---==============-->
             <section class="topology">
               <div class="topology-overview">
-                <div class="white-box text-center">
-                  <!-- <h2>Click on a device to access CLI.</h2> -->
-                  <img src="topo/atd-topo.png" usemap="#image_map" />
-                  <!--  <map name="image_map">
-                        {% for node in NODES %}
-                        {% if node == "CVP" %}
-                            <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/cv" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
-                        {% else %}
-                            <area alt="{{ escape(node) }}" title="{{ escape(node) }}" href="/ssh/host/{{ escape(NODES[node]['ip']) }}" target="_blank" coords="{{ escape(NODES[node]['coords']) }}" shape="rect">
-                        {% end %}
-                        {% end %}
-                        {% for gui_url in zip(GUI_URLS,SERVERS) %}
-                            <area alt="{{ escape(gui_url[1]) }}" title="{{ escape(gui_url[1]) }}" href="{{gui_url[0]}}" target="_blank" coords="{{ escape(SERVERS[gui_url[1]]['coords']) }}" shape="rect">
-                        {% end %}
-                    </map> -->
+                <div class="white-box">
+                  <!-- View Toggle -->
+                  <div class="topology-controls">
+                    <button id="toggle-topo-view" class="button">
+                      <i class="fa-solid fa-image"></i> Switch to Static
+                    </button>
+                    <div id="filter-controls">
+                      <input type="text" id="device-search" placeholder="Search devices..." />
+                      <div id="device-type-filters"></div>
+                      <button id="reset-layout" class="button">Reset Layout</button>
+                      <button id="fit-view" class="button">Fit View</button>
+                    </div>
+                  </div>
+
+                  <!-- Static Topology (hidden by default) -->
+                  <div id="static-topology" class="text-center" style="display: none;">
+                    <img src="topo/atd-topo.png" usemap="#image_map" />
+                  </div>
+
+                  <!-- Interactive Topology (default view) -->
+                  <div id="interactive-topology"></div>
+
                   {% if topo_cvp %}
                   <span id="cvp_info"></span>
                   <br /><br />
@@ -431,6 +439,167 @@
   <script src="js/backend.js"></script>
   <script type="module" src="js/honorlock-examsubmit-v1.js"></script>
   <script src="js/connectivity-monitor.js"></script>
+
+  <!-- Cytoscape.js for Interactive Topology -->
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+
+  <!-- Interactive Topology Initialization -->
+  <script type="module">
+    import { TopologyManager } from './js/topology/topology-manager.js';
+
+    let topoManager = null;
+    let isInteractiveView = true;  // Start with interactive view
+
+    // Initialize topology on page load
+    async function initTopology() {
+      try {
+        topoManager = new TopologyManager('interactive-topology', {
+          apiUrl: '/td-api/topology',
+          layout: 'preset',  // Use server-calculated positions for organized layout
+          enableStatus: true,
+          enableFilters: true
+        });
+        await topoManager.init();
+
+        // Setup filter checkboxes
+        setupFilters();
+      } catch (error) {
+        console.error('Failed to initialize topology:', error);
+      }
+    }
+
+    // Initialize on DOM ready
+    initTopology();
+
+    // Toggle between static and interactive views
+    document.getElementById('toggle-topo-view').addEventListener('click', async function() {
+      const staticDiv = document.getElementById('static-topology');
+      const interactiveDiv = document.getElementById('interactive-topology');
+      const filterControls = document.getElementById('filter-controls');
+      const toggleBtn = this;
+
+      if (isInteractiveView) {
+        // Switch to static view
+        staticDiv.style.display = 'block';
+        interactiveDiv.style.display = 'none';
+        filterControls.style.display = 'none';
+        toggleBtn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Switch to Interactive';
+
+        isInteractiveView = false;
+      } else {
+        // Switch to interactive view
+        staticDiv.style.display = 'none';
+        interactiveDiv.style.display = 'block';
+        filterControls.style.display = 'flex';
+        toggleBtn.innerHTML = '<i class="fa-solid fa-image"></i> Switch to Static';
+
+        // Re-fit view when switching back
+        if (topoManager) {
+          topoManager.fit();
+        }
+
+        isInteractiveView = true;
+      }
+    });
+
+    // Device type display names
+    const deviceTypeNames = {
+      'spine': 'Spines',
+      'leaf': 'Leafs',
+      'borderleaf': 'Borderleafs',
+      'host': 'Hosts',
+      'pe': 'PE Routers',
+      'p': 'P Routers',
+      'ce': 'CE Routers',
+      'customer': 'Customer',
+      'core': 'Core',
+      'dci': 'DCI',
+      'isp': 'ISP',
+      'internet': 'Internet',
+      'oob': 'OOB',
+      'other': 'Other'
+    };
+
+    // Build dynamic filter checkboxes based on device types in topology
+    function buildFilterCheckboxes() {
+      const filtersContainer = document.getElementById('device-type-filters');
+      if (!filtersContainer || !topoManager) return;
+
+      // Get device type counts from topology
+      const counts = topoManager.getDeviceTypeCounts();
+
+      // Clear existing checkboxes
+      filtersContainer.innerHTML = '';
+
+      // Create checkbox for each device type that exists
+      Object.keys(counts).forEach(deviceType => {
+        if (counts[deviceType] > 0) {
+          const label = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = true;
+          checkbox.dataset.filter = deviceType;
+
+          checkbox.addEventListener('change', function() {
+            if (topoManager) {
+              topoManager.toggleDeviceType(deviceType);
+            }
+          });
+
+          const displayName = deviceTypeNames[deviceType] || deviceType;
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(` ${displayName}`));
+          filtersContainer.appendChild(label);
+        }
+      });
+    }
+
+    // Setup filter controls
+    function setupFilters() {
+      // Build dynamic checkboxes
+      buildFilterCheckboxes();
+
+      // Search input
+      const searchInput = document.getElementById('device-search');
+      if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            if (topoManager) {
+              topoManager.search(this.value);
+            }
+          }, 300);
+        });
+      }
+
+      // Reset layout button
+      const resetBtn = document.getElementById('reset-layout');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          if (topoManager) {
+            topoManager.clearHighlights();    // Exit focus mode and clear highlights
+            topoManager.setLayout('preset');  // Reset to organized layout
+            topoManager.resetFilters();
+            document.querySelectorAll('#device-type-filters input[type="checkbox"]').forEach(cb => cb.checked = true);
+            document.getElementById('device-search').value = '';
+          }
+        });
+      }
+
+      // Fit view button
+      const fitBtn = document.getElementById('fit-view');
+      if (fitBtn) {
+        fitBtn.addEventListener('click', function() {
+          if (topoManager) {
+            topoManager.fit();
+          }
+        });
+      }
+    }
+  </script>
 </body>
 
 </html>
