@@ -286,13 +286,24 @@ export class StatusUpdater {
                 let unmatchedDevices = [];
 
                 Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
-                    const node = this.cy.$id(nodeId);
+                    // Try exact match first, then lowercase (handle case mismatches)
+                    let node = this.cy.$id(nodeId);
+                    let effectiveNodeId = nodeId;
+
+                    if (node.empty()) {
+                        // Try lowercase version (API returns 'Spine1', Cytoscape uses 'spine1')
+                        const lowercaseId = nodeId.toLowerCase();
+                        node = this.cy.$id(lowercaseId);
+                        if (!node.empty()) {
+                            effectiveNodeId = lowercaseId;
+                        }
+                    }
 
                     if (node.empty()) {
                         unmatchedDevices.push(nodeId);
                     } else {
                         matchedCount++;
-                        this.updateNodeStatus(nodeId, deviceStatus.status || 'unknown');
+                        this.updateNodeStatus(effectiveNodeId, deviceStatus.status || 'unknown');
 
                         // Also update the node data with version info if available
                         if (deviceStatus.version) {

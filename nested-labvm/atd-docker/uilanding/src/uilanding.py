@@ -1800,10 +1800,16 @@ class InterfaceStatsAPIHandler(BaseHandler):
             return {'in_rate_bps': round(in_rate, 2), 'out_rate_bps': round(out_rate, 2)}
 
     def get_device_ip(self, device_name):
-        """Look up device IP from topology data."""
+        """Look up device IP from topology data with case-insensitive matching."""
         nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        # Try exact match first
         if device_name in nodes:
             return nodes[device_name].get('ip')
+        # Try case-insensitive match (frontend sends 'borderleaf1', nodes has 'BorderLeaf1')
+        device_name_lower = device_name.lower()
+        for node_name, node_data in nodes.items():
+            if node_name.lower() == device_name_lower:
+                return node_data.get('ip')
         return None
 
 
@@ -1957,10 +1963,16 @@ class DeviceStatusAPIHandler(BaseHandler):
         return statuses
 
     def get_device_ip(self, device_name):
-        """Look up device IP from topology data."""
+        """Look up device IP from topology data with case-insensitive matching."""
         nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        # Try exact match first
         if device_name in nodes:
             return nodes[device_name].get('ip')
+        # Try case-insensitive match (topology node IDs may differ in case)
+        device_name_lower = device_name.lower()
+        for node_name, node_data in nodes.items():
+            if node_name.lower() == device_name_lower:
+                return node_data.get('ip')
         return None
 
 
