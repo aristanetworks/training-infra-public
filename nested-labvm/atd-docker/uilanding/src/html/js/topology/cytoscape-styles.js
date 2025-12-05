@@ -231,30 +231,15 @@ export function getCytoscapeStyles() {
                 'curve-style': 'bezier',
                 'opacity': 0.7,
                 'transition-property': 'line-color, width, opacity',
-                'transition-duration': '0.2s'
-            }
-        },
-        {
-            selector: 'edge[source_port]',
-            style: {
+                'transition-duration': '0.2s',
+                // Source and target port labels anchored to respective endpoints
                 'source-label': 'data(source_port)',
-                'source-text-offset': 20,
-                'font-size': 9,
-                'font-family': '"Proxima Nova", sans-serif',
-                'source-text-rotation': 'autorotate',
-                'color': '#333333',
-                'text-outline-color': '#ffffff',
-                'text-outline-width': 2
-            }
-        },
-        {
-            selector: 'edge[target_port]',
-            style: {
                 'target-label': 'data(target_port)',
-                'target-text-offset': 20,
+                'source-text-offset': 25,
+                'target-text-offset': 25,
                 'font-size': 9,
                 'font-family': '"Proxima Nova", sans-serif',
-                'target-text-rotation': 'autorotate',
+                'text-rotation': 'autorotate',
                 'color': '#333333',
                 'text-outline-color': '#ffffff',
                 'text-outline-width': 2
