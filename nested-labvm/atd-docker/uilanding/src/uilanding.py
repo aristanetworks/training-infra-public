@@ -1856,6 +1856,7 @@ class DeviceStatusAPIHandler(BaseHandler):
 
         # Get device IP from topology
         device_ip = self.get_device_ip(device_name)
+        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
         if not device_ip:
             result = {
                 'device': device_name,
@@ -1926,6 +1927,11 @@ class DeviceStatusAPIHandler(BaseHandler):
         """Check status of all devices in topology."""
         nodes = MOD_YAML.get('topology', {}).get('nodes', {})
         statuses = {}
+
+        # Debug logging
+        pS(f"[DeviceStatus] Found {len(nodes)} nodes in topology")
+        if not nodes:
+            pS(f"[DeviceStatus] MOD_YAML topology keys: {list(MOD_YAML.get('topology', {}).keys())}")
 
         # Use thread pool for parallel checks
         from concurrent.futures import ThreadPoolExecutor, as_completed

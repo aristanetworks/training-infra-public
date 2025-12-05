@@ -282,15 +282,30 @@ export class StatusUpdater {
             const data = await response.json();
 
             if (data.devices) {
-                Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
-                    this.updateNodeStatus(nodeId, deviceStatus.status || 'unknown');
+                let matchedCount = 0;
+                let unmatchedDevices = [];
 
-                    // Also update the node data with version info if available
+                Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
                     const node = this.cy.$id(nodeId);
-                    if (!node.empty() && deviceStatus.version) {
-                        node.data('version', deviceStatus.version);
+
+                    if (node.empty()) {
+                        unmatchedDevices.push(nodeId);
+                    } else {
+                        matchedCount++;
+                        this.updateNodeStatus(nodeId, deviceStatus.status || 'unknown');
+
+                        // Also update the node data with version info if available
+                        if (deviceStatus.version) {
+                            node.data('version', deviceStatus.version);
+                        }
                     }
                 });
+
+                // Log any mismatches for debugging
+                if (unmatchedDevices.length > 0) {
+                    console.warn('[TopologyStatus] Devices not found in topology:', unmatchedDevices);
+                    console.log('[TopologyStatus] Available node IDs:', this.cy.nodes().map(n => n.id()));
+                }
 
                 // Notify callbacks
                 this.statusCallbacks.forEach(callback => {
@@ -301,7 +316,7 @@ export class StatusUpdater {
                     }
                 });
 
-                console.log('[TopologyStatus] Updated status for', Object.keys(data.devices).length, 'devices');
+                console.log('[TopologyStatus] Updated status for', matchedCount, 'of', Object.keys(data.devices).length, 'devices');
             }
         } catch (error) {
             console.error('[TopologyStatus] Error polling device status:', error);
