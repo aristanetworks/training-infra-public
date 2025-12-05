@@ -235,13 +235,26 @@ export function getCytoscapeStyles() {
             }
         },
         {
-            selector: 'edge[label]',
+            selector: 'edge[source_port]',
             style: {
-                'label': 'data(label)',
+                'source-label': 'data(source_port)',
+                'source-text-offset': 20,
                 'font-size': 9,
                 'font-family': '"Proxima Nova", sans-serif',
-                'text-rotation': 'autorotate',
-                'text-margin-y': -10,
+                'source-text-rotation': 'autorotate',
+                'color': '#333333',
+                'text-outline-color': '#ffffff',
+                'text-outline-width': 2
+            }
+        },
+        {
+            selector: 'edge[target_port]',
+            style: {
+                'target-label': 'data(target_port)',
+                'target-text-offset': 20,
+                'font-size': 9,
+                'font-family': '"Proxima Nova", sans-serif',
+                'target-text-rotation': 'autorotate',
                 'color': '#333333',
                 'text-outline-color': '#ffffff',
                 'text-outline-width': 2

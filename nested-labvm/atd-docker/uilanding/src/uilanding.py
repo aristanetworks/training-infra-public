@@ -1444,8 +1444,7 @@ class TopologyAPIHandler(BaseHandler):
                                     'source': source_node,
                                     'target': target_node,
                                     'source_port': source_port,
-                                    'target_port': target_port,
-                                    'label': f"{source_port} ↔ {target_port}" if source_port and target_port else ''
+                                    'target_port': target_port
                                 }
                             })
                     elif neighbor_device:
