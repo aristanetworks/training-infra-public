@@ -235,14 +235,18 @@ export function getCytoscapeStyles() {
                 // Source and target port labels anchored to respective endpoints
                 'source-label': 'data(source_port)',
                 'target-label': 'data(target_port)',
-                'source-text-offset': 25,
-                'target-text-offset': 25,
-                'font-size': 9,
+                'source-text-offset': 30,
+                'target-text-offset': 30,
+                'source-text-rotation': 'autorotate',
+                'target-text-rotation': 'autorotate',
+                'font-size': 10,
                 'font-family': '"Proxima Nova", sans-serif',
-                'text-rotation': 'autorotate',
                 'color': '#333333',
                 'text-outline-color': '#ffffff',
-                'text-outline-width': 2
+                'text-outline-width': 2,
+                'text-background-color': '#ffffff',
+                'text-background-opacity': 0.8,
+                'text-background-padding': '2px'
             }
         },
 
