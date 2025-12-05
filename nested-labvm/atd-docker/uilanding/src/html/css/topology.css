@@ -28,6 +28,7 @@
 /* Static topology gets same border style */
 #static-topology {
     border: 3px solid #071c35;
+    border-top: none;
     background-color: #ffffff;
     padding: 20px;
 }
@@ -37,6 +38,23 @@
     height: auto;
 }
 
+/* CVP Info section - navy background with white text */
+#cvp_info {
+    display: block;
+    background-color: #071c35;
+    color: #ffffff;
+    padding: 12px 15px;
+    margin-top: 0;
+    font-size: 14px;
+}
+
+#cvp_info h3 {
+    color: #fbb500;
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
 #interactive-topology.loading {
     display: flex;
     align-items: center;
@@ -44,16 +62,18 @@
 }
 
 /* ==========================================
-   Topology Controls - Consistent Sizing
+   Topology Controls - Navy Bar with Yellow Accents
    ========================================== */
 .topology-controls {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 0;
+    padding: 12px 15px;
+    background-color: #071c35;
 }
 
-/* Base button style - consistent height for all buttons */
+/* Base button style - transparent with yellow text/border */
 .topology-controls .button {
     margin: 0;
     padding: 7px 14px;
@@ -61,9 +81,9 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    background-color: #071c35;
-    color: #ffffff;
-    border: 2px solid #fbb500;
+    background-color: transparent;
+    color: #fbb500;
+    border: 1px solid rgba(251, 181, 0, 0.5);
     border-radius: 0;
     cursor: pointer;
     transition: all 0.2s;
@@ -73,12 +93,13 @@
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .topology-controls .button:hover {
-    background-color: #fbb500;
+    background-color: rgba(251, 181, 0, 0.15);
     border-color: #fbb500;
-    color: #071c35;
+    color: #fbb500;
 }
 
 .topology-controls .button.active {
@@ -107,10 +128,11 @@
     flex-wrap: wrap;
 }
 
-/* Search input - matches button height */
-#filter-controls input[type="text"] {
+/* Search input - navy background with white text */
+#filter-controls input[type="text"],
+#device-search {
     padding: 0 12px;
-    border: 2px solid #fbb500;
+    border: 1px solid rgba(251, 181, 0, 0.5);
     border-radius: 0;
     font-size: 12px;
     font-family: "Proxima Nova", -apple-system, sans-serif;
@@ -118,15 +140,30 @@
     height: 34px;
     box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
+    /* Override Foundation defaults */
+    margin: 0;
+    margin-bottom: 0 !important;
+    vertical-align: middle;
+    display: inline-block;
+    line-height: 30px;
+    /* Navy background with white text */
+    background-color: #0a1929;
+    color: #ffffff;
 }
 
-#filter-controls input[type="text"]:focus {
+#filter-controls input[type="text"]::placeholder,
+#device-search::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#filter-controls input[type="text"]:focus,
+#device-search:focus {
     border-color: #fbb500;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(251, 181, 0, 0.2);
+    box-shadow: none;
 }
 
-/* Device type filter labels - consistent height */
+/* Device type filter labels - transparent with yellow text */
 #device-type-filters label {
     display: inline-flex;
     align-items: center;
@@ -138,28 +175,31 @@
     cursor: pointer;
     padding: 0 10px;
     height: 34px;
-    background: #071c35;
-    color: #fff;
-    border: 2px solid #fbb500;
+    background: transparent;
+    color: #fbb500;
+    border: 1px solid rgba(251, 181, 0, 0.5);
     transition: all 0.2s;
     box-sizing: border-box;
+    vertical-align: middle;
+    margin: 0;
 }
 
 #device-type-filters label:hover {
-    background-color: #fbb500;
+    background-color: rgba(251, 181, 0, 0.15);
     border-color: #fbb500;
-    color: #071c35;
+    color: #fbb500;
 }
 
 #device-type-filters label:has(input:checked) {
-    background: #071c35;
-    color: #fff;
+    background: transparent;
+    color: #fbb500;
+    border-color: #fbb500;
 }
 
 #device-type-filters label:has(input:not(:checked)) {
-    background: #fff;
-    color: #071c35;
-    opacity: 0.6;
+    background: transparent;
+    color: rgba(251, 181, 0, 0.4);
+    border-color: rgba(251, 181, 0, 0.3);
 }
 
 #device-type-filters input[type="checkbox"] {
