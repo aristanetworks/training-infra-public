@@ -1085,9 +1085,9 @@ class TopologyAPIHandler(BaseHandler):
         """
         import re
 
-        NODE_SPACING_X = 180   # Horizontal spacing
-        NODE_SPACING_Y = 120   # Vertical spacing
-        COLUMN_SPACING = 200   # Extra spacing between columns
+        NODE_SPACING_X = 220   # Horizontal spacing
+        NODE_SPACING_Y = 160   # Vertical spacing
+        COLUMN_SPACING = 260   # Extra spacing between columns
         PADDING = 100
 
         # Build adjacency for graph analysis
@@ -1252,9 +1252,9 @@ class TopologyAPIHandler(BaseHandler):
                 tiers[tier][group_key].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
 
         # Calculate positions
-        NODE_SPACING_X = 150   # Horizontal spacing between nodes
-        NODE_SPACING_Y = 180   # Vertical spacing between tiers
-        DC_SPACING = 80        # Extra spacing between datacenter groups
+        NODE_SPACING_X = 200   # Horizontal spacing between nodes
+        NODE_SPACING_Y = 220   # Vertical spacing between tiers
+        DC_SPACING = 120       # Extra spacing between datacenter groups
         PADDING = 100          # Left padding
 
         # Calculate max width considering groups and spacing
