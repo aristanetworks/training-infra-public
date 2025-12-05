@@ -18,6 +18,7 @@ import os
 import subprocess
 import time
 import threading
+import pyeapi
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -1084,9 +1085,9 @@ class TopologyAPIHandler(BaseHandler):
         """
         import re
 
-        NODE_SPACING_X = 180   # Horizontal spacing
-        NODE_SPACING_Y = 120   # Vertical spacing
-        COLUMN_SPACING = 200   # Extra spacing between columns
+        NODE_SPACING_X = 220   # Horizontal spacing
+        NODE_SPACING_Y = 160   # Vertical spacing
+        COLUMN_SPACING = 260   # Extra spacing between columns
         PADDING = 100
 
         # Build adjacency for graph analysis
@@ -1251,9 +1252,9 @@ class TopologyAPIHandler(BaseHandler):
                 tiers[tier][group_key].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
 
         # Calculate positions
-        NODE_SPACING_X = 150   # Horizontal spacing between nodes
-        NODE_SPACING_Y = 180   # Vertical spacing between tiers
-        DC_SPACING = 80        # Extra spacing between datacenter groups
+        NODE_SPACING_X = 200   # Horizontal spacing between nodes
+        NODE_SPACING_Y = 220   # Vertical spacing between tiers
+        DC_SPACING = 120       # Extra spacing between datacenter groups
         PADDING = 100          # Left padding
 
         # Calculate max width considering groups and spacing
@@ -1636,6 +1637,345 @@ class DevicesAPIHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+class InterfaceStatsAPIHandler(BaseHandler):
+    """API endpoint for interface statistics via eAPI."""
+
+    # Cache: {device_interface: (timestamp, data)}
+    _cache = {}
+    _cache_lock = threading.Lock()
+    CACHE_TTL = 10  # seconds
+
+    # Rate calculation: store previous readings for rate computation
+    _previous_counters = {}
+    _previous_lock = threading.Lock()
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+        interface = self.get_argument('interface', None)
+
+        if not device or not interface:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'device and interface parameters required'}))
+            return
+
+        try:
+            stats = self.get_interface_stats(device, interface)
+            self.write(json.dumps(stats))
+        except Exception as e:
+            pS(f"InterfaceStatsAPIHandler error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def get_interface_stats(self, device_name, interface_name):
+        """Query EOS device for interface counters via eAPI."""
+        cache_key = f"{device_name}:{interface_name}"
+        current_time = time.time()
+
+        # Check cache
+        with self._cache_lock:
+            if cache_key in self._cache:
+                timestamp, data = self._cache[cache_key]
+                if current_time - timestamp < self.CACHE_TTL:
+                    return data
+
+        # Get device IP from topology
+        device_ip = self.get_device_ip(device_name)
+        if not device_ip:
+            raise ValueError(f"Device {device_name} not found in topology")
+
+        # Get credentials from ACCESS_INFO
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+
+        # Connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=10
+            )
+
+            # Execute show interfaces command
+            result = connection.execute([f"show interfaces {interface_name}"])
+
+            # Parse interface data
+            interfaces = result.get('result', [{}])[0].get('interfaces', {})
+            intf_data = interfaces.get(interface_name, {})
+
+            if not intf_data:
+                raise ValueError(f"Interface {interface_name} not found on {device_name}")
+
+            counters = intf_data.get('interfaceCounters', {})
+            bandwidth = intf_data.get('bandwidth', 0)
+
+            # Calculate rates from counter deltas
+            rates = self.calculate_rates(cache_key, counters, current_time)
+
+            # Calculate utilization percentage
+            if bandwidth > 0:
+                utilization_in = (rates['in_rate_bps'] / bandwidth) * 100
+                utilization_out = (rates['out_rate_bps'] / bandwidth) * 100
+            else:
+                utilization_in = 0
+                utilization_out = 0
+
+            stats = {
+                'device': device_name,
+                'interface': interface_name,
+                'stats': {
+                    'in_octets': counters.get('inOctets', 0),
+                    'out_octets': counters.get('outOctets', 0),
+                    'in_rate_bps': rates['in_rate_bps'],
+                    'out_rate_bps': rates['out_rate_bps'],
+                    'in_packets': counters.get('inUcastPkts', 0) + counters.get('inMulticastPkts', 0) + counters.get('inBroadcastPkts', 0),
+                    'out_packets': counters.get('outUcastPkts', 0) + counters.get('outMulticastPkts', 0) + counters.get('outBroadcastPkts', 0),
+                    'in_errors': counters.get('inErrors', 0) + counters.get('inputErrorsDetail', {}).get('crcErrors', 0),
+                    'out_errors': counters.get('outErrors', 0),
+                    'in_discards': counters.get('inDiscards', 0),
+                    'out_discards': counters.get('outDiscards', 0),
+                    'speed_bps': bandwidth,
+                    'utilization_in': round(utilization_in, 2),
+                    'utilization_out': round(utilization_out, 2),
+                    'operational_status': intf_data.get('interfaceStatus', 'unknown'),
+                    'line_protocol': intf_data.get('lineProtocolStatus', 'unknown'),
+                    'description': intf_data.get('description', ''),
+                    'last_updated': datetime.now().isoformat()
+                }
+            }
+
+            # Update cache
+            with self._cache_lock:
+                self._cache[cache_key] = (current_time, stats)
+
+            return stats
+
+        except pyeapi.eapilib.ConnectionError as e:
+            raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
+        except pyeapi.eapilib.CommandError as e:
+            raise ValueError(f"Command error on {device_name}: {e}")
+
+    def calculate_rates(self, cache_key, current_counters, current_time):
+        """Calculate bit rates from counter deltas."""
+        with self._previous_lock:
+            if cache_key in self._previous_counters:
+                prev_time, prev_counters = self._previous_counters[cache_key]
+                time_delta = current_time - prev_time
+
+                if time_delta > 0:
+                    in_octet_delta = current_counters.get('inOctets', 0) - prev_counters.get('inOctets', 0)
+                    out_octet_delta = current_counters.get('outOctets', 0) - prev_counters.get('outOctets', 0)
+
+                    # Handle counter wrap (unlikely but possible)
+                    if in_octet_delta < 0:
+                        in_octet_delta = current_counters.get('inOctets', 0)
+                    if out_octet_delta < 0:
+                        out_octet_delta = current_counters.get('outOctets', 0)
+
+                    in_rate = (in_octet_delta * 8) / time_delta
+                    out_rate = (out_octet_delta * 8) / time_delta
+                else:
+                    in_rate = out_rate = 0
+            else:
+                # First reading, no rate available yet
+                in_rate = out_rate = 0
+
+            # Store current reading for next calculation
+            self._previous_counters[cache_key] = (current_time, {
+                'inOctets': current_counters.get('inOctets', 0),
+                'outOctets': current_counters.get('outOctets', 0)
+            })
+
+            return {'in_rate_bps': round(in_rate, 2), 'out_rate_bps': round(out_rate, 2)}
+
+    def get_device_ip(self, device_name):
+        """Look up device IP from topology data with case-insensitive matching."""
+        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        # Try exact match first
+        if device_name in nodes:
+            return nodes[device_name].get('ip')
+        # Try case-insensitive match (frontend sends 'borderleaf1', nodes has 'BorderLeaf1')
+        device_name_lower = device_name.lower()
+        for node_name, node_data in nodes.items():
+            if node_name.lower() == device_name_lower:
+                return node_data.get('ip')
+        return None
+
+
+class DeviceStatusAPIHandler(BaseHandler):
+    """API endpoint to check device reachability via eAPI."""
+
+    # Cache: {device: (timestamp, status)}
+    _cache = {}
+    _cache_lock = threading.Lock()
+    CACHE_TTL = 30  # seconds - longer cache for status checks
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+
+        # If no device specified, check all devices
+        if device:
+            try:
+                status = self.check_device_status(device)
+                self.write(json.dumps(status))
+            except Exception as e:
+                self.write(json.dumps({
+                    'device': device,
+                    'status': 'error',
+                    'error': str(e)
+                }))
+        else:
+            # Check all devices in topology
+            statuses = self.check_all_devices()
+            self.write(json.dumps({'devices': statuses}))
+
+    def check_device_status(self, device_name):
+        """Check if a single device is reachable via eAPI."""
+        cache_key = device_name
+        current_time = time.time()
+
+        # Check cache
+        with self._cache_lock:
+            if cache_key in self._cache:
+                timestamp, data = self._cache[cache_key]
+                if current_time - timestamp < self.CACHE_TTL:
+                    return data
+
+        # Get device IP from topology
+        device_ip = self.get_device_ip(device_name)
+        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
+        if not device_ip:
+            result = {
+                'device': device_name,
+                'status': 'unknown',
+                'error': 'Device not found in topology'
+            }
+            return result
+
+        # Get credentials from ACCESS_INFO
+        try:
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            username = host_yaml['login_info']['jump_host']['user']
+            password = host_yaml['login_info']['jump_host']['pw']
+        except Exception as e:
+            result = {
+                'device': device_name,
+                'status': 'error',
+                'error': f'Cannot read credentials: {e}'
+            }
+            return result
+
+        # Try to connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=5  # Short timeout for status check
+            )
+
+            # Simple command to verify connectivity
+            result_cmd = connection.execute(['show version'])
+            version = result_cmd.get('result', [{}])[0].get('version', 'unknown')
+
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'up',
+                'version': version,
+                'last_check': datetime.now().isoformat()
+            }
+
+        except pyeapi.eapilib.ConnectionError:
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': 'Connection failed',
+                'last_check': datetime.now().isoformat()
+            }
+        except Exception as e:
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'error',
+                'error': str(e),
+                'last_check': datetime.now().isoformat()
+            }
+
+        # Update cache
+        with self._cache_lock:
+            self._cache[cache_key] = (current_time, result)
+
+        return result
+
+    def check_all_devices(self):
+        """Check status of all devices in topology."""
+        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        statuses = {}
+
+        # Debug logging
+        pS(f"[DeviceStatus] Found {len(nodes)} nodes in topology")
+        if not nodes:
+            pS(f"[DeviceStatus] MOD_YAML topology keys: {list(MOD_YAML.get('topology', {}).keys())}")
+
+        # Use thread pool for parallel checks
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {
+                executor.submit(self.check_device_status, device_name): device_name
+                for device_name in nodes.keys()
+            }
+
+            for future in as_completed(futures, timeout=30):
+                device_name = futures[future]
+                try:
+                    result = future.result()
+                    statuses[device_name] = result
+                except Exception as e:
+                    statuses[device_name] = {
+                        'device': device_name,
+                        'status': 'error',
+                        'error': str(e)
+                    }
+
+        return statuses
+
+    def get_device_ip(self, device_name):
+        """Look up device IP from topology data with case-insensitive matching."""
+        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        # Try exact match first
+        if device_name in nodes:
+            return nodes[device_name].get('ip')
+        # Try case-insensitive match (topology node IDs may differ in case)
+        device_name_lower = device_name.lower()
+        for node_name, node_data in nodes.items():
+            if node_name.lower() == device_name_lower:
+                return node_data.get('ip')
+        return None
+
+
 class EndExamHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -1722,6 +2062,8 @@ if __name__ == "__main__":
         (r'/terminal', TerminalPageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
+        (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
+        (r'/td-api/device-status', DeviceStatusAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

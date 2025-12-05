@@ -71,9 +71,14 @@ export class TopologyManager {
                 this.filterManager = new FilterManager(this.cy, this.container);
             }
 
+            // Add help button
+            this.createHelpButton();
+
             if (this.options.enableStatus) {
                 this.statusUpdater = new StatusUpdater(this.cy, this.options.wsUrl);
                 this.statusUpdater.connect();
+                // Start polling device status via eAPI for real-time status indicators
+                this.statusUpdater.startStatusPolling();
             }
 
             this.isInitialized = true;
@@ -136,8 +141,11 @@ export class TopologyManager {
             minZoom: 0.2,
             maxZoom: 3,
             wheelSensitivity: 0.3,
-            boxSelectionEnabled: true,
-            selectionType: 'single'
+            boxSelectionEnabled: true,      // Enable box/marquee selection by dragging on background
+            selectionType: 'additive',      // Allow multi-select with Shift+click or box selection
+            autoungrabifyNodes: false,      // Ensure nodes are draggable
+            panningEnabled: true,
+            userPanningEnabled: true
         });
 
         // Run layout
@@ -418,6 +426,86 @@ export class TopologyManager {
             return this.topologyData.metadata;
         }
         return null;
+    }
+
+    /**
+     * Create help button and overlay
+     */
+    createHelpButton() {
+        // Create help button
+        const helpBtn = document.createElement('button');
+        helpBtn.id = 'topo-help-btn';
+        helpBtn.className = 'topology-help-btn';
+        helpBtn.innerHTML = '?';
+        helpBtn.title = 'Keyboard & Mouse Controls';
+        helpBtn.addEventListener('click', () => this.toggleHelpOverlay());
+        this.container.appendChild(helpBtn);
+
+        // Create help overlay (hidden by default)
+        const overlay = document.createElement('div');
+        overlay.id = 'topo-help-overlay';
+        overlay.className = 'topology-help-overlay hidden';
+        overlay.innerHTML = `
+            <div class="help-header">
+                <span>Keyboard & Mouse Controls</span>
+                <button class="help-close-btn" title="Close">×</button>
+            </div>
+            <div class="help-content">
+                <div class="help-section">
+                    <h4>Navigation</h4>
+                    <div class="help-row"><kbd>Drag</kbd> <span>Pan canvas</span></div>
+                    <div class="help-row"><kbd>Scroll</kbd> <span>Zoom in/out</span></div>
+                    <div class="help-row"><kbd>F</kbd> <span>Fit to view</span></div>
+                    <div class="help-row"><kbd>R</kbd> <span>Reset zoom</span></div>
+                </div>
+                <div class="help-section">
+                    <h4>Selection</h4>
+                    <div class="help-row"><kbd>Click</kbd> <span>Select node</span></div>
+                    <div class="help-row"><kbd>Shift</kbd> + <kbd>Click</kbd> <span>Add to selection</span></div>
+                    <div class="help-row"><kbd>Shift</kbd> + <kbd>Drag</kbd> <span>Box select</span></div>
+                    <div class="help-row"><kbd>Esc</kbd> <span>Clear selection</span></div>
+                </div>
+                <div class="help-section">
+                    <h4>Nodes</h4>
+                    <div class="help-row"><kbd>Drag Node</kbd> <span>Move node(s)</span></div>
+                    <div class="help-row"><kbd>Right-click</kbd> <span>Context menu</span></div>
+                    <div class="help-row"><kbd>Hover</kbd> <span>Show details</span></div>
+                </div>
+            </div>
+        `;
+
+        // Close button handler
+        overlay.querySelector('.help-close-btn').addEventListener('click', () => {
+            this.hideHelpOverlay();
+        });
+
+        // Close on click outside
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideHelpOverlay();
+            }
+        });
+
+        this.container.appendChild(overlay);
+        this.helpOverlay = overlay;
+    }
+
+    /**
+     * Toggle help overlay visibility
+     */
+    toggleHelpOverlay() {
+        if (this.helpOverlay) {
+            this.helpOverlay.classList.toggle('hidden');
+        }
+    }
+
+    /**
+     * Hide help overlay
+     */
+    hideHelpOverlay() {
+        if (this.helpOverlay) {
+            this.helpOverlay.classList.add('hidden');
+        }
     }
 
     /**
