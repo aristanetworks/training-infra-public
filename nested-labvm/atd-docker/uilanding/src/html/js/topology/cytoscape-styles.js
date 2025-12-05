@@ -48,7 +48,7 @@ export function getCytoscapeStyles() {
             selector: '.device-type-leaf',
             style: {
                 'shape': 'round-rectangle',
-                'background-color': '#78d82c',
+                'background-color': '#20b2aa',  // Light sea green - distinct from status-up green
                 'border-color': '#071c35',
                 'width': 50,
                 'height': 50
@@ -119,7 +119,7 @@ export function getCytoscapeStyles() {
             selector: '.device-type-customer',
             style: {
                 'shape': 'round-rectangle',
-                'background-color': '#78d82c',
+                'background-color': '#20b2aa',  // Light sea green - matches leaf color
                 'border-color': '#071c35',
                 'width': 45,
                 'height': 45

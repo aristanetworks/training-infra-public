@@ -171,7 +171,7 @@ export class FilterManager {
  */
 export const DEVICE_TYPE_INFO = {
     'spine': { label: 'Spines', color: '#4c5cae' },
-    'leaf': { label: 'Leafs', color: '#78d82c' },
+    'leaf': { label: 'Leafs', color: '#20b2aa' },
     'borderleaf': { label: 'Borderleafs', color: '#fbb500' },
     'host': { label: 'Hosts', color: '#dae0fe' },
     'core': { label: 'Core', color: '#071c35' },
@@ -180,7 +180,7 @@ export const DEVICE_TYPE_INFO = {
     'ce': { label: 'CE Routers', color: '#4c5cae' },
     'gw': { label: 'WAN Gateways', color: '#d4a400' },
     'rr': { label: 'Route Reflectors', color: '#008b8b' },
-    'customer': { label: 'Customer', color: '#78d82c' },
+    'customer': { label: 'Customer', color: '#20b2aa' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },
     'internet': { label: 'Internet', color: '#e30909' },
