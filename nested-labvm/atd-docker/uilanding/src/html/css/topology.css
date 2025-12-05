@@ -7,10 +7,11 @@
    Container Styles
    ========================================== */
 
-/* Override white-box border for topology section */
+/* Override white-box for topology section - navy with yellow border */
 .topology .white-box {
-    border: none;
-    padding: 20px;
+    border: 2px solid #fbb500;
+    padding: 0;
+    background-color: #071c35;
 }
 
 #interactive-topology {
@@ -19,16 +20,15 @@
     min-height: 650px;
     height: calc(100vh - 280px);  /* Dynamic height based on viewport */
     max-height: 1000px;
-    border: 3px solid #071c35;
+    border: none;
     border-radius: 0;
     background-color: #ffffff;
     overflow: hidden;
 }
 
-/* Static topology gets same border style */
+/* Static topology - white background, no border (outer container has border) */
 #static-topology {
-    border: 3px solid #071c35;
-    border-top: none;
+    border: none;
     background-color: #ffffff;
     padding: 20px;
 }
