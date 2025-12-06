@@ -241,6 +241,8 @@ services:
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
+    # Privileged mode required to bring OVS bridge interfaces up
+    privileged: true
     environment:
       - PYTHONUNBUFFERED=1
     cap_add:

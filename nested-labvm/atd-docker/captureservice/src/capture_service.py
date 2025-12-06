@@ -360,6 +360,17 @@ class CaptureManager:
 
             session_id = str(uuid.uuid4())[:8]
 
+            # Ensure the bridge interface is up (OVS bridges are often down by default)
+            try:
+                subprocess.run(
+                    ["ip", "link", "set", "dev", bridge_name, "up"],
+                    capture_output=True,
+                    timeout=5
+                )
+                print(f"[CaptureManager] Brought interface {bridge_name} up")
+            except Exception as e:
+                print(f"[CaptureManager] Warning: Could not bring interface up: {e}")
+
             # Build tcpdump command
             cmd = [
                 "tcpdump",
@@ -425,19 +436,52 @@ class CaptureManager:
         ioloop = tornado.ioloop.IOLoop.current()
         local_packet_count = 0  # Local counter to avoid race conditions
 
+        print(f"[CaptureManager] Reader thread started for {session.session_id} on {session.bridge_name}")
+
+        # Check for any stderr output (tcpdump errors)
+        if session.process and session.process.stderr:
+            import select
+            # Non-blocking check for stderr
+            try:
+                import os
+                import fcntl
+                fd = session.process.stderr.fileno()
+                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+                stderr_data = session.process.stderr.read()
+                if stderr_data:
+                    print(f"[CaptureManager] tcpdump stderr: {stderr_data}")
+            except Exception as e:
+                pass  # Ignore non-blocking read errors
+
         try:
             while session.is_active and session.process:
                 # Check if stdout is still available
                 if not session.process.stdout:
+                    print(f"[CaptureManager] stdout not available for {session.session_id}")
                     break
 
                 line = session.process.stdout.readline()
                 if not line:
+                    # Check if process exited
+                    if session.process.poll() is not None:
+                        print(f"[CaptureManager] tcpdump exited with code {session.process.returncode}")
+                        # Try to get stderr
+                        try:
+                            stderr = session.process.stderr.read()
+                            if stderr:
+                                print(f"[CaptureManager] tcpdump stderr: {stderr}")
+                        except:
+                            pass
                     break
 
                 line = line.strip()
                 if not line:
                     continue
+
+                # Debug: log first few packets
+                if local_packet_count < 3:
+                    print(f"[CaptureManager] Raw line {local_packet_count + 1}: {line[:100]}...")
 
                 local_packet_count += 1
                 packet = parser.parse_line(line, local_packet_count)
