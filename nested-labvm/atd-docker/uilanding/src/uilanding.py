@@ -2175,12 +2175,19 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
     async def connect_upstream(self):
         """Connect to the capture service WebSocket."""
         from tornado.websocket import websocket_connect
+        import asyncio
+
+        pS(f"[Capture WS Proxy] Attempting upstream connection...")
 
         try:
             # Try primary URL first (works on Docker Desktop)
-            self.upstream_ws = await websocket_connect(
-                self.CAPTURE_SERVICE_URL,
-                on_message_callback=self.on_upstream_message
+            pS(f"[Capture WS Proxy] Trying primary: {self.CAPTURE_SERVICE_URL}")
+            self.upstream_ws = await asyncio.wait_for(
+                websocket_connect(
+                    self.CAPTURE_SERVICE_URL,
+                    on_message_callback=self.on_upstream_message
+                ),
+                timeout=5.0
             )
             self.is_connected = True
             pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL}")
@@ -2188,18 +2195,25 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
             pS(f"[Capture WS Proxy] Primary connection failed: {e}, trying fallback...")
             try:
                 # Try fallback URL (works on Linux Docker)
-                self.upstream_ws = await websocket_connect(
-                    self.CAPTURE_SERVICE_URL_FALLBACK,
-                    on_message_callback=self.on_upstream_message
+                pS(f"[Capture WS Proxy] Trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                self.upstream_ws = await asyncio.wait_for(
+                    websocket_connect(
+                        self.CAPTURE_SERVICE_URL_FALLBACK,
+                        on_message_callback=self.on_upstream_message
+                    ),
+                    timeout=5.0
                 )
                 self.is_connected = True
                 pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL_FALLBACK}")
             except Exception as e2:
                 pS(f"[Capture WS Proxy] Fallback connection also failed: {e2}")
-                self.write_message(json.dumps({
-                    'type': 'error',
-                    'message': 'Capture service unavailable. Is the captureservice container running?'
-                }))
+                try:
+                    self.write_message(json.dumps({
+                        'type': 'error',
+                        'message': 'Capture service unavailable. Is the captureservice container running?'
+                    }))
+                except Exception:
+                    pass
                 self.is_connected = False
 
     def on_upstream_message(self, message):
