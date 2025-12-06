@@ -371,8 +371,9 @@ class CaptureManager:
             except Exception as e:
                 print(f"[CaptureManager] Warning: Could not bring interface up: {e}")
 
-            # Build tcpdump command
+            # Build tcpdump command with stdbuf for immediate output
             cmd = [
+                "stdbuf", "-oL", "-eL",  # Force line-buffered stdout/stderr
                 "tcpdump",
                 "-i", bridge_name,
                 "-l",       # Line-buffered
@@ -381,6 +382,7 @@ class CaptureManager:
                 "-e",       # Show ethernet header
                 "-s", "0",  # Full packets
                 "-v",       # Verbose
+                "--immediate-mode",  # Immediate packet delivery (no buffering)
             ]
             if bpf_filter:
                 # BPF filter is already validated, safe to append
@@ -392,7 +394,7 @@ class CaptureManager:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    bufsize=1
+                    bufsize=0  # Unbuffered
                 )
 
                 session = CaptureSession(
