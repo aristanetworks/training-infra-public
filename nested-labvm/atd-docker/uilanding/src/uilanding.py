@@ -2157,7 +2157,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         except Exception:
             return False
 
-    def open(self):
+    async def open(self):
         """Handle new WebSocket connection from browser."""
         user = self.get_secure_cookie("user")
         if not user:
@@ -2170,7 +2170,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
 
         # Connect to upstream capture service
-        self.connect_upstream()
+        await self.connect_upstream()
 
     async def connect_upstream(self):
         """Connect to the capture service WebSocket."""
