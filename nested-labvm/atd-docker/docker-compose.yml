@@ -250,6 +250,8 @@ services:
     volumes:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
+      # OVS socket required for ovs-vsctl to list bridges
+      - /var/run/openvswitch:/var/run/openvswitch:rw
 networks:
   atd_nginx:
 volumes:

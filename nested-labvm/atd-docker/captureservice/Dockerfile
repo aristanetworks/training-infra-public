@@ -3,7 +3,7 @@ FROM python:3.9-slim
 # Install tcpdump and OVS tools for packet capture
 RUN apt-get update && apt-get install -y \
     tcpdump \
-    openvswitch-common \
+    openvswitch-switch \
     iproute2 \
     && rm -rf /var/lib/apt/lists/*
 

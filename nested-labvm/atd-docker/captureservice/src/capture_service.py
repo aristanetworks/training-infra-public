@@ -679,6 +679,11 @@ class CaptureManager:
                         for s in self.sessions.values()
                     )
                     bridges.append(info)
+                print(f"[CaptureManager] Found {len(bridges)} OVS bridges")
+            else:
+                print(f"[CaptureManager] ovs-vsctl failed: {result.stderr.strip()}")
+        except FileNotFoundError:
+            print("[CaptureManager] ovs-vsctl not found - OVS not installed?")
         except Exception as e:
             print(f"[CaptureManager] Error listing bridges: {e}")
 
