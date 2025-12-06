@@ -498,6 +498,7 @@ def get_all_devices():
     Get all devices from both modules.yaml and topo_build.yml.
     Returns a dict of {device_name: {'ip': ip_address}}.
     Uses caching to avoid repeated lookups.
+    Uses case-insensitive matching to avoid duplicates (e.g., Spine1 vs spine1).
     """
     global _ALL_DEVICES_CACHE
 
@@ -505,23 +506,30 @@ def get_all_devices():
         return _ALL_DEVICES_CACHE
 
     devices = {}
+    # Track lowercase names to detect case-insensitive duplicates
+    seen_names_lower = {}
 
     # First, add devices from modules.yaml
     mod_nodes = MOD_YAML.get('topology', {}).get('nodes', {})
     for device_name, device_info in mod_nodes.items():
-        devices[device_name] = {'ip': device_info.get('ip', '')}
+        name_lower = device_name.lower()
+        if name_lower not in seen_names_lower:
+            devices[device_name] = {'ip': device_info.get('ip', '')}
+            seen_names_lower[name_lower] = device_name
 
-    # Second, add devices from topo_build.yml (won't overwrite existing)
+    # Second, add devices from topo_build.yml (won't overwrite existing, case-insensitive)
     topo_data = _get_topo_build_data()
     if topo_data and 'nodes' in topo_data:
         for node_entry in topo_data['nodes']:
             if isinstance(node_entry, dict):
                 for name, info in node_entry.items():
-                    if name not in devices:
+                    name_lower = name.lower()
+                    if name_lower not in seen_names_lower:
                         ip = info.get('ip_addr', '')
                         if ip == 'N/A':
                             ip = ''
                         devices[name] = {'ip': ip}
+                        seen_names_lower[name_lower] = name
 
     _ALL_DEVICES_CACHE = devices
     pS(f"Cached {len(devices)} devices from modules.yaml and topo_build.yml")
