@@ -237,9 +237,7 @@ services:
       - atd_nginx
   captureservice:
     container_name: atd-captureservice
-    build:
-      context: ./captureservice
-      dockerfile: Dockerfile
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_captureservice:1.0.0
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
