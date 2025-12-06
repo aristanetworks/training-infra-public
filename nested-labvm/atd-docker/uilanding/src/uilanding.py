@@ -426,6 +426,71 @@ def pS(mtype):
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
+
+# Cache for topo_build.yml data (loaded once on first use)
+_TOPO_BUILD_CACHE = None
+
+
+def _get_topo_build_data():
+    """
+    Load and cache topo_build.yml data.
+    Returns cached data on subsequent calls.
+    """
+    global _TOPO_BUILD_CACHE
+
+    if _TOPO_BUILD_CACHE is not None:
+        return _TOPO_BUILD_CACHE
+
+    topo_path = f"/opt/atd/topologies/{TOPO}/topo_build.yml"
+    try:
+        with open(topo_path, 'r') as f:
+            _TOPO_BUILD_CACHE = YAML().load(f)
+        pS(f"Cached topo_build.yml from {topo_path}")
+    except Exception as e:
+        pS(f"Error reading topo_build.yml: {e}")
+        _TOPO_BUILD_CACHE = {}  # Empty dict to avoid repeated failures
+
+    return _TOPO_BUILD_CACHE
+
+
+def get_device_ip_from_sources(device_name):
+    """
+    Look up device IP from multiple sources with case-insensitive matching.
+    Checks modules.yaml first, then falls back to cached topo_build.yml.
+
+    Args:
+        device_name: Name of the device to look up
+
+    Returns:
+        str: IP address if found, None otherwise
+    """
+    if not device_name:
+        return None
+
+    device_name_lower = device_name.lower()
+
+    # First, try modules.yaml (MOD_YAML)
+    nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+    for node_name, node_data in nodes.items():
+        if node_name.lower() == device_name_lower:
+            ip = node_data.get('ip')
+            if ip:
+                return ip
+
+    # Second, try cached topo_build.yml
+    topo_data = _get_topo_build_data()
+    if topo_data and 'nodes' in topo_data:
+        for node_entry in topo_data['nodes']:
+            if isinstance(node_entry, dict):
+                for name, info in node_entry.items():
+                    if name.lower() == device_name_lower:
+                        ip = info.get('ip_addr')
+                        if ip and ip != 'N/A':
+                            return ip
+
+    return None
+
+
 def update_hubspot_handler(email, action, project):
     """
     Call the HubSpot Cloud Function to update exam properties
@@ -1700,7 +1765,7 @@ class InterfaceStatsAPIHandler(BaseHandler):
                     return data
 
         # Get device IP from topology
-        device_ip = self.get_device_ip(device_name)
+        device_ip = get_device_ip_from_sources(device_name)
         if not device_ip:
             raise ValueError(f"Device {device_name} not found in topology")
 
@@ -1811,19 +1876,6 @@ class InterfaceStatsAPIHandler(BaseHandler):
 
             return {'in_rate_bps': round(in_rate, 2), 'out_rate_bps': round(out_rate, 2)}
 
-    def get_device_ip(self, device_name):
-        """Look up device IP from topology data with case-insensitive matching."""
-        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
-        # Try exact match first
-        if device_name in nodes:
-            return nodes[device_name].get('ip')
-        # Try case-insensitive match (frontend sends 'borderleaf1', nodes has 'BorderLeaf1')
-        device_name_lower = device_name.lower()
-        for node_name, node_data in nodes.items():
-            if node_name.lower() == device_name_lower:
-                return node_data.get('ip')
-        return None
-
 
 class DeviceStatusAPIHandler(BaseHandler):
     """API endpoint to check device reachability via eAPI."""
@@ -1873,7 +1925,7 @@ class DeviceStatusAPIHandler(BaseHandler):
                     return data
 
         # Get device IP from topology
-        device_ip = self.get_device_ip(device_name)
+        device_ip = get_device_ip_from_sources(device_name)
         pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
         if not device_ip:
             result = {
@@ -1974,19 +2026,6 @@ class DeviceStatusAPIHandler(BaseHandler):
 
         return statuses
 
-    def get_device_ip(self, device_name):
-        """Look up device IP from topology data with case-insensitive matching."""
-        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
-        # Try exact match first
-        if device_name in nodes:
-            return nodes[device_name].get('ip')
-        # Try case-insensitive match (topology node IDs may differ in case)
-        device_name_lower = device_name.lower()
-        for node_name, node_data in nodes.items():
-            if node_name.lower() == device_name_lower:
-                return node_data.get('ip')
-        return None
-
 
 class RunningConfigAPIHandler(BaseHandler):
     """API endpoint to fetch running config from a device via eAPI."""
@@ -2019,7 +2058,7 @@ class RunningConfigAPIHandler(BaseHandler):
     def get_running_config(self, device_name):
         """Query EOS device for running config via eAPI."""
         # Get device IP from topology
-        device_ip = self.get_device_ip(device_name)
+        device_ip = get_device_ip_from_sources(device_name)
         if not device_ip:
             raise ValueError(f"Device {device_name} not found in topology")
 
@@ -2054,19 +2093,6 @@ class RunningConfigAPIHandler(BaseHandler):
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
-
-    def get_device_ip(self, device_name):
-        """Get device IP from topology data."""
-        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
-        # Try exact match first
-        if device_name in nodes:
-            return nodes[device_name].get('ip')
-        # Try case-insensitive match
-        device_name_lower = device_name.lower()
-        for node_name, node_data in nodes.items():
-            if node_name.lower() == device_name_lower:
-                return node_data.get('ip')
-        return None
 
 
 class EndExamHandler(tornado.web.RequestHandler):
