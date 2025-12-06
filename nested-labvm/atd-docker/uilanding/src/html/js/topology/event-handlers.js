@@ -451,20 +451,25 @@ export class EventManager {
         tooltip.id = 'topo-tooltip';
         tooltip.className = 'topology-tooltip';
 
-        // Build port list
+        // Build port list (only include connections to nodes that exist in diagram)
         let portsHtml = '';
         if (data.ports && data.ports.length > 0) {
-            const portItems = data.ports.slice(0, 5).map(p =>
-                `<li>${p.port} → ${p.neighbor}:${p.neighbor_port}</li>`
-            ).join('');
-            const moreCount = data.ports.length - 5;
-            portsHtml = `
-                <div class="tooltip-ports">
-                    <strong>Connections:</strong>
-                    <ul>${portItems}</ul>
-                    ${moreCount > 0 ? `<em>+${moreCount} more</em>` : ''}
-                </div>
-            `;
+            // Filter to only include ports where neighbor exists as a node in the topology
+            const validPorts = data.ports.filter(p => this.cy.$id(p.neighbor).length > 0);
+
+            if (validPorts.length > 0) {
+                const portItems = validPorts.slice(0, 5).map(p =>
+                    `<li>${p.port} → ${p.neighbor}:${p.neighbor_port}</li>`
+                ).join('');
+                const moreCount = validPorts.length - 5;
+                portsHtml = `
+                    <div class="tooltip-ports">
+                        <strong>Connections:</strong>
+                        <ul>${portItems}</ul>
+                        ${moreCount > 0 ? `<em>+${moreCount} more</em>` : ''}
+                    </div>
+                `;
+            }
         }
 
         // Format status display with indicator dot
@@ -914,18 +919,25 @@ export class EventManager {
         panel.id = 'topo-details-panel';
         panel.className = 'topology-details-panel';
 
-        // Build ports/connections list (show all)
+        // Build ports/connections list (only include connections to nodes that exist in diagram)
         let portsHtml = '';
         if (data.ports && data.ports.length > 0) {
-            const portItems = data.ports.map(port =>
-                `<li><span class="port-local">${port.port}</span> → <span class="port-remote">${port.neighbor}:${port.neighbor_port}</span></li>`
-            ).join('');
-            portsHtml = `
-                <div class="details-section">
-                    <div class="details-section-title">Connections</div>
-                    <ul class="details-ports-list">${portItems}</ul>
-                </div>
-            `;
+            // Filter to only include ports where neighbor exists as a node in the topology
+            const validPorts = data.ports.filter(port => {
+                return this.cy.$id(port.neighbor).length > 0;
+            });
+
+            if (validPorts.length > 0) {
+                const portItems = validPorts.map(port =>
+                    `<li><span class="port-local">${port.port}</span> → <span class="port-remote">${port.neighbor}:${port.neighbor_port}</span></li>`
+                ).join('');
+                portsHtml = `
+                    <div class="details-section">
+                        <div class="details-section-title">Connections</div>
+                        <ul class="details-ports-list">${portItems}</ul>
+                    </div>
+                `;
+            }
         }
 
         // Format status display
