@@ -6,7 +6,7 @@
 import { getCytoscapeStyles } from './cytoscape-styles.js';
 import { getLayout, LAYOUT_OPTIONS } from './layout-config.js';
 import { EventManager } from './event-handlers.js';
-import { FilterManager, DEVICE_TYPE_INFO } from './filter-manager.js';
+import { FilterManager, DEVICE_TYPE_INFO, loadDeviceTypeInfo, getDeviceTypeInfo } from './filter-manager.js';
 import { StatusUpdater } from './status-updater.js';
 
 export class TopologyManager {
@@ -51,8 +51,12 @@ export class TopologyManager {
         try {
             this.showLoading();
 
-            // Fetch topology data
-            this.topologyData = await this.fetchTopology();
+            // Load device type metadata from API (in parallel with topology fetch)
+            const [_, topologyData] = await Promise.all([
+                loadDeviceTypeInfo(),
+                this.fetchTopology()
+            ]);
+            this.topologyData = topologyData;
 
             if (!this.topologyData || !this.topologyData.nodes) {
                 throw new Error('Invalid topology data received');

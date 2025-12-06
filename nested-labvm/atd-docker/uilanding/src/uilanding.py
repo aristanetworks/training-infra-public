@@ -19,6 +19,7 @@ import subprocess
 import time
 import threading
 import pyeapi
+from device_types import DeviceTypeConfig
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -457,8 +458,7 @@ def _get_topo_build_data():
 
 def get_device_ip_from_sources(device_name):
     """
-    Look up device IP from multiple sources with case-insensitive matching.
-    Checks modules.yaml first, then falls back to cached topo_build.yml.
+    Look up device IP using cached get_all_devices() with case-insensitive matching.
 
     Args:
         device_name: Name of the device to look up
@@ -469,26 +469,14 @@ def get_device_ip_from_sources(device_name):
     if not device_name:
         return None
 
+    all_devices = get_all_devices()
     device_name_lower = device_name.lower()
 
-    # First, try modules.yaml (MOD_YAML)
-    nodes = MOD_YAML.get('topology', {}).get('nodes', {})
-    for node_name, node_data in nodes.items():
-        if node_name.lower() == device_name_lower:
-            ip = node_data.get('ip')
-            if ip:
-                return ip
-
-    # Second, try cached topo_build.yml
-    topo_data = _get_topo_build_data()
-    if topo_data and 'nodes' in topo_data:
-        for node_entry in topo_data['nodes']:
-            if isinstance(node_entry, dict):
-                for name, info in node_entry.items():
-                    if name.lower() == device_name_lower:
-                        ip = info.get('ip_addr')
-                        if ip and ip != 'N/A':
-                            return ip
+    # Case-insensitive lookup in cached devices
+    for name, info in all_devices.items():
+        if name.lower() == device_name_lower:
+            ip = info.get('ip', '')
+            return ip if ip else None
 
     return None
 
@@ -1023,83 +1011,10 @@ class TopologyAPIHandler(BaseHandler):
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
 
-    # Device type to tier mapping (lower tier = higher in diagram)
-    # Tier 0: Internet (top, cloud/WAN edge)
-    # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.), Route Reflectors
-    # Tier 2: DCI, core, P routers (inter-DC connectivity)
-    # Tier 3: Borderleaf, PE, CE, GW (DC edge / WAN gateways)
-    # Tier 4: Routers (campus routers, above spines)
-    # Tier 5: Spines
-    # Tier 6: Leafs
-    # Tier 7: Memleaf (member leafs, between leaf and host in campus)
-    # Tier 8: Hosts, customers, OOB
-    # Tier 9: Other
-    DEVICE_TIERS = {
-        'internet': 0,
-        'isp': 1,
-        'rr': 1,
-        'core': 2,
-        'dci': 2,
-        'p': 2,
-        'borderleaf': 3,
-        'pe': 3,
-        'ce': 3,
-        'gw': 3,
-        'router': 4,
-        'spine': 5,
-        'leaf': 6,
-        'memleaf': 7,
-        'host': 8,
-        'customer': 8,
-        'oob': 8,
-        'other': 9
-    }
-
     @staticmethod
     def classify_device_type(device_name):
-        """Classify device type based on naming pattern."""
-        name_lower = device_name.lower()
-
-        # Order matters: more specific patterns first
-        if 'borderleaf' in name_lower or device_name.startswith('BL'):
-            return 'borderleaf'
-        elif 'memleaf' in name_lower:
-            return 'memleaf'
-        elif 'spine' in name_lower:
-            return 'spine'
-        elif 'leaf' in name_lower:
-            return 'leaf'
-        elif 'router' in name_lower:
-            return 'router'
-        elif 'host' in name_lower:
-            return 'host'
-        elif 'dci' in name_lower or device_name == 'DCI':
-            return 'dci'
-        elif 'internet' in name_lower:
-            return 'internet'
-        elif 'isp' in name_lower:
-            return 'isp'
-        elif 'core' in name_lower:
-            return 'core'
-        elif 'oob' in name_lower:
-            return 'oob'
-        # Route Reflector: RR or RR1, RR2, etc.
-        elif device_name == 'RR' or (device_name.startswith('RR') and len(device_name) > 2 and device_name[2].isdigit()):
-            return 'rr'
-        # WAN Gateways: GW11, GW12, GW21, GW22, GW31, etc. (GW + DC number + device number)
-        elif device_name.startswith('GW') and len(device_name) > 2 and device_name[2].isdigit():
-            return 'gw'
-        elif device_name.startswith('PE'):
-            return 'pe'
-        elif device_name.startswith('CE'):
-            return 'ce'
-        elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'p'
-        # Customer devices: A1, A2, B1, B2, C1, C2, D1, D2, etc.
-        elif device_name[0] in ('A', 'B', 'C', 'D') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'customer'
-        else:
-            return 'other'
+        """Classify device type based on naming pattern. Uses shared DeviceTypeConfig."""
+        return DeviceTypeConfig.classify_device(device_name)
 
     @staticmethod
     def extract_datacenter(device_name):
@@ -1346,11 +1261,11 @@ class TopologyAPIHandler(BaseHandler):
         # Standard datacenter layout (tier-based)
         # Group nodes by tier, then by grouping key (datacenter or ISP provider)
         tiers = {}
-        ISP_TIER = TopologyAPIHandler.DEVICE_TIERS.get('isp', 1)
+        ISP_TIER = DeviceTypeConfig.get_tier('isp')
 
         for node in nodes_data:
             device_type = node['data']['device_type']
-            tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 7)
+            tier = DeviceTypeConfig.get_tier(device_type)
 
             # For ISP tier, group by ISP provider (ISP1, ISP2) instead of datacenter
             if tier == ISP_TIER:
@@ -1680,75 +1595,39 @@ class DevicesAPIHandler(BaseHandler):
             # Get devices from both modules.yaml and topo_build.yml
             nodes = get_all_devices()
 
-            # Define grouping patterns (order matters - more specific first)
-            group_patterns = [
-                ('Spine', ['spine']),
-                ('Borderleaf', ['borderleaf', 'BL']),
-                ('Memleaf', ['memleaf']),
-                ('Leaf', ['leaf']),
-                ('Router', ['router']),
-                ('Host', ['host']),
-                ('Core', ['core', 'DCI']),
-                ('ISP', ['ISP', 'Internet']),
-                ('Route Reflectors', ['RR']),
-                ('WAN Gateways', ['GW']),
-                ('PE Routers', ['PE']),
-                ('P Routers', ['P']),
-                ('Customer', []),  # Special handling for A, B, C, D prefixed devices
-            ]
-
-            # Group devices
-            groups = {name: [] for name, _ in group_patterns}
-            groups['Other'] = []
+            # Group devices using shared DeviceTypeConfig
+            groups = {}
 
             for device_name, device_info in nodes.items():
-                matched = False
+                # Classify device and get its group name
+                device_type = DeviceTypeConfig.classify_device(device_name)
+                group_name = DeviceTypeConfig.get_group_name(device_type)
 
-                # Special handling for Customer devices (A1, B1, C1, D1, etc.)
-                if len(device_name) > 1 and device_name[0] in ('A', 'B', 'C', 'D') and device_name[1].isdigit():
-                    groups['Customer'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-                    matched = True
+                if group_name not in groups:
+                    groups[group_name] = []
 
-                # Special handling for P routers (P1, P2, etc. but not PE)
-                elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
-                    groups['P Routers'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-                    matched = True
+                groups[group_name].append({
+                    'name': device_name,
+                    'ip': device_info.get('ip', ''),
+                })
 
-                # Check other patterns (case-insensitive)
-                if not matched:
-                    device_name_lower = device_name.lower()
-                    for group_name, prefixes in group_patterns:
-                        for prefix in prefixes:
-                            prefix_lower = prefix.lower()
-                            if prefix_lower and (device_name_lower.startswith(prefix_lower) or prefix_lower in device_name_lower):
-                                groups[group_name].append({
-                                    'name': device_name,
-                                    'ip': device_info.get('ip', ''),
-                                })
-                                matched = True
-                                break
-                        if matched:
-                            break
+            # Sort devices within each group and format result
+            # Order groups by tier (using first device type that maps to each group)
+            group_order = DeviceTypeConfig.get_all_group_names()
 
-                if not matched:
-                    groups['Other'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-
-            # Sort devices within each group and remove empty groups
             result = []
-            for group_name, _ in group_patterns + [('Other', [])]:
-                devices = groups[group_name]
-                if devices:
-                    # Sort by name
-                    devices.sort(key=lambda x: x['name'])
+            for group_name in group_order:
+                if group_name in groups and groups[group_name]:
+                    devices = sorted(groups[group_name], key=lambda x: x['name'])
+                    result.append({
+                        'group': group_name,
+                        'devices': devices
+                    })
+
+            # Add any remaining groups not in the predefined order
+            for group_name in sorted(groups.keys()):
+                if group_name not in group_order and groups[group_name]:
+                    devices = sorted(groups[group_name], key=lambda x: x['name'])
                     result.append({
                         'group': group_name,
                         'devices': devices
@@ -1759,6 +1638,26 @@ class DevicesAPIHandler(BaseHandler):
                 'groups': result
             }))
 
+        except Exception as e:
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class DeviceTypesAPIHandler(BaseHandler):
+    """API endpoint to return device type metadata for frontend."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            metadata = DeviceTypeConfig.export_for_frontend()
+            self.write(json.dumps(metadata))
         except Exception as e:
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -2229,6 +2128,7 @@ if __name__ == "__main__":
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
+        (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/device-status', DeviceStatusAPIHandler),

@@ -3,6 +3,49 @@
  * Handles device type filtering and search functionality
  */
 
+// Cached device type info from API
+let _cachedDeviceTypeInfo = null;
+
+/**
+ * Fetch device type metadata from backend API.
+ * Falls back to DEFAULT_DEVICE_TYPE_INFO if API fails.
+ */
+export async function loadDeviceTypeInfo() {
+    if (_cachedDeviceTypeInfo) {
+        return _cachedDeviceTypeInfo;
+    }
+
+    try {
+        const response = await fetch('/td-api/device-types');
+        if (response.ok) {
+            _cachedDeviceTypeInfo = await response.json();
+            console.log('[FilterManager] Loaded device types from API');
+            return _cachedDeviceTypeInfo;
+        }
+    } catch (error) {
+        console.warn('[FilterManager] Failed to load device types from API, using defaults:', error);
+    }
+
+    // Fallback to defaults
+    _cachedDeviceTypeInfo = DEFAULT_DEVICE_TYPE_INFO;
+    return _cachedDeviceTypeInfo;
+}
+
+/**
+ * Get device type info (sync version using cached data)
+ */
+export function getDeviceTypeInfo(deviceType) {
+    const info = _cachedDeviceTypeInfo || DEFAULT_DEVICE_TYPE_INFO;
+    return info[deviceType] || info['other'] || { label: 'Other', color: '#666666' };
+}
+
+/**
+ * Get all device type info (sync version using cached data)
+ */
+export function getAllDeviceTypeInfo() {
+    return _cachedDeviceTypeInfo || DEFAULT_DEVICE_TYPE_INFO;
+}
+
 export class FilterManager {
     constructor(cy, controlsContainer) {
         this.cy = cy;
@@ -167,9 +210,9 @@ export class FilterManager {
 }
 
 /**
- * Device type display info
+ * Default device type display info (fallback if API unavailable)
  */
-export const DEVICE_TYPE_INFO = {
+const DEFAULT_DEVICE_TYPE_INFO = {
     'spine': { label: 'Spines', color: '#4c5cae' },
     'leaf': { label: 'Leafs', color: '#20b2aa' },
     'borderleaf': { label: 'Borderleafs', color: '#fbb500' },
@@ -189,3 +232,9 @@ export const DEVICE_TYPE_INFO = {
     'oob': { label: 'OOB', color: '#808080' },
     'other': { label: 'Other', color: '#666666' }
 };
+
+/**
+ * Legacy export for backwards compatibility
+ * @deprecated Use loadDeviceTypeInfo() or getDeviceTypeInfo() instead
+ */
+export const DEVICE_TYPE_INFO = DEFAULT_DEVICE_TYPE_INFO;
