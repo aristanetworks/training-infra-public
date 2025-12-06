@@ -1984,6 +1984,91 @@ class DeviceStatusAPIHandler(BaseHandler):
         return None
 
 
+class RunningConfigAPIHandler(BaseHandler):
+    """API endpoint to fetch running config from a device via eAPI."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+
+        if not device:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'device parameter required'}))
+            return
+
+        try:
+            config = self.get_running_config(device)
+            self.write(json.dumps(config))
+        except Exception as e:
+            pS(f"RunningConfigAPIHandler error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def get_running_config(self, device_name):
+        """Query EOS device for running config via eAPI."""
+        # Get device IP from topology
+        device_ip = self.get_device_ip(device_name)
+        if not device_ip:
+            raise ValueError(f"Device {device_name} not found in topology")
+
+        # Get credentials from ACCESS_INFO
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+
+        # Connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=15
+            )
+
+            # Execute show running-config command
+            result = connection.execute(['show running-config'])
+
+            # Get the config output (it's in the 'output' key for text commands)
+            config_output = result.get('result', [{}])[0].get('output', '')
+
+            if not config_output:
+                # Try getting from 'cmds' format if output is empty
+                config_output = str(result.get('result', [''])[0])
+
+            return {
+                'device': device_name,
+                'config': config_output,
+                'timestamp': datetime.now().isoformat()
+            }
+
+        except pyeapi.eapilib.ConnectionError as e:
+            raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
+        except pyeapi.eapilib.CommandError as e:
+            raise ValueError(f"Command error on {device_name}: {e}")
+
+    def get_device_ip(self, device_name):
+        """Get device IP from topology data."""
+        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        # Try exact match first
+        if device_name in nodes:
+            return nodes[device_name].get('ip')
+        # Try case-insensitive match
+        device_name_lower = device_name.lower()
+        for node_name, node_data in nodes.items():
+            if node_name.lower() == device_name_lower:
+                return node_data.get('ip')
+        return None
+
+
 class EndExamHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -2072,6 +2157,7 @@ if __name__ == "__main__":
         (r'/td-api/topology', TopologyAPIHandler),
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/device-status', DeviceStatusAPIHandler),
+        (r'/td-api/running-config', RunningConfigAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

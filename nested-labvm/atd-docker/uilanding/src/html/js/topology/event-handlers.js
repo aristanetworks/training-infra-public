@@ -11,6 +11,7 @@ export class EventManager {
         this.tooltip = null;
         this.contextMenu = null;
         this.detailsPanel = null;  // Static details panel for copyable device info
+        this.runningConfigModal = null;  // Running config modal popup
         this.focusMode = false;
         this.focusedNode = null;
         this.terminalWindow = null;  // Reference to terminal window for tab reuse
@@ -160,6 +161,15 @@ export class EventManager {
                     this.showDetailsPanel(node);
                     this.hideContextMenu();
                 }
+            },
+            {
+                label: 'View Running Config',
+                icon: '📝',
+                action: () => {
+                    this.showRunningConfigModal(node);
+                    this.hideContextMenu();
+                },
+                disabled: !data.ip || data.ip === 'N/A'
             },
             {
                 type: 'separator'
@@ -823,8 +833,9 @@ export class EventManager {
      * Handle keyboard shortcuts
      */
     handleKeyDown(evt) {
-        // Escape - close context menu, details panel, exit focus mode, clear selection and highlights
+        // Escape - close modals, context menu, details panel, exit focus mode, clear selection and highlights
         if (evt.key === 'Escape') {
+            this.hideRunningConfigModal();
             this.hideContextMenu();
             this.hideDetailsPanel();
             if (this.focusMode) {
@@ -984,12 +995,148 @@ export class EventManager {
     }
 
     /**
+     * Show running config modal for a device
+     */
+    showRunningConfigModal(node) {
+        const data = node.data();
+        const deviceName = data.label;
+
+        // Hide any existing modal
+        this.hideRunningConfigModal();
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'running-config-overlay';
+        overlay.className = 'running-config-overlay';
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'running-config-modal';
+        modal.className = 'running-config-modal';
+
+        modal.innerHTML = `
+            <div class="running-config-header">
+                <span class="running-config-title">${deviceName} - Running Config</span>
+                <div class="running-config-actions">
+                    <button class="running-config-copy-btn" title="Copy to Clipboard">
+                        <span class="copy-icon">📋</span>
+                        <span class="copy-text">Copy</span>
+                    </button>
+                    <button class="running-config-close-btn" title="Close (Esc)">×</button>
+                </div>
+            </div>
+            <div class="running-config-body">
+                <div class="running-config-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Fetching configuration...</span>
+                </div>
+            </div>
+        `;
+
+        // Close button handler
+        modal.querySelector('.running-config-close-btn').addEventListener('click', () => {
+            this.hideRunningConfigModal();
+        });
+
+        // Copy button handler
+        const copyBtn = modal.querySelector('.running-config-copy-btn');
+        copyBtn.addEventListener('click', () => {
+            const content = modal.querySelector('.running-config-content');
+            if (content) {
+                navigator.clipboard.writeText(content.textContent).then(() => {
+                    // Show copied feedback
+                    const copyText = copyBtn.querySelector('.copy-text');
+                    const originalText = copyText.textContent;
+                    copyText.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyText.textContent = originalText;
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                });
+            }
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideRunningConfigModal();
+            }
+        });
+
+        overlay.appendChild(modal);
+        this.container.appendChild(overlay);
+        this.runningConfigModal = overlay;
+
+        // Fetch the running config
+        this.fetchRunningConfig(deviceName, modal);
+    }
+
+    /**
+     * Fetch running config from API
+     */
+    async fetchRunningConfig(deviceName, modal) {
+        const body = modal.querySelector('.running-config-body');
+
+        try {
+            const response = await fetch(`/td-api/running-config?device=${encodeURIComponent(deviceName)}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Display the config
+            body.innerHTML = `
+                <pre class="running-config-content">${this.escapeHtml(data.config)}</pre>
+            `;
+
+        } catch (error) {
+            console.error('Failed to fetch running config:', error);
+            body.innerHTML = `
+                <div class="running-config-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-message">Failed to fetch configuration</span>
+                    <span class="error-detail">${this.escapeHtml(error.message)}</span>
+                    <button class="retry-btn" onclick="this.closest('.running-config-overlay').remove()">Close</button>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Hide the running config modal
+     */
+    hideRunningConfigModal() {
+        if (this.runningConfigModal) {
+            this.runningConfigModal.remove();
+            this.runningConfigModal = null;
+        }
+        const existing = document.getElementById('running-config-overlay');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
      * Destroy event handlers and clean up resources
      */
     destroy() {
         this.hideTooltip();
         this.hideContextMenu();
         this.hideDetailsPanel();
+        this.hideRunningConfigModal();
         this.hideFocusIndicator();
 
         // Remove global listeners to prevent memory leak
