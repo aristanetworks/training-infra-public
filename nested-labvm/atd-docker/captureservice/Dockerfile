@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     tcpdump \
     openvswitch-switch \
     iproute2 \
+    coreutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
