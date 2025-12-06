@@ -20,6 +20,9 @@ export class EventManager {
         this.customTerminalHandler = options.onOpenTerminal || null;
         console.log('[EventManager] Custom terminal handler:', this.customTerminalHandler ? 'provided' : 'not provided');
 
+        // Capture panel reference (set externally by TopologyManager)
+        this.capturePanel = null;
+
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
         this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
@@ -50,6 +53,9 @@ export class EventManager {
         // Edge hover - highlight path
         this.cy.on('mouseover', 'edge', (evt) => this.handleEdgeMouseOver(evt));
         this.cy.on('mouseout', 'edge', (evt) => this.handleEdgeMouseOut(evt));
+
+        // Edge right-click - show edge context menu (for capture, etc.)
+        this.cy.on('cxttap', 'edge', (evt) => this.showEdgeContextMenu(evt));
 
         // Background click - clear selections and exit focus mode
         this.cy.on('tap', (evt) => {
@@ -267,6 +273,145 @@ export class EventManager {
         const existing = document.getElementById('topo-context-menu');
         if (existing) {
             existing.remove();
+        }
+    }
+
+    /**
+     * Show context menu for an edge (link)
+     */
+    showEdgeContextMenu(evt) {
+        const edge = evt.target;
+        const data = edge.data();
+
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Build descriptive link label
+        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+
+        // Menu items for edge
+        const menuItems = [
+            {
+                label: 'Start Packet Capture',
+                icon: '📡',
+                action: () => {
+                    this.startEdgeCapture(edge);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'View Link Stats',
+                icon: '📊',
+                action: () => {
+                    // Stats are already shown in edge tooltip
+                    this.showEdgeTooltip(evt);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Focus Source',
+                icon: '🎯',
+                action: () => {
+                    const sourceNode = this.cy.$id(data.source);
+                    if (!sourceNode.empty()) {
+                        this.enterFocusMode(sourceNode);
+                    }
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'Focus Target',
+                icon: '🎯',
+                action: () => {
+                    const targetNode = this.cy.$id(data.target);
+                    if (!targetNode.empty()) {
+                        this.enterFocusMode(targetNode);
+                    }
+                    this.hideContextMenu();
+                }
+            }
+        ];
+
+        // Build menu HTML
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'context-menu-separator';
+                menu.appendChild(sep);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+
+                const icon = document.createElement('span');
+                icon.className = 'context-menu-icon';
+                icon.textContent = item.icon;
+
+                const label = document.createElement('span');
+                label.className = 'context-menu-label';
+                label.textContent = item.label;
+
+                menuItem.appendChild(icon);
+                menuItem.appendChild(label);
+
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.action();
+                    });
+                }
+
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Add header with link info
+        const header = document.createElement('div');
+        header.className = 'context-menu-header';
+        header.textContent = linkLabel;
+        header.style.fontSize = '12px';  // Slightly smaller for longer text
+        menu.insertBefore(header, menu.firstChild);
+
+        // Position menu
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if off-screen
+        this.adjustMenuPosition(menu);
+    }
+
+    /**
+     * Start packet capture on an edge/link
+     */
+    startEdgeCapture(edge) {
+        const data = edge.data();
+
+        // Build bridge name from edge data
+        // Bridge naming: {dev1-short}{port1}-{dev2-short}{port2}
+        // We need to find the actual bridge name, so we'll use the capture panel's bridge list
+        if (this.capturePanel) {
+            this.capturePanel.show();
+            // The capture panel will need to match the edge to a bridge
+            // For now, we pass the edge info and let the user select from dropdown
+            console.log('[EventManager] Opening capture panel for edge:', data);
+        } else {
+            console.warn('[EventManager] Capture panel not available');
+            alert('Packet capture feature is not available on this page.\n\nPlease use the main topology diagram page.');
         }
     }
 

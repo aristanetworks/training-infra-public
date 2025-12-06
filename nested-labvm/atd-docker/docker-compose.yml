@@ -235,6 +235,23 @@ services:
       - "/home/arista/arista-dir/apps/webui:/config:rw"
     networks:
       - atd_nginx
+  captureservice:
+    container_name: atd-captureservice
+    build:
+      context: ./captureservice
+      dockerfile: Dockerfile
+    restart: always
+    # Host network mode required to access OVS bridges on the host
+    network_mode: host
+    environment:
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      # Required for tcpdump packet capture
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /etc/atd:/etc/atd:ro
+      - /opt/atd:/opt/atd:ro
 networks:
   atd_nginx:
 volumes:

@@ -20,6 +20,9 @@ import time
 import threading
 import pyeapi
 from device_types import DeviceTypeConfig
+# Note: capture_manager is no longer imported here.
+# Packet capture runs in the dedicated captureservice container with host network mode.
+# uilanding proxies WebSocket connections to the capture service.
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -2115,6 +2118,322 @@ class EndExamHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+
+
+# ===============================
+# Packet Capture Handlers
+# ===============================
+
+class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
+    """
+    WebSocket handler that proxies to the capture service.
+
+    The uilanding container cannot access host OVS bridges directly.
+    This handler connects to the captureservice container (running with
+    host network mode) and relays packets to the browser client.
+    """
+
+    # Capture service URL (running on host network, accessible via Docker host IP)
+    CAPTURE_SERVICE_URL = "ws://host.docker.internal:8089/ws"
+    # Fallback for Linux Docker (host.docker.internal not always available)
+    CAPTURE_SERVICE_URL_FALLBACK = "ws://172.17.0.1:8089/ws"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client_id = None
+        self.current_user = None
+        self.upstream_ws = None  # WebSocket connection to capture service
+        self.is_connected = False
+
+    def check_origin(self, origin):
+        """Validate origin to prevent CSRF attacks."""
+        host = self.request.headers.get('Host', '')
+        if not host:
+            return False
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            return parsed.netloc == host or parsed.netloc.split(':')[0] == host.split(':')[0]
+        except Exception:
+            return False
+
+    def open(self):
+        """Handle new WebSocket connection from browser."""
+        user = self.get_secure_cookie("user")
+        if not user:
+            pS("[Capture WS Proxy] Unauthenticated connection - closing")
+            self.close(code=1008, reason="Authentication required")
+            return
+
+        self.current_user = user.decode() if isinstance(user, bytes) else str(user)
+        self.client_id = str(uuid.uuid4())[:8]
+        pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
+
+        # Connect to upstream capture service
+        self.connect_upstream()
+
+    async def connect_upstream(self):
+        """Connect to the capture service WebSocket."""
+        from tornado.websocket import websocket_connect
+
+        try:
+            # Try primary URL first (works on Docker Desktop)
+            self.upstream_ws = await websocket_connect(
+                self.CAPTURE_SERVICE_URL,
+                on_message_callback=self.on_upstream_message
+            )
+            self.is_connected = True
+            pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL}")
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Primary connection failed: {e}, trying fallback...")
+            try:
+                # Try fallback URL (works on Linux Docker)
+                self.upstream_ws = await websocket_connect(
+                    self.CAPTURE_SERVICE_URL_FALLBACK,
+                    on_message_callback=self.on_upstream_message
+                )
+                self.is_connected = True
+                pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL_FALLBACK}")
+            except Exception as e2:
+                pS(f"[Capture WS Proxy] Fallback connection also failed: {e2}")
+                self.write_message(json.dumps({
+                    'type': 'error',
+                    'message': 'Capture service unavailable. Is the captureservice container running?'
+                }))
+                self.is_connected = False
+
+    def on_upstream_message(self, message):
+        """Handle message from capture service, relay to browser."""
+        if message is None:
+            # Upstream connection closed
+            pS(f"[Capture WS Proxy] Upstream connection closed")
+            self.is_connected = False
+            if self.ws_connection:
+                self.write_message(json.dumps({
+                    'type': 'error',
+                    'message': 'Capture service connection lost'
+                }))
+            return
+
+        # Relay message to browser client
+        try:
+            if self.ws_connection:
+                self.write_message(message)
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Error relaying to browser: {e}")
+
+    def on_message(self, message):
+        """Handle message from browser, relay to capture service."""
+        if not self.is_connected or not self.upstream_ws:
+            self.write_message(json.dumps({
+                'type': 'error',
+                'message': 'Not connected to capture service'
+            }))
+            return
+
+        try:
+            # Relay message to capture service
+            self.upstream_ws.write_message(message)
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Error relaying to upstream: {e}")
+            self.write_message(json.dumps({
+                'type': 'error',
+                'message': f'Failed to send to capture service: {e}'
+            }))
+
+    def on_close(self):
+        """Handle WebSocket close from browser."""
+        pS(f"[Capture WS Proxy] Client {self.client_id} disconnected")
+
+        # Close upstream connection
+        if self.upstream_ws:
+            self.upstream_ws.close()
+            self.upstream_ws = None
+            self.is_connected = False
+
+
+class CaptureBridgesAPIHandler(BaseHandler):
+    """API endpoint to list available OVS bridges for capture."""
+
+    # Capture service URLs (same as WebSocket handler)
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient
+            http_client = AsyncHTTPClient()
+
+            # Try to fetch bridges from capture service
+            bridges = []
+            try:
+                response = await http_client.fetch(
+                    f"{self.CAPTURE_SERVICE_URL}/bridges",
+                    request_timeout=5
+                )
+                data = json.loads(response.body.decode('utf-8'))
+                bridges = data.get('bridges', [])
+            except Exception as e:
+                pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
+                try:
+                    response = await http_client.fetch(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges",
+                        request_timeout=5
+                    )
+                    data = json.loads(response.body.decode('utf-8'))
+                    bridges = data.get('bridges', [])
+                except Exception as e2:
+                    pS(f"[CaptureBridges] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({
+                        'error': 'Capture service unavailable',
+                        'bridges': []
+                    }))
+                    return
+
+            # Enrich with topology edge info (map short codes to full device names)
+            enriched_bridges = self.enrich_with_topology(bridges)
+
+            self.write(json.dumps({
+                'bridges': enriched_bridges,
+                'count': len(enriched_bridges)
+            }))
+
+        except Exception as e:
+            pS(f"[CaptureBridges] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def enrich_with_topology(self, bridges):
+        """Add topology edge information to bridges."""
+        # Load topology data to map bridge names to device names
+        topo_data = _get_topo_build_data()
+        if not topo_data:
+            return bridges
+
+        # Build device name lookup from short codes
+        # This maps sp1 -> spine1, le1 -> leaf1, etc.
+        device_lookup = {}
+        if 'nodes' in topo_data:
+            for node_entry in topo_data['nodes']:
+                if isinstance(node_entry, dict):
+                    for device_name in node_entry.keys():
+                        # Generate short code (same logic as kvm-topo-builder)
+                        short_code = self.get_short_code(device_name)
+                        device_lookup[short_code] = device_name
+
+        # Enrich each bridge
+        for bridge in bridges:
+            src_code = bridge.get('source_device', '')
+            tgt_code = bridge.get('target_device', '')
+
+            if src_code in device_lookup:
+                bridge['source_device_name'] = device_lookup[src_code]
+            if tgt_code in device_lookup:
+                bridge['target_device_name'] = device_lookup[tgt_code]
+
+            # Convert port codes to full names (Et1 -> Ethernet1)
+            if bridge.get('source_port', '').startswith('Et'):
+                port_num = bridge['source_port'][2:]
+                bridge['source_port_name'] = f'Ethernet{port_num}'
+            if bridge.get('target_port', '').startswith('Et'):
+                port_num = bridge['target_port'][2:]
+                bridge['target_port_name'] = f'Ethernet{port_num}'
+
+        return bridges
+
+    def get_short_code(self, device_name):
+        """Generate short code for device name (matches kvm-topo-builder logic)."""
+        alpha = ''
+        numer = ''
+        split_len = 2
+
+        # Handle -DC suffix
+        if '-dc' in device_name.lower() and 'dci' not in device_name.lower():
+            parts = device_name.split('-')
+            tmp_name = parts[0]
+            dc_suffix = parts[1].lower().replace('c', '') if len(parts) > 1 else ''
+            for char in tmp_name:
+                if char.isalpha():
+                    alpha += char
+                elif char.isdigit():
+                    numer += char
+            return alpha[:split_len] + numer + dc_suffix
+        else:
+            for char in device_name:
+                if char.isalpha():
+                    alpha += char
+                elif char.isdigit():
+                    numer += char
+            return alpha[:split_len] + numer
+
+
+class CaptureStatusAPIHandler(BaseHandler):
+    """API endpoint to get capture session status (placeholder - use WebSocket instead)."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Status is managed via WebSocket connection to capture service
+        self.write(json.dumps({
+            'message': 'Session status is managed via WebSocket connection',
+            'sessions': []
+        }))
+
+
+class CaptureStartAPIHandler(BaseHandler):
+    """API endpoint to start a capture (placeholder - use WebSocket instead)."""
+
+    def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Capture is started via WebSocket connection to capture service
+        self.set_status(400)
+        self.write(json.dumps({
+            'error': 'Please use WebSocket connection at /capture-ws to start captures'
+        }))
+
+
+class CaptureStopAPIHandler(BaseHandler):
+    """API endpoint to stop a capture (placeholder - use WebSocket instead)."""
+
+    def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Capture is stopped via WebSocket connection to capture service
+        self.set_status(400)
+        self.write(json.dumps({
+            'error': 'Please use WebSocket connection at /capture-ws to stop captures'
+        }))
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -2154,6 +2473,12 @@ if __name__ == "__main__":
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/device-status', DeviceStatusAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
+        # Packet capture endpoints
+        (r'/capture-ws', CaptureWebSocketHandler),
+        (r'/td-api/capture/bridges', CaptureBridgesAPIHandler),
+        (r'/td-api/capture/status', CaptureStatusAPIHandler),
+        (r'/td-api/capture/start', CaptureStartAPIHandler),
+        (r'/td-api/capture/stop', CaptureStopAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
