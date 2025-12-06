@@ -429,6 +429,8 @@ def pS(mtype):
 
 # Cache for topo_build.yml data (loaded once on first use)
 _TOPO_BUILD_CACHE = None
+# Cache for merged device list from both sources
+_ALL_DEVICES_CACHE = None
 
 
 def _get_topo_build_data():
@@ -489,6 +491,41 @@ def get_device_ip_from_sources(device_name):
                             return ip
 
     return None
+
+
+def get_all_devices():
+    """
+    Get all devices from both modules.yaml and topo_build.yml.
+    Returns a dict of {device_name: {'ip': ip_address}}.
+    Uses caching to avoid repeated lookups.
+    """
+    global _ALL_DEVICES_CACHE
+
+    if _ALL_DEVICES_CACHE is not None:
+        return _ALL_DEVICES_CACHE
+
+    devices = {}
+
+    # First, add devices from modules.yaml
+    mod_nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+    for device_name, device_info in mod_nodes.items():
+        devices[device_name] = {'ip': device_info.get('ip', '')}
+
+    # Second, add devices from topo_build.yml (won't overwrite existing)
+    topo_data = _get_topo_build_data()
+    if topo_data and 'nodes' in topo_data:
+        for node_entry in topo_data['nodes']:
+            if isinstance(node_entry, dict):
+                for name, info in node_entry.items():
+                    if name not in devices:
+                        ip = info.get('ip_addr', '')
+                        if ip == 'N/A':
+                            ip = ''
+                        devices[name] = {'ip': ip}
+
+    _ALL_DEVICES_CACHE = devices
+    pS(f"Cached {len(devices)} devices from modules.yaml and topo_build.yml")
+    return devices
 
 
 def update_hubspot_handler(email, action, project):
@@ -1632,15 +1669,18 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            nodes = MOD_YAML['topology']['nodes']
+            # Get devices from both modules.yaml and topo_build.yml
+            nodes = get_all_devices()
 
             # Define grouping patterns (order matters - more specific first)
             group_patterns = [
-                ('Spine', ['Spine']),
-                ('Borderleaf', ['BorderLeaf', 'Borderleaf', 'BL']),
-                ('Leaf', ['Leaf']),
-                ('Host', ['Host']),
-                ('Core', ['Core', 'DCI']),
+                ('Spine', ['spine']),
+                ('Borderleaf', ['borderleaf', 'BL']),
+                ('Memleaf', ['memleaf']),
+                ('Leaf', ['leaf']),
+                ('Router', ['router']),
+                ('Host', ['host']),
+                ('Core', ['core', 'DCI']),
                 ('ISP', ['ISP', 'Internet']),
                 ('Route Reflectors', ['RR']),
                 ('WAN Gateways', ['GW']),
@@ -1672,11 +1712,13 @@ class DevicesAPIHandler(BaseHandler):
                     })
                     matched = True
 
-                # Check other patterns
+                # Check other patterns (case-insensitive)
                 if not matched:
+                    device_name_lower = device_name.lower()
                     for group_name, prefixes in group_patterns:
                         for prefix in prefixes:
-                            if prefix and (device_name.startswith(prefix) or prefix in device_name):
+                            prefix_lower = prefix.lower()
+                            if prefix_lower and (device_name_lower.startswith(prefix_lower) or prefix_lower in device_name_lower):
                                 groups[group_name].append({
                                     'name': device_name,
                                     'ip': device_info.get('ip', ''),
@@ -1994,14 +2036,13 @@ class DeviceStatusAPIHandler(BaseHandler):
         return result
 
     def check_all_devices(self):
-        """Check status of all devices in topology."""
-        nodes = MOD_YAML.get('topology', {}).get('nodes', {})
+        """Check status of all devices from both modules.yaml and topo_build.yml."""
+        # Get devices from both sources
+        nodes = get_all_devices()
         statuses = {}
 
         # Debug logging
-        pS(f"[DeviceStatus] Found {len(nodes)} nodes in topology")
-        if not nodes:
-            pS(f"[DeviceStatus] MOD_YAML topology keys: {list(MOD_YAML.get('topology', {}).keys())}")
+        pS(f"[DeviceStatus] Found {len(nodes)} devices from all sources")
 
         # Use thread pool for parallel checks
         from concurrent.futures import ThreadPoolExecutor, as_completed
