@@ -74,6 +74,11 @@ class PacketParser:
         if not line or line.startswith('tcpdump:') or 'listening on' in line:
             return None
 
+        # Skip continuation lines (verbose mode detail lines that don't start with timestamp)
+        # Real packet lines start with: YYYY-MM-DD HH:MM:SS.microseconds
+        if not re.match(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+', line):
+            return None
+
         packet = {
             'number': packet_number,
             'timestamp': '',
@@ -372,16 +377,16 @@ class CaptureManager:
                 print(f"[CaptureManager] Warning: Could not bring interface up: {e}")
 
             # Build tcpdump command with stdbuf for immediate output
+            # Note: Don't use -v (verbose) as it outputs multiple lines per packet
             cmd = [
                 "stdbuf", "-oL", "-eL",  # Force line-buffered stdout/stderr
                 "tcpdump",
                 "-i", bridge_name,
                 "-l",       # Line-buffered
                 "-nn",      # No name resolution
-                "-tttt",    # Human-readable timestamps
+                "-tttt",    # Human-readable timestamps with date
                 "-e",       # Show ethernet header
-                "-s", "0",  # Full packets
-                "-v",       # Verbose
+                "-s", "256",  # Capture first 256 bytes (enough for headers)
                 "--immediate-mode",  # Immediate packet delivery (no buffering)
             ]
             if bpf_filter:
@@ -484,19 +489,20 @@ class CaptureManager:
                 if not line:
                     continue
 
-                # Debug: log first few packets
-                if local_packet_count < 3:
-                    print(f"[CaptureManager] Raw line {local_packet_count + 1}: {line[:100]}...")
-
-                local_packet_count += 1
-                packet = parser.parse_line(line, local_packet_count)
+                # Parse line - returns None for non-packet lines (continuations, etc.)
+                packet = parser.parse_line(line, local_packet_count + 1)
 
                 if packet:
+                    local_packet_count += 1
+                    packet['number'] = local_packet_count
+
+                    # Debug: log first few packets
+                    if local_packet_count <= 3:
+                        print(f"[CaptureManager] Packet {local_packet_count}: {line[:100]}...")
+
                     # Update session packet count atomically
                     with self._lock:
                         session.packet_count = local_packet_count
-
-                    packet['number'] = local_packet_count
 
                     # Send via WebSocket (thread-safe via IOLoop callback)
                     # Capture websocket reference to avoid race with None assignment
