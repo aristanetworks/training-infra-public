@@ -2,7 +2,7 @@
 Device Type Configuration Module
 
 Single source of truth for device type metadata used by both
-topology rendering and device grouping across the ATD platform.
+topology rendering and device grouping across the ATL platform.
 """
 
 

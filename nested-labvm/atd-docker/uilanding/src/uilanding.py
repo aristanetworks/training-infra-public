@@ -481,12 +481,44 @@ def get_device_ip_from_sources(device_name):
     return None
 
 
+def normalize_device_name(name):
+    """
+    Normalize device name to consistent capitalization.
+    E.g., 'leaf5' -> 'Leaf5', 'memleaf1' -> 'Memleaf1', 'spine1-dc1' -> 'Spine1-DC1'
+
+    Handles patterns like:
+    - Simple: leaf1 -> Leaf1, spine2 -> Spine2
+    - With suffix: spine1-dc1 -> Spine1-DC1, leaf2-dc2 -> Leaf2-DC2
+    - Compound: memleaf1 -> Memleaf1, borderleaf1 -> Borderleaf1
+    """
+    import re
+
+    if not name:
+        return name
+
+    # Split on hyphens to handle suffixes like -DC1, -DC2
+    parts = name.split('-')
+    result_parts = []
+
+    for part in parts:
+        # Check if this part is a datacenter suffix (DC1, DC2, etc.)
+        if re.match(r'^[dD][cC]\d+$', part):
+            # Uppercase the DC suffix
+            result_parts.append(part.upper())
+        else:
+            # Capitalize first letter, keep rest of case
+            # This turns 'leaf5' -> 'Leaf5', 'memleaf1' -> 'Memleaf1'
+            result_parts.append(part.capitalize())
+
+    return '-'.join(result_parts)
+
+
 def get_all_devices():
     """
-    Get all devices from both modules.yaml and topo_build.yml.
+    Get all devices from topo_build.yml (the authoritative topology source).
     Returns a dict of {device_name: {'ip': ip_address}}.
     Uses caching to avoid repeated lookups.
-    Uses case-insensitive matching to avoid duplicates (e.g., Spine1 vs spine1).
+    Device names are normalized to consistent capitalization.
     """
     global _ALL_DEVICES_CACHE
 
@@ -494,33 +526,22 @@ def get_all_devices():
         return _ALL_DEVICES_CACHE
 
     devices = {}
-    # Track lowercase names to detect case-insensitive duplicates
-    seen_names_lower = {}
 
-    # First, add devices from modules.yaml
-    mod_nodes = MOD_YAML.get('topology', {}).get('nodes', {})
-    for device_name, device_info in mod_nodes.items():
-        name_lower = device_name.lower()
-        if name_lower not in seen_names_lower:
-            devices[device_name] = {'ip': device_info.get('ip', '')}
-            seen_names_lower[name_lower] = device_name
-
-    # Second, add devices from topo_build.yml (won't overwrite existing, case-insensitive)
+    # Get devices from topo_build.yml (the authoritative topology source)
     topo_data = _get_topo_build_data()
     if topo_data and 'nodes' in topo_data:
         for node_entry in topo_data['nodes']:
             if isinstance(node_entry, dict):
                 for name, info in node_entry.items():
-                    name_lower = name.lower()
-                    if name_lower not in seen_names_lower:
-                        ip = info.get('ip_addr', '')
-                        if ip == 'N/A':
-                            ip = ''
-                        devices[name] = {'ip': ip}
-                        seen_names_lower[name_lower] = name
+                    ip = info.get('ip_addr', '')
+                    if ip == 'N/A':
+                        ip = ''
+                    # Normalize device name to consistent capitalization
+                    display_name = normalize_device_name(name)
+                    devices[display_name] = {'ip': ip}
 
     _ALL_DEVICES_CACHE = devices
-    pS(f"Cached {len(devices)} devices from modules.yaml and topo_build.yml")
+    pS(f"Cached {len(devices)} devices from topo_build.yml")
     return devices
 
 
@@ -1592,7 +1613,7 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Get devices from both modules.yaml and topo_build.yml
+            # Get devices from topo_build.yml (single source of truth)
             nodes = get_all_devices()
 
             # Group devices using shared DeviceTypeConfig
