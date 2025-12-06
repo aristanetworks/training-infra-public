@@ -976,12 +976,14 @@ export class EventManager {
             e.stopPropagation();
         });
 
-        // Prevent wheel events from being captured by topology container
-        panel.addEventListener('wheel', (e) => {
-            e.stopPropagation();
-        });
+        // Position panel relative to the container
+        const containerRect = this.container.getBoundingClientRect();
+        panel.style.position = 'fixed';
+        panel.style.bottom = (window.innerHeight - containerRect.bottom + 15) + 'px';
+        panel.style.left = (containerRect.left + 15) + 'px';
 
-        this.container.appendChild(panel);
+        // Append to body to avoid Cytoscape capturing wheel events
+        document.body.appendChild(panel);
         this.detailsPanel = panel;
     }
 
@@ -1069,13 +1071,17 @@ export class EventManager {
             }
         });
 
-        // Prevent wheel events from being captured by topology container
-        modal.addEventListener('wheel', (e) => {
-            e.stopPropagation();
-        });
+        // Position overlay to cover the container
+        const containerRect = this.container.getBoundingClientRect();
+        overlay.style.position = 'fixed';
+        overlay.style.top = containerRect.top + 'px';
+        overlay.style.left = containerRect.left + 'px';
+        overlay.style.width = containerRect.width + 'px';
+        overlay.style.height = containerRect.height + 'px';
 
         overlay.appendChild(modal);
-        this.container.appendChild(overlay);
+        // Append to body to avoid Cytoscape capturing wheel events
+        document.body.appendChild(overlay);
         this.runningConfigModal = overlay;
 
         // Fetch the running config

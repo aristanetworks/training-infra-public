@@ -922,10 +922,7 @@
    Device Details Panel (bottom-left, copyable)
    ========================================== */
 .topology-details-panel {
-    position: absolute;
-    bottom: 15px;
-    left: 15px;
-    z-index: 1001;
+    z-index: 10001;
     background-color: #ffffff;
     border: 2px solid #071c35;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -1087,13 +1084,8 @@
    Running Config Modal
    ========================================== */
 .running-config-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     background-color: rgba(7, 28, 53, 0.5);
-    z-index: 2000;
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
