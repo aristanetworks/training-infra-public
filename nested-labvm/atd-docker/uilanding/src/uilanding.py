@@ -1280,7 +1280,8 @@ class TopologyAPIHandler(BaseHandler):
         if max_width == 0:
             max_width = NODE_SPACING_X
 
-        # Position nodes by tier
+        # Position nodes by tier (use row_index to skip empty tiers)
+        row_index = 0
         for tier_num in sorted(tiers.keys()):
             tier_groups = tiers[tier_num]
             group_keys = sorted(tier_groups.keys())  # Sort: '', 'DC1', 'DC2' or 'ISP1', 'ISP2'
@@ -1302,7 +1303,7 @@ class TopologyAPIHandler(BaseHandler):
                 for node in group_nodes:
                     node['position'] = {
                         'x': current_x,
-                        'y': PADDING + tier_num * NODE_SPACING_Y
+                        'y': PADDING + row_index * NODE_SPACING_Y
                     }
                     # Store grouping info for potential UI use
                     if tier_num == ISP_TIER:
@@ -1315,6 +1316,9 @@ class TopologyAPIHandler(BaseHandler):
                 # Add spacing after each group (except last)
                 if i < len(group_keys) - 1:
                     current_x += DC_SPACING
+
+            # Increment row index for next tier that has nodes
+            row_index += 1
 
         return nodes_data
 
@@ -2034,15 +2038,11 @@ class RunningConfigAPIHandler(BaseHandler):
                 timeout=15
             )
 
-            # Execute show running-config command
-            result = connection.execute(['show running-config'])
+            # Execute show running-config command with text encoding
+            result = connection.execute(['show running-config'], encoding='text')
 
-            # Get the config output (it's in the 'output' key for text commands)
+            # Get the config output from the text response
             config_output = result.get('result', [{}])[0].get('output', '')
-
-            if not config_output:
-                # Try getting from 'cmds' format if output is empty
-                config_output = str(result.get('result', [''])[0])
 
             return {
                 'device': device_name,

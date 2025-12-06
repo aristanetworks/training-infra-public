@@ -976,6 +976,11 @@ export class EventManager {
             e.stopPropagation();
         });
 
+        // Prevent wheel events from being captured by topology container
+        panel.addEventListener('wheel', (e) => {
+            e.stopPropagation();
+        });
+
         this.container.appendChild(panel);
         this.detailsPanel = panel;
     }
@@ -1062,6 +1067,11 @@ export class EventManager {
             if (e.target === overlay) {
                 this.hideRunningConfigModal();
             }
+        });
+
+        // Prevent wheel events from being captured by topology container
+        modal.addEventListener('wheel', (e) => {
+            e.stopPropagation();
         });
 
         overlay.appendChild(modal);
