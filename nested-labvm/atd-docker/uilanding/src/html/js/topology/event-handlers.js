@@ -401,14 +401,16 @@ export class EventManager {
     startEdgeCapture(edge) {
         const data = edge.data();
 
-        // Build bridge name from edge data
-        // Bridge naming: {dev1-short}{port1}-{dev2-short}{port2}
-        // We need to find the actual bridge name, so we'll use the capture panel's bridge list
         if (this.capturePanel) {
-            this.capturePanel.show();
-            // The capture panel will need to match the edge to a bridge
-            // For now, we pass the edge info and let the user select from dropdown
-            console.log('[EventManager] Opening capture panel for edge:', data);
+            // Pass edge data to capture panel - it will find the matching bridge
+            const edgeData = {
+                source: data.source,
+                target: data.target,
+                source_port: data.source_port,
+                target_port: data.target_port
+            };
+            console.log('[EventManager] Opening capture panel for edge:', edgeData);
+            this.capturePanel.show(edgeData);
         } else {
             console.warn('[EventManager] Capture panel not available');
             alert('Packet capture feature is not available on this page.\n\nPlease use the main topology diagram page.');

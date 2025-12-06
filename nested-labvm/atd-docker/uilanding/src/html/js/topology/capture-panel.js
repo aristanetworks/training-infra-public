@@ -25,6 +25,9 @@ export class CapturePanel {
         this.maxReconnectAttempts = 3;
         this.reconnectDelay = 1000;
 
+        // Store bridges data for searching
+        this.bridges = [];
+
         // Bind methods
         this.handlePacket = this.handlePacket.bind(this);
         this.handleWebSocketMessage = this.handleWebSocketMessage.bind(this);
@@ -193,9 +196,11 @@ export class CapturePanel {
             }
 
             const data = await response.json();
-            this.populateBridgeSelector(data.bridges);
+            this.bridges = data.bridges || [];
+            this.populateBridgeSelector(this.bridges);
         } catch (error) {
             console.error('[CapturePanel] Failed to load bridges:', error);
+            this.bridges = [];
             this.elements.bridgeSelect.innerHTML = '<option value="">Error loading bridges</option>';
         }
     }
@@ -262,16 +267,75 @@ export class CapturePanel {
     }
 
     /**
-     * Show the capture panel
+     * Find bridge by edge data (source/target device and port names)
+     * @param {Object} edgeData - Edge data with source, target, source_port, target_port
+     * @returns {string|null} Bridge name if found
      */
-    show(bridgeName = null) {
+    findBridgeByEdge(edgeData) {
+        if (!edgeData || !this.bridges.length) {
+            return null;
+        }
+
+        const { source, target, source_port, target_port } = edgeData;
+
+        // Normalize names for comparison (case-insensitive)
+        const srcLower = (source || '').toLowerCase();
+        const tgtLower = (target || '').toLowerCase();
+        const srcPortLower = (source_port || '').toLowerCase();
+        const tgtPortLower = (target_port || '').toLowerCase();
+
+        for (const bridge of this.bridges) {
+            const bSrcDevice = (bridge.source_device_name || '').toLowerCase();
+            const bTgtDevice = (bridge.target_device_name || '').toLowerCase();
+            const bSrcPort = (bridge.source_port_name || '').toLowerCase();
+            const bTgtPort = (bridge.target_port_name || '').toLowerCase();
+
+            // Check both directions (A-B or B-A)
+            const matchForward = (
+                bSrcDevice === srcLower &&
+                bTgtDevice === tgtLower &&
+                bSrcPort === srcPortLower &&
+                bTgtPort === tgtPortLower
+            );
+
+            const matchReverse = (
+                bSrcDevice === tgtLower &&
+                bTgtDevice === srcLower &&
+                bSrcPort === tgtPortLower &&
+                bTgtPort === srcPortLower
+            );
+
+            if (matchForward || matchReverse) {
+                console.log('[CapturePanel] Found bridge for edge:', bridge.name);
+                return bridge.name;
+            }
+        }
+
+        console.log('[CapturePanel] No bridge found for edge:', edgeData);
+        return null;
+    }
+
+    /**
+     * Show the capture panel
+     * @param {string|Object} bridgeNameOrEdgeData - Bridge name string or edge data object
+     */
+    show(bridgeNameOrEdgeData = null) {
         this.container.classList.add('visible');
         this.container.classList.remove('minimized');
 
-        if (bridgeName) {
-            // Pre-select the bridge
-            this.elements.bridgeSelect.value = bridgeName;
-            this.selectBridge(bridgeName);
+        if (bridgeNameOrEdgeData) {
+            let bridgeName = bridgeNameOrEdgeData;
+
+            // If passed edge data object, find matching bridge
+            if (typeof bridgeNameOrEdgeData === 'object') {
+                bridgeName = this.findBridgeByEdge(bridgeNameOrEdgeData);
+            }
+
+            if (bridgeName) {
+                // Pre-select the bridge
+                this.elements.bridgeSelect.value = bridgeName;
+                this.selectBridge(bridgeName);
+            }
         }
     }
 
