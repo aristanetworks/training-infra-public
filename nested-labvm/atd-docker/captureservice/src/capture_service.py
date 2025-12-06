@@ -365,14 +365,33 @@ class CaptureManager:
 
             session_id = str(uuid.uuid4())[:8]
 
-            # Ensure the bridge interface is up (OVS bridges are often down by default)
+            # Get the ports attached to this bridge - we need to capture on a port
+            # because OVS bridges don't see data plane traffic on the bridge interface
+            capture_interface = bridge_name  # Default to bridge
+            try:
+                result = subprocess.run(
+                    ["ovs-vsctl", "list-ports", bridge_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    ports = result.stdout.strip().split('\n')
+                    if ports:
+                        # Use the first port for capture
+                        capture_interface = ports[0]
+                        print(f"[CaptureManager] Capturing on port {capture_interface} (bridge: {bridge_name})")
+            except Exception as e:
+                print(f"[CaptureManager] Warning: Could not get bridge ports: {e}")
+
+            # Ensure the capture interface is up
             try:
                 subprocess.run(
-                    ["ip", "link", "set", "dev", bridge_name, "up"],
+                    ["ip", "link", "set", "dev", capture_interface, "up"],
                     capture_output=True,
                     timeout=5
                 )
-                print(f"[CaptureManager] Brought interface {bridge_name} up")
+                print(f"[CaptureManager] Brought interface {capture_interface} up")
             except Exception as e:
                 print(f"[CaptureManager] Warning: Could not bring interface up: {e}")
 
@@ -381,7 +400,7 @@ class CaptureManager:
             cmd = [
                 "stdbuf", "-oL", "-eL",  # Force line-buffered stdout/stderr
                 "tcpdump",
-                "-i", bridge_name,
+                "-i", capture_interface,
                 "-l",       # Line-buffered
                 "-nn",      # No name resolution
                 "-tttt",    # Human-readable timestamps with date
