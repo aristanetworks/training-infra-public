@@ -180,6 +180,8 @@ export const DEVICE_TYPE_INFO = {
     'ce': { label: 'CE Routers', color: '#4c5cae' },
     'gw': { label: 'WAN Gateways', color: '#d4a400' },
     'rr': { label: 'Route Reflectors', color: '#008b8b' },
+    'router': { label: 'Routers', color: '#8b4513' },
+    'memleaf': { label: 'Member Leafs', color: '#32cd32' },
     'customer': { label: 'Customer', color: '#20b2aa' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },

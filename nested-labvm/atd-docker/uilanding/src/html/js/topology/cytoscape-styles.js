@@ -126,6 +126,26 @@ export function getCytoscapeStyles() {
             }
         },
         {
+            selector: '.device-type-router',
+            style: {
+                'shape': 'diamond',
+                'background-color': '#8b4513',  // Saddle brown - distinct for campus routers
+                'border-color': '#071c35',
+                'width': 55,
+                'height': 55
+            }
+        },
+        {
+            selector: '.device-type-memleaf',
+            style: {
+                'shape': 'round-rectangle',
+                'background-color': '#32cd32',  // Lime green - between leaf and host
+                'border-color': '#071c35',
+                'width': 48,
+                'height': 48
+            }
+        },
+        {
             selector: '.device-type-dci',
             style: {
                 'shape': 'octagon',

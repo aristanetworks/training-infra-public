@@ -918,10 +918,12 @@ class TopologyAPIHandler(BaseHandler):
     # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.), Route Reflectors
     # Tier 2: DCI, core, P routers (inter-DC connectivity)
     # Tier 3: Borderleaf, PE, CE, GW (DC edge / WAN gateways)
-    # Tier 4: Spines
-    # Tier 5: Leafs
-    # Tier 6: Hosts, customers, OOB
-    # Tier 7: Other
+    # Tier 4: Routers (campus routers, above spines)
+    # Tier 5: Spines
+    # Tier 6: Leafs
+    # Tier 7: Memleaf (member leafs, between leaf and host in campus)
+    # Tier 8: Hosts, customers, OOB
+    # Tier 9: Other
     DEVICE_TIERS = {
         'internet': 0,
         'isp': 1,
@@ -933,12 +935,14 @@ class TopologyAPIHandler(BaseHandler):
         'pe': 3,
         'ce': 3,
         'gw': 3,
-        'spine': 4,
-        'leaf': 5,
-        'host': 6,
-        'customer': 6,
-        'oob': 6,
-        'other': 7
+        'router': 4,
+        'spine': 5,
+        'leaf': 6,
+        'memleaf': 7,
+        'host': 8,
+        'customer': 8,
+        'oob': 8,
+        'other': 9
     }
 
     @staticmethod
@@ -949,10 +953,14 @@ class TopologyAPIHandler(BaseHandler):
         # Order matters: more specific patterns first
         if 'borderleaf' in name_lower or device_name.startswith('BL'):
             return 'borderleaf'
+        elif 'memleaf' in name_lower:
+            return 'memleaf'
         elif 'spine' in name_lower:
             return 'spine'
         elif 'leaf' in name_lower:
             return 'leaf'
+        elif 'router' in name_lower:
+            return 'router'
         elif 'host' in name_lower:
             return 'host'
         elif 'dci' in name_lower or device_name == 'DCI':

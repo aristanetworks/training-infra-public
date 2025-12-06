@@ -10,6 +10,7 @@ export class EventManager {
         this.options = options;
         this.tooltip = null;
         this.contextMenu = null;
+        this.detailsPanel = null;  // Static details panel for copyable device info
         this.focusMode = false;
         this.focusedNode = null;
         this.terminalWindow = null;  // Reference to terminal window for tab reuse
@@ -149,6 +150,14 @@ export class EventManager {
                 icon: '🎯',
                 action: () => {
                     this.enterFocusMode(node);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'Show Details',
+                icon: '📄',
+                action: () => {
+                    this.showDetailsPanel(node);
                     this.hideContextMenu();
                 }
             },
@@ -814,9 +823,10 @@ export class EventManager {
      * Handle keyboard shortcuts
      */
     handleKeyDown(evt) {
-        // Escape - close context menu, exit focus mode, clear selection and highlights
+        // Escape - close context menu, details panel, exit focus mode, clear selection and highlights
         if (evt.key === 'Escape') {
             this.hideContextMenu();
+            this.hideDetailsPanel();
             if (this.focusMode) {
                 this.exitFocusMode();
             } else {
@@ -880,11 +890,106 @@ export class EventManager {
     }
 
     /**
+     * Show static details panel for a node (bottom-left, copyable)
+     */
+    showDetailsPanel(node) {
+        const data = node.data();
+
+        // Hide existing panel
+        this.hideDetailsPanel();
+
+        // Create details panel
+        const panel = document.createElement('div');
+        panel.id = 'topo-details-panel';
+        panel.className = 'topology-details-panel';
+
+        // Build ports/connections list (show all)
+        let portsHtml = '';
+        if (data.ports && data.ports.length > 0) {
+            const portItems = data.ports.map(port =>
+                `<li><span class="port-local">${port.port}</span> → <span class="port-remote">${port.neighbor}:${port.neighbor_port}</span></li>`
+            ).join('');
+            portsHtml = `
+                <div class="details-section">
+                    <div class="details-section-title">Connections</div>
+                    <ul class="details-ports-list">${portItems}</ul>
+                </div>
+            `;
+        }
+
+        // Format status display
+        const status = data.status || 'unknown';
+        const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1);
+
+        panel.innerHTML = `
+            <div class="details-header">
+                <span class="details-title">${data.label}</span>
+                <span class="details-type device-type-${data.device_type}">${data.device_type}</span>
+                <button class="details-close-btn" title="Close (Esc)">×</button>
+            </div>
+            <div class="details-body">
+                <div class="details-row">
+                    <span class="details-label">IP Address:</span>
+                    <span class="details-value selectable">${data.ip || 'N/A'}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">MAC Address:</span>
+                    <span class="details-value selectable">${data.sys_mac || 'N/A'}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Status:</span>
+                    <span class="details-value">
+                        <span class="status-indicator status-${status}"></span>${statusDisplay}
+                    </span>
+                </div>
+                ${data.version ? `
+                <div class="details-row">
+                    <span class="details-label">Version:</span>
+                    <span class="details-value selectable">${data.version}</span>
+                </div>
+                ` : ''}
+                ${portsHtml}
+            </div>
+            <div class="details-footer">
+                <span class="details-hint">Text is selectable for copying</span>
+            </div>
+        `;
+
+        // Close button handler
+        panel.querySelector('.details-close-btn').addEventListener('click', () => {
+            this.hideDetailsPanel();
+        });
+
+        // Prevent clicks inside panel from closing it
+        panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        this.container.appendChild(panel);
+        this.detailsPanel = panel;
+    }
+
+    /**
+     * Hide the static details panel
+     */
+    hideDetailsPanel() {
+        if (this.detailsPanel) {
+            this.detailsPanel.remove();
+            this.detailsPanel = null;
+        }
+        const existing = document.getElementById('topo-details-panel');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
      * Destroy event handlers and clean up resources
      */
     destroy() {
         this.hideTooltip();
         this.hideContextMenu();
+        this.hideDetailsPanel();
         this.hideFocusIndicator();
 
         // Remove global listeners to prevent memory leak

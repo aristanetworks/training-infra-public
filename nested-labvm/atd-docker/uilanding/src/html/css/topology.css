@@ -375,6 +375,8 @@
 .tooltip-type.device-type-oob { background-color: #808080; }
 .tooltip-type.device-type-gw { background-color: #d4a400; color: #071c35; }
 .tooltip-type.device-type-rr { background-color: #008b8b; }
+.tooltip-type.device-type-router { background-color: #8b4513; }
+.tooltip-type.device-type-memleaf { background-color: #32cd32; color: #071c35; }
 .tooltip-type.device-type-other { background-color: #666666; }
 
 .tooltip-body {
@@ -914,6 +916,171 @@
 
 .help-row span {
     color: #666;
+}
+
+/* ==========================================
+   Device Details Panel (bottom-left, copyable)
+   ========================================== */
+.topology-details-panel {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    z-index: 1001;
+    background-color: #ffffff;
+    border: 2px solid #071c35;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    font-family: "Proxima Nova", -apple-system, sans-serif;
+    min-width: 260px;
+    max-width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    animation: detailsSlideIn 0.2s ease-out;
+}
+
+@keyframes detailsSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.details-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background-color: #071c35;
+    color: #ffffff;
+    border-bottom: 2px solid #fbb500;
+}
+
+.details-title {
+    font-weight: 600;
+    font-size: 14px;
+    flex-grow: 1;
+}
+
+.details-type {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.details-close-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    width: 22px;
+    height: 22px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    margin-left: 4px;
+}
+
+.details-close-btn:hover {
+    background-color: #fbb500;
+    border-color: #fbb500;
+    color: #071c35;
+}
+
+.details-body {
+    padding: 12px;
+}
+
+.details-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.details-row:last-child {
+    border-bottom: none;
+}
+
+.details-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.details-value {
+    font-size: 12px;
+    color: #071c35;
+    font-weight: 600;
+    text-align: right;
+}
+
+.details-value.selectable {
+    user-select: text;
+    cursor: text;
+}
+
+.details-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.details-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #071c35;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.details-ports-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.details-ports-list li {
+    font-size: 11px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f5f5f5;
+    user-select: text;
+}
+
+.details-ports-list li:last-child {
+    border-bottom: none;
+}
+
+.port-local {
+    color: #4c5cae;
+    font-weight: 600;
+}
+
+.port-remote {
+    color: #20b2aa;
+    font-weight: 500;
+}
+
+.details-footer {
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #eee;
+}
+
+.details-hint {
+    font-size: 10px;
+    color: #888;
+    font-style: italic;
 }
 
 /* ==========================================
