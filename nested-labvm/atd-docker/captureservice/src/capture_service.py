@@ -406,10 +406,14 @@ class CaptureManager:
 
                 self.sessions[session_id] = session
 
+                # Capture the main IOLoop before starting thread
+                # (IOLoop.current() returns different IOLoop in new thread)
+                main_ioloop = tornado.ioloop.IOLoop.current()
+
                 # Start reader thread
                 reader = threading.Thread(
                     target=self._read_output,
-                    args=(session,),
+                    args=(session, main_ioloop),
                     daemon=True
                 )
                 session.reader_thread = reader
@@ -430,10 +434,9 @@ class CaptureManager:
             except Exception as e:
                 return {"error": str(e)}
 
-    def _read_output(self, session: CaptureSession):
+    def _read_output(self, session: CaptureSession, ioloop):
         """Read tcpdump output and send to WebSocket."""
         parser = PacketParser()
-        ioloop = tornado.ioloop.IOLoop.current()
         local_packet_count = 0  # Local counter to avoid race conditions
 
         print(f"[CaptureManager] Reader thread started for {session.session_id} on {session.bridge_name}")
