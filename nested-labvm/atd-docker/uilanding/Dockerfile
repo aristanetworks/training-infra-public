@@ -20,6 +20,8 @@ RUN apt-get update && \
 
 COPY ./src/html /opt/topo/html/
 
+COPY ./src/device_types.py /usr/local/lib/python3.9/site-packages/device_types.py
+
 COPY ./src/uilanding.py /usr/local/bin/uilanding
 
 RUN chmod +x /usr/local/bin/uilanding

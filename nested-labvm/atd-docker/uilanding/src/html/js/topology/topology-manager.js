@@ -298,6 +298,82 @@ export class TopologyManager {
     }
 
     /**
+     * Focus on a device by name - highlights the node and its connections
+     * Used by terminal page auto-focus feature
+     * @param {string} deviceName - Name of the device to focus on
+     * @param {Object} options - Options for focus behavior
+     * @param {boolean} options.animate - Whether to animate the transition (default: true)
+     * @param {boolean} options.showIndicator - Whether to show focus indicator (default: false for API calls)
+     * @returns {boolean} - True if device was found and focused
+     */
+    focusOnDevice(deviceName, options = {}) {
+        const { animate = true, showIndicator = false } = options;
+
+        if (!this.cy || !deviceName) return false;
+
+        // Find node by label (device name) - case insensitive
+        const deviceNameLower = deviceName.toLowerCase();
+        const node = this.cy.nodes().filter(n =>
+            n.data('label').toLowerCase() === deviceNameLower
+        ).first();
+
+        if (node.empty()) {
+            console.warn('[TopologyManager] Device not found:', deviceName);
+            return false;
+        }
+
+        // Use EventManager's enterFocusMode if available
+        if (this.eventManager) {
+            this.eventManager.enterFocusMode(node, { showIndicator });
+        } else {
+            // Fallback: manual focus without EventManager
+            this.cy.elements().removeClass('highlighted faded hover focused');
+
+            const connectedEdges = node.connectedEdges();
+            const connectedNodes = connectedEdges.connectedNodes();
+
+            node.addClass('focused');
+            connectedEdges.addClass('highlighted');
+            connectedNodes.addClass('highlighted');
+
+            this.cy.elements()
+                .not(node)
+                .not(connectedEdges)
+                .not(connectedNodes)
+                .addClass('faded');
+
+            if (animate) {
+                this.cy.animate({
+                    center: { eles: node },
+                    zoom: 1.5
+                }, {
+                    duration: 400,
+                    easing: 'ease-out-cubic'
+                });
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Clear focus mode and restore normal view
+     */
+    clearFocus() {
+        if (this.eventManager) {
+            this.eventManager.exitFocusMode();
+        } else {
+            this.cy.elements().removeClass('highlighted faded hover focused');
+            this.cy.animate({
+                fit: { padding: 50 }
+            }, {
+                duration: 400,
+                easing: 'ease-out-cubic'
+            });
+        }
+    }
+
+    /**
      * Get node by ID
      */
     getNode(nodeId) {

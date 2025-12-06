@@ -272,8 +272,13 @@ export class EventManager {
 
     /**
      * Enter focus mode for a node
+     * @param {Object} node - Cytoscape node to focus on
+     * @param {Object} options - Options for focus mode
+     * @param {boolean} options.showIndicator - Whether to show focus indicator (default: true)
      */
-    enterFocusMode(node) {
+    enterFocusMode(node, options = {}) {
+        const { showIndicator = true } = options;
+
         // If already focused on this node, exit focus mode
         if (this.focusMode && this.focusedNode === node.id()) {
             this.exitFocusMode();
@@ -312,8 +317,12 @@ export class EventManager {
             easing: 'ease-out-cubic'
         });
 
-        // Show focus mode indicator
-        this.showFocusIndicator(node.data('label'));
+        // Show focus mode indicator (unless suppressed, e.g., for auto-focus)
+        if (showIndicator) {
+            this.showFocusIndicator(node.data('label'));
+        } else {
+            this.hideFocusIndicator();
+        }
     }
 
     /**

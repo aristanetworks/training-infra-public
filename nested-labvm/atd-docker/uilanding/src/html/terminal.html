@@ -775,6 +775,15 @@
       border-color: var(--secondary-color);
     }
 
+    .topology-panel .topo-controls .topo-btn.active {
+      background: var(--secondary-color);
+      color: var(--primary-color);
+    }
+
+    .topology-panel .topo-controls .topo-btn.auto-focus {
+      margin-left: auto;
+    }
+
     /* Interactive topology container in side panel */
     .topology-panel #terminal-topology {
       flex: 1;
@@ -985,6 +994,7 @@
               <input type="text" id="topo-search" placeholder="Search..." />
               <button class="topo-btn" id="topo-reset">Reset</button>
               <button class="topo-btn" id="topo-fit">Fit</button>
+              <button class="topo-btn auto-focus" id="topo-auto-focus" title="Auto-focus on active terminal device">Auto Focus</button>
             </div>
             <div id="terminal-topology" class="loading">Loading topology...</div>
           </div>
@@ -1002,6 +1012,7 @@
       splitLeft: { device: null, iframe: null },
       splitRight: { device: null, iframe: null },
       nextSplitPane: 'left', // Alternates between 'left' and 'right'
+      autoFocusEnabled: false, // Auto-focus topology on active terminal
 
       init() {
         this.loadDevices();
@@ -1160,6 +1171,9 @@
 
         // Update overflow menu to reflect active state
         this.updateTabOverflow();
+
+        // Auto-focus topology on the active device if enabled
+        this.updateTopologyFocus();
       },
 
       closeTab(tabId) {
@@ -1520,6 +1534,42 @@
               this.topoManager.fit();
             }
           });
+        }
+
+        // Auto-focus toggle button
+        const autoFocusBtn = document.getElementById('topo-auto-focus');
+        if (autoFocusBtn) {
+          autoFocusBtn.addEventListener('click', () => {
+            this.autoFocusEnabled = !this.autoFocusEnabled;
+            autoFocusBtn.classList.toggle('active', this.autoFocusEnabled);
+
+            if (this.autoFocusEnabled) {
+              // Immediately focus on current active tab's device
+              this.updateTopologyFocus();
+            } else {
+              // Clear focus when disabling
+              if (this.topoManager) {
+                this.topoManager.clearFocus();
+              }
+            }
+          });
+        }
+      },
+
+      /**
+       * Update topology focus based on active terminal tab
+       * Called when auto-focus is enabled and tab changes
+       */
+      updateTopologyFocus() {
+        if (!this.autoFocusEnabled || !this.topoManager || !this.activeTabId) {
+          return;
+        }
+
+        // Find the active tab's device name
+        const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+        if (activeTab && activeTab.name) {
+          // Focus the topology on this device
+          this.topoManager.focusOnDevice(activeTab.name);
         }
       }
     };
