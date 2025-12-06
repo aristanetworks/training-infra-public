@@ -807,13 +807,46 @@ def get_manager() -> CaptureManager:
 
 # HTTP/WebSocket Handlers
 
-class HealthHandler(tornado.web.RequestHandler):
+# Allowed IP ranges for access control
+# Includes localhost, Docker bridge networks, and private networks
+ALLOWED_IP_PREFIXES = (
+    '127.',           # Localhost
+    '172.17.',        # Default Docker bridge
+    '172.18.',        # Docker networks
+    '172.19.',        # Docker networks
+    '172.20.',        # Docker networks
+    '172.21.',        # Docker networks
+    '192.168.',       # Private network (lab VMs)
+    '10.',            # Private network
+)
+
+
+class SecureHandler(tornado.web.RequestHandler):
+    """Base handler with IP-based access control."""
+
+    def prepare(self):
+        """Check if request is from allowed IP."""
+        remote_ip = self.request.remote_ip
+        if not self._is_allowed_ip(remote_ip):
+            print(f"[CaptureService] Blocked request from {remote_ip}")
+            self.set_status(403)
+            self.finish({"error": "Access denied"})
+            return
+
+    def _is_allowed_ip(self, ip: str) -> bool:
+        """Check if IP is in allowed ranges."""
+        if not ip:
+            return False
+        return ip.startswith(ALLOWED_IP_PREFIXES)
+
+
+class HealthHandler(SecureHandler):
     """Health check endpoint."""
     def get(self):
         self.write({"status": "ok", "service": "capture"})
 
 
-class BridgesHandler(tornado.web.RequestHandler):
+class BridgesHandler(SecureHandler):
     """List available bridges."""
     def get(self):
         bridges = get_manager().get_bridges()
@@ -827,10 +860,23 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         # Allow connections from same host
         return True
 
+    def _is_allowed_ip(self, ip: str) -> bool:
+        """Check if IP is in allowed ranges."""
+        if not ip:
+            return False
+        return ip.startswith(ALLOWED_IP_PREFIXES)
+
     def open(self):
+        # Check IP-based access control
+        remote_ip = self.request.remote_ip
+        if not self._is_allowed_ip(remote_ip):
+            print(f"[CaptureWS] Blocked connection from {remote_ip}")
+            self.close(code=1008, reason="Access denied")
+            return
+
         self.client_id = str(uuid.uuid4())[:8]
         self.session_id = None
-        print(f"[CaptureWS] Client {self.client_id} connected")
+        print(f"[CaptureWS] Client {self.client_id} connected from {remote_ip}")
 
     def on_message(self, message):
         try:
@@ -899,9 +945,11 @@ def main():
 
     app = make_app()
 
-    # Listen on localhost only for security
-    app.listen(options.port, address="127.0.0.1")
-    print(f"[CaptureService] Listening on 127.0.0.1:{options.port}")
+    # Listen on all interfaces (IP-based access control is in handlers)
+    # Required for Docker containers to reach this service
+    app.listen(options.port, address="0.0.0.0")
+    print(f"[CaptureService] Listening on 0.0.0.0:{options.port}")
+    print(f"[CaptureService] Access restricted to: {', '.join(ALLOWED_IP_PREFIXES)}")
 
     ioloop = tornado.ioloop.IOLoop.current()
     get_manager().start_cleanup_task(ioloop)
