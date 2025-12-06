@@ -2229,6 +2229,16 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                 }))
             return
 
+        # Debug: log first few messages
+        try:
+            msg_data = json.loads(message)
+            if msg_data.get('type') == 'packet':
+                pkt_num = msg_data.get('data', {}).get('number', 0)
+                if pkt_num <= 3:
+                    pS(f"[Capture WS Proxy] Received packet {pkt_num} from upstream, relaying to browser")
+        except:
+            pass
+
         # Relay message to browser client
         try:
             if self.ws_connection:

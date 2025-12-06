@@ -500,17 +500,25 @@ class CaptureManager:
                     # Capture websocket reference to avoid race with None assignment
                     ws = session.websocket
                     if ws:
-                        def send(websocket, pkt):
+                        def send(websocket, pkt, count):
                             try:
                                 if websocket and websocket.ws_connection:
-                                    websocket.write_message(json.dumps({
+                                    msg = json.dumps({
                                         'type': 'packet',
                                         'data': pkt
-                                    }))
+                                    })
+                                    websocket.write_message(msg)
+                                    if count <= 3:
+                                        print(f"[CaptureManager] Sent packet {count} to WebSocket")
+                                else:
+                                    print(f"[CaptureManager] WebSocket not connected, can't send packet {count}")
                             except Exception as e:
                                 print(f"[CaptureManager] WebSocket send error: {e}")
 
-                        ioloop.add_callback(send, ws, packet)
+                        ioloop.add_callback(send, ws, packet, local_packet_count)
+                    else:
+                        if local_packet_count <= 3:
+                            print(f"[CaptureManager] No WebSocket reference for packet {local_packet_count}")
 
                     if local_packet_count >= self.MAX_PACKETS:
                         break
