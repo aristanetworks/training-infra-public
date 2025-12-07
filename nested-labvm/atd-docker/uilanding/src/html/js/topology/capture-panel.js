@@ -96,9 +96,10 @@ export class CapturePanel {
                 <input type="text"
                        id="capture-filter-input"
                        class="capture-filter-input"
-                       placeholder="BPF filter (e.g., tcp port 80, icmp, arp)">
+                       placeholder="BPF capture filter (e.g., arp, icmp, tcp port 179)">
                 <span class="capture-filter-hint">
-                    Examples: <code>tcp</code> <code>udp port 4789</code> <code>host 192.168.1.1</code>
+                    Examples: <code>arp</code> <code>icmp</code> <code>tcp port 179</code> (BGP)
+                    <code>udp port 4789</code> (VXLAN) <code>ether proto 0x88cc</code> (LLDP)
                 </span>
             </div>
 
@@ -496,6 +497,10 @@ export class CapturePanel {
      */
     disconnectWebSocket() {
         if (this.ws) {
+            // Clear handlers before closing to prevent reconnection attempts
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            this.ws.onmessage = null;
             this.ws.close();
             this.ws = null;
         }
@@ -521,12 +526,16 @@ export class CapturePanel {
                 case 'stopped':
                     console.log('[CapturePanel] Capture stopped:', message);
                     this.updateUICapturing(false);
+                    // Disconnect WebSocket after capture stops to ensure clean state
+                    this.disconnectWebSocket();
                     break;
 
                 case 'error':
                     console.error('[CapturePanel] Server error:', message.message);
                     this.showError(message.message);
                     this.updateUICapturing(false);
+                    // Disconnect WebSocket on error to ensure clean state for next attempt
+                    this.disconnectWebSocket();
                     break;
 
                 case 'pong':
@@ -1009,11 +1018,26 @@ export class CapturePanel {
     }
 
     /**
-     * Show error message
+     * Show error message to user
      */
     showError(message) {
         console.error('[CapturePanel] Error:', message);
-        // Could show toast notification here
+        // Update status to show error briefly
+        const statusText = this.elements.status.querySelector('span:nth-child(2)');
+        if (statusText) {
+            statusText.textContent = 'Error';
+            statusText.style.color = '#e30909';
+            // Show error in packet count area
+            this.elements.packetCount.textContent = message;
+            this.elements.packetCount.style.color = '#e30909';
+            // Reset after 5 seconds
+            setTimeout(() => {
+                statusText.textContent = 'Idle';
+                statusText.style.color = '';
+                this.elements.packetCount.textContent = `${this.packets.length} packets`;
+                this.elements.packetCount.style.color = '';
+            }, 5000);
+        }
     }
 
     /**
