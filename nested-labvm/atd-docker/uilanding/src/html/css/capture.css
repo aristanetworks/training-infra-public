@@ -245,6 +245,37 @@
 }
 
 /* ==========================================
+   Capture Body Container
+   ========================================== */
+.capture-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Side-by-side layout mode */
+.capture-body.side-by-side {
+    flex-direction: row;
+}
+
+.capture-body.side-by-side .capture-packet-list {
+    flex: 1;
+    min-width: 0;
+    border-right: 2px solid #071c35;
+}
+
+.capture-body.side-by-side .capture-detail-panel {
+    width: 400px;
+    min-width: 300px;
+    max-width: 50%;
+    height: auto;
+    border-top: none;
+    border-left: 2px solid #071c35;
+}
+
+/* ==========================================
    Packet List (Virtual Scroll Container)
    ========================================== */
 .capture-packet-list {
@@ -254,6 +285,7 @@
     font-family: "Monaco", "Consolas", monospace;
     font-size: 11px;
     background-color: #ffffff;
+    min-height: 0;
 }
 
 .capture-packet-list-header {

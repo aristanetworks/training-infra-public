@@ -145,7 +145,6 @@ export class EventManager {
         const menuItems = [
             {
                 label: 'Open Terminal',
-                icon: '⌨',
                 action: () => {
                     this.openTerminal(data.label, data.ip);
                     this.hideContextMenu();
@@ -154,7 +153,6 @@ export class EventManager {
             },
             {
                 label: 'Focus on Device',
-                icon: '🎯',
                 action: () => {
                     this.enterFocusMode(node);
                     this.hideContextMenu();
@@ -162,7 +160,6 @@ export class EventManager {
             },
             {
                 label: 'Show Details',
-                icon: '📄',
                 action: () => {
                     this.showDetailsPanel(node);
                     this.hideContextMenu();
@@ -170,7 +167,6 @@ export class EventManager {
             },
             {
                 label: 'View Running Config',
-                icon: '📝',
                 action: () => {
                     this.showRunningConfigModal(node);
                     this.hideContextMenu();
@@ -182,7 +178,6 @@ export class EventManager {
             },
             {
                 label: 'Copy IP Address',
-                icon: '📋',
                 action: () => {
                     if (data.ip && data.ip !== 'N/A') {
                         navigator.clipboard.writeText(data.ip);
@@ -203,15 +198,18 @@ export class EventManager {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
 
-                const icon = document.createElement('span');
-                icon.className = 'context-menu-icon';
-                icon.textContent = item.icon;
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
 
                 const label = document.createElement('span');
                 label.className = 'context-menu-label';
                 label.textContent = item.label;
 
-                menuItem.appendChild(icon);
                 menuItem.appendChild(label);
 
                 if (!item.disabled) {
@@ -299,7 +297,6 @@ export class EventManager {
         const menuItems = [
             {
                 label: 'Start Packet Capture',
-                icon: '📡',
                 action: () => {
                     this.startEdgeCapture(edge);
                     this.hideContextMenu();
@@ -307,7 +304,6 @@ export class EventManager {
             },
             {
                 label: 'View Link Stats',
-                icon: '📊',
                 action: () => {
                     // Stats are already shown in edge tooltip
                     this.showEdgeTooltip(evt);
@@ -319,7 +315,6 @@ export class EventManager {
             },
             {
                 label: 'Focus Source',
-                icon: '🎯',
                 action: () => {
                     const sourceNode = this.cy.$id(data.source);
                     if (!sourceNode.empty()) {
@@ -330,7 +325,6 @@ export class EventManager {
             },
             {
                 label: 'Focus Target',
-                icon: '🎯',
                 action: () => {
                     const targetNode = this.cy.$id(data.target);
                     if (!targetNode.empty()) {
@@ -351,15 +345,18 @@ export class EventManager {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
 
-                const icon = document.createElement('span');
-                icon.className = 'context-menu-icon';
-                icon.textContent = item.icon;
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
 
                 const label = document.createElement('span');
                 label.className = 'context-menu-label';
                 label.textContent = item.label;
 
-                menuItem.appendChild(icon);
                 menuItem.appendChild(label);
 
                 if (!item.disabled) {

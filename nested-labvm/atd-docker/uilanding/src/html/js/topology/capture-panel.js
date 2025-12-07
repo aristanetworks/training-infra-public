@@ -54,7 +54,6 @@ export class CapturePanel {
         this.container.innerHTML = `
             <div class="capture-header">
                 <div class="capture-title">
-                    <span class="capture-title-icon">📡</span>
                     <span>Packet Capture</span>
                     <span class="capture-link-info" id="capture-link-info"></span>
                 </div>
@@ -73,7 +72,10 @@ export class CapturePanel {
                         <span>■</span> Stop
                     </button>
                     <button id="capture-clear-btn" class="capture-btn">
-                        <span>🗑</span> Clear
+                        Clear
+                    </button>
+                    <button id="capture-layout-btn" class="capture-btn" title="Toggle side-by-side layout">
+                        Side Panel
                     </button>
                 </div>
 
@@ -100,27 +102,28 @@ export class CapturePanel {
                 </span>
             </div>
 
-            <div class="capture-packet-list" id="capture-packet-list">
-                <div class="capture-packet-list-header">
-                    <span class="packet-col packet-col-num">No.</span>
-                    <span class="packet-col packet-col-time">Time</span>
-                    <span class="packet-col packet-col-src">Source</span>
-                    <span class="packet-col packet-col-dst">Destination</span>
-                    <span class="packet-col packet-col-protocol">Protocol</span>
-                    <span class="packet-col packet-col-length">Len</span>
-                    <span class="packet-col packet-col-info">Info</span>
-                </div>
-                <div class="capture-packet-rows" id="capture-packet-rows">
-                    <div class="capture-empty-state">
-                        <span class="capture-empty-icon">📦</span>
-                        <span class="capture-empty-title">No packets captured</span>
-                        <span class="capture-empty-subtitle">Select a link and click Start to begin capturing</span>
+            <div class="capture-body" id="capture-body">
+                <div class="capture-packet-list" id="capture-packet-list">
+                    <div class="capture-packet-list-header">
+                        <span class="packet-col packet-col-num">No.</span>
+                        <span class="packet-col packet-col-time">Time</span>
+                        <span class="packet-col packet-col-src">Source</span>
+                        <span class="packet-col packet-col-dst">Destination</span>
+                        <span class="packet-col packet-col-protocol">Protocol</span>
+                        <span class="packet-col packet-col-length">Len</span>
+                        <span class="packet-col packet-col-info">Info</span>
+                    </div>
+                    <div class="capture-packet-rows" id="capture-packet-rows">
+                        <div class="capture-empty-state">
+                            <span class="capture-empty-title">No packets captured</span>
+                            <span class="capture-empty-subtitle">Select a link and click Start to begin capturing</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="capture-detail-panel" id="capture-detail-panel">
-                <div class="capture-detail-empty">Select a packet to view details</div>
+                <div class="capture-detail-panel" id="capture-detail-panel">
+                    <div class="capture-detail-empty">Select a packet to view details</div>
+                </div>
             </div>
         `;
 
@@ -132,10 +135,12 @@ export class CapturePanel {
             startBtn: document.getElementById('capture-start-btn'),
             stopBtn: document.getElementById('capture-stop-btn'),
             clearBtn: document.getElementById('capture-clear-btn'),
+            layoutBtn: document.getElementById('capture-layout-btn'),
             filterInput: document.getElementById('capture-filter-input'),
             status: document.getElementById('capture-status'),
             packetCount: document.getElementById('capture-packet-count'),
             linkInfo: document.getElementById('capture-link-info'),
+            captureBody: document.getElementById('capture-body'),
             packetList: document.getElementById('capture-packet-list'),
             packetRows: document.getElementById('capture-packet-rows'),
             detailPanel: document.getElementById('capture-detail-panel'),
@@ -143,6 +148,9 @@ export class CapturePanel {
             expandBtn: document.getElementById('capture-expand-btn'),
             closeBtn: document.getElementById('capture-close-btn')
         };
+
+        // Layout state
+        this.sideBySideLayout = false;
     }
 
     /**
@@ -158,6 +166,7 @@ export class CapturePanel {
         this.elements.startBtn.addEventListener('click', () => this.startCapture());
         this.elements.stopBtn.addEventListener('click', () => this.stopCapture());
         this.elements.clearBtn.addEventListener('click', () => this.clearPackets());
+        this.elements.layoutBtn.addEventListener('click', () => this.toggleLayout());
 
         // Filter input - apply on Enter
         this.elements.filterInput.addEventListener('keydown', (e) => {
@@ -371,6 +380,15 @@ export class CapturePanel {
     }
 
     /**
+     * Toggle side-by-side layout (detail panel to the right of packet list)
+     */
+    toggleLayout() {
+        this.sideBySideLayout = !this.sideBySideLayout;
+        this.elements.captureBody.classList.toggle('side-by-side', this.sideBySideLayout);
+        this.elements.layoutBtn.classList.toggle('active', this.sideBySideLayout);
+    }
+
+    /**
      * Start packet capture
      */
     startCapture() {
@@ -548,7 +566,6 @@ export class CapturePanel {
         if (this.packets.length === 0) {
             container.innerHTML = `
                 <div class="capture-empty-state">
-                    <span class="capture-empty-icon">📦</span>
                     <span class="capture-empty-title">No packets captured</span>
                     <span class="capture-empty-subtitle">Select a link and click Start to begin capturing</span>
                 </div>
