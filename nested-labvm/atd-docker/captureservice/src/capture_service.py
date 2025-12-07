@@ -936,18 +936,21 @@ class CaptureManager:
         Test display filter by running tshark to validate the filter syntax.
         Returns None if valid, or error message if invalid.
         Uses -Y flag for Wireshark display filter syntax.
+
+        We validate by reading from /dev/null which checks filter syntax
+        without requiring a live interface.
         """
         try:
-            # Use tshark with -c 1 and very short duration to validate filter
-            # The filter syntax is checked before capture starts, so invalid
-            # filters will fail immediately with a non-zero exit code
+            # Validate filter syntax by reading from /dev/null
+            # This checks that the filter expression is valid without
+            # needing a live capture interface
             result = subprocess.run(
-                ["tshark", "-i", bridge_name, "-Y", display_filter, "-c", "1", "-a", "duration:1"],
+                ["tshark", "-r", "/dev/null", "-Y", display_filter],
                 capture_output=True,
                 text=True,
                 timeout=3
             )
-            # tshark exits with 0 on timeout (no packets matched) or after capturing
+            # tshark exits with 0 if filter syntax is valid (even with no input)
             # Non-zero exit with filter error in stderr means invalid filter
             if result.returncode != 0:
                 # Extract useful error from stderr, filtering out noise
@@ -959,6 +962,7 @@ class CaptureManager:
                     and not line.startswith('Running as user')
                     and 'Capturing on' not in line
                     and 'packet count' not in line.lower()
+                    and '/dev/null' not in line.lower()
                 ]
                 error = '\n'.join(error_lines).strip()
 
@@ -973,13 +977,12 @@ class CaptureManager:
                     # Take first meaningful line, truncated
                     first_line = error_lines[0] if error_lines else error
                     return first_line[:100] if len(first_line) > 100 else first_line
-                # If no meaningful error lines, the error might be transient
-                # (e.g., interface busy) - don't block the filter
+                # If no meaningful error lines, the filter is likely valid
+                # (error might be about /dev/null not being a pcap file)
                 return None
             return None  # Valid
         except subprocess.TimeoutExpired:
-            # Timeout means tshark started successfully (filter was valid)
-            # but didn't capture any matching packets - that's fine
+            # Timeout is unexpected for /dev/null read, but treat as valid
             return None
         except Exception as e:
             return f"Filter validation failed: {str(e)}"

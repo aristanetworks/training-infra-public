@@ -34,6 +34,7 @@ export function getCytoscapeStyles() {
         // ==========================================
         // Device Type Styles - Using PNG icons with transparent backgrounds
         // Icons: leaf.png, spine.png, router.png
+        // Sizes: 60-70px depending on device importance
         // ==========================================
 
         // --- Spine icon: spine, pe, p, ce ---
@@ -45,8 +46,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 55,
-                'height': 55
+                'width': 70,
+                'height': 70
             }
         },
         {
@@ -57,8 +58,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 50,
-                'height': 50
+                'width': 65,
+                'height': 65
             }
         },
         {
@@ -69,8 +70,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 48,
-                'height': 48
+                'width': 62,
+                'height': 62
             }
         },
         {
@@ -81,8 +82,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 45,
-                'height': 45
+                'width': 60,
+                'height': 60
             }
         },
 
@@ -95,8 +96,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 50,
-                'height': 50
+                'width': 65,
+                'height': 65
             }
         },
         {
@@ -107,8 +108,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 52,
-                'height': 52
+                'width': 68,
+                'height': 68
             }
         },
         {
@@ -119,8 +120,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 48,
-                'height': 48
+                'width': 62,
+                'height': 62
             }
         },
 
@@ -133,8 +134,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 50,
-                'height': 50
+                'width': 65,
+                'height': 65
             }
         },
         {
@@ -145,8 +146,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 52,
-                'height': 52
+                'width': 68,
+                'height': 68
             }
         },
         {
@@ -157,8 +158,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 45,
-                'height': 45
+                'width': 60,
+                'height': 60
             }
         },
         {
@@ -169,8 +170,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 52,
-                'height': 52
+                'width': 68,
+                'height': 68
             }
         },
         {
@@ -181,8 +182,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 55,
-                'height': 55
+                'width': 70,
+                'height': 70
             }
         },
         {
@@ -193,8 +194,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 45,
-                'height': 45
+                'width': 60,
+                'height': 60
             }
         },
         {
@@ -205,8 +206,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 50,
-                'height': 50
+                'width': 65,
+                'height': 65
             }
         },
         {
@@ -217,8 +218,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 52,
-                'height': 52
+                'width': 68,
+                'height': 68
             }
         },
         {
@@ -229,8 +230,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 45,
-                'height': 45
+                'width': 60,
+                'height': 60
             }
         },
 
@@ -241,8 +242,8 @@ export function getCytoscapeStyles() {
                 'shape': 'ellipse',
                 'background-color': '#dae0fe',
                 'border-color': '#4c5cae',
-                'width': 45,
-                'height': 45
+                'width': 55,
+                'height': 55
             }
         },
 
@@ -330,22 +331,24 @@ export function getCytoscapeStyles() {
 
         // ==========================================
         // Interactive States
-        // Uses overlay for PNG icon compatibility
+        // Uses underlay to show highlights behind PNG icons
         // ==========================================
         {
             selector: 'node:selected',
             style: {
-                'overlay-color': '#fbb500',
-                'overlay-padding': 8,
-                'overlay-opacity': 0.3
+                'underlay-color': '#fbb500',
+                'underlay-padding': 10,
+                'underlay-opacity': 0.4,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: 'node.highlighted',
             style: {
-                'overlay-color': '#fbb500',
-                'overlay-padding': 6,
-                'overlay-opacity': 0.25,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -377,9 +380,10 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.hover',
             style: {
-                'overlay-color': '#071c35',
-                'overlay-padding': 4,
-                'overlay-opacity': 0.1,
+                'underlay-color': '#071c35',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.15,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -397,9 +401,10 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.focused',
             style: {
-                'overlay-color': '#fbb500',
-                'overlay-padding': 10,
-                'overlay-opacity': 0.35,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 12,
+                'underlay-opacity': 0.45,
+                'underlay-shape': 'ellipse',
                 'z-index': 9999,
                 'font-size': 14,
                 'font-weight': 700
