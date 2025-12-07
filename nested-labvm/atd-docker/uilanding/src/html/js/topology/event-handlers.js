@@ -20,6 +20,11 @@ export class EventManager {
         this.customTerminalHandler = options.onOpenTerminal || null;
         console.log('[EventManager] Custom terminal handler:', this.customTerminalHandler ? 'provided' : 'not provided');
 
+        // EOS type for detecting cEOS labs (packet capture not supported)
+        this.eosType = options.eosType || 'veos';
+        this.isCeosLab = this.eosType === 'container-labs';
+        console.log('[EventManager] EOS type:', this.eosType, 'isCeosLab:', this.isCeosLab);
+
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
@@ -296,11 +301,12 @@ export class EventManager {
         // Menu items for edge
         const menuItems = [
             {
-                label: 'Start Packet Capture',
+                label: this.isCeosLab ? 'Packet Capture (vEOS only)' : 'Start Packet Capture',
                 action: () => {
                     this.startEdgeCapture(edge);
                     this.hideContextMenu();
-                }
+                },
+                disabled: this.isCeosLab
             },
             {
                 label: 'View Link Stats',

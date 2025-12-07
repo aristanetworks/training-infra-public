@@ -86,6 +86,7 @@ FUNC_STATE = 'https://us-central1-{0}.cloudfunctions.net/atd-state'.format(PROJE
 NAME = host_yaml['name']
 ZONE = host_yaml['zone']
 TOPO = host_yaml['topology']
+EOS_TYPE = host_yaml.get('eos_type', 'veos')  # 'veos' or 'container-labs'
 if 'schema' in host_yaml:
     SCHEMA = host_yaml['schema']
 else:
@@ -1405,6 +1406,7 @@ class TopologyAPIHandler(BaseHandler):
                 'data': {
                     'metadata': {
                         'topology_name': TOPO,
+                        'eos_type': EOS_TYPE,
                         'node_count': 0,
                         'edge_count': 0,
                         'generated_at': datetime.now().isoformat()
@@ -1534,6 +1536,7 @@ class TopologyAPIHandler(BaseHandler):
             'data': {
                 'metadata': {
                     'topology_name': TOPO,
+                    'eos_type': EOS_TYPE,
                     'node_count': len(nodes),
                     'edge_count': len(edges),
                     'generated_at': datetime.now().isoformat()

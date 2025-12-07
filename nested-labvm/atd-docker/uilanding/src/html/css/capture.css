@@ -13,7 +13,7 @@
     right: 0;
     height: 350px;
     background-color: #ffffff;
-    border-top: 3px solid #071c35;
+    border-top: 3px solid #fbb500;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     font-family: "Proxima Nova", -apple-system, sans-serif;
     z-index: 10000;
@@ -684,7 +684,7 @@
 }
 
 .capture-bridge-select {
-    height: 28px;
+    height: 30px;
     padding: 0 8px;
     font-size: 12px;
     background-color: #0a1929;
@@ -697,6 +697,11 @@
 .capture-bridge-select:focus {
     border-color: #fbb500;
     outline: none;
+}
+
+.capture-bridge-select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .capture-bridge-select option {

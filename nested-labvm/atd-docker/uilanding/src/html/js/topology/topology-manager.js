@@ -67,10 +67,15 @@ export class TopologyManager {
             // Initialize Cytoscape
             this.initCytoscape();
 
+            // Extract eos_type from metadata (for cEOS detection)
+            const eosType = this.topologyData.metadata?.eos_type || 'veos';
+
             // Setup components
             console.log('[TopologyManager] onOpenTerminal option:', this.options.onOpenTerminal ? 'provided' : 'not provided');
+            console.log('[TopologyManager] eos_type:', eosType);
             this.eventManager = new EventManager(this.cy, this.container, {
-                onOpenTerminal: this.options.onOpenTerminal
+                onOpenTerminal: this.options.onOpenTerminal,
+                eosType: eosType
             });
 
             if (this.options.enableFilters) {
