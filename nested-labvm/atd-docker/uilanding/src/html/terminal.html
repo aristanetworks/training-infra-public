@@ -883,39 +883,7 @@
       to { transform: rotate(360deg); }
     }
 
-    /* Capture Panel Overrides for Terminal Page */
-    /* The capture panel should push up main-content but NOT the device sidebar */
-
-    /* Add smooth transition for padding changes */
-    .main-content {
-      transition: padding-bottom 0.3s ease-out;
-    }
-
-    /* When capture panel is visible, add padding to main-content to make room */
-    .main-content.capture-panel-visible {
-      padding-bottom: 350px;
-    }
-
-    .main-content.capture-panel-visible.capture-panel-minimized {
-      padding-bottom: 44px;
-    }
-
-    .main-content.capture-panel-visible.capture-panel-expanded {
-      padding-bottom: min(60vh, 600px);
-    }
-
-    /* Position capture panel to only cover main-content area (not sidebar) */
-    /* Note: capture panel is appended to body, so we use body > .capture-panel */
-    body > .capture-panel {
-      left: 280px !important;
-      z-index: 10001;
-    }
-
-    /* Adjust for collapsed sidebar - Use both body class (JS fallback) and :has() (modern browsers) */
-    body.sidebar-collapsed > .capture-panel,
-    body:has(.device-sidebar.collapsed) > .capture-panel {
-      left: 48px !important;
-    }
+    /* Capture panel styles are in capture.css */
   </style>
 </head>
 
@@ -968,6 +936,7 @@
           <button class="split-toggle" id="splitToggle">Split View</button>
           <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
           <button class="panel-toggle" id="topoToggle">Topology</button>
+          <button class="panel-toggle" id="captureToggle">Capture</button>
         </div>
       </div>
 
@@ -1304,6 +1273,49 @@
           labguidesPanel.classList.remove('visible');
           labguidesToggle.classList.remove('active');
         });
+
+        // Capture panel toggle
+        const captureToggle = document.getElementById('captureToggle');
+        captureToggle.addEventListener('click', () => {
+          const capturePanel = document.getElementById('capture-panel');
+          if (capturePanel) {
+            const isVisible = capturePanel.classList.contains('visible');
+            if (isVisible) {
+              capturePanel.classList.remove('visible');
+              captureToggle.classList.remove('active');
+            } else {
+              capturePanel.classList.add('visible');
+              captureToggle.classList.add('active');
+            }
+          }
+        });
+
+        // Watch for capture panel visibility changes to sync button state
+        this.setupCaptureButtonSync();
+      },
+
+      /**
+       * Sync capture toggle button state with capture panel visibility
+       * (panel can be closed via its own close button)
+       */
+      setupCaptureButtonSync() {
+        const captureToggle = document.getElementById('captureToggle');
+
+        // Wait for capture panel to exist, then observe it
+        const checkAndObserve = () => {
+          const capturePanel = document.getElementById('capture-panel');
+          if (capturePanel) {
+            const observer = new MutationObserver(() => {
+              const isVisible = capturePanel.classList.contains('visible');
+              captureToggle.classList.toggle('active', isVisible);
+            });
+            observer.observe(capturePanel, { attributes: true, attributeFilter: ['class'] });
+          } else {
+            // Panel not yet created, check again shortly
+            setTimeout(checkAndObserve, 100);
+          }
+        };
+        checkAndObserve();
       },
 
       setupSidebarToggle() {

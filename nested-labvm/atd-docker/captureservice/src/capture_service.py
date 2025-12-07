@@ -585,16 +585,16 @@ class CaptureManager:
             if not self._bridge_exists(bridge_name):
                 return {"error": f"Bridge '{bridge_name}' not found"}
 
-            # Validate BPF filter syntax
-            bpf_error = self._validate_bpf_filter(bpf_filter)
-            if bpf_error:
-                return {"error": bpf_error}
+            # Validate display filter syntax (Wireshark syntax like "lldp", "bgp", etc.)
+            filter_error = self._validate_display_filter(bpf_filter)
+            if filter_error:
+                return {"error": filter_error}
 
-            # Dry-run tcpdump to validate BPF filter compiles correctly
+            # Dry-run tshark to validate display filter is recognized
             if bpf_filter:
-                bpf_test_error = self._test_bpf_filter(bridge_name, bpf_filter)
-                if bpf_test_error:
-                    return {"error": f"Invalid BPF filter: {bpf_test_error}"}
+                filter_test_error = self._test_display_filter(bridge_name, bpf_filter)
+                if filter_test_error:
+                    return {"error": f"Invalid filter: {filter_test_error}"}
 
             session_id = str(uuid.uuid4())[:8]
 
@@ -645,8 +645,8 @@ class CaptureManager:
                 "-Q",                # Quiet (no packet count summary)
             ]
             if bpf_filter:
-                # BPF filter goes after -f flag
-                cmd.extend(["-f", bpf_filter])
+                # Display filter uses -Y flag (Wireshark syntax like "lldp", "bgp", "ospf")
+                cmd.extend(["-Y", bpf_filter])
 
             try:
                 process = subprocess.Popen(
@@ -876,77 +876,100 @@ class CaptureManager:
             return False
         return bool(re.match(r'^[a-zA-Z0-9\-_]+$', name))
 
-    def _validate_bpf_filter(self, bpf: str) -> Optional[str]:
+    def _validate_display_filter(self, filter_expr: str) -> Optional[str]:
         """
-        Validate BPF filter syntax to prevent injection.
+        Validate Wireshark display filter syntax to prevent injection.
         Returns None if valid, or error message if invalid.
+
+        Display filters use Wireshark syntax like:
+        - lldp, bgp, ospf, arp, icmp (protocol names)
+        - tcp.port == 179 (field comparisons)
+        - ip.addr == 192.168.1.1 (IP filtering)
+        - bgp.type == 2 (protocol field values)
         """
-        if not bpf:
+        if not filter_expr:
             return None  # Empty filter is valid
 
         # Length limit
-        if len(bpf) > 500:
-            return "BPF filter too long (max 500 characters)"
+        if len(filter_expr) > 500:
+            return "Filter too long (max 500 characters)"
 
-        # Character whitelist - only allow safe BPF syntax characters
-        if not re.match(r'^[a-zA-Z0-9\s\(\)\[\]\.\:\-\|&!<>=]+$', bpf):
-            return "BPF filter contains invalid characters"
+        # Character whitelist for display filter syntax
+        # Allows: alphanumeric, spaces, parentheses, brackets, dots, colons,
+        # comparison operators, underscores, hyphens, forward slash (for CIDR)
+        if not re.match(r'^[a-zA-Z0-9\s\(\)\[\]\.\:\-\_\|&!<>=,/]+$', filter_expr):
+            return "Filter contains invalid characters"
 
-        # Check for dangerous patterns
-        dangerous = ['--', ';', '$', '`', '\n', '\r', '\\', "'", '"', '/', '#']
+        # Check for dangerous patterns (shell injection prevention)
+        dangerous = ['--', ';', '$', '`', '\n', '\r', '\\', "'", '"', '#']
         for d in dangerous:
-            if d in bpf:
-                return f"BPF filter contains invalid pattern: {d}"
+            if d in filter_expr:
+                return f"Filter contains invalid pattern: {d}"
 
         # Check parenthesis nesting depth to prevent DoS
         depth = 0
         max_depth = 0
-        for char in bpf:
+        for char in filter_expr:
             if char == '(':
                 depth += 1
                 max_depth = max(max_depth, depth)
             elif char == ')':
                 depth -= 1
             if depth < 0:
-                return "Unbalanced parentheses in BPF filter"
+                return "Unbalanced parentheses in filter"
 
         if depth != 0:
-            return "Unbalanced parentheses in BPF filter"
+            return "Unbalanced parentheses in filter"
 
         if max_depth > self.MAX_BPF_NESTING:
-            return f"BPF filter too complex (max nesting depth: {self.MAX_BPF_NESTING})"
+            return f"Filter too complex (max nesting depth: {self.MAX_BPF_NESTING})"
 
-        # Check for excessively repetitive patterns (DoS prevention)
-        words = bpf.split()
+        # Check for excessively long filters (DoS prevention)
+        words = filter_expr.split()
         if len(words) > 50:
-            return "BPF filter has too many terms (max 50)"
+            return "Filter has too many terms (max 50)"
 
         return None  # Valid
 
-    def _test_bpf_filter(self, bridge_name: str, bpf_filter: str) -> Optional[str]:
+    def _test_display_filter(self, bridge_name: str, display_filter: str) -> Optional[str]:
         """
-        Test BPF filter by running tshark in dry-run mode.
+        Test display filter by running tshark in dry-run mode.
         Returns None if valid, or error message if invalid.
-        Uses tshark (not tcpdump) to ensure filter compatibility with actual capture.
+        Uses -Y flag for Wireshark display filter syntax.
         """
         try:
             # Use tshark with -c 0 to validate filter without capturing
             # -a duration:1 ensures it exits quickly
+            # -Y is for display filters (Wireshark syntax)
             result = subprocess.run(
-                ["tshark", "-i", bridge_name, "-f", bpf_filter, "-c", "0", "-a", "duration:1"],
+                ["tshark", "-i", bridge_name, "-Y", display_filter, "-c", "0", "-a", "duration:1"],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             # tshark returns 0 even with -c 0, but invalid filter causes non-zero exit
             if result.returncode != 0:
-                # Extract useful error from stderr
-                error = result.stderr.strip()
+                # Extract useful error from stderr, filtering out the root warning
+                stderr_lines = result.stderr.strip().split('\n')
+                # Filter out tshark warnings about running as root
+                error_lines = [
+                    line for line in stderr_lines
+                    if not line.startswith('Running as user') and line.strip()
+                ]
+                error = '\n'.join(error_lines).strip()
+
                 if 'syntax error' in error.lower():
                     return "Syntax error in filter expression"
-                if 'invalid capture filter' in error.lower():
-                    return "Invalid capture filter syntax"
-                return error[:100] if len(error) > 100 else error or "Unknown filter error"
+                if 'neither a field nor a protocol name' in error.lower():
+                    return "Unknown protocol or field name"
+                if 'invalid' in error.lower():
+                    return "Invalid filter syntax"
+                # Return a clean error message
+                if error:
+                    # Take first meaningful line, truncated
+                    first_line = error_lines[0] if error_lines else error
+                    return first_line[:100] if len(first_line) > 100 else first_line
+                return "Invalid filter syntax"
             return None  # Valid
         except subprocess.TimeoutExpired:
             return "Filter validation timed out"

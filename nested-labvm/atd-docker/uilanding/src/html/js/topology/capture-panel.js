@@ -96,10 +96,10 @@ export class CapturePanel {
                 <input type="text"
                        id="capture-filter-input"
                        class="capture-filter-input"
-                       placeholder="BPF capture filter (e.g., arp, icmp, tcp port 179)">
+                       placeholder="Display filter (e.g., lldp, bgp, ospf, arp)">
                 <span class="capture-filter-hint">
-                    Examples: <code>arp</code> <code>icmp</code> <code>tcp port 179</code> (BGP)
-                    <code>udp port 4789</code> (VXLAN) <code>ether proto 0x88cc</code> (LLDP)
+                    Examples: <code>lldp</code> <code>bgp</code> <code>ospf</code> <code>arp</code>
+                    <code>vxlan</code> <code>icmp</code> <code>tcp.port == 179</code>
                 </span>
             </div>
 

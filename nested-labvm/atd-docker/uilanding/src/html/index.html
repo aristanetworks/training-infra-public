@@ -453,6 +453,90 @@
     let topoManager = null;
     let isInteractiveView = true;  // Start with interactive view
 
+    // Store observer reference for cleanup
+    let capturePanelObserver = null;
+
+    /**
+     * Wait for capture panel to exist in DOM
+     * Returns immediately if panel exists, otherwise polls with timeout
+     */
+    async function waitForCapturePanel() {
+      return new Promise((resolve) => {
+        const maxAttempts = 50; // 5 seconds max
+        let attempts = 0;
+
+        const checkPanel = () => {
+          const panel = document.getElementById('capture-panel');
+          if (panel) {
+            resolve();
+          } else if (attempts++ < maxAttempts) {
+            setTimeout(checkPanel, 100);
+          } else {
+            console.warn('[Index] Capture panel not found after waiting');
+            resolve(); // Resolve anyway to not block
+          }
+        };
+        checkPanel();
+      });
+    }
+
+    /**
+     * Setup observer for capture panel to update right-panel layout
+     * The capture panel should push up main content but NOT the left sidebar
+     */
+    function setupCapturePanelObserver() {
+      const capturePanel = document.getElementById('capture-panel');
+      const rightPanel = document.querySelector('.right-panel');
+
+      if (!capturePanel || !rightPanel) {
+        console.warn('[Index] Could not find capture panel or right panel');
+        return;
+      }
+
+      // Disconnect existing observer if any (prevents memory leaks on reinitialization)
+      if (capturePanelObserver) {
+        capturePanelObserver.disconnect();
+      }
+
+      // Function to update right-panel classes based on capture panel state
+      const updateRightPanelLayout = () => {
+        // Check if elements still exist in DOM
+        if (!document.body.contains(capturePanel) || !document.body.contains(rightPanel)) {
+          if (capturePanelObserver) {
+            capturePanelObserver.disconnect();
+          }
+          return;
+        }
+
+        const isVisible = capturePanel.classList.contains('visible');
+        const isMinimized = capturePanel.classList.contains('minimized');
+        const isExpanded = capturePanel.classList.contains('expanded');
+
+        rightPanel.classList.toggle('capture-panel-visible', isVisible);
+        rightPanel.classList.toggle('capture-panel-minimized', isVisible && isMinimized);
+        rightPanel.classList.toggle('capture-panel-expanded', isVisible && isExpanded);
+      };
+
+      // Use MutationObserver to watch for class changes on capture panel
+      capturePanelObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            updateRightPanelLayout();
+          }
+        }
+      });
+
+      capturePanelObserver.observe(capturePanel, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+
+      // Initial state (use rAF to ensure classes are set)
+      requestAnimationFrame(() => updateRightPanelLayout());
+
+      console.log('[Index] Capture panel observer setup complete');
+    }
+
     // Initialize topology on page load
     async function initTopology() {
       try {
@@ -466,6 +550,10 @@
 
         // Setup filter checkboxes
         setupFilters();
+
+        // Setup capture panel observer after topology is initialized
+        await waitForCapturePanel();
+        setupCapturePanelObserver();
       } catch (error) {
         console.error('Failed to initialize topology:', error);
       }

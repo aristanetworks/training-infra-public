@@ -20,7 +20,7 @@
     display: flex;
     flex-direction: column;
     transform: translateY(100%);
-    transition: transform 0.3s ease-out;
+    transition: transform 0.3s ease-out, height 0.3s ease-out, left 0.2s ease-out;
 }
 
 .capture-panel.visible {
@@ -55,6 +55,7 @@
     gap: 8px;
     font-weight: 600;
     font-size: 14px;
+    height: 30px;
 }
 
 .capture-title-icon {
@@ -65,6 +66,7 @@
     font-size: 12px;
     color: #fbb500;
     font-weight: 500;
+    line-height: 30px;
 }
 
 /* Capture Controls */
@@ -72,7 +74,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-left: auto;
+    height: 30px;
 }
 
 .capture-btn {
@@ -141,6 +143,8 @@
     padding: 4px 10px;
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
+    height: 30px;
+    margin-left: auto;
 }
 
 .capture-status.capturing {
@@ -175,6 +179,7 @@
     align-items: center;
     gap: 4px;
     margin-left: 12px;
+    height: 30px;
 }
 
 .capture-window-btn {
@@ -681,6 +686,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    height: 30px;
 }
 
 .capture-bridge-select {
@@ -752,5 +758,71 @@
 @keyframes capture-dash {
     to {
         stroke-dashoffset: -10;
+    }
+}
+
+/* ==========================================
+   Page-Specific Capture Panel Overrides
+   ========================================== */
+
+/* --- Index Page (Foundation grid with .large-3 sidebar) --- */
+/* Position capture panel to avoid left sidebar (~25% width) */
+body:has(.left-sidebar) > .capture-panel {
+    left: 25%;
+}
+
+/* Right panel smooth transition for capture panel */
+.right-panel {
+    transition: padding-bottom 0.3s ease-out;
+}
+
+/* When capture panel is visible, add padding to right-panel */
+.right-panel.capture-panel-visible {
+    padding-bottom: 350px;
+}
+
+.right-panel.capture-panel-visible.capture-panel-minimized {
+    padding-bottom: 44px;
+}
+
+.right-panel.capture-panel-visible.capture-panel-expanded {
+    padding-bottom: min(60vh, 600px);
+}
+
+/* --- Terminal Page (fixed 280px sidebar) --- */
+/* Position capture panel to avoid device sidebar */
+body:has(.device-sidebar) > .capture-panel {
+    left: 280px;
+}
+
+/* Adjust for collapsed sidebar */
+body:has(.device-sidebar.collapsed) > .capture-panel {
+    left: 48px;
+}
+
+/* Main content smooth transition for capture panel */
+.main-content {
+    transition: padding-bottom 0.3s ease-out;
+}
+
+/* When capture panel is visible, add padding to main-content */
+.main-content.capture-panel-visible {
+    padding-bottom: 350px;
+}
+
+.main-content.capture-panel-visible.capture-panel-minimized {
+    padding-bottom: 44px;
+}
+
+.main-content.capture-panel-visible.capture-panel-expanded {
+    padding-bottom: min(60vh, 600px);
+}
+
+/* --- Responsive Overrides --- */
+@media (max-width: 1023px) {
+    /* On medium/small screens, capture panel spans full width */
+    body:has(.left-sidebar) > .capture-panel,
+    body:has(.device-sidebar) > .capture-panel {
+        left: 0;
     }
 }
