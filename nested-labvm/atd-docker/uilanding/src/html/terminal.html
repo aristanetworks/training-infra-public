@@ -905,14 +905,16 @@
     }
 
     /* Position capture panel to only cover main-content area (not sidebar) */
-    .terminal-container .capture-panel {
+    /* Note: capture panel is appended to body, so we use body > .capture-panel */
+    body > .capture-panel {
       left: 280px !important;
       z-index: 10001;
+      border-top: 3px solid var(--secondary-color) !important; /* Yellow border for visibility */
     }
 
     /* Adjust for collapsed sidebar - Use both body class (JS fallback) and :has() (modern browsers) */
-    body.sidebar-collapsed .capture-panel,
-    body:has(.device-sidebar.collapsed) .capture-panel {
+    body.sidebar-collapsed > .capture-panel,
+    body:has(.device-sidebar.collapsed) > .capture-panel {
       left: 48px !important;
     }
   </style>
