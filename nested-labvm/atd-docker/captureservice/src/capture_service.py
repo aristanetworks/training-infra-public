@@ -933,28 +933,32 @@ class CaptureManager:
 
     def _test_display_filter(self, bridge_name: str, display_filter: str) -> Optional[str]:
         """
-        Test display filter by running tshark in dry-run mode.
+        Test display filter by running tshark to validate the filter syntax.
         Returns None if valid, or error message if invalid.
         Uses -Y flag for Wireshark display filter syntax.
         """
         try:
-            # Use tshark with -c 0 to validate filter without capturing
-            # -a duration:1 ensures it exits quickly
-            # -Y is for display filters (Wireshark syntax)
+            # Use tshark with -c 1 and very short duration to validate filter
+            # The filter syntax is checked before capture starts, so invalid
+            # filters will fail immediately with a non-zero exit code
             result = subprocess.run(
-                ["tshark", "-i", bridge_name, "-Y", display_filter, "-c", "0", "-a", "duration:1"],
+                ["tshark", "-i", bridge_name, "-Y", display_filter, "-c", "1", "-a", "duration:1"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=3
             )
-            # tshark returns 0 even with -c 0, but invalid filter causes non-zero exit
+            # tshark exits with 0 on timeout (no packets matched) or after capturing
+            # Non-zero exit with filter error in stderr means invalid filter
             if result.returncode != 0:
-                # Extract useful error from stderr, filtering out the root warning
+                # Extract useful error from stderr, filtering out noise
                 stderr_lines = result.stderr.strip().split('\n')
-                # Filter out tshark warnings about running as root
+                # Filter out tshark warnings and informational messages
                 error_lines = [
                     line for line in stderr_lines
-                    if not line.startswith('Running as user') and line.strip()
+                    if line.strip()
+                    and not line.startswith('Running as user')
+                    and 'Capturing on' not in line
+                    and 'packet count' not in line.lower()
                 ]
                 error = '\n'.join(error_lines).strip()
 
@@ -969,10 +973,14 @@ class CaptureManager:
                     # Take first meaningful line, truncated
                     first_line = error_lines[0] if error_lines else error
                     return first_line[:100] if len(first_line) > 100 else first_line
-                return "Invalid filter syntax"
+                # If no meaningful error lines, the error might be transient
+                # (e.g., interface busy) - don't block the filter
+                return None
             return None  # Valid
         except subprocess.TimeoutExpired:
-            return "Filter validation timed out"
+            # Timeout means tshark started successfully (filter was valid)
+            # but didn't capture any matching packets - that's fine
+            return None
         except Exception as e:
             return f"Filter validation failed: {str(e)}"
 

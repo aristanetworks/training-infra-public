@@ -78,6 +78,16 @@
 }
 
 .capture-btn {
+    /* Reset Foundation/Bootstrap button styles */
+    margin: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    vertical-align: middle;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Capture button styles */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -183,6 +193,16 @@
 }
 
 .capture-window-btn {
+    /* Reset Foundation/Bootstrap button styles */
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Window button styles */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -216,6 +236,15 @@
 }
 
 .capture-filter-input {
+    /* Reset Foundation/Bootstrap input styles */
+    margin: 0;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Filter input styles */
     flex: 1;
     max-width: 400px;
     height: 28px;
@@ -690,6 +719,15 @@
 }
 
 .capture-bridge-select {
+    /* Reset Foundation/Bootstrap select styles */
+    margin: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Bridge select styles */
     height: 30px;
     padding: 0 8px;
     font-size: 12px;
@@ -766,9 +804,9 @@
    ========================================== */
 
 /* --- Index Page (Foundation grid with .large-3 sidebar) --- */
-/* Position capture panel to avoid left sidebar (~25% width) */
+/* Position capture panel to avoid left sidebar (fixed 350px width from home.css) */
 body:has(.left-sidebar) > .capture-panel {
-    left: 25%;
+    left: 350px;
 }
 
 /* Right panel smooth transition for capture panel */
