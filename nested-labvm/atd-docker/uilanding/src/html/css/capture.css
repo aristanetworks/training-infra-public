@@ -333,6 +333,80 @@
     background-color: #f0e6ff;
 }
 
+/* Routing Protocol Colors */
+.capture-packet-row.protocol-bgp {
+    background-color: #e8f5e9;  /* Light green */
+}
+.capture-packet-row.protocol-bgp.selected {
+    background-color: #c8e6c9;
+}
+
+.capture-packet-row.protocol-ospf {
+    background-color: #e3f2fd;  /* Light blue */
+}
+.capture-packet-row.protocol-ospf.selected {
+    background-color: #bbdefb;
+}
+
+.capture-packet-row.protocol-is-is,
+.capture-packet-row.protocol-isis {
+    background-color: #fce4ec;  /* Light pink */
+}
+.capture-packet-row.protocol-is-is.selected,
+.capture-packet-row.protocol-isis.selected {
+    background-color: #f8bbd0;
+}
+
+.capture-packet-row.protocol-bfd {
+    background-color: #fff3e0;  /* Light orange */
+}
+.capture-packet-row.protocol-bfd.selected {
+    background-color: #ffe0b2;
+}
+
+/* Layer 2 Protocol Colors */
+.capture-packet-row.protocol-lacp {
+    background-color: #e8eaf6;  /* Light indigo */
+}
+.capture-packet-row.protocol-lacp.selected {
+    background-color: #c5cae9;
+}
+
+.capture-packet-row.protocol-stp,
+.capture-packet-row.protocol-rstp {
+    background-color: #f3e5f5;  /* Light purple */
+}
+.capture-packet-row.protocol-stp.selected,
+.capture-packet-row.protocol-rstp.selected {
+    background-color: #e1bee7;
+}
+
+.capture-packet-row.protocol-lldp.selected {
+    background-color: #d1c4e9;
+}
+
+/* Overlay Protocol Colors */
+.capture-packet-row.protocol-evpn {
+    background-color: #e0f7fa;  /* Light cyan */
+}
+.capture-packet-row.protocol-evpn.selected {
+    background-color: #b2ebf2;
+}
+
+.capture-packet-row.protocol-mpls {
+    background-color: #fff9c4;  /* Light yellow */
+}
+.capture-packet-row.protocol-mpls.selected {
+    background-color: #fff59d;
+}
+
+.capture-packet-row.protocol-gre {
+    background-color: #f1f8e9;  /* Light lime */
+}
+.capture-packet-row.protocol-gre.selected {
+    background-color: #dcedc8;
+}
+
 /* Packet Row Columns */
 .packet-col {
     overflow: hidden;
@@ -476,6 +550,64 @@
 
 .packet-detail-section.vxlan-inner .packet-detail-header {
     background-color: #fff8e0;
+}
+
+/* Protocol-specific detail panel styling */
+.packet-detail-section.protocol-bgp .packet-detail-header {
+    background-color: #e8f5e9;
+    border-left: 3px solid #4caf50;
+}
+
+.packet-detail-section.protocol-ospf .packet-detail-header {
+    background-color: #e3f2fd;
+    border-left: 3px solid #2196f3;
+}
+
+.packet-detail-section.protocol-isis .packet-detail-header {
+    background-color: #fce4ec;
+    border-left: 3px solid #e91e63;
+}
+
+.packet-detail-section.protocol-bfd .packet-detail-header {
+    background-color: #fff3e0;
+    border-left: 3px solid #ff9800;
+}
+
+.packet-detail-section.protocol-vxlan .packet-detail-header {
+    background-color: #fff8e0;
+    border-left: 3px solid #fbb500;
+}
+
+.packet-detail-section.protocol-evpn .packet-detail-header {
+    background-color: #e0f7fa;
+    border-left: 3px solid #00bcd4;
+}
+
+.packet-detail-section.protocol-lldp .packet-detail-header {
+    background-color: #f0e6ff;
+    border-left: 3px solid #9c27b0;
+}
+
+.packet-detail-section.protocol-lacp .packet-detail-header {
+    background-color: #e8eaf6;
+    border-left: 3px solid #3f51b5;
+}
+
+.packet-detail-section.protocol-stp .packet-detail-header,
+.packet-detail-section.protocol-rstp .packet-detail-header {
+    background-color: #f3e5f5;
+    border-left: 3px solid #673ab7;
+}
+
+/* Nested field styling */
+.packet-detail-field.nested {
+    font-size: 10px;
+    color: #555;
+}
+
+.packet-detail-field.nested .packet-detail-field-name {
+    min-width: 100px;
+    color: #666;
 }
 
 /* ==========================================

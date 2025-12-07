@@ -1,12 +1,17 @@
 FROM python:3.9-slim
 
-# Install tcpdump and OVS tools for packet capture
+# Install tshark (Wireshark CLI) for rich protocol decoding
+# Also keep tcpdump as fallback, and OVS tools for bridge management
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
+    tshark \
     tcpdump \
     openvswitch-switch \
     iproute2 \
     coreutils \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # Allow non-root users to capture (tshark requirement)
+    && setcap cap_net_raw,cap_net_admin+eip /usr/bin/dumpcap
 
 # Install Python dependencies
 RUN pip install --no-cache-dir tornado

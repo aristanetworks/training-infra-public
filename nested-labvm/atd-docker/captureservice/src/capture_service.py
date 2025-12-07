@@ -13,6 +13,7 @@ Architecture:
 """
 
 import asyncio
+import fcntl
 import json
 import os
 import re
@@ -22,7 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Optional, List, Callable, Set
+from typing import Dict, Optional, List
 
 import tornado.web
 import tornado.websocket
@@ -56,26 +57,372 @@ class CaptureSession:
         return (datetime.now() - self.start_time).total_seconds()
 
 
-class PacketParser:
-    """Parse tcpdump output lines into structured packet data."""
+class TsharkParser:
+    """Parse tshark JSON (ek format) output into structured packet data."""
 
-    VXLAN_PORT = 4789
+    # Protocol priority for display (highest priority protocol shown)
+    PROTOCOL_PRIORITY = [
+        'bgp', 'ospf', 'isis', 'eigrp', 'rip', 'bfd',  # Routing
+        'evpn', 'vxlan', 'mpls', 'gre',                 # Overlay/MPLS
+        'lacp', 'lldp', 'stp', 'rstp',                  # L2 protocols
+        'dhcp', 'dhcpv6', 'dns', 'ntp',                 # Services
+        'icmp', 'icmpv6', 'arp',                        # L3 utilities
+        'tcp', 'udp',                                    # Transport
+        'ip', 'ipv6',                                    # Network
+        'eth'                                            # Data link
+    ]
 
-    # Protocol display mapping
+    # Human-readable protocol names
     PROTOCOL_NAMES = {
-        '0800': 'IPv4',
-        '0806': 'ARP',
-        '86dd': 'IPv6',
-        '8100': '802.1Q',
+        'bgp': 'BGP',
+        'ospf': 'OSPF',
+        'isis': 'IS-IS',
+        'eigrp': 'EIGRP',
+        'rip': 'RIP',
+        'bfd': 'BFD',
+        'evpn': 'EVPN',
+        'vxlan': 'VXLAN',
+        'mpls': 'MPLS',
+        'gre': 'GRE',
+        'lacp': 'LACP',
+        'lldp': 'LLDP',
+        'stp': 'STP',
+        'rstp': 'RSTP',
+        'dhcp': 'DHCP',
+        'dhcpv6': 'DHCPv6',
+        'dns': 'DNS',
+        'ntp': 'NTP',
+        'icmp': 'ICMP',
+        'icmpv6': 'ICMPv6',
+        'arp': 'ARP',
+        'tcp': 'TCP',
+        'udp': 'UDP',
+        'ip': 'IPv4',
+        'ipv6': 'IPv6',
+        'eth': 'Ethernet',
     }
+
+    # BGP message type names
+    BGP_MSG_TYPES = {
+        '1': 'OPEN',
+        '2': 'UPDATE',
+        '3': 'NOTIFICATION',
+        '4': 'KEEPALIVE',
+        '5': 'ROUTE-REFRESH',
+    }
+
+    # OSPF message type names
+    OSPF_MSG_TYPES = {
+        '1': 'Hello',
+        '2': 'DB Description',
+        '3': 'LS Request',
+        '4': 'LS Update',
+        '5': 'LS Acknowledge',
+    }
+
+    # ICMP type names
+    ICMP_TYPES = {
+        '0': 'Echo Reply',
+        '3': 'Destination Unreachable',
+        '5': 'Redirect',
+        '8': 'Echo Request',
+        '11': 'Time Exceeded',
+    }
+
+    def parse_line(self, line: str, packet_number: int) -> Optional[Dict]:
+        """Parse a single tshark JSON line (ek format)."""
+        if not line or not line.strip():
+            return None
+
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            return None
+
+        # tshark ek format has 'index' lines and 'layers' lines
+        # We only want lines with 'layers'
+        if 'layers' not in data:
+            return None
+
+        layers = data['layers']
+
+        # Build packet structure
+        packet = {
+            'number': packet_number,
+            'timestamp': '',
+            'src_mac': '',
+            'dst_mac': '',
+            'src_ip': '',
+            'dst_ip': '',
+            'src_port': None,
+            'dst_port': None,
+            'protocol': 'Unknown',
+            'length': 0,
+            'info': '',
+            'layers': {}  # Full protocol layer details
+        }
+
+        try:
+            # Extract frame info
+            if 'frame' in layers:
+                frame = layers['frame']
+                # Timestamp
+                if 'frame_frame_time_epoch' in frame:
+                    epoch = float(frame['frame_frame_time_epoch'][0])
+                    from datetime import datetime
+                    packet['timestamp'] = datetime.fromtimestamp(epoch).strftime('%Y-%m-%d %H:%M:%S.%f')
+                # Length
+                if 'frame_frame_len' in frame:
+                    packet['length'] = int(frame['frame_frame_len'][0])
+
+            # Extract Ethernet
+            if 'eth' in layers:
+                eth = layers['eth']
+                packet['src_mac'] = eth.get('eth_eth_src', [''])[0]
+                packet['dst_mac'] = eth.get('eth_eth_dst', [''])[0]
+                packet['layers']['eth'] = self._clean_layer(eth, 'eth')
+
+            # Extract IP
+            if 'ip' in layers:
+                ip = layers['ip']
+                packet['src_ip'] = ip.get('ip_ip_src', [''])[0]
+                packet['dst_ip'] = ip.get('ip_ip_dst', [''])[0]
+                packet['layers']['ip'] = self._clean_layer(ip, 'ip')
+            elif 'ipv6' in layers:
+                ipv6 = layers['ipv6']
+                packet['src_ip'] = ipv6.get('ipv6_ipv6_src', [''])[0]
+                packet['dst_ip'] = ipv6.get('ipv6_ipv6_dst', [''])[0]
+                packet['layers']['ipv6'] = self._clean_layer(ipv6, 'ipv6')
+
+            # Extract TCP/UDP ports
+            if 'tcp' in layers:
+                tcp = layers['tcp']
+                packet['src_port'] = int(tcp.get('tcp_tcp_srcport', ['0'])[0])
+                packet['dst_port'] = int(tcp.get('tcp_tcp_dstport', ['0'])[0])
+                packet['layers']['tcp'] = self._clean_layer(tcp, 'tcp')
+            elif 'udp' in layers:
+                udp = layers['udp']
+                packet['src_port'] = int(udp.get('udp_udp_srcport', ['0'])[0])
+                packet['dst_port'] = int(udp.get('udp_udp_dstport', ['0'])[0])
+                packet['layers']['udp'] = self._clean_layer(udp, 'udp')
+
+            # Determine highest-priority protocol and extract its layer
+            detected_protocol = self._detect_protocol(layers)
+            packet['protocol'] = self.PROTOCOL_NAMES.get(detected_protocol, detected_protocol.upper())
+
+            # Extract protocol-specific layers
+            for proto in self.PROTOCOL_PRIORITY:
+                if proto in layers and proto not in packet['layers']:
+                    packet['layers'][proto] = self._clean_layer(layers[proto], proto)
+
+            # Build info string based on protocol
+            packet['info'] = self._build_info(packet, layers, detected_protocol)
+
+            return packet
+
+        except Exception as e:
+            print(f"[TsharkParser] Parse error: {e}")
+            packet['info'] = f'Parse error: {str(e)[:50]}'
+            return packet
+
+    def _detect_protocol(self, layers: Dict) -> str:
+        """Detect the highest-priority protocol present in the packet."""
+        for proto in self.PROTOCOL_PRIORITY:
+            if proto in layers:
+                return proto
+        return 'eth'
+
+    def _clean_layer(self, layer_data: Dict, proto: str) -> Dict:
+        """Clean layer data by removing prefix and simplifying structure."""
+        cleaned = {}
+        prefix = f'{proto}_{proto}_'
+
+        for key, value in layer_data.items():
+            # Remove the protocol prefix (e.g., 'bgp_bgp_type' -> 'type')
+            clean_key = key
+            if key.startswith(prefix):
+                clean_key = key[len(prefix):]
+            elif key.startswith(f'{proto}_'):
+                clean_key = key[len(proto) + 1:]
+
+            # Flatten single-item lists
+            if isinstance(value, list) and len(value) == 1:
+                cleaned[clean_key] = value[0]
+            else:
+                cleaned[clean_key] = value
+
+        return cleaned
+
+    def _build_info(self, packet: Dict, layers: Dict, protocol: str) -> str:
+        """Build human-readable info string for the packet."""
+        try:
+            # BGP
+            if protocol == 'bgp' and 'bgp' in layers:
+                bgp = layers['bgp']
+                msg_type = bgp.get('bgp_bgp_type', [''])[0]
+                type_name = self.BGP_MSG_TYPES.get(msg_type, f'Type {msg_type}')
+                info = f'BGP {type_name}'
+
+                # Add details for UPDATE messages
+                if msg_type == '2':
+                    if 'bgp_bgp_update_path_attribute_origin' in bgp:
+                        info += ' (with path attributes)'
+                    withdrawn = bgp.get('bgp_bgp_update_withdrawn_routes_length', ['0'])[0]
+                    if withdrawn != '0':
+                        info += f' [withdrawn: {withdrawn}]'
+                return info
+
+            # OSPF
+            if protocol == 'ospf' and 'ospf' in layers:
+                ospf = layers['ospf']
+                msg_type = ospf.get('ospf_ospf_msg', [''])[0]
+                type_name = self.OSPF_MSG_TYPES.get(msg_type, f'Type {msg_type}')
+                router_id = ospf.get('ospf_ospf_srcrouter', [''])[0]
+                area = ospf.get('ospf_ospf_area_id', [''])[0]
+                info = f'OSPF {type_name}'
+                if router_id:
+                    info += f' Router:{router_id}'
+                if area:
+                    info += f' Area:{area}'
+                return info
+
+            # IS-IS
+            if protocol == 'isis' and 'isis' in layers:
+                isis = layers['isis']
+                pdu_type = isis.get('isis_isis_type', [''])[0]
+                sys_id = isis.get('isis_isis_system_id', [''])[0]
+                info = f'IS-IS PDU:{pdu_type}'
+                if sys_id:
+                    info += f' SysID:{sys_id}'
+                return info
+
+            # VXLAN
+            if protocol == 'vxlan' and 'vxlan' in layers:
+                vxlan = layers['vxlan']
+                vni = vxlan.get('vxlan_vxlan_vni', [''])[0]
+                info = f'VXLAN VNI:{vni}'
+                # Check for inner protocols
+                if 'eth' in layers:
+                    # There might be inner frame info
+                    pass
+                return info
+
+            # EVPN
+            if protocol == 'evpn' and 'evpn' in layers:
+                evpn = layers['evpn']
+                route_type = evpn.get('evpn_evpn_route_type', [''])[0]
+                info = f'EVPN Route-Type:{route_type}'
+                return info
+
+            # LLDP
+            if protocol == 'lldp' and 'lldp' in layers:
+                lldp = layers['lldp']
+                chassis = lldp.get('lldp_lldp_chassis_id', [''])[0]
+                port = lldp.get('lldp_lldp_port_id', [''])[0]
+                info = 'LLDP'
+                if chassis:
+                    info += f' Chassis:{chassis[:20]}'
+                if port:
+                    info += f' Port:{port[:15]}'
+                return info
+
+            # LACP
+            if protocol == 'lacp' and 'lacp' in layers:
+                lacp = layers['lacp']
+                info = 'LACP'
+                actor_port = lacp.get('lacp_lacp_actor_port', [''])[0]
+                if actor_port:
+                    info += f' ActorPort:{actor_port}'
+                return info
+
+            # STP/RSTP
+            if protocol in ('stp', 'rstp') and protocol in layers:
+                stp = layers[protocol]
+                root_id = stp.get(f'{protocol}_{protocol}_root_identifier', [''])[0]
+                info = protocol.upper()
+                if root_id:
+                    info += f' Root:{root_id[:20]}'
+                return info
+
+            # ICMP
+            if protocol == 'icmp' and 'icmp' in layers:
+                icmp = layers['icmp']
+                icmp_type = icmp.get('icmp_icmp_type', [''])[0]
+                type_name = self.ICMP_TYPES.get(icmp_type, f'Type {icmp_type}')
+                seq = icmp.get('icmp_icmp_seq', [''])[0]
+                info = f'ICMP {type_name}'
+                if seq:
+                    info += f' seq={seq}'
+                return info
+
+            # ARP
+            if protocol == 'arp' and 'arp' in layers:
+                arp = layers['arp']
+                opcode = arp.get('arp_arp_opcode', [''])[0]
+                op_name = 'Request' if opcode == '1' else 'Reply' if opcode == '2' else f'Op:{opcode}'
+                src_ip = arp.get('arp_arp_src_proto_ipv4', [''])[0]
+                dst_ip = arp.get('arp_arp_dst_proto_ipv4', [''])[0]
+                info = f'ARP {op_name}'
+                if opcode == '1' and dst_ip:
+                    info += f' Who has {dst_ip}?'
+                elif opcode == '2' and src_ip:
+                    info += f' {src_ip} is at ...'
+                return info
+
+            # TCP
+            if protocol == 'tcp' and 'tcp' in layers:
+                tcp = layers['tcp']
+                flags = tcp.get('tcp_tcp_flags_str', [''])[0]
+                if not flags:
+                    # Build flags from individual flag fields
+                    flag_parts = []
+                    if tcp.get('tcp_tcp_flags_syn', ['0'])[0] == '1':
+                        flag_parts.append('SYN')
+                    if tcp.get('tcp_tcp_flags_ack', ['0'])[0] == '1':
+                        flag_parts.append('ACK')
+                    if tcp.get('tcp_tcp_flags_fin', ['0'])[0] == '1':
+                        flag_parts.append('FIN')
+                    if tcp.get('tcp_tcp_flags_rst', ['0'])[0] == '1':
+                        flag_parts.append('RST')
+                    if tcp.get('tcp_tcp_flags_push', ['0'])[0] == '1':
+                        flag_parts.append('PSH')
+                    flags = ','.join(flag_parts) if flag_parts else ''
+                src_port = packet.get('src_port', '')
+                dst_port = packet.get('dst_port', '')
+                info = f'{src_port} → {dst_port}'
+                if flags:
+                    info += f' [{flags}]'
+                seq = tcp.get('tcp_tcp_seq', [''])[0]
+                if seq:
+                    info += f' Seq={seq}'
+                return info
+
+            # UDP
+            if protocol == 'udp':
+                src_port = packet.get('src_port', '')
+                dst_port = packet.get('dst_port', '')
+                return f'UDP {src_port} → {dst_port}'
+
+            # Default: show addresses
+            if packet['src_ip'] and packet['dst_ip']:
+                return f"{packet['src_ip']} → {packet['dst_ip']}"
+            elif packet['src_mac'] and packet['dst_mac']:
+                return f"{packet['src_mac']} → {packet['dst_mac']}"
+
+            return ''
+
+        except Exception as e:
+            return f'{protocol.upper()}'
+
+
+# Keep old parser as fallback
+class PacketParser:
+    """Legacy tcpdump parser - kept as fallback."""
 
     def parse_line(self, line: str, packet_number: int) -> Optional[Dict]:
         """Parse a single tcpdump output line."""
         if not line or line.startswith('tcpdump:') or 'listening on' in line:
             return None
-
-        # Skip continuation lines (verbose mode detail lines that don't start with timestamp)
-        # Real packet lines start with: YYYY-MM-DD HH:MM:SS.microseconds
         if not re.match(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+', line):
             return None
 
@@ -90,129 +437,15 @@ class PacketParser:
             'dst_port': None,
             'protocol': 'Unknown',
             'length': 0,
-            'info': '',
-            'ethertype': '',
-            'ethertype_name': '',
-            'is_vxlan': False,
-            'vxlan_vni': None,
-            'inner_src_mac': '',
-            'inner_dst_mac': '',
-            'inner_src_ip': '',
-            'inner_dst_ip': '',
-            'inner_protocol': '',
+            'info': line[:100] if len(line) > 100 else line,
+            'layers': {}
         }
 
-        try:
-            # Parse timestamp (format: 2024-01-15 10:30:45.123456)
-            ts_match = re.match(r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)', line)
-            if ts_match:
-                packet['timestamp'] = ts_match.group(1)
-                line = line[len(ts_match.group(0)):].strip()
+        ts_match = re.match(r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)', line)
+        if ts_match:
+            packet['timestamp'] = ts_match.group(1)
 
-            # Parse ethernet header (format: aa:bb:cc:dd:ee:ff > 11:22:33:44:55:66)
-            eth_match = re.match(r'^([0-9a-f:]{17})\s*>\s*([0-9a-f:]{17})', line, re.I)
-            if eth_match:
-                packet['src_mac'] = eth_match.group(1)
-                packet['dst_mac'] = eth_match.group(2)
-                line = line[len(eth_match.group(0)):].strip()
-
-            # Parse ethertype
-            etype_match = re.search(r'ethertype\s+(\S+)\s+\(0x([0-9a-f]+)\)', line, re.I)
-            if etype_match:
-                packet['ethertype_name'] = etype_match.group(1)
-                packet['ethertype'] = etype_match.group(2)
-                packet['protocol'] = self.PROTOCOL_NAMES.get(
-                    packet['ethertype'].lower(),
-                    packet['ethertype_name']
-                )
-
-            # Parse length
-            len_match = re.search(r'length\s+(\d+)', line, re.I)
-            if len_match:
-                packet['length'] = int(len_match.group(1))
-
-            # Parse IP addresses
-            ip_match = re.search(
-                r'(\d+\.\d+\.\d+\.\d+)(?:\.(\d+))?\s*>\s*(\d+\.\d+\.\d+\.\d+)(?:\.(\d+))?',
-                line
-            )
-            if ip_match:
-                packet['src_ip'] = ip_match.group(1)
-                packet['src_port'] = int(ip_match.group(2)) if ip_match.group(2) else None
-                packet['dst_ip'] = ip_match.group(3)
-                packet['dst_port'] = int(ip_match.group(4)) if ip_match.group(4) else None
-
-            # Detect protocol from content
-            if 'ICMP' in line or 'icmp' in line:
-                packet['protocol'] = 'ICMP'
-                icmp_match = re.search(r'ICMP\s+(.+?)(?:,|$)', line)
-                if icmp_match:
-                    packet['info'] = 'ICMP ' + icmp_match.group(1).strip()
-            elif 'ARP' in line or 'arp' in line:
-                packet['protocol'] = 'ARP'
-                if 'Request' in line:
-                    packet['info'] = 'ARP Request'
-                elif 'Reply' in line:
-                    packet['info'] = 'ARP Reply'
-                arp_detail = re.search(r'(who-has|tell|is-at)\s+(\S+)', line)
-                if arp_detail:
-                    packet['info'] += f' {arp_detail.group(1)} {arp_detail.group(2)}'
-            elif packet['dst_port'] == self.VXLAN_PORT or packet['src_port'] == self.VXLAN_PORT:
-                packet['protocol'] = 'VXLAN'
-                packet['is_vxlan'] = True
-                # Try to parse VNI
-                vni_match = re.search(r'vni\s+(\d+)', line, re.I)
-                if vni_match:
-                    packet['vxlan_vni'] = int(vni_match.group(1))
-                # Parse inner frame
-                inner_match = re.search(
-                    r'([0-9a-f:]{17})\s*>\s*([0-9a-f:]{17}).*?(\d+\.\d+\.\d+\.\d+)\s*>\s*(\d+\.\d+\.\d+\.\d+)',
-                    line[line.find('VXLAN'):] if 'VXLAN' in line else '',
-                    re.I
-                )
-                if inner_match:
-                    packet['inner_src_mac'] = inner_match.group(1)
-                    packet['inner_dst_mac'] = inner_match.group(2)
-                    packet['inner_src_ip'] = inner_match.group(3)
-                    packet['inner_dst_ip'] = inner_match.group(4)
-            elif packet['dst_port'] == 80 or packet['src_port'] == 80:
-                packet['protocol'] = 'HTTP'
-            elif packet['dst_port'] == 443 or packet['src_port'] == 443:
-                packet['protocol'] = 'HTTPS'
-            elif packet['dst_port'] == 22 or packet['src_port'] == 22:
-                packet['protocol'] = 'SSH'
-            elif packet['dst_port'] == 179 or packet['src_port'] == 179:
-                packet['protocol'] = 'BGP'
-            elif 'UDP' in line or 'udp' in line:
-                packet['protocol'] = 'UDP'
-            elif 'TCP' in line or 'tcp' in line or 'Flags' in line:
-                packet['protocol'] = 'TCP'
-                # Parse TCP flags
-                flags_match = re.search(r'Flags\s+\[([^\]]+)\]', line)
-                if flags_match:
-                    packet['info'] = f'TCP [{flags_match.group(1)}]'
-
-            # Build info string if not set
-            if not packet['info']:
-                parts = []
-                if packet['src_ip'] and packet['dst_ip']:
-                    src = packet['src_ip']
-                    dst = packet['dst_ip']
-                    if packet['src_port']:
-                        src += f':{packet["src_port"]}'
-                    if packet['dst_port']:
-                        dst += f':{packet["dst_port"]}'
-                    parts.append(f'{src} > {dst}')
-                if packet['length']:
-                    parts.append(f'Len={packet["length"]}')
-                packet['info'] = ' '.join(parts)
-
-            return packet
-
-        except Exception as e:
-            # Return basic packet on parse error
-            packet['info'] = line[:100] if len(line) > 100 else line
-            return packet
+        return packet
 
 
 class CaptureManager:
@@ -367,7 +600,7 @@ class CaptureManager:
 
             # Get the ports attached to this bridge - we need to capture on a port
             # because OVS bridges don't see data plane traffic on the bridge interface
-            capture_interface = bridge_name  # Default to bridge
+            capture_interface = None
             try:
                 result = subprocess.run(
                     ["ovs-vsctl", "list-ports", bridge_name],
@@ -377,12 +610,18 @@ class CaptureManager:
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     ports = result.stdout.strip().split('\n')
+                    ports = [p.strip() for p in ports if p.strip()]
                     if ports:
                         # Use the first port for capture
+                        # Note: This captures traffic in one direction only on point-to-point links
                         capture_interface = ports[0]
                         print(f"[CaptureManager] Capturing on port {capture_interface} (bridge: {bridge_name})")
             except Exception as e:
-                print(f"[CaptureManager] Warning: Could not get bridge ports: {e}")
+                print(f"[CaptureManager] Error getting bridge ports: {e}")
+
+            # Fail explicitly if we couldn't find a port to capture on
+            if not capture_interface:
+                return {"error": f"No ports found on bridge '{bridge_name}'. Cannot capture data plane traffic."}
 
             # Ensure the capture interface is up
             try:
@@ -395,22 +634,19 @@ class CaptureManager:
             except Exception as e:
                 print(f"[CaptureManager] Warning: Could not bring interface up: {e}")
 
-            # Build tcpdump command with stdbuf for immediate output
-            # Note: Don't use -v (verbose) as it outputs multiple lines per packet
+            # Build tshark command with JSON output for rich protocol decoding
+            # Using 'ek' format (Elasticsearch/newline-delimited JSON) - one JSON object per line
             cmd = [
-                "stdbuf", "-oL", "-eL",  # Force line-buffered stdout/stderr
-                "tcpdump",
+                "tshark",
                 "-i", capture_interface,
-                "-l",       # Line-buffered
-                "-nn",      # No name resolution
-                "-tttt",    # Human-readable timestamps with date
-                "-e",       # Show ethernet header
-                "-s", "256",  # Capture first 256 bytes (enough for headers)
-                "--immediate-mode",  # Immediate packet delivery (no buffering)
+                "-T", "ek",          # Newline-delimited JSON output
+                "-l",                # Line-buffered output
+                "-n",                # No name resolution
+                "-Q",                # Quiet (no packet count summary)
             ]
             if bpf_filter:
-                # BPF filter is already validated, safe to append
-                cmd.append(bpf_filter)
+                # BPF filter goes after -f flag
+                cmd.extend(["-f", bpf_filter])
 
             try:
                 process = subprocess.Popen(
@@ -454,33 +690,30 @@ class CaptureManager:
                 }
 
             except FileNotFoundError:
-                return {"error": "tcpdump not installed"}
+                return {"error": "tshark not installed"}
             except PermissionError:
                 return {"error": "Permission denied - need NET_ADMIN"}
             except Exception as e:
                 return {"error": str(e)}
 
     def _read_output(self, session: CaptureSession, ioloop):
-        """Read tcpdump output and send to WebSocket."""
-        parser = PacketParser()
+        """Read tshark JSON output and send to WebSocket."""
+        parser = TsharkParser()
         local_packet_count = 0  # Local counter to avoid race conditions
 
         print(f"[CaptureManager] Reader thread started for {session.session_id} on {session.bridge_name}")
 
-        # Check for any stderr output (tcpdump errors)
+        # Check for any stderr output (tshark errors)
         if session.process and session.process.stderr:
-            import select
             # Non-blocking check for stderr
             try:
-                import os
-                import fcntl
                 fd = session.process.stderr.fileno()
                 fl = fcntl.fcntl(fd, fcntl.F_GETFL)
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
                 stderr_data = session.process.stderr.read()
                 if stderr_data:
-                    print(f"[CaptureManager] tcpdump stderr: {stderr_data}")
-            except Exception as e:
+                    print(f"[CaptureManager] tshark stderr: {stderr_data}")
+            except Exception:
                 pass  # Ignore non-blocking read errors
 
         try:
@@ -494,13 +727,13 @@ class CaptureManager:
                 if not line:
                     # Check if process exited
                     if session.process.poll() is not None:
-                        print(f"[CaptureManager] tcpdump exited with code {session.process.returncode}")
+                        print(f"[CaptureManager] tshark exited with code {session.process.returncode}")
                         # Try to get stderr
                         try:
                             stderr = session.process.stderr.read()
                             if stderr:
-                                print(f"[CaptureManager] tcpdump stderr: {stderr}")
-                        except:
+                                print(f"[CaptureManager] tshark stderr: {stderr}")
+                        except Exception:
                             pass
                     break
 
@@ -508,7 +741,7 @@ class CaptureManager:
                 if not line:
                     continue
 
-                # Parse line - returns None for non-packet lines (continuations, etc.)
+                # Parse JSON line - returns None for non-packet lines (index lines, etc.)
                 packet = parser.parse_line(line, local_packet_count + 1)
 
                 if packet:
@@ -517,11 +750,12 @@ class CaptureManager:
 
                     # Debug: log first few packets
                     if local_packet_count <= 3:
-                        print(f"[CaptureManager] Packet {local_packet_count}: {line[:100]}...")
+                        print(f"[CaptureManager] Packet {local_packet_count}: {packet.get('protocol', '?')} - {packet.get('info', '')[:60]}")
 
-                    # Update session packet count atomically
-                    with self._lock:
-                        session.packet_count = local_packet_count
+                    # Update session packet count atomically - only every 10 packets to reduce lock contention
+                    if local_packet_count % 10 == 0:
+                        with self._lock:
+                            session.packet_count = local_packet_count
 
                     # Send via WebSocket (thread-safe via IOLoop callback)
                     # Capture websocket reference to avoid race with None assignment
@@ -691,22 +925,27 @@ class CaptureManager:
 
     def _test_bpf_filter(self, bridge_name: str, bpf_filter: str) -> Optional[str]:
         """
-        Test BPF filter by running tcpdump in dump mode.
+        Test BPF filter by running tshark in dry-run mode.
         Returns None if valid, or error message if invalid.
+        Uses tshark (not tcpdump) to ensure filter compatibility with actual capture.
         """
         try:
-            # Use -d to dump compiled filter (doesn't capture, just validates)
+            # Use tshark with -c 0 to validate filter without capturing
+            # -a duration:1 ensures it exits quickly
             result = subprocess.run(
-                ["tcpdump", "-i", bridge_name, "-d", bpf_filter],
+                ["tshark", "-i", bridge_name, "-f", bpf_filter, "-c", "0", "-a", "duration:1"],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
+            # tshark returns 0 even with -c 0, but invalid filter causes non-zero exit
             if result.returncode != 0:
                 # Extract useful error from stderr
                 error = result.stderr.strip()
                 if 'syntax error' in error.lower():
                     return "Syntax error in filter expression"
+                if 'invalid capture filter' in error.lower():
+                    return "Invalid capture filter syntax"
                 return error[:100] if len(error) > 100 else error or "Unknown filter error"
             return None  # Valid
         except subprocess.TimeoutExpired:

@@ -629,12 +629,231 @@ export class CapturePanel {
     }
 
     /**
+     * Protocol display names and ordering for detail panel
+     */
+    static PROTOCOL_DISPLAY = {
+        'eth': { name: 'Ethernet II', order: 1 },
+        'ip': { name: 'Internet Protocol Version 4', order: 2 },
+        'ipv6': { name: 'Internet Protocol Version 6', order: 2 },
+        'tcp': { name: 'Transmission Control Protocol', order: 3 },
+        'udp': { name: 'User Datagram Protocol', order: 3 },
+        'icmp': { name: 'Internet Control Message Protocol', order: 4 },
+        'icmpv6': { name: 'Internet Control Message Protocol v6', order: 4 },
+        'arp': { name: 'Address Resolution Protocol', order: 4 },
+        'bgp': { name: 'Border Gateway Protocol', order: 5 },
+        'ospf': { name: 'Open Shortest Path First', order: 5 },
+        'isis': { name: 'Intermediate System to Intermediate System', order: 5 },
+        'bfd': { name: 'Bidirectional Forwarding Detection', order: 5 },
+        'lldp': { name: 'Link Layer Discovery Protocol', order: 5 },
+        'lacp': { name: 'Link Aggregation Control Protocol', order: 5 },
+        'stp': { name: 'Spanning Tree Protocol', order: 5 },
+        'rstp': { name: 'Rapid Spanning Tree Protocol', order: 5 },
+        'vxlan': { name: 'Virtual eXtensible LAN', order: 6 },
+        'evpn': { name: 'Ethernet VPN', order: 6 },
+        'mpls': { name: 'Multiprotocol Label Switching', order: 6 },
+        'gre': { name: 'Generic Routing Encapsulation', order: 6 },
+        'dhcp': { name: 'Dynamic Host Configuration Protocol', order: 7 },
+        'dhcpv6': { name: 'DHCPv6', order: 7 },
+        'dns': { name: 'Domain Name System', order: 7 },
+        'ntp': { name: 'Network Time Protocol', order: 7 }
+    };
+
+    /**
      * Show packet detail in the detail panel
      */
     showPacketDetail(packet) {
         const panel = this.elements.detailPanel;
 
         let html = '<div class="packet-detail-tree">';
+
+        // Frame info summary
+        html += `
+            <div class="packet-detail-section">
+                <div class="packet-detail-header">
+                    <span class="packet-detail-toggle">▼</span>
+                    <span class="packet-detail-title">Frame ${packet.number}</span>
+                    <span class="packet-detail-summary">${packet.length} bytes</span>
+                </div>
+                <div class="packet-detail-fields">
+                    <div class="packet-detail-field">
+                        <span class="packet-detail-field-name">Arrival Time:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(packet.timestamp || '')}</span>
+                    </div>
+                    <div class="packet-detail-field">
+                        <span class="packet-detail-field-name">Frame Length:</span>
+                        <span class="packet-detail-field-value">${packet.length} bytes</span>
+                    </div>
+                    <div class="packet-detail-field">
+                        <span class="packet-detail-field-name">Protocol:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(packet.protocol || 'Unknown')}</span>
+                    </div>
+                    <div class="packet-detail-field">
+                        <span class="packet-detail-field-name">Info:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(packet.info || '')}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Render protocol layers from tshark data
+        if (packet.layers && typeof packet.layers === 'object') {
+            // Sort layers by protocol order
+            const sortedLayers = Object.entries(packet.layers).sort((a, b) => {
+                const orderA = (CapturePanel.PROTOCOL_DISPLAY[a[0]] || {}).order || 99;
+                const orderB = (CapturePanel.PROTOCOL_DISPLAY[b[0]] || {}).order || 99;
+                return orderA - orderB;
+            });
+
+            for (const [proto, fields] of sortedLayers) {
+                const displayInfo = CapturePanel.PROTOCOL_DISPLAY[proto] || { name: proto.toUpperCase(), order: 99 };
+                html += this.renderProtocolLayer(proto, displayInfo.name, fields, packet);
+            }
+        } else {
+            // Fallback for legacy packet format without layers object
+            html += this.renderLegacyPacketDetail(packet);
+        }
+
+        html += '</div>';
+        panel.innerHTML = html;
+
+        // Add collapse/expand handlers
+        panel.querySelectorAll('.packet-detail-header').forEach(header => {
+            header.addEventListener('click', () => {
+                header.parentElement.classList.toggle('collapsed');
+            });
+        });
+    }
+
+    /**
+     * Render a single protocol layer section
+     */
+    renderProtocolLayer(proto, displayName, fields, packet) {
+        if (!fields || typeof fields !== 'object') {
+            return '';
+        }
+
+        // Build summary based on protocol type
+        let summary = '';
+        switch (proto) {
+            case 'eth':
+                summary = `${packet.src_mac || ''} → ${packet.dst_mac || ''}`;
+                break;
+            case 'ip':
+            case 'ipv6':
+                summary = `${packet.src_ip || ''} → ${packet.dst_ip || ''}`;
+                break;
+            case 'tcp':
+            case 'udp':
+                summary = `${packet.src_port || ''} → ${packet.dst_port || ''}`;
+                break;
+            case 'bgp':
+                summary = fields.type ? `${fields.type}` : '';
+                break;
+            case 'ospf':
+                summary = fields.msg ? `${fields.msg}` : '';
+                break;
+            case 'vxlan':
+                summary = fields.vni ? `VNI: ${fields.vni}` : '';
+                break;
+            case 'lldp':
+                summary = fields.chassis_id ? `Chassis: ${fields.chassis_id}` : '';
+                break;
+        }
+
+        let html = `
+            <div class="packet-detail-section protocol-${proto}">
+                <div class="packet-detail-header">
+                    <span class="packet-detail-toggle">▼</span>
+                    <span class="packet-detail-title">${this.escapeHtml(displayName)}</span>
+                    ${summary ? `<span class="packet-detail-summary">${this.escapeHtml(summary)}</span>` : ''}
+                </div>
+                <div class="packet-detail-fields">
+        `;
+
+        // Render each field in the layer
+        for (const [fieldName, fieldValue] of Object.entries(fields)) {
+            // Skip complex nested objects for now (could be expanded in future)
+            if (typeof fieldValue === 'object' && fieldValue !== null) {
+                // Render nested object as indented fields
+                html += this.renderNestedFields(fieldName, fieldValue);
+            } else {
+                // Format field name for display (convert underscores to spaces, capitalize)
+                const displayFieldName = this.formatFieldName(fieldName);
+                html += `
+                    <div class="packet-detail-field">
+                        <span class="packet-detail-field-name">${this.escapeHtml(displayFieldName)}:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(String(fieldValue))}</span>
+                    </div>
+                `;
+            }
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * Render nested fields (for complex protocol data)
+     */
+    renderNestedFields(parentName, obj, depth = 1) {
+        if (!obj || typeof obj !== 'object') return '';
+        if (depth > 3) return ''; // Prevent infinite recursion
+
+        let html = '';
+        const indent = depth * 12; // pixels
+
+        for (const [key, value] of Object.entries(obj)) {
+            const displayName = this.formatFieldName(key);
+
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                // Recurse for nested objects
+                html += `
+                    <div class="packet-detail-field nested" style="padding-left: ${indent}px;">
+                        <span class="packet-detail-field-name">${this.escapeHtml(displayName)}:</span>
+                    </div>
+                `;
+                html += this.renderNestedFields(key, value, depth + 1);
+            } else if (Array.isArray(value)) {
+                // Render array as comma-separated values
+                html += `
+                    <div class="packet-detail-field nested" style="padding-left: ${indent}px;">
+                        <span class="packet-detail-field-name">${this.escapeHtml(displayName)}:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(value.join(', '))}</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="packet-detail-field nested" style="padding-left: ${indent}px;">
+                        <span class="packet-detail-field-name">${this.escapeHtml(displayName)}:</span>
+                        <span class="packet-detail-field-value">${this.escapeHtml(String(value))}</span>
+                    </div>
+                `;
+            }
+        }
+
+        return html;
+    }
+
+    /**
+     * Format field name for display
+     * Converts snake_case to Title Case with spaces
+     */
+    formatFieldName(name) {
+        if (!name) return '';
+        return name
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    /**
+     * Render legacy packet detail (fallback for packets without layers object)
+     */
+    renderLegacyPacketDetail(packet) {
+        let html = '';
 
         // Ethernet section
         if (packet.src_mac || packet.dst_mac) {
@@ -654,10 +873,6 @@ export class CapturePanel {
                             <span class="packet-detail-field-name">Destination:</span>
                             <span class="packet-detail-field-value">${packet.dst_mac}</span>
                         </div>
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Type:</span>
-                            <span class="packet-detail-field-value">${packet.ethertype_name} (0x${packet.ethertype})</span>
-                        </div>
                     </div>
                 </div>
             `;
@@ -665,12 +880,11 @@ export class CapturePanel {
 
         // IP section
         if (packet.src_ip || packet.dst_ip) {
-            const ipVersion = packet.protocol === 'IPv6' ? 'IPv6' : 'IPv4';
             html += `
                 <div class="packet-detail-section">
                     <div class="packet-detail-header">
                         <span class="packet-detail-toggle">▼</span>
-                        <span class="packet-detail-title">Internet Protocol Version ${ipVersion === 'IPv6' ? '6' : '4'}</span>
+                        <span class="packet-detail-title">Internet Protocol</span>
                         <span class="packet-detail-summary">${packet.src_ip} → ${packet.dst_ip}</span>
                     </div>
                     <div class="packet-detail-fields">
@@ -688,7 +902,7 @@ export class CapturePanel {
         }
 
         // Transport/Protocol section
-        if (packet.protocol && !['IPv4', 'IPv6', 'ARP'].includes(packet.protocol)) {
+        if (packet.protocol && !['IPv4', 'IPv6', 'Ethernet'].includes(packet.protocol)) {
             html += `
                 <div class="packet-detail-section">
                     <div class="packet-detail-header">
@@ -707,91 +921,12 @@ export class CapturePanel {
                             <span class="packet-detail-field-value">${packet.dst_port}</span>
                         </div>
                         ` : ''}
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Info:</span>
-                            <span class="packet-detail-field-value">${this.escapeHtml(packet.info || '')}</span>
-                        </div>
                     </div>
                 </div>
             `;
         }
 
-        // VXLAN inner frame
-        if (packet.is_vxlan && packet.vxlan_vni) {
-            html += `
-                <div class="packet-detail-section vxlan-inner">
-                    <div class="packet-detail-header">
-                        <span class="packet-detail-toggle">▼</span>
-                        <span class="packet-detail-title">VXLAN Encapsulated Frame</span>
-                        <span class="packet-detail-summary">VNI: ${packet.vxlan_vni}</span>
-                    </div>
-                    <div class="packet-detail-fields">
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">VNI:</span>
-                            <span class="packet-detail-field-value">${packet.vxlan_vni}</span>
-                        </div>
-                        ${packet.inner_src_mac ? `
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Inner Src MAC:</span>
-                            <span class="packet-detail-field-value">${packet.inner_src_mac}</span>
-                        </div>
-                        ` : ''}
-                        ${packet.inner_dst_mac ? `
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Inner Dst MAC:</span>
-                            <span class="packet-detail-field-value">${packet.inner_dst_mac}</span>
-                        </div>
-                        ` : ''}
-                        ${packet.inner_src_ip ? `
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Inner Src IP:</span>
-                            <span class="packet-detail-field-value">${packet.inner_src_ip}</span>
-                        </div>
-                        ` : ''}
-                        ${packet.inner_dst_ip ? `
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Inner Dst IP:</span>
-                            <span class="packet-detail-field-value">${packet.inner_dst_ip}</span>
-                        </div>
-                        ` : ''}
-                        ${packet.inner_protocol ? `
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Inner Protocol:</span>
-                            <span class="packet-detail-field-value">${packet.inner_protocol}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }
-
-        // ARP section
-        if (packet.protocol === 'ARP') {
-            html += `
-                <div class="packet-detail-section">
-                    <div class="packet-detail-header">
-                        <span class="packet-detail-toggle">▼</span>
-                        <span class="packet-detail-title">Address Resolution Protocol (ARP)</span>
-                    </div>
-                    <div class="packet-detail-fields">
-                        <div class="packet-detail-field">
-                            <span class="packet-detail-field-name">Info:</span>
-                            <span class="packet-detail-field-value">${this.escapeHtml(packet.info || '')}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        html += '</div>';
-        panel.innerHTML = html;
-
-        // Add collapse/expand handlers
-        panel.querySelectorAll('.packet-detail-header').forEach(header => {
-            header.addEventListener('click', () => {
-                header.parentElement.classList.toggle('collapsed');
-            });
-        });
+        return html;
     }
 
     /**
