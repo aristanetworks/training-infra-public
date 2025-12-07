@@ -98,8 +98,8 @@ export function getCytoscapeStyles() {
                 'background-clip': 'none',
                 'background-color': 'transparent',
                 'border-width': 0,
-                'width': 65,
-                'height': 65
+                'width': 70,
+                'height': 70
             }
         },
         {
@@ -237,15 +237,17 @@ export function getCytoscapeStyles() {
             }
         },
 
-        // --- Host: Keep as colored shape ---
+        // --- Host icon ---
         {
             selector: '.device-type-host',
             style: {
-                'shape': 'ellipse',
-                'background-color': '#dae0fe',
-                'border-color': '#4c5cae',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/hosts.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
 
