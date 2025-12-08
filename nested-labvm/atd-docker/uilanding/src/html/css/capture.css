@@ -1,0 +1,866 @@
+/**
+ * ATL Packet Capture Panel Styles
+ * Wireshark-inspired UI for real-time packet capture and display
+ */
+
+/* ==========================================
+   Capture Panel Container
+   ========================================== */
+.capture-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 350px;
+    background-color: #ffffff;
+    border-top: 3px solid #fbb500;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    font-family: "Proxima Nova", -apple-system, sans-serif;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s ease-out, height 0.3s ease-out, left 0.2s ease-out;
+}
+
+.capture-panel.visible {
+    transform: translateY(0);
+}
+
+.capture-panel.minimized {
+    height: 44px;
+}
+
+.capture-panel.expanded {
+    height: 60vh;
+    max-height: 600px;
+}
+
+/* ==========================================
+   Capture Panel Header
+   ========================================== */
+.capture-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background-color: #071c35;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.capture-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    height: 30px;
+}
+
+.capture-title-icon {
+    font-size: 16px;
+}
+
+.capture-link-info {
+    font-size: 12px;
+    color: #fbb500;
+    font-weight: 500;
+    line-height: 30px;
+}
+
+/* Capture Controls */
+.capture-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+}
+
+.capture-btn {
+    /* Reset Foundation/Bootstrap button styles */
+    margin: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    vertical-align: middle;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Capture button styles */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background-color: transparent;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 30px;
+}
+
+.capture-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.capture-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.capture-btn.start {
+    background-color: #78d82c;
+    border-color: #78d82c;
+    color: #071c35;
+}
+
+.capture-btn.start:hover:not(:disabled) {
+    background-color: #6bc728;
+}
+
+.capture-btn.stop {
+    background-color: #e30909;
+    border-color: #e30909;
+    color: #ffffff;
+}
+
+.capture-btn.stop:hover:not(:disabled) {
+    background-color: #c70808;
+}
+
+.capture-btn.active {
+    animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-recording {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Capture Status */
+.capture-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 4px 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    height: 30px;
+    margin-left: auto;
+}
+
+.capture-status.capturing {
+    background-color: rgba(120, 216, 44, 0.2);
+}
+
+.capture-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #808080;
+}
+
+.capture-status.capturing .capture-status-dot {
+    background-color: #78d82c;
+    animation: blink-recording 1s ease-in-out infinite;
+}
+
+@keyframes blink-recording {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.capture-packet-count {
+    font-weight: 600;
+    color: #fbb500;
+}
+
+/* Window Controls */
+.capture-window-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 12px;
+    height: 30px;
+}
+
+.capture-window-btn {
+    /* Reset Foundation/Bootstrap button styles */
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Window button styles */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.capture-window-btn:hover {
+    background-color: #fbb500;
+    border-color: #fbb500;
+    color: #071c35;
+}
+
+/* ==========================================
+   Filter Bar
+   ========================================== */
+.capture-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
+}
+
+.capture-filter-input {
+    /* Reset Foundation/Bootstrap input styles */
+    margin: 0;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Filter input styles */
+    flex: 1;
+    max-width: 400px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-family: "Monaco", "Consolas", monospace;
+    border: 1px solid #ccc;
+    background-color: #ffffff;
+    color: #071c35;
+}
+
+.capture-filter-input:focus {
+    border-color: #4c5cae;
+    outline: none;
+}
+
+.capture-filter-input::placeholder {
+    color: #999;
+}
+
+.capture-filter-hint {
+    font-size: 11px;
+    color: #666;
+}
+
+.capture-filter-hint code {
+    background-color: #e8e8e8;
+    padding: 2px 5px;
+    border-radius: 2px;
+    font-family: "Monaco", "Consolas", monospace;
+    font-size: 10px;
+}
+
+/* ==========================================
+   Capture Body Container
+   ========================================== */
+.capture-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Side-by-side layout mode */
+.capture-body.side-by-side {
+    flex-direction: row;
+}
+
+.capture-body.side-by-side .capture-packet-list {
+    flex: 1;
+    min-width: 0;
+    border-right: 2px solid #071c35;
+}
+
+.capture-body.side-by-side .capture-detail-panel {
+    width: 400px;
+    min-width: 300px;
+    max-width: 50%;
+    height: auto;
+    border-top: none;
+    border-left: 2px solid #071c35;
+}
+
+/* ==========================================
+   Packet List (Virtual Scroll Container)
+   ========================================== */
+.capture-packet-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    font-family: "Monaco", "Consolas", monospace;
+    font-size: 11px;
+    background-color: #ffffff;
+    min-height: 0;
+}
+
+.capture-packet-list-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    background-color: #e8e8e8;
+    border-bottom: 1px solid #ccc;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #071c35;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.capture-packet-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.capture-packet-row:hover {
+    background-color: #f5f5f5;
+}
+
+.capture-packet-row.selected {
+    background-color: #d6e9ff;
+}
+
+/* Protocol-based row coloring (Wireshark-inspired) */
+.capture-packet-row.protocol-tcp {
+    background-color: #e7ffe7;
+}
+.capture-packet-row.protocol-tcp.selected {
+    background-color: #b8e6b8;
+}
+
+.capture-packet-row.protocol-udp {
+    background-color: #daeeff;
+}
+.capture-packet-row.protocol-udp.selected {
+    background-color: #b3d9ff;
+}
+
+.capture-packet-row.protocol-arp {
+    background-color: #fff0e6;
+}
+.capture-packet-row.protocol-arp.selected {
+    background-color: #ffd6b8;
+}
+
+.capture-packet-row.protocol-icmp {
+    background-color: #ffe6ff;
+}
+.capture-packet-row.protocol-icmp.selected {
+    background-color: #ffb8ff;
+}
+
+.capture-packet-row.protocol-vxlan {
+    background-color: #fff8e0;
+}
+.capture-packet-row.protocol-vxlan.selected {
+    background-color: #ffe6a0;
+}
+
+.capture-packet-row.protocol-dns {
+    background-color: #e6f0ff;
+}
+
+.capture-packet-row.protocol-lldp {
+    background-color: #f0e6ff;
+}
+
+/* Routing Protocol Colors */
+.capture-packet-row.protocol-bgp {
+    background-color: #e8f5e9;  /* Light green */
+}
+.capture-packet-row.protocol-bgp.selected {
+    background-color: #c8e6c9;
+}
+
+.capture-packet-row.protocol-ospf {
+    background-color: #e3f2fd;  /* Light blue */
+}
+.capture-packet-row.protocol-ospf.selected {
+    background-color: #bbdefb;
+}
+
+.capture-packet-row.protocol-is-is,
+.capture-packet-row.protocol-isis {
+    background-color: #fce4ec;  /* Light pink */
+}
+.capture-packet-row.protocol-is-is.selected,
+.capture-packet-row.protocol-isis.selected {
+    background-color: #f8bbd0;
+}
+
+.capture-packet-row.protocol-bfd {
+    background-color: #fff3e0;  /* Light orange */
+}
+.capture-packet-row.protocol-bfd.selected {
+    background-color: #ffe0b2;
+}
+
+/* Layer 2 Protocol Colors */
+.capture-packet-row.protocol-lacp {
+    background-color: #e8eaf6;  /* Light indigo */
+}
+.capture-packet-row.protocol-lacp.selected {
+    background-color: #c5cae9;
+}
+
+.capture-packet-row.protocol-stp,
+.capture-packet-row.protocol-rstp {
+    background-color: #f3e5f5;  /* Light purple */
+}
+.capture-packet-row.protocol-stp.selected,
+.capture-packet-row.protocol-rstp.selected {
+    background-color: #e1bee7;
+}
+
+.capture-packet-row.protocol-lldp.selected {
+    background-color: #d1c4e9;
+}
+
+/* Overlay Protocol Colors */
+.capture-packet-row.protocol-evpn {
+    background-color: #e0f7fa;  /* Light cyan */
+}
+.capture-packet-row.protocol-evpn.selected {
+    background-color: #b2ebf2;
+}
+
+.capture-packet-row.protocol-mpls {
+    background-color: #fff9c4;  /* Light yellow */
+}
+.capture-packet-row.protocol-mpls.selected {
+    background-color: #fff59d;
+}
+
+.capture-packet-row.protocol-gre {
+    background-color: #f1f8e9;  /* Light lime */
+}
+.capture-packet-row.protocol-gre.selected {
+    background-color: #dcedc8;
+}
+
+/* Packet Row Columns */
+.packet-col {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+}
+
+.packet-col-num {
+    width: 50px;
+    text-align: right;
+    color: #666;
+}
+
+.packet-col-time {
+    width: 100px;
+    color: #071c35;
+}
+
+.packet-col-src {
+    width: 150px;
+    color: #071c35;
+}
+
+.packet-col-dst {
+    width: 150px;
+    color: #071c35;
+}
+
+.packet-col-protocol {
+    width: 70px;
+    font-weight: 600;
+    color: #4c5cae;
+}
+
+.packet-col-length {
+    width: 50px;
+    text-align: right;
+    color: #666;
+}
+
+.packet-col-info {
+    flex: 1;
+    color: #333;
+}
+
+/* ==========================================
+   Packet Detail Panel
+   ========================================== */
+.capture-detail-panel {
+    height: 150px;
+    border-top: 2px solid #071c35;
+    background-color: #f8f8f8;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.capture-detail-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Protocol Tree View */
+.packet-detail-tree {
+    padding: 8px;
+    font-family: "Monaco", "Consolas", monospace;
+    font-size: 11px;
+}
+
+.packet-detail-section {
+    margin-bottom: 4px;
+}
+
+.packet-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background-color: #e8e8e8;
+    cursor: pointer;
+    user-select: none;
+}
+
+.packet-detail-header:hover {
+    background-color: #ddd;
+}
+
+.packet-detail-toggle {
+    font-size: 10px;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.packet-detail-section.collapsed .packet-detail-toggle {
+    transform: rotate(-90deg);
+}
+
+.packet-detail-title {
+    font-weight: 600;
+    color: #071c35;
+}
+
+.packet-detail-summary {
+    color: #666;
+    font-size: 10px;
+    margin-left: auto;
+}
+
+.packet-detail-fields {
+    padding: 4px 8px 4px 24px;
+}
+
+.packet-detail-section.collapsed .packet-detail-fields {
+    display: none;
+}
+
+.packet-detail-field {
+    display: flex;
+    padding: 2px 0;
+}
+
+.packet-detail-field-name {
+    color: #4c5cae;
+    min-width: 120px;
+}
+
+.packet-detail-field-value {
+    color: #071c35;
+}
+
+/* VXLAN Inner Frame Highlight */
+.packet-detail-section.vxlan-inner {
+    margin-left: 16px;
+    border-left: 2px solid #fbb500;
+}
+
+.packet-detail-section.vxlan-inner .packet-detail-header {
+    background-color: #fff8e0;
+}
+
+/* Protocol-specific detail panel styling */
+.packet-detail-section.protocol-bgp .packet-detail-header {
+    background-color: #e8f5e9;
+    border-left: 3px solid #4caf50;
+}
+
+.packet-detail-section.protocol-ospf .packet-detail-header {
+    background-color: #e3f2fd;
+    border-left: 3px solid #2196f3;
+}
+
+.packet-detail-section.protocol-isis .packet-detail-header {
+    background-color: #fce4ec;
+    border-left: 3px solid #e91e63;
+}
+
+.packet-detail-section.protocol-bfd .packet-detail-header {
+    background-color: #fff3e0;
+    border-left: 3px solid #ff9800;
+}
+
+.packet-detail-section.protocol-vxlan .packet-detail-header {
+    background-color: #fff8e0;
+    border-left: 3px solid #fbb500;
+}
+
+.packet-detail-section.protocol-evpn .packet-detail-header {
+    background-color: #e0f7fa;
+    border-left: 3px solid #00bcd4;
+}
+
+.packet-detail-section.protocol-lldp .packet-detail-header {
+    background-color: #f0e6ff;
+    border-left: 3px solid #9c27b0;
+}
+
+.packet-detail-section.protocol-lacp .packet-detail-header {
+    background-color: #e8eaf6;
+    border-left: 3px solid #3f51b5;
+}
+
+.packet-detail-section.protocol-stp .packet-detail-header,
+.packet-detail-section.protocol-rstp .packet-detail-header {
+    background-color: #f3e5f5;
+    border-left: 3px solid #673ab7;
+}
+
+/* Nested field styling */
+.packet-detail-field.nested {
+    font-size: 10px;
+    color: #555;
+}
+
+.packet-detail-field.nested .packet-detail-field-name {
+    min-width: 100px;
+    color: #666;
+}
+
+/* ==========================================
+   Empty State
+   ========================================== */
+.capture-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    text-align: center;
+    padding: 20px;
+}
+
+.capture-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.capture-empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #071c35;
+    margin-bottom: 8px;
+}
+
+.capture-empty-subtitle {
+    font-size: 12px;
+    color: #666;
+}
+
+/* ==========================================
+   Bridge Selector (for capture panel)
+   ========================================== */
+.capture-bridge-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+}
+
+.capture-bridge-select {
+    /* Reset Foundation/Bootstrap select styles */
+    margin: 0;
+    border-radius: 0;
+    line-height: 1;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Bridge select styles */
+    height: 30px;
+    padding: 0 8px;
+    font-size: 12px;
+    background-color: #0a1929;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    max-width: 200px;
+}
+
+.capture-bridge-select:focus {
+    border-color: #fbb500;
+    outline: none;
+}
+
+.capture-bridge-select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.capture-bridge-select option {
+    background-color: #071c35;
+    color: #ffffff;
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
+@media (max-width: 768px) {
+    .capture-panel {
+        height: 40vh;
+    }
+
+    .capture-panel.expanded {
+        height: 70vh;
+    }
+
+    .capture-filter-bar {
+        flex-wrap: wrap;
+    }
+
+    .capture-filter-input {
+        max-width: 100%;
+        order: -1;
+        width: 100%;
+    }
+
+    .packet-col-src,
+    .packet-col-dst {
+        width: 100px;
+    }
+
+    .packet-col-info {
+        display: none;
+    }
+}
+
+/* ==========================================
+   Edge Capture Indicator (on topology edge)
+   ========================================== */
+.edge-capturing {
+    stroke-dasharray: 5, 5;
+    animation: capture-dash 0.5s linear infinite;
+}
+
+@keyframes capture-dash {
+    to {
+        stroke-dashoffset: -10;
+    }
+}
+
+/* ==========================================
+   Page-Specific Capture Panel Overrides
+   ========================================== */
+
+/* --- Index Page (Foundation grid with .large-3 sidebar) --- */
+/* Position capture panel to avoid left sidebar (fixed 350px width from home.css) */
+body:has(.left-sidebar) > .capture-panel {
+    left: 350px;
+}
+
+/* Right panel smooth transition for capture panel */
+.right-panel {
+    transition: padding-bottom 0.3s ease-out;
+}
+
+/* When capture panel is visible, add padding to right-panel */
+.right-panel.capture-panel-visible {
+    padding-bottom: 350px;
+}
+
+.right-panel.capture-panel-visible.capture-panel-minimized {
+    padding-bottom: 44px;
+}
+
+.right-panel.capture-panel-visible.capture-panel-expanded {
+    padding-bottom: min(60vh, 600px);
+}
+
+/* --- Terminal Page (fixed 280px sidebar) --- */
+/* Position capture panel to avoid device sidebar */
+body:has(.device-sidebar) > .capture-panel {
+    left: 280px;
+}
+
+/* Adjust for collapsed sidebar */
+body:has(.device-sidebar.collapsed) > .capture-panel {
+    left: 48px;
+}
+
+/* Main content smooth transition for capture panel */
+.main-content {
+    transition: padding-bottom 0.3s ease-out;
+}
+
+/* When capture panel is visible, add padding to main-content */
+.main-content.capture-panel-visible {
+    padding-bottom: 350px;
+}
+
+.main-content.capture-panel-visible.capture-panel-minimized {
+    padding-bottom: 44px;
+}
+
+.main-content.capture-panel-visible.capture-panel-expanded {
+    padding-bottom: min(60vh, 600px);
+}
+
+/* --- Responsive Overrides --- */
+@media (max-width: 1023px) {
+    /* On medium/small screens, capture panel spans full width */
+    body:has(.left-sidebar) > .capture-panel,
+    body:has(.device-sidebar) > .capture-panel {
+        left: 0;
+    }
+}

@@ -18,6 +18,11 @@ import os
 import subprocess
 import time
 import threading
+import pyeapi
+from device_types import DeviceTypeConfig
+# Note: capture_manager is no longer imported here.
+# Packet capture runs in the dedicated captureservice container with host network mode.
+# uilanding proxies WebSocket connections to the capture service.
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -81,6 +86,7 @@ FUNC_STATE = 'https://us-central1-{0}.cloudfunctions.net/atd-state'.format(PROJE
 NAME = host_yaml['name']
 ZONE = host_yaml['zone']
 TOPO = host_yaml['topology']
+EOS_TYPE = host_yaml.get('eos_type', 'veos')  # 'veos' or 'container-labs'
 if 'schema' in host_yaml:
     SCHEMA = host_yaml['schema']
 else:
@@ -424,6 +430,124 @@ def pS(mtype):
     cur_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     mmes = "\t" + mtype
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
+
+
+# Cache for topo_build.yml data (loaded once on first use)
+_TOPO_BUILD_CACHE = None
+# Cache for merged device list from both sources
+_ALL_DEVICES_CACHE = None
+
+
+def _get_topo_build_data():
+    """
+    Load and cache topo_build.yml data.
+    Returns cached data on subsequent calls.
+    """
+    global _TOPO_BUILD_CACHE
+
+    if _TOPO_BUILD_CACHE is not None:
+        return _TOPO_BUILD_CACHE
+
+    topo_path = f"/opt/atd/topologies/{TOPO}/topo_build.yml"
+    try:
+        with open(topo_path, 'r') as f:
+            _TOPO_BUILD_CACHE = YAML().load(f)
+        pS(f"Cached topo_build.yml from {topo_path}")
+    except Exception as e:
+        pS(f"Error reading topo_build.yml: {e}")
+        _TOPO_BUILD_CACHE = {}  # Empty dict to avoid repeated failures
+
+    return _TOPO_BUILD_CACHE
+
+
+def get_device_ip_from_sources(device_name):
+    """
+    Look up device IP using cached get_all_devices() with case-insensitive matching.
+
+    Args:
+        device_name: Name of the device to look up
+
+    Returns:
+        str: IP address if found, None otherwise
+    """
+    if not device_name:
+        return None
+
+    all_devices = get_all_devices()
+    device_name_lower = device_name.lower()
+
+    # Case-insensitive lookup in cached devices
+    for name, info in all_devices.items():
+        if name.lower() == device_name_lower:
+            ip = info.get('ip', '')
+            return ip if ip else None
+
+    return None
+
+
+def normalize_device_name(name):
+    """
+    Normalize device name to consistent capitalization.
+    E.g., 'leaf5' -> 'Leaf5', 'memleaf1' -> 'Memleaf1', 'spine1-dc1' -> 'Spine1-DC1'
+
+    Handles patterns like:
+    - Simple: leaf1 -> Leaf1, spine2 -> Spine2
+    - With suffix: spine1-dc1 -> Spine1-DC1, leaf2-dc2 -> Leaf2-DC2
+    - Compound: memleaf1 -> Memleaf1, borderleaf1 -> Borderleaf1
+    """
+    import re
+
+    if not name:
+        return name
+
+    # Split on hyphens to handle suffixes like -DC1, -DC2
+    parts = name.split('-')
+    result_parts = []
+
+    for part in parts:
+        # Check if this part is a datacenter suffix (DC1, DC2, etc.)
+        if re.match(r'^[dD][cC]\d+$', part):
+            # Uppercase the DC suffix
+            result_parts.append(part.upper())
+        else:
+            # Capitalize first letter, keep rest of case
+            # This turns 'leaf5' -> 'Leaf5', 'memleaf1' -> 'Memleaf1'
+            result_parts.append(part.capitalize())
+
+    return '-'.join(result_parts)
+
+
+def get_all_devices():
+    """
+    Get all devices from topo_build.yml (the authoritative topology source).
+    Returns a dict of {device_name: {'ip': ip_address}}.
+    Uses caching to avoid repeated lookups.
+    Device names are normalized to consistent capitalization.
+    """
+    global _ALL_DEVICES_CACHE
+
+    if _ALL_DEVICES_CACHE is not None:
+        return _ALL_DEVICES_CACHE
+
+    devices = {}
+
+    # Get devices from topo_build.yml (the authoritative topology source)
+    topo_data = _get_topo_build_data()
+    if topo_data and 'nodes' in topo_data:
+        for node_entry in topo_data['nodes']:
+            if isinstance(node_entry, dict):
+                for name, info in node_entry.items():
+                    ip = info.get('ip_addr', '')
+                    if ip == 'N/A':
+                        ip = ''
+                    # Normalize device name to consistent capitalization
+                    display_name = normalize_device_name(name)
+                    devices[display_name] = {'ip': ip}
+
+    _ALL_DEVICES_CACHE = devices
+    pS(f"Cached {len(devices)} devices from topo_build.yml")
+    return devices
+
 
 def update_hubspot_handler(email, action, project):
     """
@@ -912,75 +1036,10 @@ class TopologyAPIHandler(BaseHandler):
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
 
-    # Device type to tier mapping (lower tier = higher in diagram)
-    # Tier 0: Internet (top, cloud/WAN edge)
-    # Tier 1: ISP cores (grouped by provider: ISP1, ISP2, etc.), Route Reflectors
-    # Tier 2: DCI, core, P routers (inter-DC connectivity)
-    # Tier 3: Borderleaf, PE, CE, GW (DC edge / WAN gateways)
-    # Tier 4: Spines
-    # Tier 5: Leafs
-    # Tier 6: Hosts, customers, OOB
-    # Tier 7: Other
-    DEVICE_TIERS = {
-        'internet': 0,
-        'isp': 1,
-        'rr': 1,
-        'core': 2,
-        'dci': 2,
-        'p': 2,
-        'borderleaf': 3,
-        'pe': 3,
-        'ce': 3,
-        'gw': 3,
-        'spine': 4,
-        'leaf': 5,
-        'host': 6,
-        'customer': 6,
-        'oob': 6,
-        'other': 7
-    }
-
     @staticmethod
     def classify_device_type(device_name):
-        """Classify device type based on naming pattern."""
-        name_lower = device_name.lower()
-
-        # Order matters: more specific patterns first
-        if 'borderleaf' in name_lower or device_name.startswith('BL'):
-            return 'borderleaf'
-        elif 'spine' in name_lower:
-            return 'spine'
-        elif 'leaf' in name_lower:
-            return 'leaf'
-        elif 'host' in name_lower:
-            return 'host'
-        elif 'dci' in name_lower or device_name == 'DCI':
-            return 'dci'
-        elif 'internet' in name_lower:
-            return 'internet'
-        elif 'isp' in name_lower:
-            return 'isp'
-        elif 'core' in name_lower:
-            return 'core'
-        elif 'oob' in name_lower:
-            return 'oob'
-        # Route Reflector: RR or RR1, RR2, etc.
-        elif device_name == 'RR' or (device_name.startswith('RR') and len(device_name) > 2 and device_name[2].isdigit()):
-            return 'rr'
-        # WAN Gateways: GW11, GW12, GW21, GW22, GW31, etc. (GW + DC number + device number)
-        elif device_name.startswith('GW') and len(device_name) > 2 and device_name[2].isdigit():
-            return 'gw'
-        elif device_name.startswith('PE'):
-            return 'pe'
-        elif device_name.startswith('CE'):
-            return 'ce'
-        elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'p'
-        # Customer devices: A1, A2, B1, B2, C1, C2, D1, D2, etc.
-        elif device_name[0] in ('A', 'B', 'C', 'D') and len(device_name) > 1 and device_name[1].isdigit():
-            return 'customer'
-        else:
-            return 'other'
+        """Classify device type based on naming pattern. Uses shared DeviceTypeConfig."""
+        return DeviceTypeConfig.classify_device(device_name)
 
     @staticmethod
     def extract_datacenter(device_name):
@@ -1084,9 +1143,9 @@ class TopologyAPIHandler(BaseHandler):
         """
         import re
 
-        NODE_SPACING_X = 180   # Horizontal spacing
-        NODE_SPACING_Y = 120   # Vertical spacing
-        COLUMN_SPACING = 200   # Extra spacing between columns
+        NODE_SPACING_X = 185   # Horizontal spacing
+        NODE_SPACING_Y = 135   # Vertical spacing
+        COLUMN_SPACING = 260   # Extra spacing between columns
         PADDING = 100
 
         # Build adjacency for graph analysis
@@ -1227,11 +1286,11 @@ class TopologyAPIHandler(BaseHandler):
         # Standard datacenter layout (tier-based)
         # Group nodes by tier, then by grouping key (datacenter or ISP provider)
         tiers = {}
-        ISP_TIER = TopologyAPIHandler.DEVICE_TIERS.get('isp', 1)
+        ISP_TIER = DeviceTypeConfig.get_tier('isp')
 
         for node in nodes_data:
             device_type = node['data']['device_type']
-            tier = TopologyAPIHandler.DEVICE_TIERS.get(device_type, 7)
+            tier = DeviceTypeConfig.get_tier(device_type)
 
             # For ISP tier, group by ISP provider (ISP1, ISP2) instead of datacenter
             if tier == ISP_TIER:
@@ -1251,9 +1310,9 @@ class TopologyAPIHandler(BaseHandler):
                 tiers[tier][group_key].sort(key=lambda n: TopologyAPIHandler.get_sort_key(n['data']['id']))
 
         # Calculate positions
-        NODE_SPACING_X = 150   # Horizontal spacing between nodes
-        NODE_SPACING_Y = 180   # Vertical spacing between tiers
-        DC_SPACING = 80        # Extra spacing between datacenter groups
+        NODE_SPACING_X = 170   # Horizontal spacing between nodes
+        NODE_SPACING_Y = 185   # Vertical spacing between tiers
+        DC_SPACING = 120       # Extra spacing between datacenter groups
         PADDING = 100          # Left padding
 
         # Calculate max width considering groups and spacing
@@ -1271,7 +1330,8 @@ class TopologyAPIHandler(BaseHandler):
         if max_width == 0:
             max_width = NODE_SPACING_X
 
-        # Position nodes by tier
+        # Position nodes by tier (use row_index to skip empty tiers)
+        row_index = 0
         for tier_num in sorted(tiers.keys()):
             tier_groups = tiers[tier_num]
             group_keys = sorted(tier_groups.keys())  # Sort: '', 'DC1', 'DC2' or 'ISP1', 'ISP2'
@@ -1293,7 +1353,7 @@ class TopologyAPIHandler(BaseHandler):
                 for node in group_nodes:
                     node['position'] = {
                         'x': current_x,
-                        'y': PADDING + tier_num * NODE_SPACING_Y
+                        'y': PADDING + row_index * NODE_SPACING_Y
                     }
                     # Store grouping info for potential UI use
                     if tier_num == ISP_TIER:
@@ -1306,6 +1366,9 @@ class TopologyAPIHandler(BaseHandler):
                 # Add spacing after each group (except last)
                 if i < len(group_keys) - 1:
                     current_x += DC_SPACING
+
+            # Increment row index for next tier that has nodes
+            row_index += 1
 
         return nodes_data
 
@@ -1343,6 +1406,7 @@ class TopologyAPIHandler(BaseHandler):
                 'data': {
                     'metadata': {
                         'topology_name': TOPO,
+                        'eos_type': EOS_TYPE,
                         'node_count': 0,
                         'edge_count': 0,
                         'generated_at': datetime.now().isoformat()
@@ -1403,19 +1467,48 @@ class TopologyAPIHandler(BaseHandler):
 
                     # Create edge only if both nodes exist (prevents Cytoscape.js errors)
                     if neighbor_device and neighbor_device in valid_node_names:
-                        edge_key = tuple(sorted([device_name, neighbor_device]))
+                        # Get port values with None-safety
+                        device_port = neighbor.get('port') or ''
+                        neighbor_port = neighbor.get('neighborPort') or ''
+
+                        # Create edge key that includes ports to support multiple links
+                        # between the same device pair (e.g., MLAG, port-channel, redundancy)
+                        port_pair = tuple(sorted([device_port, neighbor_port]))
+                        edge_key = (tuple(sorted([device_name, neighbor_device])), port_pair)
+
                         if edge_key not in edge_set:
                             edge_set.add(edge_key)
-                            source_port = neighbor.get('port', '')
-                            target_port = neighbor.get('neighborPort', '')
+
+                            # Use alphabetically sorted order for source/target to ensure
+                            # consistent port assignment regardless of processing order.
+                            # edge_key[0][0] is the alphabetically first device name.
+                            sorted_devices = edge_key[0]
+                            if device_name == sorted_devices[0]:
+                                # Current device is alphabetically first, so it's the source.
+                                # Ports stay as-is: device_port -> source, neighbor_port -> target
+                                source_node = device_name
+                                target_node = neighbor_device
+                                source_port = device_port
+                                target_port = neighbor_port
+                            else:
+                                # Neighbor device is alphabetically first, so it becomes source.
+                                # Since we're processing from device_name's perspective, swap ports:
+                                # neighbor_port belongs to the alphabetically-first (source) node
+                                # device_port belongs to the alphabetically-second (target) node
+                                source_node = neighbor_device
+                                target_node = device_name
+                                source_port = neighbor_port
+                                target_port = device_port
+
+                            # Use unique edge ID that includes ports to support parallel links
+                            edge_id = f"{source_node}-{target_node}-{source_port}-{target_port}"
                             edges.append({
                                 'data': {
-                                    'id': f"{device_name}-{neighbor_device}",
-                                    'source': device_name,
-                                    'target': neighbor_device,
+                                    'id': edge_id,
+                                    'source': source_node,
+                                    'target': target_node,
                                     'source_port': source_port,
-                                    'target_port': target_port,
-                                    'label': f"{source_port} ↔ {target_port}" if source_port and target_port else ''
+                                    'target_port': target_port
                                 }
                             })
                     elif neighbor_device:
@@ -1443,6 +1536,7 @@ class TopologyAPIHandler(BaseHandler):
             'data': {
                 'metadata': {
                     'topology_name': TOPO,
+                    'eos_type': EOS_TYPE,
                     'node_count': len(nodes),
                     'edge_count': len(edges),
                     'generated_at': datetime.now().isoformat()
@@ -1525,73 +1619,42 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            nodes = MOD_YAML['topology']['nodes']
+            # Get devices from topo_build.yml (single source of truth)
+            nodes = get_all_devices()
 
-            # Define grouping patterns (order matters - more specific first)
-            group_patterns = [
-                ('Spine', ['Spine']),
-                ('Borderleaf', ['BorderLeaf', 'Borderleaf', 'BL']),
-                ('Leaf', ['Leaf']),
-                ('Host', ['Host']),
-                ('Core', ['Core', 'DCI']),
-                ('ISP', ['ISP', 'Internet']),
-                ('Route Reflectors', ['RR']),
-                ('WAN Gateways', ['GW']),
-                ('PE Routers', ['PE']),
-                ('P Routers', ['P']),
-                ('Customer', []),  # Special handling for A, B, C, D prefixed devices
-            ]
-
-            # Group devices
-            groups = {name: [] for name, _ in group_patterns}
-            groups['Other'] = []
+            # Group devices using shared DeviceTypeConfig
+            groups = {}
 
             for device_name, device_info in nodes.items():
-                matched = False
+                # Classify device and get its group name
+                device_type = DeviceTypeConfig.classify_device(device_name)
+                group_name = DeviceTypeConfig.get_group_name(device_type)
 
-                # Special handling for Customer devices (A1, B1, C1, D1, etc.)
-                if len(device_name) > 1 and device_name[0] in ('A', 'B', 'C', 'D') and device_name[1].isdigit():
-                    groups['Customer'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-                    matched = True
+                if group_name not in groups:
+                    groups[group_name] = []
 
-                # Special handling for P routers (P1, P2, etc. but not PE)
-                elif device_name.startswith('P') and len(device_name) > 1 and device_name[1].isdigit():
-                    groups['P Routers'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-                    matched = True
+                groups[group_name].append({
+                    'name': device_name,
+                    'ip': device_info.get('ip', ''),
+                })
 
-                # Check other patterns
-                if not matched:
-                    for group_name, prefixes in group_patterns:
-                        for prefix in prefixes:
-                            if prefix and (device_name.startswith(prefix) or prefix in device_name):
-                                groups[group_name].append({
-                                    'name': device_name,
-                                    'ip': device_info.get('ip', ''),
-                                })
-                                matched = True
-                                break
-                        if matched:
-                            break
+            # Sort devices within each group and format result
+            # Order groups by tier (using first device type that maps to each group)
+            group_order = DeviceTypeConfig.get_all_group_names()
 
-                if not matched:
-                    groups['Other'].append({
-                        'name': device_name,
-                        'ip': device_info.get('ip', ''),
-                    })
-
-            # Sort devices within each group and remove empty groups
             result = []
-            for group_name, _ in group_patterns + [('Other', [])]:
-                devices = groups[group_name]
-                if devices:
-                    # Sort by name
-                    devices.sort(key=lambda x: x['name'])
+            for group_name in group_order:
+                if group_name in groups and groups[group_name]:
+                    devices = sorted(groups[group_name], key=lambda x: x['name'])
+                    result.append({
+                        'group': group_name,
+                        'devices': devices
+                    })
+
+            # Add any remaining groups not in the predefined order
+            for group_name in sorted(groups.keys()):
+                if group_name not in group_order and groups[group_name]:
+                    devices = sorted(groups[group_name], key=lambda x: x['name'])
                     result.append({
                         'group': group_name,
                         'devices': devices
@@ -1605,6 +1668,406 @@ class DevicesAPIHandler(BaseHandler):
         except Exception as e:
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
+
+
+class DeviceTypesAPIHandler(BaseHandler):
+    """API endpoint to return device type metadata for frontend."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            metadata = DeviceTypeConfig.export_for_frontend()
+            self.write(json.dumps(metadata))
+        except Exception as e:
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class InterfaceStatsAPIHandler(BaseHandler):
+    """API endpoint for interface statistics via eAPI."""
+
+    # Cache: {device_interface: (timestamp, data)}
+    _cache = {}
+    _cache_lock = threading.Lock()
+    CACHE_TTL = 10  # seconds
+
+    # Rate calculation: store previous readings for rate computation
+    _previous_counters = {}
+    _previous_lock = threading.Lock()
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+        interface = self.get_argument('interface', None)
+
+        if not device or not interface:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'device and interface parameters required'}))
+            return
+
+        try:
+            stats = self.get_interface_stats(device, interface)
+            self.write(json.dumps(stats))
+        except Exception as e:
+            pS(f"InterfaceStatsAPIHandler error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def get_interface_stats(self, device_name, interface_name):
+        """Query EOS device for interface counters via eAPI."""
+        cache_key = f"{device_name}:{interface_name}"
+        current_time = time.time()
+
+        # Check cache
+        with self._cache_lock:
+            if cache_key in self._cache:
+                timestamp, data = self._cache[cache_key]
+                if current_time - timestamp < self.CACHE_TTL:
+                    return data
+
+        # Get device IP from topology
+        device_ip = get_device_ip_from_sources(device_name)
+        if not device_ip:
+            raise ValueError(f"Device {device_name} not found in topology")
+
+        # Get credentials from ACCESS_INFO
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+
+        # Connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=10
+            )
+
+            # Execute show interfaces command
+            result = connection.execute([f"show interfaces {interface_name}"])
+
+            # Parse interface data
+            interfaces = result.get('result', [{}])[0].get('interfaces', {})
+            intf_data = interfaces.get(interface_name, {})
+
+            if not intf_data:
+                raise ValueError(f"Interface {interface_name} not found on {device_name}")
+
+            counters = intf_data.get('interfaceCounters', {})
+            bandwidth = intf_data.get('bandwidth', 0)
+
+            # Calculate rates from counter deltas
+            rates = self.calculate_rates(cache_key, counters, current_time)
+
+            # Calculate utilization percentage
+            if bandwidth > 0:
+                utilization_in = (rates['in_rate_bps'] / bandwidth) * 100
+                utilization_out = (rates['out_rate_bps'] / bandwidth) * 100
+            else:
+                utilization_in = 0
+                utilization_out = 0
+
+            stats = {
+                'device': device_name,
+                'interface': interface_name,
+                'stats': {
+                    'in_octets': counters.get('inOctets', 0),
+                    'out_octets': counters.get('outOctets', 0),
+                    'in_rate_bps': rates['in_rate_bps'],
+                    'out_rate_bps': rates['out_rate_bps'],
+                    'in_packets': counters.get('inUcastPkts', 0) + counters.get('inMulticastPkts', 0) + counters.get('inBroadcastPkts', 0),
+                    'out_packets': counters.get('outUcastPkts', 0) + counters.get('outMulticastPkts', 0) + counters.get('outBroadcastPkts', 0),
+                    'in_errors': counters.get('inErrors', 0) + counters.get('inputErrorsDetail', {}).get('crcErrors', 0),
+                    'out_errors': counters.get('outErrors', 0),
+                    'in_discards': counters.get('inDiscards', 0),
+                    'out_discards': counters.get('outDiscards', 0),
+                    'speed_bps': bandwidth,
+                    'utilization_in': round(utilization_in, 2),
+                    'utilization_out': round(utilization_out, 2),
+                    'operational_status': intf_data.get('interfaceStatus', 'unknown'),
+                    'line_protocol': intf_data.get('lineProtocolStatus', 'unknown'),
+                    'description': intf_data.get('description', ''),
+                    'last_updated': datetime.now().isoformat()
+                }
+            }
+
+            # Update cache
+            with self._cache_lock:
+                self._cache[cache_key] = (current_time, stats)
+
+            return stats
+
+        except pyeapi.eapilib.ConnectionError as e:
+            raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
+        except pyeapi.eapilib.CommandError as e:
+            raise ValueError(f"Command error on {device_name}: {e}")
+
+    def calculate_rates(self, cache_key, current_counters, current_time):
+        """Calculate bit rates from counter deltas."""
+        with self._previous_lock:
+            if cache_key in self._previous_counters:
+                prev_time, prev_counters = self._previous_counters[cache_key]
+                time_delta = current_time - prev_time
+
+                if time_delta > 0:
+                    in_octet_delta = current_counters.get('inOctets', 0) - prev_counters.get('inOctets', 0)
+                    out_octet_delta = current_counters.get('outOctets', 0) - prev_counters.get('outOctets', 0)
+
+                    # Handle counter wrap (unlikely but possible)
+                    if in_octet_delta < 0:
+                        in_octet_delta = current_counters.get('inOctets', 0)
+                    if out_octet_delta < 0:
+                        out_octet_delta = current_counters.get('outOctets', 0)
+
+                    in_rate = (in_octet_delta * 8) / time_delta
+                    out_rate = (out_octet_delta * 8) / time_delta
+                else:
+                    in_rate = out_rate = 0
+            else:
+                # First reading, no rate available yet
+                in_rate = out_rate = 0
+
+            # Store current reading for next calculation
+            self._previous_counters[cache_key] = (current_time, {
+                'inOctets': current_counters.get('inOctets', 0),
+                'outOctets': current_counters.get('outOctets', 0)
+            })
+
+            return {'in_rate_bps': round(in_rate, 2), 'out_rate_bps': round(out_rate, 2)}
+
+
+class DeviceStatusAPIHandler(BaseHandler):
+    """API endpoint to check device reachability via eAPI."""
+
+    # Cache: {device: (timestamp, status)}
+    _cache = {}
+    _cache_lock = threading.Lock()
+    CACHE_TTL = 30  # seconds - longer cache for status checks
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+
+        # If no device specified, check all devices
+        if device:
+            try:
+                status = self.check_device_status(device)
+                self.write(json.dumps(status))
+            except Exception as e:
+                self.write(json.dumps({
+                    'device': device,
+                    'status': 'error',
+                    'error': str(e)
+                }))
+        else:
+            # Check all devices in topology
+            statuses = self.check_all_devices()
+            self.write(json.dumps({'devices': statuses}))
+
+    def check_device_status(self, device_name):
+        """Check if a single device is reachable via eAPI."""
+        cache_key = device_name
+        current_time = time.time()
+
+        # Check cache
+        with self._cache_lock:
+            if cache_key in self._cache:
+                timestamp, data = self._cache[cache_key]
+                if current_time - timestamp < self.CACHE_TTL:
+                    return data
+
+        # Get device IP from topology
+        device_ip = get_device_ip_from_sources(device_name)
+        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
+        if not device_ip:
+            result = {
+                'device': device_name,
+                'status': 'unknown',
+                'error': 'Device not found in topology'
+            }
+            return result
+
+        # Get credentials from ACCESS_INFO
+        try:
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            username = host_yaml['login_info']['jump_host']['user']
+            password = host_yaml['login_info']['jump_host']['pw']
+        except Exception as e:
+            result = {
+                'device': device_name,
+                'status': 'error',
+                'error': f'Cannot read credentials: {e}'
+            }
+            return result
+
+        # Try to connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=5  # Short timeout for status check
+            )
+
+            # Simple command to verify connectivity
+            result_cmd = connection.execute(['show version'])
+            version = result_cmd.get('result', [{}])[0].get('version', 'unknown')
+
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'up',
+                'version': version,
+                'last_check': datetime.now().isoformat()
+            }
+
+        except pyeapi.eapilib.ConnectionError:
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': 'Connection failed',
+                'last_check': datetime.now().isoformat()
+            }
+        except Exception as e:
+            result = {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'error',
+                'error': str(e),
+                'last_check': datetime.now().isoformat()
+            }
+
+        # Update cache
+        with self._cache_lock:
+            self._cache[cache_key] = (current_time, result)
+
+        return result
+
+    def check_all_devices(self):
+        """Check status of all devices from both modules.yaml and topo_build.yml."""
+        # Get devices from both sources
+        nodes = get_all_devices()
+        statuses = {}
+
+        # Debug logging
+        pS(f"[DeviceStatus] Found {len(nodes)} devices from all sources")
+
+        # Use thread pool for parallel checks
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {
+                executor.submit(self.check_device_status, device_name): device_name
+                for device_name in nodes.keys()
+            }
+
+            for future in as_completed(futures, timeout=30):
+                device_name = futures[future]
+                try:
+                    result = future.result()
+                    statuses[device_name] = result
+                except Exception as e:
+                    statuses[device_name] = {
+                        'device': device_name,
+                        'status': 'error',
+                        'error': str(e)
+                    }
+
+        return statuses
+
+
+class RunningConfigAPIHandler(BaseHandler):
+    """API endpoint to fetch running config from a device via eAPI."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        device = self.get_argument('device', None)
+
+        if not device:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'device parameter required'}))
+            return
+
+        try:
+            config = self.get_running_config(device)
+            self.write(json.dumps(config))
+        except Exception as e:
+            pS(f"RunningConfigAPIHandler error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def get_running_config(self, device_name):
+        """Query EOS device for running config via eAPI."""
+        # Get device IP from topology
+        device_ip = get_device_ip_from_sources(device_name)
+        if not device_ip:
+            raise ValueError(f"Device {device_name} not found in topology")
+
+        # Get credentials from ACCESS_INFO
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+
+        # Connect via eAPI
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=15
+            )
+
+            # Execute show running-config command with text encoding
+            result = connection.execute(['show running-config'], encoding='text')
+
+            # Get the config output from the text response
+            config_output = result.get('result', [{}])[0].get('output', '')
+
+            return {
+                'device': device_name,
+                'config': config_output,
+                'timestamp': datetime.now().isoformat()
+            }
+
+        except pyeapi.eapilib.ConnectionError as e:
+            raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
+        except pyeapi.eapilib.CommandError as e:
+            raise ValueError(f"Command error on {device_name}: {e}")
 
 
 class EndExamHandler(tornado.web.RequestHandler):
@@ -1658,6 +2121,346 @@ class EndExamHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+
+
+# ===============================
+# Packet Capture Handlers
+# ===============================
+
+class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
+    """
+    WebSocket handler that proxies to the capture service.
+
+    The uilanding container cannot access host OVS bridges directly.
+    This handler connects to the captureservice container (running with
+    host network mode) and relays packets to the browser client.
+    """
+
+    # Capture service URL (running on host network, accessible via Docker host IP)
+    CAPTURE_SERVICE_URL = "ws://host.docker.internal:8089/ws"
+    # Fallback for Linux Docker (host.docker.internal not always available)
+    CAPTURE_SERVICE_URL_FALLBACK = "ws://172.17.0.1:8089/ws"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client_id = None
+        self.current_user = None
+        self.upstream_ws = None  # WebSocket connection to capture service
+        self.is_connected = False
+
+    def check_origin(self, origin):
+        """Validate origin to prevent CSRF attacks."""
+        host = self.request.headers.get('Host', '')
+        if not host:
+            return False
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            return parsed.netloc == host or parsed.netloc.split(':')[0] == host.split(':')[0]
+        except Exception:
+            return False
+
+    async def open(self):
+        """Handle new WebSocket connection from browser."""
+        user = self.get_secure_cookie("user")
+        if not user:
+            pS("[Capture WS Proxy] Unauthenticated connection - closing")
+            self.close(code=1008, reason="Authentication required")
+            return
+
+        self.current_user = user.decode() if isinstance(user, bytes) else str(user)
+        self.client_id = str(uuid.uuid4())[:8]
+        pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
+
+        # Connect to upstream capture service
+        await self.connect_upstream()
+
+    async def connect_upstream(self):
+        """Connect to the capture service WebSocket."""
+        from tornado.websocket import websocket_connect
+        import asyncio
+
+        pS(f"[Capture WS Proxy] Attempting upstream connection...")
+
+        try:
+            # Try primary URL first (works on Docker Desktop)
+            pS(f"[Capture WS Proxy] Trying primary: {self.CAPTURE_SERVICE_URL}")
+            self.upstream_ws = await asyncio.wait_for(
+                websocket_connect(
+                    self.CAPTURE_SERVICE_URL,
+                    on_message_callback=self.on_upstream_message
+                ),
+                timeout=5.0
+            )
+            self.is_connected = True
+            pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL}")
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Primary connection failed: {e}, trying fallback...")
+            try:
+                # Try fallback URL (works on Linux Docker)
+                pS(f"[Capture WS Proxy] Trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                self.upstream_ws = await asyncio.wait_for(
+                    websocket_connect(
+                        self.CAPTURE_SERVICE_URL_FALLBACK,
+                        on_message_callback=self.on_upstream_message
+                    ),
+                    timeout=5.0
+                )
+                self.is_connected = True
+                pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL_FALLBACK}")
+            except Exception as e2:
+                pS(f"[Capture WS Proxy] Fallback connection also failed: {e2}")
+                try:
+                    self.write_message(json.dumps({
+                        'type': 'error',
+                        'message': 'Capture service unavailable. Is the captureservice container running?'
+                    }))
+                except Exception:
+                    pass
+                self.is_connected = False
+
+    def on_upstream_message(self, message):
+        """Handle message from capture service, relay to browser."""
+        if message is None:
+            # Upstream connection closed
+            pS(f"[Capture WS Proxy] Upstream connection closed")
+            self.is_connected = False
+            if self.ws_connection:
+                self.write_message(json.dumps({
+                    'type': 'error',
+                    'message': 'Capture service connection lost'
+                }))
+            return
+
+        # Debug: log first few messages
+        try:
+            msg_data = json.loads(message)
+            if msg_data.get('type') == 'packet':
+                pkt_num = msg_data.get('data', {}).get('number', 0)
+                if pkt_num <= 3:
+                    pS(f"[Capture WS Proxy] Received packet {pkt_num} from upstream, relaying to browser")
+        except:
+            pass
+
+        # Relay message to browser client
+        try:
+            if self.ws_connection:
+                self.write_message(message)
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Error relaying to browser: {e}")
+
+    def on_message(self, message):
+        """Handle message from browser, relay to capture service."""
+        if not self.is_connected or not self.upstream_ws:
+            self.write_message(json.dumps({
+                'type': 'error',
+                'message': 'Not connected to capture service'
+            }))
+            return
+
+        try:
+            # Relay message to capture service
+            self.upstream_ws.write_message(message)
+        except Exception as e:
+            pS(f"[Capture WS Proxy] Error relaying to upstream: {e}")
+            self.write_message(json.dumps({
+                'type': 'error',
+                'message': f'Failed to send to capture service: {e}'
+            }))
+
+    def on_close(self):
+        """Handle WebSocket close from browser."""
+        pS(f"[Capture WS Proxy] Client {self.client_id} disconnected")
+
+        # Close upstream connection
+        if self.upstream_ws:
+            self.upstream_ws.close()
+            self.upstream_ws = None
+            self.is_connected = False
+
+
+class CaptureBridgesAPIHandler(BaseHandler):
+    """API endpoint to list available OVS bridges for capture."""
+
+    # Capture service URLs (same as WebSocket handler)
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient
+            http_client = AsyncHTTPClient()
+
+            # Try to fetch bridges from capture service
+            bridges = []
+            try:
+                response = await http_client.fetch(
+                    f"{self.CAPTURE_SERVICE_URL}/bridges",
+                    request_timeout=5
+                )
+                data = json.loads(response.body.decode('utf-8'))
+                bridges = data.get('bridges', [])
+            except Exception as e:
+                pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
+                try:
+                    response = await http_client.fetch(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges",
+                        request_timeout=5
+                    )
+                    data = json.loads(response.body.decode('utf-8'))
+                    bridges = data.get('bridges', [])
+                except Exception as e2:
+                    pS(f"[CaptureBridges] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({
+                        'error': 'Capture service unavailable',
+                        'bridges': []
+                    }))
+                    return
+
+            # Enrich with topology edge info (map short codes to full device names)
+            enriched_bridges = self.enrich_with_topology(bridges)
+
+            self.write(json.dumps({
+                'bridges': enriched_bridges,
+                'count': len(enriched_bridges)
+            }))
+
+        except Exception as e:
+            pS(f"[CaptureBridges] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+    def enrich_with_topology(self, bridges):
+        """Add topology edge information to bridges."""
+        # Load topology data to map bridge names to device names
+        topo_data = _get_topo_build_data()
+        if not topo_data:
+            return bridges
+
+        # Build device name lookup from short codes
+        # This maps sp1 -> spine1, le1 -> leaf1, etc.
+        device_lookup = {}
+        if 'nodes' in topo_data:
+            for node_entry in topo_data['nodes']:
+                if isinstance(node_entry, dict):
+                    for device_name in node_entry.keys():
+                        # Generate short code (same logic as kvm-topo-builder)
+                        short_code = self.get_short_code(device_name)
+                        device_lookup[short_code] = device_name
+
+        # Enrich each bridge
+        for bridge in bridges:
+            src_code = bridge.get('source_device', '')
+            tgt_code = bridge.get('target_device', '')
+
+            if src_code in device_lookup:
+                bridge['source_device_name'] = device_lookup[src_code]
+            if tgt_code in device_lookup:
+                bridge['target_device_name'] = device_lookup[tgt_code]
+
+            # Convert port codes to full names (Et1 -> Ethernet1)
+            if bridge.get('source_port', '').startswith('Et'):
+                port_num = bridge['source_port'][2:]
+                bridge['source_port_name'] = f'Ethernet{port_num}'
+            if bridge.get('target_port', '').startswith('Et'):
+                port_num = bridge['target_port'][2:]
+                bridge['target_port_name'] = f'Ethernet{port_num}'
+
+        return bridges
+
+    def get_short_code(self, device_name):
+        """Generate short code for device name (matches kvm-topo-builder logic)."""
+        alpha = ''
+        numer = ''
+        split_len = 2
+
+        # Handle -DC suffix
+        if '-dc' in device_name.lower() and 'dci' not in device_name.lower():
+            parts = device_name.split('-')
+            tmp_name = parts[0]
+            dc_suffix = parts[1].lower().replace('c', '') if len(parts) > 1 else ''
+            for char in tmp_name:
+                if char.isalpha():
+                    alpha += char
+                elif char.isdigit():
+                    numer += char
+            return alpha[:split_len] + numer + dc_suffix
+        else:
+            for char in device_name:
+                if char.isalpha():
+                    alpha += char
+                elif char.isdigit():
+                    numer += char
+            return alpha[:split_len] + numer
+
+
+class CaptureStatusAPIHandler(BaseHandler):
+    """API endpoint to get capture session status (placeholder - use WebSocket instead)."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Status is managed via WebSocket connection to capture service
+        self.write(json.dumps({
+            'message': 'Session status is managed via WebSocket connection',
+            'sessions': []
+        }))
+
+
+class CaptureStartAPIHandler(BaseHandler):
+    """API endpoint to start a capture (placeholder - use WebSocket instead)."""
+
+    def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Capture is started via WebSocket connection to capture service
+        self.set_status(400)
+        self.write(json.dumps({
+            'error': 'Please use WebSocket connection at /capture-ws to start captures'
+        }))
+
+
+class CaptureStopAPIHandler(BaseHandler):
+    """API endpoint to stop a capture (placeholder - use WebSocket instead)."""
+
+    def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        # Capture is stopped via WebSocket connection to capture service
+        self.set_status(400)
+        self.write(json.dumps({
+            'error': 'Please use WebSocket connection at /capture-ws to stop captures'
+        }))
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -1692,7 +2495,17 @@ if __name__ == "__main__":
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
+        (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
+        (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
+        (r'/td-api/device-status', DeviceStatusAPIHandler),
+        (r'/td-api/running-config', RunningConfigAPIHandler),
+        # Packet capture endpoints
+        (r'/capture-ws', CaptureWebSocketHandler),
+        (r'/td-api/capture/bridges', CaptureBridgesAPIHandler),
+        (r'/td-api/capture/status', CaptureStatusAPIHandler),
+        (r'/td-api/capture/start', CaptureStartAPIHandler),
+        (r'/td-api/capture/stop', CaptureStopAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

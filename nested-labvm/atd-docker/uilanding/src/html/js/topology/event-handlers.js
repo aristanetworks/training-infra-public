@@ -10,6 +10,8 @@ export class EventManager {
         this.options = options;
         this.tooltip = null;
         this.contextMenu = null;
+        this.detailsPanel = null;  // Static details panel for copyable device info
+        this.runningConfigModal = null;  // Running config modal popup
         this.focusMode = false;
         this.focusedNode = null;
         this.terminalWindow = null;  // Reference to terminal window for tab reuse
@@ -18,9 +20,23 @@ export class EventManager {
         this.customTerminalHandler = options.onOpenTerminal || null;
         console.log('[EventManager] Custom terminal handler:', this.customTerminalHandler ? 'provided' : 'not provided');
 
+        // EOS type for detecting cEOS labs (packet capture not supported)
+        this.eosType = options.eosType || 'veos';
+        this.isCeosLab = this.eosType === 'container-labs';
+        console.log('[EventManager] EOS type:', this.eosType, 'isCeosLab:', this.isCeosLab);
+
+        // Capture panel reference (set externally by TopologyManager)
+        this.capturePanel = null;
+
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
         this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
+
+        // Interface stats cache and debounce
+        this.statsCache = {};  // { 'device:interface': { timestamp, data } }
+        this.statsCacheTTL = 10000;  // 10 seconds
+        this.statsDebounceTimer = null;
+        this.statsDebounceDelay = 300;  // ms before fetching stats
 
         this.registerHandlers();
     }
@@ -42,6 +58,9 @@ export class EventManager {
         // Edge hover - highlight path
         this.cy.on('mouseover', 'edge', (evt) => this.handleEdgeMouseOver(evt));
         this.cy.on('mouseout', 'edge', (evt) => this.handleEdgeMouseOut(evt));
+
+        // Edge right-click - show edge context menu (for capture, etc.)
+        this.cy.on('cxttap', 'edge', (evt) => this.showEdgeContextMenu(evt));
 
         // Background click - clear selections and exit focus mode
         this.cy.on('tap', (evt) => {
@@ -131,7 +150,6 @@ export class EventManager {
         const menuItems = [
             {
                 label: 'Open Terminal',
-                icon: '⌨',
                 action: () => {
                     this.openTerminal(data.label, data.ip);
                     this.hideContextMenu();
@@ -140,18 +158,31 @@ export class EventManager {
             },
             {
                 label: 'Focus on Device',
-                icon: '🎯',
                 action: () => {
                     this.enterFocusMode(node);
                     this.hideContextMenu();
                 }
             },
             {
+                label: 'Show Details',
+                action: () => {
+                    this.showDetailsPanel(node);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'View Running Config',
+                action: () => {
+                    this.showRunningConfigModal(node);
+                    this.hideContextMenu();
+                },
+                disabled: !data.ip || data.ip === 'N/A'
+            },
+            {
                 type: 'separator'
             },
             {
                 label: 'Copy IP Address',
-                icon: '📋',
                 action: () => {
                     if (data.ip && data.ip !== 'N/A') {
                         navigator.clipboard.writeText(data.ip);
@@ -172,15 +203,18 @@ export class EventManager {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
 
-                const icon = document.createElement('span');
-                icon.className = 'context-menu-icon';
-                icon.textContent = item.icon;
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
 
                 const label = document.createElement('span');
                 label.className = 'context-menu-label';
                 label.textContent = item.label;
 
-                menuItem.appendChild(icon);
                 menuItem.appendChild(label);
 
                 if (!item.disabled) {
@@ -246,9 +280,155 @@ export class EventManager {
     }
 
     /**
-     * Enter focus mode for a node
+     * Show context menu for an edge (link)
      */
-    enterFocusMode(node) {
+    showEdgeContextMenu(evt) {
+        const edge = evt.target;
+        const data = edge.data();
+
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Build descriptive link label
+        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+
+        // Menu items for edge
+        const menuItems = [
+            {
+                label: this.isCeosLab ? 'Packet Capture (vEOS only)' : 'Start Packet Capture',
+                action: () => {
+                    this.startEdgeCapture(edge);
+                    this.hideContextMenu();
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: 'View Link Stats',
+                action: () => {
+                    // Stats are already shown in edge tooltip
+                    this.showEdgeTooltip(evt);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Focus Source',
+                action: () => {
+                    const sourceNode = this.cy.$id(data.source);
+                    if (!sourceNode.empty()) {
+                        this.enterFocusMode(sourceNode);
+                    }
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'Focus Target',
+                action: () => {
+                    const targetNode = this.cy.$id(data.target);
+                    if (!targetNode.empty()) {
+                        this.enterFocusMode(targetNode);
+                    }
+                    this.hideContextMenu();
+                }
+            }
+        ];
+
+        // Build menu HTML
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'context-menu-separator';
+                menu.appendChild(sep);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
+
+                const label = document.createElement('span');
+                label.className = 'context-menu-label';
+                label.textContent = item.label;
+
+                menuItem.appendChild(label);
+
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.action();
+                    });
+                }
+
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Add header with link info
+        const header = document.createElement('div');
+        header.className = 'context-menu-header';
+        header.textContent = linkLabel;
+        header.style.fontSize = '12px';  // Slightly smaller for longer text
+        menu.insertBefore(header, menu.firstChild);
+
+        // Position menu
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if off-screen
+        this.adjustMenuPosition(menu);
+    }
+
+    /**
+     * Start packet capture on an edge/link
+     */
+    startEdgeCapture(edge) {
+        const data = edge.data();
+
+        if (this.capturePanel) {
+            // Pass edge data to capture panel - it will find the matching bridge
+            const edgeData = {
+                source: data.source,
+                target: data.target,
+                source_port: data.source_port,
+                target_port: data.target_port
+            };
+            console.log('[EventManager] Opening capture panel for edge:', edgeData);
+            this.capturePanel.show(edgeData);
+        } else {
+            console.warn('[EventManager] Capture panel not available');
+            alert('Packet capture feature is not available on this page.\n\nPlease use the main topology diagram page.');
+        }
+    }
+
+    /**
+     * Enter focus mode for a node
+     * @param {Object} node - Cytoscape node to focus on
+     * @param {Object} options - Options for focus mode
+     * @param {boolean} options.showIndicator - Whether to show focus indicator (default: true)
+     */
+    enterFocusMode(node, options = {}) {
+        const { showIndicator = true } = options;
+
         // If already focused on this node, exit focus mode
         if (this.focusMode && this.focusedNode === node.id()) {
             this.exitFocusMode();
@@ -287,8 +467,12 @@ export class EventManager {
             easing: 'ease-out-cubic'
         });
 
-        // Show focus mode indicator
-        this.showFocusIndicator(node.data('label'));
+        // Show focus mode indicator (unless suppressed, e.g., for auto-focus)
+        if (showIndicator) {
+            this.showFocusIndicator(node.data('label'));
+        } else {
+            this.hideFocusIndicator();
+        }
     }
 
     /**
@@ -426,21 +610,30 @@ export class EventManager {
         tooltip.id = 'topo-tooltip';
         tooltip.className = 'topology-tooltip';
 
-        // Build port list
+        // Build port list (only include connections to nodes that exist in diagram)
         let portsHtml = '';
         if (data.ports && data.ports.length > 0) {
-            const portItems = data.ports.slice(0, 5).map(p =>
-                `<li>${p.port} → ${p.neighbor}:${p.neighbor_port}</li>`
-            ).join('');
-            const moreCount = data.ports.length - 5;
-            portsHtml = `
-                <div class="tooltip-ports">
-                    <strong>Connections:</strong>
-                    <ul>${portItems}</ul>
-                    ${moreCount > 0 ? `<em>+${moreCount} more</em>` : ''}
-                </div>
-            `;
+            // Filter to only include ports where neighbor exists as a node in the topology
+            const validPorts = data.ports.filter(p => this.cy.$id(p.neighbor).length > 0);
+
+            if (validPorts.length > 0) {
+                const portItems = validPorts.slice(0, 5).map(p =>
+                    `<li>${p.port} → ${p.neighbor}:${p.neighbor_port}</li>`
+                ).join('');
+                const moreCount = validPorts.length - 5;
+                portsHtml = `
+                    <div class="tooltip-ports">
+                        <strong>Connections:</strong>
+                        <ul>${portItems}</ul>
+                        ${moreCount > 0 ? `<em>+${moreCount} more</em>` : ''}
+                    </div>
+                `;
+            }
         }
+
+        // Format status display with indicator dot
+        const status = data.status || 'unknown';
+        const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1);
 
         tooltip.innerHTML = `
             <div class="tooltip-header">
@@ -458,8 +651,16 @@ export class EventManager {
                 </div>
                 <div class="tooltip-row">
                     <span class="tooltip-label">Status:</span>
-                    <span class="tooltip-value status-${data.status}">${data.status}</span>
+                    <span class="tooltip-value status-${status}">
+                        <span class="status-indicator status-${status}"></span>${statusDisplay}
+                    </span>
                 </div>
+                ${data.version ? `
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Version:</span>
+                    <span class="tooltip-value">${data.version}</span>
+                </div>
+                ` : ''}
                 ${portsHtml}
             </div>
             <div class="tooltip-footer">
@@ -482,7 +683,7 @@ export class EventManager {
     }
 
     /**
-     * Show tooltip for an edge
+     * Show tooltip for an edge with interface statistics
      */
     showEdgeTooltip(evt) {
         const edge = evt.target;
@@ -490,22 +691,28 @@ export class EventManager {
 
         this.hideTooltip();
 
+        // Clear any pending stats fetch
+        if (this.statsDebounceTimer) {
+            clearTimeout(this.statsDebounceTimer);
+        }
+
         const tooltip = document.createElement('div');
         tooltip.id = 'topo-tooltip';
         tooltip.className = 'topology-tooltip edge-tooltip';
 
+        // Initial tooltip with loading state for stats
         tooltip.innerHTML = `
             <div class="tooltip-header">
-                <strong>Link</strong>
+                <strong>Link Statistics</strong>
             </div>
             <div class="tooltip-body">
-                <div class="tooltip-row">
-                    <span class="tooltip-label">From:</span>
-                    <span class="tooltip-value">${data.source}:${data.source_port}</span>
+                <div class="tooltip-section">
+                    <span class="section-title">${data.source}:${data.source_port}</span>
+                    <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
-                <div class="tooltip-row">
-                    <span class="tooltip-label">To:</span>
-                    <span class="tooltip-value">${data.target}:${data.target_port}</span>
+                <div class="tooltip-section">
+                    <span class="section-title">${data.target}:${data.target_port}</span>
+                    <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
             </div>
         `;
@@ -521,6 +728,223 @@ export class EventManager {
         this.tooltip = tooltip;
 
         this.adjustTooltipPosition(tooltip);
+
+        // Debounce the stats fetch to avoid excessive API calls
+        this.statsDebounceTimer = setTimeout(() => {
+            this.fetchAndDisplayEdgeStats(edge, tooltip);
+        }, this.statsDebounceDelay);
+    }
+
+    /**
+     * Fetch interface stats for both ends of an edge and update tooltip
+     */
+    async fetchAndDisplayEdgeStats(edge, tooltip) {
+        const data = edge.data();
+
+        try {
+            // Fetch stats for both interfaces in parallel
+            const [sourceStats, targetStats] = await Promise.all([
+                this.fetchInterfaceStats(data.source, data.source_port),
+                this.fetchInterfaceStats(data.target, data.target_port)
+            ]);
+
+            // Check if tooltip is still visible (user might have moved away)
+            if (!this.tooltip || this.tooltip !== tooltip) {
+                return;
+            }
+
+            // Update tooltip with stats
+            tooltip.innerHTML = this.buildEdgeStatsTooltipHTML(data, sourceStats, targetStats);
+            this.adjustTooltipPosition(tooltip);
+
+            // Update edge styling based on utilization
+            this.updateEdgeUtilizationClass(edge, sourceStats, targetStats);
+
+        } catch (error) {
+            console.error('[EventManager] Error fetching edge stats:', error);
+
+            // Check if tooltip is still visible
+            if (!this.tooltip || this.tooltip !== tooltip) {
+                return;
+            }
+
+            // Show error state
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <strong>Link</strong>
+                </div>
+                <div class="tooltip-body">
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">From:</span>
+                        <span class="tooltip-value">${data.source}:${data.source_port}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">To:</span>
+                        <span class="tooltip-value">${data.target}:${data.target_port}</span>
+                    </div>
+                    <div class="tooltip-row tooltip-error">
+                        <span class="tooltip-value">Stats unavailable</span>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Fetch interface stats from API with caching
+     */
+    async fetchInterfaceStats(device, interfaceName) {
+        const cacheKey = `${device}:${interfaceName}`;
+        const now = Date.now();
+
+        // Check cache
+        if (this.statsCache[cacheKey]) {
+            const cached = this.statsCache[cacheKey];
+            if (now - cached.timestamp < this.statsCacheTTL) {
+                return cached.data;
+            }
+        }
+
+        // Fetch from API
+        const response = await fetch(`/td-api/interface-stats?device=${encodeURIComponent(device)}&interface=${encodeURIComponent(interfaceName)}`);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Cache the result
+        this.statsCache[cacheKey] = {
+            timestamp: now,
+            data: data
+        };
+
+        return data;
+    }
+
+    /**
+     * Build HTML for edge stats tooltip
+     */
+    buildEdgeStatsTooltipHTML(edgeData, sourceStats, targetStats) {
+        const formatRate = (bps) => {
+            if (bps >= 1000000000) {
+                return `${(bps / 1000000000).toFixed(2)} Gbps`;
+            } else if (bps >= 1000000) {
+                return `${(bps / 1000000).toFixed(2)} Mbps`;
+            } else if (bps >= 1000) {
+                return `${(bps / 1000).toFixed(2)} Kbps`;
+            }
+            return `${bps.toFixed(0)} bps`;
+        };
+
+        const formatUtilization = (pct) => {
+            if (pct > 80) {
+                return `<span class="utilization-high">${pct.toFixed(1)}%</span>`;
+            } else if (pct > 50) {
+                return `<span class="utilization-medium">${pct.toFixed(1)}%</span>`;
+            }
+            return `${pct.toFixed(1)}%`;
+        };
+
+        const formatErrors = (errors) => {
+            if (errors > 0) {
+                return `<span class="has-errors">${errors}</span>`;
+            }
+            return `<span class="no-errors">0</span>`;
+        };
+
+        const buildInterfaceSection = (title, stats) => {
+            if (!stats || !stats.stats) {
+                return `
+                    <div class="tooltip-section">
+                        <span class="section-title">${title}</span>
+                        <div class="tooltip-row">
+                            <span class="tooltip-value">Stats unavailable</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const s = stats.stats;
+            const statusClass = s.operational_status === 'connected' ? 'status-up' : 'status-down';
+
+            return `
+                <div class="tooltip-section">
+                    <span class="section-title">${title}</span>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Status:</span>
+                        <span class="tooltip-value ${statusClass}">${s.operational_status}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">TX:</span>
+                        <span class="tooltip-value">${formatRate(s.out_rate_bps)} (${formatUtilization(s.utilization_out)})</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">RX:</span>
+                        <span class="tooltip-value">${formatRate(s.in_rate_bps)} (${formatUtilization(s.utilization_in)})</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Errors:</span>
+                        <span class="tooltip-value">${formatErrors(s.in_errors + s.out_errors)}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Calculate time since last update
+        let updateInfo = '';
+        if (sourceStats && sourceStats.stats && sourceStats.stats.last_updated) {
+            const lastUpdate = new Date(sourceStats.stats.last_updated);
+            const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
+            updateInfo = `<div class="tooltip-footer">Updated: ${secondsAgo}s ago</div>`;
+        }
+
+        return `
+            <div class="tooltip-header">
+                <strong>Link Statistics</strong>
+            </div>
+            <div class="tooltip-body">
+                ${buildInterfaceSection(`${edgeData.source}:${edgeData.source_port}`, sourceStats)}
+                ${buildInterfaceSection(`${edgeData.target}:${edgeData.target_port}`, targetStats)}
+            </div>
+            ${updateInfo}
+        `;
+    }
+
+    /**
+     * Update edge CSS class based on utilization
+     */
+    updateEdgeUtilizationClass(edge, sourceStats, targetStats) {
+        // Remove existing utilization classes
+        edge.removeClass('utilization-low utilization-medium utilization-high utilization-critical has-errors');
+
+        // Get max utilization from either end
+        let maxUtilization = 0;
+        let hasErrors = false;
+
+        if (sourceStats && sourceStats.stats) {
+            maxUtilization = Math.max(maxUtilization, sourceStats.stats.utilization_in, sourceStats.stats.utilization_out);
+            hasErrors = hasErrors || (sourceStats.stats.in_errors + sourceStats.stats.out_errors) > 0;
+        }
+        if (targetStats && targetStats.stats) {
+            maxUtilization = Math.max(maxUtilization, targetStats.stats.utilization_in, targetStats.stats.utilization_out);
+            hasErrors = hasErrors || (targetStats.stats.in_errors + targetStats.stats.out_errors) > 0;
+        }
+
+        // Apply appropriate class
+        if (hasErrors) {
+            edge.addClass('has-errors');
+        } else if (maxUtilization > 95) {
+            edge.addClass('utilization-critical');
+        } else if (maxUtilization > 80) {
+            edge.addClass('utilization-high');
+        } else if (maxUtilization > 50) {
+            edge.addClass('utilization-medium');
+        } else if (maxUtilization > 25) {
+            edge.addClass('utilization-low');
+        }
     }
 
     /**
@@ -573,9 +997,11 @@ export class EventManager {
      * Handle keyboard shortcuts
      */
     handleKeyDown(evt) {
-        // Escape - close context menu, exit focus mode, clear selection and highlights
+        // Escape - close modals, context menu, details panel, exit focus mode, clear selection and highlights
         if (evt.key === 'Escape') {
+            this.hideRunningConfigModal();
             this.hideContextMenu();
+            this.hideDetailsPanel();
             if (this.focusMode) {
                 this.exitFocusMode();
             } else {
@@ -639,11 +1065,265 @@ export class EventManager {
     }
 
     /**
+     * Show static details panel for a node (bottom-left, copyable)
+     */
+    showDetailsPanel(node) {
+        const data = node.data();
+
+        // Hide existing panel
+        this.hideDetailsPanel();
+
+        // Create details panel
+        const panel = document.createElement('div');
+        panel.id = 'topo-details-panel';
+        panel.className = 'topology-details-panel';
+
+        // Build ports/connections list (only include connections to nodes that exist in diagram)
+        let portsHtml = '';
+        if (data.ports && data.ports.length > 0) {
+            // Filter to only include ports where neighbor exists as a node in the topology
+            const validPorts = data.ports.filter(port => {
+                return this.cy.$id(port.neighbor).length > 0;
+            });
+
+            if (validPorts.length > 0) {
+                const portItems = validPorts.map(port =>
+                    `<li><span class="port-local">${port.port}</span> → <span class="port-remote">${port.neighbor}:${port.neighbor_port}</span></li>`
+                ).join('');
+                portsHtml = `
+                    <div class="details-section">
+                        <div class="details-section-title">Connections</div>
+                        <ul class="details-ports-list">${portItems}</ul>
+                    </div>
+                `;
+            }
+        }
+
+        // Format status display
+        const status = data.status || 'unknown';
+        const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1);
+
+        panel.innerHTML = `
+            <div class="details-header">
+                <span class="details-title">${data.label}</span>
+                <span class="details-type device-type-${data.device_type}">${data.device_type}</span>
+                <button class="details-close-btn" title="Close (Esc)">×</button>
+            </div>
+            <div class="details-body">
+                <div class="details-row">
+                    <span class="details-label">IP Address:</span>
+                    <span class="details-value selectable">${data.ip || 'N/A'}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">MAC Address:</span>
+                    <span class="details-value selectable">${data.sys_mac || 'N/A'}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Status:</span>
+                    <span class="details-value">
+                        <span class="status-indicator status-${status}"></span>${statusDisplay}
+                    </span>
+                </div>
+                ${data.version ? `
+                <div class="details-row">
+                    <span class="details-label">Version:</span>
+                    <span class="details-value selectable">${data.version}</span>
+                </div>
+                ` : ''}
+                ${portsHtml}
+            </div>
+            <div class="details-footer">
+                <span class="details-hint">Text is selectable for copying</span>
+            </div>
+        `;
+
+        // Close button handler
+        panel.querySelector('.details-close-btn').addEventListener('click', () => {
+            this.hideDetailsPanel();
+        });
+
+        // Prevent clicks inside panel from closing it
+        panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Position panel relative to the container
+        const containerRect = this.container.getBoundingClientRect();
+        panel.style.position = 'fixed';
+        panel.style.bottom = (window.innerHeight - containerRect.bottom + 15) + 'px';
+        panel.style.left = (containerRect.left + 15) + 'px';
+
+        // Append to body to avoid Cytoscape capturing wheel events
+        document.body.appendChild(panel);
+        this.detailsPanel = panel;
+    }
+
+    /**
+     * Hide the static details panel
+     */
+    hideDetailsPanel() {
+        if (this.detailsPanel) {
+            this.detailsPanel.remove();
+            this.detailsPanel = null;
+        }
+        const existing = document.getElementById('topo-details-panel');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
+     * Show running config modal for a device
+     */
+    showRunningConfigModal(node) {
+        const data = node.data();
+        const deviceName = data.label;
+
+        // Hide any existing modal
+        this.hideRunningConfigModal();
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'running-config-overlay';
+        overlay.className = 'running-config-overlay';
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'running-config-modal';
+        modal.className = 'running-config-modal';
+
+        modal.innerHTML = `
+            <div class="running-config-header">
+                <span class="running-config-title">${deviceName} - Running Config</span>
+                <div class="running-config-actions">
+                    <button class="running-config-copy-btn" title="Copy to Clipboard">
+                        <span class="copy-icon">📋</span>
+                        <span class="copy-text">Copy</span>
+                    </button>
+                    <button class="running-config-close-btn" title="Close (Esc)">×</button>
+                </div>
+            </div>
+            <div class="running-config-body">
+                <div class="running-config-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Fetching configuration...</span>
+                </div>
+            </div>
+        `;
+
+        // Close button handler
+        modal.querySelector('.running-config-close-btn').addEventListener('click', () => {
+            this.hideRunningConfigModal();
+        });
+
+        // Copy button handler
+        const copyBtn = modal.querySelector('.running-config-copy-btn');
+        copyBtn.addEventListener('click', () => {
+            const content = modal.querySelector('.running-config-content');
+            if (content) {
+                navigator.clipboard.writeText(content.textContent).then(() => {
+                    // Show copied feedback
+                    const copyText = copyBtn.querySelector('.copy-text');
+                    const originalText = copyText.textContent;
+                    copyText.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyText.textContent = originalText;
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                });
+            }
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideRunningConfigModal();
+            }
+        });
+
+        // Position overlay to cover the container
+        const containerRect = this.container.getBoundingClientRect();
+        overlay.style.position = 'fixed';
+        overlay.style.top = containerRect.top + 'px';
+        overlay.style.left = containerRect.left + 'px';
+        overlay.style.width = containerRect.width + 'px';
+        overlay.style.height = containerRect.height + 'px';
+
+        overlay.appendChild(modal);
+        // Append to body to avoid Cytoscape capturing wheel events
+        document.body.appendChild(overlay);
+        this.runningConfigModal = overlay;
+
+        // Fetch the running config
+        this.fetchRunningConfig(deviceName, modal);
+    }
+
+    /**
+     * Fetch running config from API
+     */
+    async fetchRunningConfig(deviceName, modal) {
+        const body = modal.querySelector('.running-config-body');
+
+        try {
+            const response = await fetch(`/td-api/running-config?device=${encodeURIComponent(deviceName)}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Display the config
+            body.innerHTML = `
+                <pre class="running-config-content">${this.escapeHtml(data.config)}</pre>
+            `;
+
+        } catch (error) {
+            console.error('Failed to fetch running config:', error);
+            body.innerHTML = `
+                <div class="running-config-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-message">Failed to fetch configuration</span>
+                    <span class="error-detail">${this.escapeHtml(error.message)}</span>
+                    <button class="retry-btn" onclick="this.closest('.running-config-overlay').remove()">Close</button>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Hide the running config modal
+     */
+    hideRunningConfigModal() {
+        if (this.runningConfigModal) {
+            this.runningConfigModal.remove();
+            this.runningConfigModal = null;
+        }
+        const existing = document.getElementById('running-config-overlay');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
      * Destroy event handlers and clean up resources
      */
     destroy() {
         this.hideTooltip();
         this.hideContextMenu();
+        this.hideDetailsPanel();
+        this.hideRunningConfigModal();
         this.hideFocusIndicator();
 
         // Remove global listeners to prevent memory leak

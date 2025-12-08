@@ -6,8 +6,9 @@
 import { getCytoscapeStyles } from './cytoscape-styles.js';
 import { getLayout, LAYOUT_OPTIONS } from './layout-config.js';
 import { EventManager } from './event-handlers.js';
-import { FilterManager, DEVICE_TYPE_INFO } from './filter-manager.js';
+import { FilterManager, DEVICE_TYPE_INFO, loadDeviceTypeInfo, getDeviceTypeInfo } from './filter-manager.js';
 import { StatusUpdater } from './status-updater.js';
+import { CapturePanel } from './capture-panel.js';
 
 export class TopologyManager {
     constructor(containerId, options = {}) {
@@ -26,6 +27,7 @@ export class TopologyManager {
         this.eventManager = null;
         this.filterManager = null;
         this.statusUpdater = null;
+        this.capturePanel = null;  // Packet capture panel
         this.isInitialized = false;
         this.topologyData = null;
         this.originalPositions = {};  // Store original positions for reset
@@ -51,8 +53,12 @@ export class TopologyManager {
         try {
             this.showLoading();
 
-            // Fetch topology data
-            this.topologyData = await this.fetchTopology();
+            // Load device type metadata from API (in parallel with topology fetch)
+            const [_, topologyData] = await Promise.all([
+                loadDeviceTypeInfo(),
+                this.fetchTopology()
+            ]);
+            this.topologyData = topologyData;
 
             if (!this.topologyData || !this.topologyData.nodes) {
                 throw new Error('Invalid topology data received');
@@ -61,19 +67,43 @@ export class TopologyManager {
             // Initialize Cytoscape
             this.initCytoscape();
 
+            // Extract eos_type from metadata (for cEOS detection)
+            const eosType = this.topologyData.metadata?.eos_type || 'veos';
+
             // Setup components
             console.log('[TopologyManager] onOpenTerminal option:', this.options.onOpenTerminal ? 'provided' : 'not provided');
+            console.log('[TopologyManager] eos_type:', eosType);
             this.eventManager = new EventManager(this.cy, this.container, {
-                onOpenTerminal: this.options.onOpenTerminal
+                onOpenTerminal: this.options.onOpenTerminal,
+                eosType: eosType
             });
 
             if (this.options.enableFilters) {
                 this.filterManager = new FilterManager(this.cy, this.container);
             }
 
+            // Initialize capture panel (if not disabled)
+            if (this.options.enableCapture !== false) {
+                this.capturePanel = new CapturePanel({
+                    maxPackets: 5000,
+                    onEdgeHighlight: (bridgeName) => this.highlightBridgeEdge(bridgeName)
+                });
+                this.capturePanel.init();
+
+                // Connect capture panel to event manager
+                if (this.eventManager) {
+                    this.eventManager.capturePanel = this.capturePanel;
+                }
+            }
+
+            // Add help button
+            this.createHelpButton();
+
             if (this.options.enableStatus) {
                 this.statusUpdater = new StatusUpdater(this.cy, this.options.wsUrl);
                 this.statusUpdater.connect();
+                // Start polling device status via eAPI for real-time status indicators
+                this.statusUpdater.startStatusPolling();
             }
 
             this.isInitialized = true;
@@ -136,8 +166,11 @@ export class TopologyManager {
             minZoom: 0.2,
             maxZoom: 3,
             wheelSensitivity: 0.3,
-            boxSelectionEnabled: true,
-            selectionType: 'single'
+            boxSelectionEnabled: true,      // Enable box/marquee selection by dragging on background
+            selectionType: 'additive',      // Allow multi-select with Shift+click or box selection
+            autoungrabifyNodes: false,      // Ensure nodes are draggable
+            panningEnabled: true,
+            userPanningEnabled: true
         });
 
         // Run layout
@@ -286,6 +319,82 @@ export class TopologyManager {
     }
 
     /**
+     * Focus on a device by name - highlights the node and its connections
+     * Used by terminal page auto-focus feature
+     * @param {string} deviceName - Name of the device to focus on
+     * @param {Object} options - Options for focus behavior
+     * @param {boolean} options.animate - Whether to animate the transition (default: true)
+     * @param {boolean} options.showIndicator - Whether to show focus indicator (default: false for API calls)
+     * @returns {boolean} - True if device was found and focused
+     */
+    focusOnDevice(deviceName, options = {}) {
+        const { animate = true, showIndicator = false } = options;
+
+        if (!this.cy || !deviceName) return false;
+
+        // Find node by label (device name) - case insensitive
+        const deviceNameLower = deviceName.toLowerCase();
+        const node = this.cy.nodes().filter(n =>
+            n.data('label').toLowerCase() === deviceNameLower
+        ).first();
+
+        if (node.empty()) {
+            console.warn('[TopologyManager] Device not found:', deviceName);
+            return false;
+        }
+
+        // Use EventManager's enterFocusMode if available
+        if (this.eventManager) {
+            this.eventManager.enterFocusMode(node, { showIndicator });
+        } else {
+            // Fallback: manual focus without EventManager
+            this.cy.elements().removeClass('highlighted faded hover focused');
+
+            const connectedEdges = node.connectedEdges();
+            const connectedNodes = connectedEdges.connectedNodes();
+
+            node.addClass('focused');
+            connectedEdges.addClass('highlighted');
+            connectedNodes.addClass('highlighted');
+
+            this.cy.elements()
+                .not(node)
+                .not(connectedEdges)
+                .not(connectedNodes)
+                .addClass('faded');
+
+            if (animate) {
+                this.cy.animate({
+                    center: { eles: node },
+                    zoom: 1.5
+                }, {
+                    duration: 400,
+                    easing: 'ease-out-cubic'
+                });
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Clear focus mode and restore normal view
+     */
+    clearFocus() {
+        if (this.eventManager) {
+            this.eventManager.exitFocusMode();
+        } else {
+            this.cy.elements().removeClass('highlighted faded hover focused');
+            this.cy.animate({
+                fit: { padding: 50 }
+            }, {
+                duration: 400,
+                easing: 'ease-out-cubic'
+            });
+        }
+    }
+
+    /**
      * Get node by ID
      */
     getNode(nodeId) {
@@ -378,6 +487,41 @@ export class TopologyManager {
     }
 
     /**
+     * Highlight edge corresponding to a bridge name
+     * Bridge naming convention: {dev1-short}{port1}-{dev2-short}{port2}
+     * e.g., sp1Et1-le1Et1 for spine1:Ethernet1 <-> leaf1:Ethernet1
+     */
+    highlightBridgeEdge(bridgeName) {
+        if (!this.cy || !bridgeName) return;
+
+        // For now, just clear any existing highlights
+        // In the future, we could parse the bridge name and find the matching edge
+        this.cy.edges().removeClass('edge-capturing');
+
+        console.log('[TopologyManager] Highlighting bridge edge:', bridgeName);
+        // Edge highlighting by bridge name could be implemented by matching
+        // the short device codes in the bridge name to full device names
+    }
+
+    /**
+     * Show the capture panel
+     */
+    showCapturePanel() {
+        if (this.capturePanel) {
+            this.capturePanel.show();
+        }
+    }
+
+    /**
+     * Hide the capture panel
+     */
+    hideCapturePanel() {
+        if (this.capturePanel) {
+            this.capturePanel.hide();
+        }
+    }
+
+    /**
      * Get status summary
      */
     getStatusSummary() {
@@ -421,6 +565,86 @@ export class TopologyManager {
     }
 
     /**
+     * Create help button and overlay
+     */
+    createHelpButton() {
+        // Create help button
+        const helpBtn = document.createElement('button');
+        helpBtn.id = 'topo-help-btn';
+        helpBtn.className = 'topology-help-btn';
+        helpBtn.innerHTML = '?';
+        helpBtn.title = 'Keyboard & Mouse Controls';
+        helpBtn.addEventListener('click', () => this.toggleHelpOverlay());
+        this.container.appendChild(helpBtn);
+
+        // Create help overlay (hidden by default)
+        const overlay = document.createElement('div');
+        overlay.id = 'topo-help-overlay';
+        overlay.className = 'topology-help-overlay hidden';
+        overlay.innerHTML = `
+            <div class="help-header">
+                <span>Keyboard & Mouse Controls</span>
+                <button class="help-close-btn" title="Close">×</button>
+            </div>
+            <div class="help-content">
+                <div class="help-section">
+                    <h4>Navigation</h4>
+                    <div class="help-row"><kbd>Drag</kbd> <span>Pan canvas</span></div>
+                    <div class="help-row"><kbd>Scroll</kbd> <span>Zoom in/out</span></div>
+                    <div class="help-row"><kbd>F</kbd> <span>Fit to view</span></div>
+                    <div class="help-row"><kbd>R</kbd> <span>Reset zoom</span></div>
+                </div>
+                <div class="help-section">
+                    <h4>Selection</h4>
+                    <div class="help-row"><kbd>Click</kbd> <span>Select node</span></div>
+                    <div class="help-row"><kbd>Shift</kbd> + <kbd>Click</kbd> <span>Add to selection</span></div>
+                    <div class="help-row"><kbd>Shift</kbd> + <kbd>Drag</kbd> <span>Box select</span></div>
+                    <div class="help-row"><kbd>Esc</kbd> <span>Clear selection</span></div>
+                </div>
+                <div class="help-section">
+                    <h4>Nodes</h4>
+                    <div class="help-row"><kbd>Drag Node</kbd> <span>Move node(s)</span></div>
+                    <div class="help-row"><kbd>Right-click</kbd> <span>Context menu</span></div>
+                    <div class="help-row"><kbd>Hover</kbd> <span>Show details</span></div>
+                </div>
+            </div>
+        `;
+
+        // Close button handler
+        overlay.querySelector('.help-close-btn').addEventListener('click', () => {
+            this.hideHelpOverlay();
+        });
+
+        // Close on click outside
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideHelpOverlay();
+            }
+        });
+
+        this.container.appendChild(overlay);
+        this.helpOverlay = overlay;
+    }
+
+    /**
+     * Toggle help overlay visibility
+     */
+    toggleHelpOverlay() {
+        if (this.helpOverlay) {
+            this.helpOverlay.classList.toggle('hidden');
+        }
+    }
+
+    /**
+     * Hide help overlay
+     */
+    hideHelpOverlay() {
+        if (this.helpOverlay) {
+            this.helpOverlay.classList.add('hidden');
+        }
+    }
+
+    /**
      * Destroy the topology manager
      */
     destroy() {
@@ -430,6 +654,10 @@ export class TopologyManager {
 
         if (this.statusUpdater) {
             this.statusUpdater.destroy();
+        }
+
+        if (this.capturePanel) {
+            this.capturePanel.destroy();
         }
 
         if (this.cy) {

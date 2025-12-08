@@ -12,6 +12,11 @@ export class StatusUpdater {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
         this.statusCallbacks = [];
+
+        // Device status polling
+        this.statusPollInterval = null;
+        this.statusPollDelay = 30000; // 30 seconds
+        this.isPolling = false;
     }
 
     /**
@@ -133,11 +138,11 @@ export class StatusUpdater {
         // Update node data
         node.data('status', status);
 
-        // Update CSS classes
-        node.removeClass('status-up status-down status-init status-unknown');
+        // Update CSS classes - remove all status classes first
+        node.removeClass('status-up status-down status-init status-unknown status-error');
         node.addClass(`status-${status}`);
 
-        // Update classes string
+        // Update classes string - preserve device type and add status
         const deviceType = node.data('device_type');
         node.classes(`device-type-${deviceType} status-${status}`);
     }
@@ -231,9 +236,130 @@ export class StatusUpdater {
     }
 
     /**
+     * Start polling device status via eAPI
+     */
+    startStatusPolling() {
+        if (this.isPolling) {
+            return;
+        }
+
+        this.isPolling = true;
+        console.log('[TopologyStatus] Starting device status polling');
+
+        // Initial check
+        this.pollDeviceStatus();
+
+        // Set up interval
+        this.statusPollInterval = setInterval(() => {
+            this.pollDeviceStatus();
+        }, this.statusPollDelay);
+    }
+
+    /**
+     * Stop polling device status
+     */
+    stopStatusPolling() {
+        if (this.statusPollInterval) {
+            clearInterval(this.statusPollInterval);
+            this.statusPollInterval = null;
+        }
+        this.isPolling = false;
+        console.log('[TopologyStatus] Stopped device status polling');
+    }
+
+    /**
+     * Poll all device statuses from API
+     */
+    async pollDeviceStatus() {
+        try {
+            const response = await fetch('/td-api/device-status');
+
+            if (!response.ok) {
+                console.error('[TopologyStatus] Failed to fetch device status:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data.devices) {
+                let matchedCount = 0;
+                let unmatchedDevices = [];
+
+                Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
+                    // Try exact match first, then lowercase (handle case mismatches)
+                    let node = this.cy.$id(nodeId);
+                    let effectiveNodeId = nodeId;
+
+                    if (node.empty()) {
+                        // Try lowercase version (API returns 'Spine1', Cytoscape uses 'spine1')
+                        const lowercaseId = nodeId.toLowerCase();
+                        node = this.cy.$id(lowercaseId);
+                        if (!node.empty()) {
+                            effectiveNodeId = lowercaseId;
+                        }
+                    }
+
+                    if (node.empty()) {
+                        unmatchedDevices.push(nodeId);
+                    } else {
+                        matchedCount++;
+                        this.updateNodeStatus(effectiveNodeId, deviceStatus.status || 'unknown');
+
+                        // Also update the node data with version info if available
+                        if (deviceStatus.version) {
+                            node.data('version', deviceStatus.version);
+                        }
+                    }
+                });
+
+                // Log any mismatches for debugging
+                if (unmatchedDevices.length > 0) {
+                    console.warn('[TopologyStatus] Devices not found in topology:', unmatchedDevices);
+                    console.log('[TopologyStatus] Available node IDs:', this.cy.nodes().map(n => n.id()));
+                }
+
+                // Notify callbacks
+                this.statusCallbacks.forEach(callback => {
+                    try {
+                        callback({ devices: data.devices });
+                    } catch (error) {
+                        console.error('[TopologyStatus] Callback error', error);
+                    }
+                });
+
+                console.log('[TopologyStatus] Updated status for', matchedCount, 'of', Object.keys(data.devices).length, 'devices');
+            }
+        } catch (error) {
+            console.error('[TopologyStatus] Error polling device status:', error);
+        }
+    }
+
+    /**
+     * Check status of a single device
+     */
+    async checkSingleDevice(nodeId) {
+        try {
+            const response = await fetch(`/td-api/device-status?device=${encodeURIComponent(nodeId)}`);
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json();
+            this.updateNodeStatus(nodeId, data.status || 'unknown');
+
+            return data;
+        } catch (error) {
+            console.error('[TopologyStatus] Error checking device:', nodeId, error);
+            return null;
+        }
+    }
+
+    /**
      * Destroy status updater
      */
     destroy() {
+        this.stopStatusPolling();
         this.disconnect();
         this.statusCallbacks = [];
     }

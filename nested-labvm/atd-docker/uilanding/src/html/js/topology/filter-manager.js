@@ -3,6 +3,49 @@
  * Handles device type filtering and search functionality
  */
 
+// Cached device type info from API
+let _cachedDeviceTypeInfo = null;
+
+/**
+ * Fetch device type metadata from backend API.
+ * Falls back to DEFAULT_DEVICE_TYPE_INFO if API fails.
+ */
+export async function loadDeviceTypeInfo() {
+    if (_cachedDeviceTypeInfo) {
+        return _cachedDeviceTypeInfo;
+    }
+
+    try {
+        const response = await fetch('/td-api/device-types');
+        if (response.ok) {
+            _cachedDeviceTypeInfo = await response.json();
+            console.log('[FilterManager] Loaded device types from API');
+            return _cachedDeviceTypeInfo;
+        }
+    } catch (error) {
+        console.warn('[FilterManager] Failed to load device types from API, using defaults:', error);
+    }
+
+    // Fallback to defaults
+    _cachedDeviceTypeInfo = DEFAULT_DEVICE_TYPE_INFO;
+    return _cachedDeviceTypeInfo;
+}
+
+/**
+ * Get device type info (sync version using cached data)
+ */
+export function getDeviceTypeInfo(deviceType) {
+    const info = _cachedDeviceTypeInfo || DEFAULT_DEVICE_TYPE_INFO;
+    return info[deviceType] || info['other'] || { label: 'Other', color: '#666666' };
+}
+
+/**
+ * Get all device type info (sync version using cached data)
+ */
+export function getAllDeviceTypeInfo() {
+    return _cachedDeviceTypeInfo || DEFAULT_DEVICE_TYPE_INFO;
+}
+
 export class FilterManager {
     constructor(cy, controlsContainer) {
         this.cy = cy;
@@ -167,11 +210,11 @@ export class FilterManager {
 }
 
 /**
- * Device type display info
+ * Default device type display info (fallback if API unavailable)
  */
-export const DEVICE_TYPE_INFO = {
+const DEFAULT_DEVICE_TYPE_INFO = {
     'spine': { label: 'Spines', color: '#4c5cae' },
-    'leaf': { label: 'Leafs', color: '#78d82c' },
+    'leaf': { label: 'Leafs', color: '#20b2aa' },
     'borderleaf': { label: 'Borderleafs', color: '#fbb500' },
     'host': { label: 'Hosts', color: '#dae0fe' },
     'core': { label: 'Core', color: '#071c35' },
@@ -180,10 +223,18 @@ export const DEVICE_TYPE_INFO = {
     'ce': { label: 'CE Routers', color: '#4c5cae' },
     'gw': { label: 'WAN Gateways', color: '#d4a400' },
     'rr': { label: 'Route Reflectors', color: '#008b8b' },
-    'customer': { label: 'Customer', color: '#78d82c' },
+    'router': { label: 'Routers', color: '#8b4513' },
+    'memleaf': { label: 'Member Leafs', color: '#32cd32' },
+    'customer': { label: 'Customer', color: '#20b2aa' },
     'dci': { label: 'DCI', color: '#051431' },
     'isp': { label: 'ISP', color: '#e30909' },
     'internet': { label: 'Internet', color: '#e30909' },
     'oob': { label: 'OOB', color: '#808080' },
     'other': { label: 'Other', color: '#666666' }
 };
+
+/**
+ * Legacy export for backwards compatibility
+ * @deprecated Use loadDeviceTypeInfo() or getDeviceTypeInfo() instead
+ */
+export const DEVICE_TYPE_INFO = DEFAULT_DEVICE_TYPE_INFO;

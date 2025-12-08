@@ -1,10 +1,14 @@
 FROM python:3.9
 
-RUN apt-get update && apt-get install -y openssh-client sshpass
+# Install system dependencies
+# Note: tcpdump/openvswitch removed - packet capture runs in dedicated captureservice container
+RUN apt-get update && apt-get install -y \
+    openssh-client \
+    sshpass
 
 RUN pip install --upgrade pip
 
-RUN pip install tornado requests ruamel.yaml docker 
+RUN pip install tornado requests ruamel.yaml docker pyeapi
 
 RUN mkdir -p /opt/topo/html
 
@@ -19,6 +23,11 @@ RUN apt-get update && \
     curl -sSL https://get.docker.com/ | sh
 
 COPY ./src/html /opt/topo/html/
+
+# Copy Python modules to site-packages
+COPY ./src/device_types.py /usr/local/bin/site-packages/device_types.py
+# Note: capture_manager.py and packet_parser.py are not needed here
+# Packet capture runs in the dedicated captureservice container with host network mode
 
 COPY ./src/uilanding.py /usr/local/bin/uilanding
 

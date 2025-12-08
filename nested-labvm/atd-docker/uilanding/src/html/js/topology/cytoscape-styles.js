@@ -21,9 +21,11 @@ export function getCytoscapeStyles() {
                 'color': '#071c35',
                 'text-outline-color': '#ffffff',
                 'text-outline-width': 2,
-                'border-width': 2,
-                'border-color': '#071c35',
-                'background-color': '#ffffff',
+                'border-width': 0,
+                'border-color': 'transparent',
+                'border-opacity': 0,
+                'background-color': 'transparent',
+                'background-opacity': 0,
                 'width': 50,
                 'height': 50,
                 'transition-property': 'border-color, border-width, background-color, opacity',
@@ -32,191 +34,272 @@ export function getCytoscapeStyles() {
         },
 
         // ==========================================
-        // Device Type Styles
+        // Device Type Styles - Using PNG icons with transparent backgrounds
+        // Icons: leaf.png, spine.png, router.png
+        // Sizes: 60-70px depending on device importance
         // ==========================================
+
+        // --- Spine icon: spine, pe, p, ce ---
         {
             selector: '.device-type-spine',
             style: {
-                'shape': 'diamond',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 60,
-                'height': 60
-            }
-        },
-        {
-            selector: '.device-type-leaf',
-            style: {
-                'shape': 'round-rectangle',
-                'background-color': '#78d82c',
-                'border-color': '#071c35',
-                'width': 50,
-                'height': 50
-            }
-        },
-        {
-            selector: '.device-type-borderleaf',
-            style: {
-                'shape': 'hexagon',
-                'background-color': '#fbb500',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
-            }
-        },
-        {
-            selector: '.device-type-host',
-            style: {
-                'shape': 'ellipse',
-                'background-color': '#dae0fe',
-                'border-color': '#4c5cae',
-                'width': 45,
-                'height': 45
-            }
-        },
-        {
-            selector: '.device-type-core',
-            style: {
-                'shape': 'triangle',
-                'background-color': '#071c35',
-                'border-color': '#fbb500',
-                'color': '#ffffff',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
         {
             selector: '.device-type-pe',
             style: {
-                'shape': 'diamond',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
             }
         },
         {
             selector: '.device-type-p',
             style: {
-                'shape': 'diamond',
-                'background-color': '#6b7cc9',
-                'border-color': '#071c35',
-                'width': 50,
-                'height': 50
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 62,
+                'height': 62
             }
         },
         {
             selector: '.device-type-ce',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
+        // --- Leaf icon: leaf, memleaf, borderleaf ---
+        {
+            selector: '.device-type-leaf',
+            style: {
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
+            }
+        },
+        {
+            selector: '.device-type-borderleaf',
+            style: {
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
+            selector: '.device-type-memleaf',
+            style: {
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 62,
+                'height': 62
+            }
+        },
+
+        // --- Router icon: router, core, customer, dci, isp, internet, oob, gw, rr, other ---
+        {
+            selector: '.device-type-router',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-core',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
             }
         },
         {
             selector: '.device-type-customer',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#78d82c',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
             }
         },
         {
             selector: '.device-type-dci',
             style: {
-                'shape': 'octagon',
-                'background-color': '#051431',
-                'border-color': '#fbb500',
-                'color': '#ffffff',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
             }
         },
         {
             selector: '.device-type-isp, .device-type-internet',
             style: {
-                'shape': 'star',
-                'background-color': '#e30909',
-                'border-color': '#071c35',
-                'width': 60,
-                'height': 60
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
         {
             selector: '.device-type-oob',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#808080',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
-            }
-        },
-        {
-            selector: '.device-type-gw',
-            style: {
-                'shape': 'pentagon',
-                'background-color': '#d4a400',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
-            }
-        },
-        {
-            selector: '.device-type-rr',
-            style: {
-                'shape': 'star',
-                'background-color': '#008b8b',
-                'border-color': '#071c35',
-                'color': '#ffffff',
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
                 'width': 60,
                 'height': 60
             }
         },
         {
+            selector: '.device-type-gw',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-rr',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
             selector: '.device-type-other',
             style: {
-                'shape': 'rectangle',
-                'background-color': '#666666',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
+        // --- Host icon ---
+        {
+            selector: '.device-type-host',
+            style: {
+                'background-image': 'images/hosts.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
 
         // ==========================================
-        // Status Styles
+        // Status Styles - Visual indicators for device reachability
+        // Uses underlay to show status behind PNG icons
         // ==========================================
         {
             selector: '.status-up',
             style: {
-                'border-color': '#78d82c',
-                'border-width': 3
+                'underlay-color': '#78d82c',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.3,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: '.status-down',
             style: {
-                'border-color': '#e30909',
-                'border-width': 4,
-                'opacity': 0.7
+                'underlay-color': '#e30909',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.4,
+                'underlay-shape': 'ellipse',
+                'opacity': 0.85
+            }
+        },
+        {
+            selector: '.status-error',
+            style: {
+                'underlay-color': '#ff8c00',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
+                'opacity': 0.9
             }
         },
         {
             selector: '.status-init',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 3
+                'underlay-color': '#fbb500',
+                'underlay-padding': 5,
+                'underlay-opacity': 0.25,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: '.status-unknown',
             style: {
-                'border-style': 'dashed'
+                'underlay-color': '#808080',
+                'underlay-padding': 4,
+                'underlay-opacity': 0.2,
+                'underlay-shape': 'ellipse'
             }
         },
 
@@ -231,39 +314,45 @@ export function getCytoscapeStyles() {
                 'curve-style': 'bezier',
                 'opacity': 0.7,
                 'transition-property': 'line-color, width, opacity',
-                'transition-duration': '0.2s'
-            }
-        },
-        {
-            selector: 'edge[label]',
-            style: {
-                'label': 'data(label)',
-                'font-size': 9,
+                'transition-duration': '0.2s',
+                // Source and target port labels anchored to respective endpoints
+                'source-label': 'data(source_port)',
+                'target-label': 'data(target_port)',
+                'source-text-offset': 30,
+                'target-text-offset': 30,
+                'source-text-rotation': 'autorotate',
+                'target-text-rotation': 'autorotate',
+                'font-size': 10,
                 'font-family': '"Proxima Nova", sans-serif',
-                'text-rotation': 'autorotate',
-                'text-margin-y': -10,
                 'color': '#333333',
                 'text-outline-color': '#ffffff',
-                'text-outline-width': 2
+                'text-outline-width': 2,
+                'text-background-color': '#ffffff',
+                'text-background-opacity': 0.8,
+                'text-background-padding': '2px'
             }
         },
 
         // ==========================================
         // Interactive States
+        // Uses underlay to show highlights behind PNG icons
         // ==========================================
         {
             selector: 'node:selected',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 4,
-                'box-shadow': '0 0 10px #fbb500'
+                'underlay-color': '#fbb500',
+                'underlay-padding': 10,
+                'underlay-opacity': 0.4,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: 'node.highlighted',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 4,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -295,7 +384,10 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.hover',
             style: {
-                'border-width': 3,
+                'underlay-color': '#071c35',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.15,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -313,11 +405,53 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.focused',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 5,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 12,
+                'underlay-opacity': 0.45,
+                'underlay-shape': 'ellipse',
                 'z-index': 9999,
                 'font-size': 14,
                 'font-weight': 700
+            }
+        },
+
+        // ==========================================
+        // Edge Utilization States (based on interface stats)
+        // ==========================================
+        {
+            selector: 'edge.utilization-low',
+            style: {
+                'line-color': '#78d82c',
+                'width': 2
+            }
+        },
+        {
+            selector: 'edge.utilization-medium',
+            style: {
+                'line-color': '#fbb500',
+                'width': 3
+            }
+        },
+        {
+            selector: 'edge.utilization-high',
+            style: {
+                'line-color': '#ff8c00',
+                'width': 3
+            }
+        },
+        {
+            selector: 'edge.utilization-critical',
+            style: {
+                'line-color': '#e30909',
+                'width': 4
+            }
+        },
+        {
+            selector: 'edge.has-errors',
+            style: {
+                'line-color': '#e30909',
+                'line-style': 'dashed',
+                'width': 3
             }
         }
     ];
