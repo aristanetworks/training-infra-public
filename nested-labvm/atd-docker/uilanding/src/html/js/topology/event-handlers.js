@@ -20,6 +20,14 @@ export class EventManager {
         this.customTerminalHandler = options.onOpenTerminal || null;
         console.log('[EventManager] Custom terminal handler:', this.customTerminalHandler ? 'provided' : 'not provided');
 
+        // EOS type for detecting cEOS labs (packet capture not supported)
+        this.eosType = options.eosType || 'veos';
+        this.isCeosLab = this.eosType === 'container-labs';
+        console.log('[EventManager] EOS type:', this.eosType, 'isCeosLab:', this.isCeosLab);
+
+        // Capture panel reference (set externally by TopologyManager)
+        this.capturePanel = null;
+
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
         this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
@@ -50,6 +58,9 @@ export class EventManager {
         // Edge hover - highlight path
         this.cy.on('mouseover', 'edge', (evt) => this.handleEdgeMouseOver(evt));
         this.cy.on('mouseout', 'edge', (evt) => this.handleEdgeMouseOut(evt));
+
+        // Edge right-click - show edge context menu (for capture, etc.)
+        this.cy.on('cxttap', 'edge', (evt) => this.showEdgeContextMenu(evt));
 
         // Background click - clear selections and exit focus mode
         this.cy.on('tap', (evt) => {
@@ -139,7 +150,6 @@ export class EventManager {
         const menuItems = [
             {
                 label: 'Open Terminal',
-                icon: '⌨',
                 action: () => {
                     this.openTerminal(data.label, data.ip);
                     this.hideContextMenu();
@@ -148,7 +158,6 @@ export class EventManager {
             },
             {
                 label: 'Focus on Device',
-                icon: '🎯',
                 action: () => {
                     this.enterFocusMode(node);
                     this.hideContextMenu();
@@ -156,7 +165,6 @@ export class EventManager {
             },
             {
                 label: 'Show Details',
-                icon: '📄',
                 action: () => {
                     this.showDetailsPanel(node);
                     this.hideContextMenu();
@@ -164,7 +172,6 @@ export class EventManager {
             },
             {
                 label: 'View Running Config',
-                icon: '📝',
                 action: () => {
                     this.showRunningConfigModal(node);
                     this.hideContextMenu();
@@ -176,7 +183,6 @@ export class EventManager {
             },
             {
                 label: 'Copy IP Address',
-                icon: '📋',
                 action: () => {
                     if (data.ip && data.ip !== 'N/A') {
                         navigator.clipboard.writeText(data.ip);
@@ -197,15 +203,18 @@ export class EventManager {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
 
-                const icon = document.createElement('span');
-                icon.className = 'context-menu-icon';
-                icon.textContent = item.icon;
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
 
                 const label = document.createElement('span');
                 label.className = 'context-menu-label';
                 label.textContent = item.label;
 
-                menuItem.appendChild(icon);
                 menuItem.appendChild(label);
 
                 if (!item.disabled) {
@@ -267,6 +276,147 @@ export class EventManager {
         const existing = document.getElementById('topo-context-menu');
         if (existing) {
             existing.remove();
+        }
+    }
+
+    /**
+     * Show context menu for an edge (link)
+     */
+    showEdgeContextMenu(evt) {
+        const edge = evt.target;
+        const data = edge.data();
+
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Build descriptive link label
+        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+
+        // Menu items for edge
+        const menuItems = [
+            {
+                label: this.isCeosLab ? 'Packet Capture (vEOS only)' : 'Start Packet Capture',
+                action: () => {
+                    this.startEdgeCapture(edge);
+                    this.hideContextMenu();
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: 'View Link Stats',
+                action: () => {
+                    // Stats are already shown in edge tooltip
+                    this.showEdgeTooltip(evt);
+                    this.hideContextMenu();
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Focus Source',
+                action: () => {
+                    const sourceNode = this.cy.$id(data.source);
+                    if (!sourceNode.empty()) {
+                        this.enterFocusMode(sourceNode);
+                    }
+                    this.hideContextMenu();
+                }
+            },
+            {
+                label: 'Focus Target',
+                action: () => {
+                    const targetNode = this.cy.$id(data.target);
+                    if (!targetNode.empty()) {
+                        this.enterFocusMode(targetNode);
+                    }
+                    this.hideContextMenu();
+                }
+            }
+        ];
+
+        // Build menu HTML
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'context-menu-separator';
+                menu.appendChild(sep);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+
+                // Only add icon if provided
+                if (item.icon) {
+                    const icon = document.createElement('span');
+                    icon.className = 'context-menu-icon';
+                    icon.textContent = item.icon;
+                    menuItem.appendChild(icon);
+                }
+
+                const label = document.createElement('span');
+                label.className = 'context-menu-label';
+                label.textContent = item.label;
+
+                menuItem.appendChild(label);
+
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.action();
+                    });
+                }
+
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Add header with link info
+        const header = document.createElement('div');
+        header.className = 'context-menu-header';
+        header.textContent = linkLabel;
+        header.style.fontSize = '12px';  // Slightly smaller for longer text
+        menu.insertBefore(header, menu.firstChild);
+
+        // Position menu
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if off-screen
+        this.adjustMenuPosition(menu);
+    }
+
+    /**
+     * Start packet capture on an edge/link
+     */
+    startEdgeCapture(edge) {
+        const data = edge.data();
+
+        if (this.capturePanel) {
+            // Pass edge data to capture panel - it will find the matching bridge
+            const edgeData = {
+                source: data.source,
+                target: data.target,
+                source_port: data.source_port,
+                target_port: data.target_port
+            };
+            console.log('[EventManager] Opening capture panel for edge:', edgeData);
+            this.capturePanel.show(edgeData);
+        } else {
+            console.warn('[EventManager] Capture panel not available');
+            alert('Packet capture feature is not available on this page.\n\nPlease use the main topology diagram page.');
         }
     }
 

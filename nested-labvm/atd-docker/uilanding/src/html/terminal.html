@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/typography.css" />
   <link rel="stylesheet" href="css/topology.css" />
+  <link rel="stylesheet" href="css/capture.css" />
   <style>
     * {
       margin: 0;
@@ -881,6 +882,8 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* Capture panel styles are in capture.css */
   </style>
 </head>
 
@@ -933,6 +936,7 @@
           <button class="split-toggle" id="splitToggle">Split View</button>
           <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
           <button class="panel-toggle" id="topoToggle">Topology</button>
+          <button class="panel-toggle" id="captureToggle">Capture</button>
         </div>
       </div>
 
@@ -1269,6 +1273,49 @@
           labguidesPanel.classList.remove('visible');
           labguidesToggle.classList.remove('active');
         });
+
+        // Capture panel toggle
+        const captureToggle = document.getElementById('captureToggle');
+        captureToggle.addEventListener('click', () => {
+          const capturePanel = document.getElementById('capture-panel');
+          if (capturePanel) {
+            const isVisible = capturePanel.classList.contains('visible');
+            if (isVisible) {
+              capturePanel.classList.remove('visible');
+              captureToggle.classList.remove('active');
+            } else {
+              capturePanel.classList.add('visible');
+              captureToggle.classList.add('active');
+            }
+          }
+        });
+
+        // Watch for capture panel visibility changes to sync button state
+        this.setupCaptureButtonSync();
+      },
+
+      /**
+       * Sync capture toggle button state with capture panel visibility
+       * (panel can be closed via its own close button)
+       */
+      setupCaptureButtonSync() {
+        const captureToggle = document.getElementById('captureToggle');
+
+        // Wait for capture panel to exist, then observe it
+        const checkAndObserve = () => {
+          const capturePanel = document.getElementById('capture-panel');
+          if (capturePanel) {
+            const observer = new MutationObserver(() => {
+              const isVisible = capturePanel.classList.contains('visible');
+              captureToggle.classList.toggle('active', isVisible);
+            });
+            observer.observe(capturePanel, { attributes: true, attributeFilter: ['class'] });
+          } else {
+            // Panel not yet created, check again shortly
+            setTimeout(checkAndObserve, 100);
+          }
+        };
+        checkAndObserve();
       },
 
       setupSidebarToggle() {
@@ -1277,6 +1324,8 @@
 
         toggleBtn.addEventListener('click', () => {
           sidebar.classList.toggle('collapsed');
+          // Add class to body for capture panel positioning (fallback for :has() selector)
+          document.body.classList.toggle('sidebar-collapsed', sidebar.classList.contains('collapsed'));
           // Change icon based on state
           toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9776;';
           toggleBtn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
@@ -1491,6 +1540,10 @@
           // Setup compact controls
           this.setupTopoControls();
 
+          // Wait for capture panel to exist in DOM before setting up observer
+          await this.waitForCapturePanel();
+          this.setupCapturePanelObserver();
+
         } catch (error) {
           console.error('Failed to initialize topology:', error);
           document.getElementById('terminal-topology').innerHTML =
@@ -1554,6 +1607,90 @@
             }
           });
         }
+      },
+
+      /**
+       * Wait for capture panel to exist in DOM
+       * Returns immediately if panel exists, otherwise polls with timeout
+       */
+      async waitForCapturePanel() {
+        return new Promise((resolve) => {
+          const maxAttempts = 50; // 5 seconds max
+          let attempts = 0;
+
+          const checkPanel = () => {
+            const panel = document.getElementById('capture-panel');
+            if (panel) {
+              resolve();
+            } else if (attempts++ < maxAttempts) {
+              setTimeout(checkPanel, 100);
+            } else {
+              console.warn('[TerminalManager] Capture panel not found after waiting');
+              resolve(); // Resolve anyway to not block
+            }
+          };
+          checkPanel();
+        });
+      },
+
+      // Store observer reference for cleanup
+      capturePanelObserver: null,
+
+      /**
+       * Setup observer for capture panel to update main-content layout
+       * The capture panel should push up terminal iframes and side panels but NOT the sidebar
+       */
+      setupCapturePanelObserver() {
+        const capturePanel = document.getElementById('capture-panel');
+        const mainContent = document.querySelector('.main-content');
+
+        if (!capturePanel || !mainContent) {
+          console.warn('[TerminalManager] Could not find capture panel or main content');
+          return;
+        }
+
+        // Disconnect existing observer if any (prevents memory leaks on reinitialization)
+        if (this.capturePanelObserver) {
+          this.capturePanelObserver.disconnect();
+        }
+
+        // Function to update main-content classes based on capture panel state
+        const updateMainContentLayout = () => {
+          // Check if elements still exist in DOM
+          if (!document.body.contains(capturePanel) || !document.body.contains(mainContent)) {
+            if (this.capturePanelObserver) {
+              this.capturePanelObserver.disconnect();
+            }
+            return;
+          }
+
+          const isVisible = capturePanel.classList.contains('visible');
+          const isMinimized = capturePanel.classList.contains('minimized');
+          const isExpanded = capturePanel.classList.contains('expanded');
+
+          mainContent.classList.toggle('capture-panel-visible', isVisible);
+          mainContent.classList.toggle('capture-panel-minimized', isVisible && isMinimized);
+          mainContent.classList.toggle('capture-panel-expanded', isVisible && isExpanded);
+        };
+
+        // Use MutationObserver to watch for class changes on capture panel
+        this.capturePanelObserver = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+              updateMainContentLayout();
+            }
+          }
+        });
+
+        this.capturePanelObserver.observe(capturePanel, {
+          attributes: true,
+          attributeFilter: ['class']
+        });
+
+        // Initial state (use rAF to ensure classes are set)
+        requestAnimationFrame(() => updateMainContentLayout());
+
+        console.log('[TerminalManager] Capture panel observer setup complete');
       },
 
       /**

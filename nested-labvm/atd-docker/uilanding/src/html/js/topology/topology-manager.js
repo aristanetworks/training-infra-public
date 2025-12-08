@@ -8,6 +8,7 @@ import { getLayout, LAYOUT_OPTIONS } from './layout-config.js';
 import { EventManager } from './event-handlers.js';
 import { FilterManager, DEVICE_TYPE_INFO, loadDeviceTypeInfo, getDeviceTypeInfo } from './filter-manager.js';
 import { StatusUpdater } from './status-updater.js';
+import { CapturePanel } from './capture-panel.js';
 
 export class TopologyManager {
     constructor(containerId, options = {}) {
@@ -26,6 +27,7 @@ export class TopologyManager {
         this.eventManager = null;
         this.filterManager = null;
         this.statusUpdater = null;
+        this.capturePanel = null;  // Packet capture panel
         this.isInitialized = false;
         this.topologyData = null;
         this.originalPositions = {};  // Store original positions for reset
@@ -65,14 +67,33 @@ export class TopologyManager {
             // Initialize Cytoscape
             this.initCytoscape();
 
+            // Extract eos_type from metadata (for cEOS detection)
+            const eosType = this.topologyData.metadata?.eos_type || 'veos';
+
             // Setup components
             console.log('[TopologyManager] onOpenTerminal option:', this.options.onOpenTerminal ? 'provided' : 'not provided');
+            console.log('[TopologyManager] eos_type:', eosType);
             this.eventManager = new EventManager(this.cy, this.container, {
-                onOpenTerminal: this.options.onOpenTerminal
+                onOpenTerminal: this.options.onOpenTerminal,
+                eosType: eosType
             });
 
             if (this.options.enableFilters) {
                 this.filterManager = new FilterManager(this.cy, this.container);
+            }
+
+            // Initialize capture panel (if not disabled)
+            if (this.options.enableCapture !== false) {
+                this.capturePanel = new CapturePanel({
+                    maxPackets: 5000,
+                    onEdgeHighlight: (bridgeName) => this.highlightBridgeEdge(bridgeName)
+                });
+                this.capturePanel.init();
+
+                // Connect capture panel to event manager
+                if (this.eventManager) {
+                    this.eventManager.capturePanel = this.capturePanel;
+                }
             }
 
             // Add help button
@@ -466,6 +487,41 @@ export class TopologyManager {
     }
 
     /**
+     * Highlight edge corresponding to a bridge name
+     * Bridge naming convention: {dev1-short}{port1}-{dev2-short}{port2}
+     * e.g., sp1Et1-le1Et1 for spine1:Ethernet1 <-> leaf1:Ethernet1
+     */
+    highlightBridgeEdge(bridgeName) {
+        if (!this.cy || !bridgeName) return;
+
+        // For now, just clear any existing highlights
+        // In the future, we could parse the bridge name and find the matching edge
+        this.cy.edges().removeClass('edge-capturing');
+
+        console.log('[TopologyManager] Highlighting bridge edge:', bridgeName);
+        // Edge highlighting by bridge name could be implemented by matching
+        // the short device codes in the bridge name to full device names
+    }
+
+    /**
+     * Show the capture panel
+     */
+    showCapturePanel() {
+        if (this.capturePanel) {
+            this.capturePanel.show();
+        }
+    }
+
+    /**
+     * Hide the capture panel
+     */
+    hideCapturePanel() {
+        if (this.capturePanel) {
+            this.capturePanel.hide();
+        }
+    }
+
+    /**
      * Get status summary
      */
     getStatusSummary() {
@@ -598,6 +654,10 @@ export class TopologyManager {
 
         if (this.statusUpdater) {
             this.statusUpdater.destroy();
+        }
+
+        if (this.capturePanel) {
+            this.capturePanel.destroy();
         }
 
         if (this.cy) {

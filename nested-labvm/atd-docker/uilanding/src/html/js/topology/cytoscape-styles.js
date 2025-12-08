@@ -21,9 +21,11 @@ export function getCytoscapeStyles() {
                 'color': '#071c35',
                 'text-outline-color': '#ffffff',
                 'text-outline-width': 2,
-                'border-width': 2,
-                'border-color': '#071c35',
-                'background-color': '#ffffff',
+                'border-width': 0,
+                'border-color': 'transparent',
+                'border-opacity': 0,
+                'background-color': 'transparent',
+                'background-opacity': 0,
                 'width': 50,
                 'height': 50,
                 'transition-property': 'border-color, border-width, background-color, opacity',
@@ -32,224 +34,272 @@ export function getCytoscapeStyles() {
         },
 
         // ==========================================
-        // Device Type Styles
+        // Device Type Styles - Using PNG icons with transparent backgrounds
+        // Icons: leaf.png, spine.png, router.png
+        // Sizes: 60-70px depending on device importance
         // ==========================================
+
+        // --- Spine icon: spine, pe, p, ce ---
         {
             selector: '.device-type-spine',
             style: {
-                'shape': 'diamond',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 60,
-                'height': 60
-            }
-        },
-        {
-            selector: '.device-type-leaf',
-            style: {
-                'shape': 'round-rectangle',
-                'background-color': '#20b2aa',  // Light sea green - distinct from status-up green
-                'border-color': '#071c35',
-                'width': 50,
-                'height': 50
-            }
-        },
-        {
-            selector: '.device-type-borderleaf',
-            style: {
-                'shape': 'hexagon',
-                'background-color': '#fbb500',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
-            }
-        },
-        {
-            selector: '.device-type-host',
-            style: {
-                'shape': 'ellipse',
-                'background-color': '#dae0fe',
-                'border-color': '#4c5cae',
-                'width': 45,
-                'height': 45
-            }
-        },
-        {
-            selector: '.device-type-core',
-            style: {
-                'shape': 'triangle',
-                'background-color': '#071c35',
-                'border-color': '#fbb500',
-                'color': '#ffffff',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
         {
             selector: '.device-type-pe',
             style: {
-                'shape': 'diamond',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
             }
         },
         {
             selector: '.device-type-p',
             style: {
-                'shape': 'diamond',
-                'background-color': '#6b7cc9',
-                'border-color': '#071c35',
-                'width': 50,
-                'height': 50
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 62,
+                'height': 62
             }
         },
         {
             selector: '.device-type-ce',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#4c5cae',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
+                'background-image': 'images/spine.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
+        // --- Leaf icon: leaf, memleaf, borderleaf ---
+        {
+            selector: '.device-type-leaf',
+            style: {
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
         {
-            selector: '.device-type-customer',
+            selector: '.device-type-borderleaf',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#20b2aa',  // Light sea green - matches leaf color
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
-            }
-        },
-        {
-            selector: '.device-type-router',
-            style: {
-                'shape': 'diamond',
-                'background-color': '#8b4513',  // Saddle brown - distinct for campus routers
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
             }
         },
         {
             selector: '.device-type-memleaf',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#32cd32',  // Lime green - between leaf and host
-                'border-color': '#071c35',
-                'width': 48,
-                'height': 48
+                'background-image': 'images/leaf.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 62,
+                'height': 62
+            }
+        },
+
+        // --- Router icon: router, core, customer, dci, isp, internet, oob, gw, rr, other ---
+        {
+            selector: '.device-type-router',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-core',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
+            selector: '.device-type-customer',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
             }
         },
         {
             selector: '.device-type-dci',
             style: {
-                'shape': 'octagon',
-                'background-color': '#051431',
-                'border-color': '#fbb500',
-                'color': '#ffffff',
-                'width': 55,
-                'height': 55
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
             }
         },
         {
             selector: '.device-type-isp, .device-type-internet',
             style: {
-                'shape': 'star',
-                'background-color': '#e30909',
-                'border-color': '#071c35',
-                'width': 60,
-                'height': 60
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
         {
             selector: '.device-type-oob',
             style: {
-                'shape': 'round-rectangle',
-                'background-color': '#808080',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
-            }
-        },
-        {
-            selector: '.device-type-gw',
-            style: {
-                'shape': 'pentagon',
-                'background-color': '#d4a400',
-                'border-color': '#071c35',
-                'width': 55,
-                'height': 55
-            }
-        },
-        {
-            selector: '.device-type-rr',
-            style: {
-                'shape': 'star',
-                'background-color': '#008b8b',
-                'border-color': '#071c35',
-                'color': '#ffffff',
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
                 'width': 60,
                 'height': 60
             }
         },
         {
+            selector: '.device-type-gw',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-rr',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
             selector: '.device-type-other',
             style: {
-                'shape': 'rectangle',
-                'background-color': '#666666',
-                'border-color': '#071c35',
-                'width': 45,
-                'height': 45
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
+        // --- Host icon ---
+        {
+            selector: '.device-type-host',
+            style: {
+                'background-image': 'images/hosts.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
             }
         },
 
         // ==========================================
         // Status Styles - Visual indicators for device reachability
+        // Uses underlay to show status behind PNG icons
         // ==========================================
         {
             selector: '.status-up',
             style: {
-                'border-color': '#78d82c',
-                'border-width': 4,
-                'border-opacity': 1
+                'underlay-color': '#78d82c',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.3,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: '.status-down',
             style: {
-                'border-color': '#e30909',
-                'border-width': 5,
-                'border-opacity': 1,
-                'opacity': 0.8
+                'underlay-color': '#e30909',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.4,
+                'underlay-shape': 'ellipse',
+                'opacity': 0.85
             }
         },
         {
             selector: '.status-error',
             style: {
-                'border-color': '#ff8c00',
-                'border-width': 4,
-                'border-style': 'dashed',
+                'underlay-color': '#ff8c00',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
                 'opacity': 0.9
             }
         },
         {
             selector: '.status-init',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 3
+                'underlay-color': '#fbb500',
+                'underlay-padding': 5,
+                'underlay-opacity': 0.25,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: '.status-unknown',
             style: {
-                'border-color': '#808080',
-                'border-style': 'dashed',
-                'border-width': 2
+                'underlay-color': '#808080',
+                'underlay-padding': 4,
+                'underlay-opacity': 0.2,
+                'underlay-shape': 'ellipse'
             }
         },
 
@@ -285,20 +335,24 @@ export function getCytoscapeStyles() {
 
         // ==========================================
         // Interactive States
+        // Uses underlay to show highlights behind PNG icons
         // ==========================================
         {
             selector: 'node:selected',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 4,
-                'box-shadow': '0 0 10px #fbb500'
+                'underlay-color': '#fbb500',
+                'underlay-padding': 10,
+                'underlay-opacity': 0.4,
+                'underlay-shape': 'ellipse'
             }
         },
         {
             selector: 'node.highlighted',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 4,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -330,7 +384,10 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.hover',
             style: {
-                'border-width': 3,
+                'underlay-color': '#071c35',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.15,
+                'underlay-shape': 'ellipse',
                 'z-index': 999
             }
         },
@@ -348,8 +405,10 @@ export function getCytoscapeStyles() {
         {
             selector: 'node.focused',
             style: {
-                'border-color': '#fbb500',
-                'border-width': 5,
+                'underlay-color': '#fbb500',
+                'underlay-padding': 12,
+                'underlay-opacity': 0.45,
+                'underlay-shape': 'ellipse',
                 'z-index': 9999,
                 'font-size': 14,
                 'font-weight': 700
