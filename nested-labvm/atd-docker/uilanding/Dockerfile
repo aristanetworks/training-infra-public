@@ -25,7 +25,7 @@ RUN apt-get update && \
 COPY ./src/html /opt/topo/html/
 
 # Copy Python modules to site-packages
-COPY ./src/device_types.py /usr/local/lib/python3.9/site-packages/device_types.py
+COPY ./src/device_types.py /usr/local/bin/site-packages/device_types.py
 # Note: capture_manager.py and packet_parser.py are not needed here
 # Packet capture runs in the dedicated captureservice container with host network mode
 
