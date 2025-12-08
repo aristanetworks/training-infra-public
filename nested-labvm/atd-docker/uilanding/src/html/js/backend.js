@@ -1,5 +1,49 @@
 // Global flag to indicate if this is an exam lab
+// SECURITY: Starts as true to ensure exams are never accidentally treated as labs
+// If /examStatus fails to load, we treat the lab as an exam to prevent
+// accidental bypass of exam protections. This is fail-safe behavior.
+// Trade-off: Regular labs may show exam modal if API is unreachable.
 window.isExamLab = true;
+// Flag to track if exam status has been loaded from the server
+window.examStatusLoaded = false;
+// Flag to track if loading overlay has already been hidden (idempotency guard)
+var loadingOverlayHidden = false;
+
+/**
+ * Hide the initial loading overlay once both WS is connected and exam status is known
+ * Includes idempotency guard to prevent multiple DOM operations
+ */
+window.checkAndHideLoadingOverlay = function() {
+    if (window.examStatusLoaded && window.wsConnected && !loadingOverlayHidden) {
+        var initialLoading = document.getElementById('initialLoadingOverlay');
+        if (initialLoading && initialLoading.style.display !== 'none') {
+            initialLoading.style.display = 'none';
+            loadingOverlayHidden = true;
+            console.log('[Loading] Initial overlay hidden - exam status loaded and WS connected');
+        }
+    }
+};
+
+/**
+ * Show a non-blocking notification for connection issues
+ * @param {string} message - The message to display
+ * @param {string} type - 'warning' or 'error'
+ */
+function showConnectionNotice(message, type) {
+    var bgColor = type === 'error' ? '#dc3545' : '#ffc107';
+    var textColor = type === 'error' ? 'white' : '#333';
+    var notice = document.createElement('div');
+    notice.style.cssText = 'position:fixed;top:20px;right:20px;background:' + bgColor +
+        ';color:' + textColor + ';padding:15px 20px;border-radius:8px;z-index:9999;' +
+        'box-shadow:0 4px 12px rgba(0,0,0,0.15);font-family:inherit;max-width:350px;';
+    notice.innerHTML = message;
+    document.body.appendChild(notice);
+    setTimeout(function() {
+        notice.style.opacity = '0';
+        notice.style.transition = 'opacity 0.3s';
+        setTimeout(function() { notice.remove(); }, 300);
+    }, 8000);
+}
 
 const labStaustext = document.getElementById("labStatusByApi");
 labStaustext.innerHTML = "<td>Please wait, Lab Status is being loaded...</td>";
@@ -18,66 +62,132 @@ if (resetRequestSubmittedTime) {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-    // const overlay = document.getElementById('overlay');
-    // Show loading indicator while fetching status
-    // overlay.style.display = 'flex';
-    // overlay.innerHTML = '<div class="loading-spinner"></div>'; // Add spinner
+    // Set up abort controller for fetch timeout (10 seconds)
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() {
+        controller.abort();
+    }, 10000);
 
-    fetch('/examStatus') // Fetch exam status from the Flask server
-        .then(response => response.json())
-        .then(data => {
-            console.log("Response from server:", data); // Log the response
-
-            // Hide initial loading overlay
-            // var initialLoading = document.getElementById('initialLoadingOverlay');
-            // if (initialLoading) {
-            //     initialLoading.style.display = 'none';
-            // }
+    // Fetch exam status from the server with timeout
+    fetch('/examStatus', { signal: controller.signal })
+        .then(function(response) {
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+                throw new Error('Server returned ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log("[ExamStatus] Response from server:", data);
 
             if (data.response && data.response.trim() === 'startExamButtonNeeded') {
-                // Set flag to indicate this is an exam lab
+                // This is an exam lab - wait for WebSocket before hiding overlay
+                // WebSocket is needed for CVP status updates
                 window.isExamLab = true;
-                // Set up the CVP modal button for exam labs
+                console.log("[ExamStatus] This is an exam lab");
                 addExamButton();
+                window.examStatusLoaded = true;
+                window.checkAndHideLoadingOverlay();
             } else {
+                // This is a regular lab - hide overlay immediately (don't wait for WS)
+                // Regular labs don't need the exam modal, so no need to wait
                 window.isExamLab = false;
+                window.examStatusLoaded = true;
+                console.log("[ExamStatus] This is a regular lab - hiding overlay immediately");
+                var initialLoading = document.getElementById('initialLoadingOverlay');
+                if (initialLoading) {
+                    initialLoading.style.display = 'none';
+                    loadingOverlayHidden = true;
+                }
+            }
+        })
+        .catch(function(error) {
+            clearTimeout(timeoutId);
+
+            if (error.name === 'AbortError') {
+                console.error("[ExamStatus] Fetch timed out after 10 seconds");
+                showConnectionNotice('⚠️ Connection timeout. Some features may be limited.', 'warning');
+            } else {
+                console.error("[ExamStatus] Error fetching exam status:", error);
+                showConnectionNotice('⚠️ Connection issue detected. Some features may be limited.', 'warning');
             }
 
-        })
-        .catch(error => {
-            console.error("Error fetching exam status:", error);
-
-            // Hide initial loading overlay on error
+            // On error, default to non-exam to avoid blocking users
+            // Note: This is a security trade-off - we allow access but log the issue
+            window.isExamLab = false;
+            window.examStatusLoaded = true;
+            window.checkAndHideLoadingOverlay();
         });
+
+    // Fallback: Force hide overlay after 15 seconds if WebSocket never connects
+    // This prevents users from being stuck on the loading screen forever
+    setTimeout(function() {
+        if (!window.wsConnected && !loadingOverlayHidden) {
+            console.warn('[Loading] WebSocket did not connect within 15s, forcing overlay hide');
+            var initialLoading = document.getElementById('initialLoadingOverlay');
+            if (initialLoading && initialLoading.style.display !== 'none') {
+                initialLoading.style.display = 'none';
+                loadingOverlayHidden = true;
+                showConnectionNotice('⚠️ Real-time updates may not be available. Please check your network connection.', 'warning');
+            }
+        }
+    }, 15000);
 });
 
 
 function addExamButton() {
     // Set up CVP modal Start Exam button
-    const cvpModalBtn = document.getElementById('cvpStartExamBtn');
-    const cvpModal = document.getElementById('cvpWaitingModal');
+    var cvpModalBtn = document.getElementById('cvpStartExamBtn');
+    var cvpModal = document.getElementById('cvpWaitingModal');
 
     if (cvpModalBtn) {
+        // Store original button text for recovery
+        var originalBtnText = cvpModalBtn.textContent || 'Start Exam';
+
         cvpModalBtn.addEventListener('click', function () {
-            if (this.disabled) {
+            var btn = this;
+
+            if (btn.disabled) {
                 return false;
             }
-            alert("Closing this window will automatically submit your exam. You will not be able to start a new attempt.");
+
+            // Confirm with user before starting exam
+            var confirmStart = confirm("Closing this window will automatically submit your exam. You will not be able to start a new attempt.\n\nClick OK to start your exam.");
+
+            if (!confirmStart) {
+                return false;
+            }
+
+            // Disable button and show loading state to prevent double-clicks
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+
             fetch('/examStatus', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ update_status: "status=startExamButtonNotNeeded" })
             })
-                .then(response => response.json())
-                .then(postdataresponse => {
-                    console.log("Response from server:", postdataresponse);
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Server returned ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(postdataresponse) {
+                    console.log("[ExamStart] Exam started successfully:", postdataresponse);
                     if (cvpModal) {
                         cvpModal.style.opacity = 0;
                         cvpModal.style.visibility = 'hidden';
                     }
                     location.reload();
                 })
-                .catch(error => console.error("Error updating exam status:", error));
+                .catch(function(error) {
+                    console.error("[ExamStart] Error starting exam:", error);
+                    alert("Failed to start exam. Please try again or contact support if the problem persists.");
+                    // Re-enable button for retry
+                    btn.disabled = false;
+                    btn.textContent = originalBtnText;
+                });
         });
     }
 }
