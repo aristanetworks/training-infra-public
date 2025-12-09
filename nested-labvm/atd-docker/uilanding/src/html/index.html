@@ -18,32 +18,42 @@
 </head>
 
 <body>
-  <!-- Connectivity Status Badge -->
-  <div id="connectivity-badge" class="connectivity-badge" title="System Connectivity Status">
-    <span class="connectivity-icon">
-      <i class="fa-solid fa-circle-check"></i>
-    </span>
-    <span class="connectivity-text">Connected</span>
+  <!-- Unified System Status Badge -->
+  <div id="system-status-badge" class="system-status-badge" title="System Status">
+    <span id="system-status-icon" class="system-status-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
+    <span id="system-status-text" class="system-status-text">Connecting...</span>
   </div>
 
-  <!-- Connectivity Details Popup -->
-  <div id="connectivity-details" class="connectivity-details" style="display: none;">
-    <div class="connectivity-detail-header">
-      <h4>Connectivity Status</h4>
-      <button class="connectivity-close-btn" type="button">&times;</button>
+  <!-- Unified System Status Popup -->
+  <div id="system-status-popup" class="system-status-popup" style="display: none;">
+    <div class="status-popup-header">
+      <h4>System Connectivity</h4>
+      <button class="status-popup-close" type="button">&times;</button>
     </div>
-    <div class="connectivity-detail-body">
-      <div class="status-item">
-        <span class="status-label">WebSocket:</span>
-        <span id="ws-status-text" class="status-value">Checking...</span>
-        <span id="ws-status-icon" class="status-icon"></span>
+    <div class="status-popup-body">
+      {% if topo_cvp %}
+      <div class="status-row">
+        <span class="status-row-label">CVP</span>
+        <span id="cvp-version-text" class="status-row-version">--</span>
+        <span id="cvp-status-text" class="status-row-value">Starting...</span>
+        <span id="cvp-status-row-icon" class="status-row-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
       </div>
-      <div class="status-item">
-        <span class="status-label">CVP gRPC:</span>
-        <span id="grpc-status-text" class="status-value">Checking...</span>
-        <span id="grpc-status-icon" class="status-icon"></span>
+      {% end %}
+      <div class="status-row">
+        <span class="status-row-label">WebSocket</span>
+        <span class="status-row-version"></span>
+        <span id="ws-status-text" class="status-row-value">Connecting...</span>
+        <span id="ws-status-row-icon" class="status-row-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
       </div>
-      <div class="status-note">
+      {% if topo_cvp %}
+      <div class="status-row">
+        <span class="status-row-label">CVP gRPC</span>
+        <span class="status-row-version"></span>
+        <span id="grpc-status-text" class="status-row-value">Waiting for CVP...</span>
+        <span id="grpc-status-row-icon" class="status-row-icon"><i class="fa-solid fa-clock"></i></span>
+      </div>
+      {% end %}
+      <div class="status-popup-note">
         <i class="fa-solid fa-info-circle"></i>
         <span id="connectivity-message">Monitoring connectivity...</span>
       </div>

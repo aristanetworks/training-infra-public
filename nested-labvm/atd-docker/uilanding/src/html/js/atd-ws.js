@@ -146,6 +146,11 @@ function createWS(SOCK_URL) {
             // Only show modal for exam labs when we have confirmed the exam status
             // Using live window references to ensure we have the latest values
             if (window.examStatusLoaded && window.isExamLab) {
+      // Hide loading overlay and show exam modal simultaneously
+      var initialLoading = document.getElementById('initialLoadingOverlay');
+      if (initialLoading) {
+          initialLoading.style.display = 'none';
+      }                
                 // Show CVP waiting modal with waiting state
                 if (elements.cvpModal) {
                     elements.cvpModal.style.display = 'flex';
@@ -186,6 +191,12 @@ function createWS(SOCK_URL) {
             // Only update modal for exam labs when we have confirmed the exam status
             // Using live window references to ensure we have the latest values
             if (window.examStatusLoaded && window.isExamLab) {
+                      // Hide loading overlay and show exam modal simultaneously
+      var initialLoading = document.getElementById('initialLoadingOverlay');
+      if (initialLoading) {
+          initialLoading.style.display = 'none';
+      }
+
                 // Update modal to ready state
                 if (elements.cvpModal) {
                     elements.cvpModal.style.display = 'flex';
@@ -252,24 +263,41 @@ function createWS(SOCK_URL) {
                 }
             }
             if ('cvp' in reg_data) {
+                // Build CVP info for legacy display
                 _cvp_info = "<h3>CVP " + reg_data['cvp']['version'] + " is currently " + reg_data['cvp']['status'] + "</h3>";
+                var tasksSummary = "No pending tasks in CVP.";
+
                 if ('tasks' in reg_data) {
                     if (reg_data['tasks']) {
                         if (reg_data['tasks']['status'] == 'Active') {
                             // Loop through all the tasks
                             if (reg_data['tasks']['tasks']) {
-                                _cvp_info += "Currently ";
+                                tasksSummary = "";
                                 for (_status in reg_data['tasks']['tasks']) {
-                                    _cvp_info += reg_data['tasks']['tasks'][_status] + " " + _status + " tasks.";
+                                    if (tasksSummary !== "") tasksSummary += ", ";
+                                    tasksSummary += reg_data['tasks']['tasks'][_status] + " " + _status;
                                 }
+                                tasksSummary += " tasks";
                             }
-                        }
-                        else {
-                            _cvp_info += "No pending tasks in CVP.";
                         }
                     }
                 }
-                document.getElementById("cvp_info").innerHTML = _cvp_info
+
+                // Update old display if it exists
+                var oldCvpInfo = document.getElementById("cvp_info");
+                if (oldCvpInfo) {
+                    oldCvpInfo.innerHTML = _cvp_info + tasksSummary;
+                }
+
+                // Update unified connectivity monitor with CVP status
+                // This triggers gRPC monitoring to start when CVP becomes UP
+                if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateCVPStatus === 'function') {
+                    window.ConnectivityMonitor.updateCVPStatus(
+                        reg_data['cvp']['version'],
+                        reg_data['cvp']['status'],
+                        tasksSummary
+                    );
+                }
             }
             ws.send(JSON.stringify({
                 type: "update",
@@ -379,3 +407,6 @@ function examInstanceCountdown(element, exam_end_time) {
     }, 1000);
     event_timer_ids[element] = interval;
 }
+
+// CVP status badge functionality has been moved to connectivity-monitor.js
+// The unified system status badge now handles both CVP and connectivity status

@@ -21,14 +21,7 @@ body {
   background-color: #071a33;
 }
 .bg-pattern {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: url(../images/full-bg-pattern.png) no-repeat right bottom;
-  background-size: contain;
-  z-index: -1;
+  display: none;
 }
 .nav-menu {
   border-bottom: 1px solid var(--secondary-color);
@@ -291,3 +284,5 @@ body {
     overflow: auto;
   }
 }
+
+/* CVP Status Badge styles moved to style.css (unified system status badge) */

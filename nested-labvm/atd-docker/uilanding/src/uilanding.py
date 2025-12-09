@@ -712,15 +712,22 @@ class LabStausHandler(tornado.web.RequestHandler):
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
         container_output=login_container.exec_run(f'sudo lab_status.py')
-        log_file = open('log.txt','w')
-        log_file.write(str(container_output.output.decode("utf-8")))
-        log_file.close()
-        with open("log.txt", "r") as txt_file:
-            response =  txt_file.readlines()
-        print(response)
+
+        # Filter output to only include lines with format "name,status"
+        # Skip log lines that contain timestamps or log levels (INFO, WARNING, ERROR, DEBUG)
+        response = []
+        output_text = container_output.output.decode("utf-8")
+
+        for line in output_text.splitlines():
+            # Only include lines that match the switch status format (contain comma)
+            # and don't contain log-related keywords
+            if ',' in line and not any(keyword in line for keyword in ['INFO', 'WARNING', 'ERROR', 'DEBUG', ' - ', 'Checking', 'completed']):
+                response.append(line.strip())
+
+        print(f"Filtered lab status response: {response}")
         self.write({
             'response':response
-        })        
+        })
 
 
 class ResetLabHandler(tornado.web.RequestHandler):

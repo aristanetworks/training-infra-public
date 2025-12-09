@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log("[ExamStatus] This is an exam lab");
                 addExamButton();
                 window.examStatusLoaded = true;
-                window.checkAndHideLoadingOverlay();
+                //window.checkAndHideLoadingOverlay();
             } else {
                 // This is a regular lab - hide overlay immediately (don't wait for WS)
                 // Regular labs don't need the exam modal, so no need to wait
