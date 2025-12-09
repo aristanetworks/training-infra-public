@@ -1,288 +1,672 @@
+/* ============================================
+   UILanding - Modern Icon Rail Layout
+   ============================================ */
+
 #main {
   display: none;
 }
-.left-sidebar {
-  max-width: 350px;
-  background-color: #04152a;
-  height: 100vh;
+
+/* ============================================
+   Top Header Bar
+   ============================================ */
+.top-header {
   position: fixed;
+  top: 0;
   left: 0;
-  overflow: auto;
-}
-.grid-x .right-panel {
-  width: calc(100% - 350px);
-  padding: 77px 107px;
-  margin-left: 350px;
-}
-body {
-  position: relative;
-  min-height: 100vh;
-
-  background-color: #071a33;
-}
-.bg-pattern {
-  display: none;
-}
-.nav-menu {
-  border-bottom: 1px solid var(--secondary-color);
-  margin-bottom: 30px;
-  padding: 76px 27px 46px;
-  display: block;
-}
-.site-navigation {
-}
-
-.site-sidebar ul {
-  list-style: none;
-  margin-left: 0;
-  margin-bottom: 0;
-  margin-top: 26px;
-}
-
-.site-sidebar ul li .site-sidebar__item {
-  display: block;
-  font-size: 16px;
-  line-height: 22px;
-  color: #fff;
-  padding: 10px 24px;
+  right: 0;
+  height: var(--header-height);
+  background: var(--primary-blue);
   display: flex;
   align-items: center;
-  border-left: 0.75rem solid transparent;
-  transition: background 0.25s;
-}
-.site-sidebar ul .current-page.site-sidebar__item {
-  background: rgb(217, 217, 217, 0.1);
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
 }
 
-.common-note {
-  max-width: 600px;
-  font-size: 20px;
-  font-style: normal;
-  color: #fff;
-  margin: 25px 0 62px;
-}
-.icon-div {
+.top-header__logo {
   display: flex;
-  flex-wrap: nowrap;
   align-items: center;
-  margin-bottom: 100px;
+  gap: 16px;
 }
-.icon {
-  font-size: 40px;
-  color: var(--secondary-color);
-  margin-right: 24px;
+
+.top-header__logo img {
+  height: 32px;
+  width: auto;
 }
-.icon-detail h2 {
-  margin-bottom: 0;
-}
-.icon-detail time {
-  color: #fff;
-  font-size: 30px;
+
+.top-header__title {
+  color: var(--text-inverse);
+  font-size: 18px;
   font-weight: 600;
-}
-
-/*lab menu*/
-.lab-buttons {
-  max-width: 495px;
-}
-.lab-buttons a {
-  display: flex;
-  align-items: center;
-  padding: 30px;
-  border: 1px solid var(--secondary-color);
-  margin-bottom: 20px;
-  color: #fff;
-  font-weight: 700;
-}
-.lab-buttons a .dot {
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  border-radius: 100%;
-  margin-right: 14px;
-  border: 2px solid #fff;
-}
-.lab-buttons a.active .dot {
-  background: var(--secondary-color);
-}
-.lab-note {
-  color: #fff;
-  margin-top: 30px;
-}
-.lab-note a {
-  color: var(--secondary-color);
-  font-weight: 500;
-  text-decoration: underline;
-}
-.small-table {
-  border: 1px solid var(--secondary-color);
-  max-width: 492px;
-  margin-top: 40px;
-}
-.small-table table {
   margin: 0;
 }
-.small-table tbody tr,
-.small-table tbody,
-.small-table td {
-  background: transparent !important;
-  border-color: var(--secondary-color) !important;
-  color: #fff;
+
+.top-header__right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
-.small-table tbody tr:nth-child(odd) {
-  background: 041430;
-}
-.small-table tbody {
-  border: none !important;
-}
-.small-table tbody tr:last-child {
-  border: 0;
-}
-.small-table th {
-  color: #fff;
-}
-.small-table td span.switch {
-  background: #aad037;
-  padding: 10px;
+
+.top-header__timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-inverse);
   font-size: 14px;
-  line-height: 14px;
-  font-weight: 900;
-  text-transform: uppercase;
-  margin: 7px 0;
-  display: inline-block;
-  color: #fff;
 }
-.small-table td span.switch.red {
-  background-color: var(--red);
-  color: var(--primary-color);
-}
-.small-table td:first-child {
-  width: 310px;
-  border-right: 1px solid var(--secondary-color);
-  font-size: 18px;
-}
-.small-table td:last-child {
-  width: 184px;
-  text-align: center;
-}
-/*popup style*/
-.reveal-overlay {
-  background: rgba(0, 10, 43, 0.9);
-}
-.pw-popup {
-  border: 1px solid var(--secondary-color);
-  background: var(--primary-color);
-  outline: none;
-  max-width: 1015px !important;
-  padding: 42px 40px 50px;
-}
-.pw-popup .close-button {
-  color: var(--secondary-color);
+
+.top-header__timer .icon {
+  color: var(--accent-orange);
   font-size: 16px;
-  text-transform: uppercase;
-  text-decoration: underline;
-  top: 30px;
-  right: 15px;
 }
-.pw-popup h3 {
-  color: #fff;
-  font-size: 30px;
-  font-style: normal;
+
+.top-header__timer time {
   font-weight: 600;
-  line-height: 120%;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
-.pw-popup h4 {
-  color: #fff;
+
+/* ============================================
+   Icon Rail Navigation
+   ============================================ */
+.icon-rail {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  bottom: 0;
+  width: var(--rail-width-collapsed);
+  background: var(--primary-blue);
+  z-index: 90;
+  overflow: hidden;
+  transition: width var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+}
+
+.icon-rail:hover {
+  width: var(--rail-width-expanded);
+}
+
+.icon-rail__nav {
+  flex: 1;
+  padding: 16px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.icon-rail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.icon-rail__item {
+  position: relative;
+}
+
+.icon-rail__link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  color: var(--text-inverse);
+  text-decoration: none;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+  border-left: 3px solid transparent;
+  opacity: 0.75;
+}
+
+.icon-rail__link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.icon-rail__link.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-left-color: var(--accent-orange);
+  opacity: 1;
+}
+
+.icon-rail__link i {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.icon-rail__label {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.icon-rail:hover .icon-rail__label {
+  opacity: 1;
+}
+
+/* Tooltip for collapsed state */
+.icon-rail__link[data-tooltip]:not(:hover)::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(var(--rail-width-collapsed) + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--primary-blue);
+  color: var(--text-inverse);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+}
+
+.icon-rail:not(:hover) .icon-rail__link:hover::after {
+  opacity: 1;
+}
+
+/* CVP Loading state */
+.icon-rail__link.cvp-loading {
+  opacity: 0.5;
+}
+
+.icon-rail__link.cvp-loading i {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
+.main-content {
+  margin-left: var(--rail-width-collapsed);
+  margin-top: var(--header-height);
+  min-height: calc(100vh - var(--header-height));
+  background: var(--bg-light);
+  padding: 32px 40px;
+  transition: margin-left var(--transition-normal);
+}
+
+/* ============================================
+   Welcome Card
+   ============================================ */
+.welcome-card {
+  background: var(--bg-white);
+  border-radius: 8px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--accent-orange);
+}
+
+.welcome-card h1 {
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.welcome-card p {
+  color: var(--text-body);
   font-size: 16px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 149%;
+  margin: 0;
+  line-height: 1.5;
 }
-.pw-popup .table-responsive {
-  margin-top: 34px;
+
+/* ============================================
+   Content Cards
+   ============================================ */
+.content-card {
+  background: var(--bg-white);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
 }
-.pw-popup .table-responsive th,
-.pw-popup .table-responsive td,
-.pw-popup .table-responsive thead,
-.pw-popup .table-responsive tbody,
-.pw-popup .table-responsive tr {
-  background-color: transparent;
-  border-color: var(--secondary-color);
+
+.content-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--bg-light);
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.pw-popup .table-responsive thead tr {
-  background: transparent !important;
+
+.content-card__title {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
 }
-.pw-popup .table-responsive tr:nth-child(odd) {
-  background: #041430;
+
+.content-card__title::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  background: var(--accent-orange);
+  margin-top: 8px;
+  border-radius: 2px;
 }
-.pw-popup .table-responsive th {
-  color: var(--secondary-color);
-  font-size: 20px;
-  font-style: normal;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-.pw-popup .table-responsive td {
-  color: #fff;
-}
-.pw-popup .table-responsive th,
-.pw-popup .table-responsive td {
-  border-right: 1px solid var(--secondary-color);
-}
+
+/* ============================================
+   Panel System (for tab-like content)
+   ============================================ */
 .panel {
   display: none;
 }
+
 .panel.active {
   display: block;
 }
-@media screen and (min-width: 40em) and (max-width: 63.9375em) {
+
+/* ============================================
+   Lab Menu
+   ============================================ */
+.lab-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 500px;
 }
-@media screen and (max-width: 63.9375em) {
-  .full {
-    overflow: hidden;
-  }
-  .left-sidebar {
-    width: 100%;
-    position: relative;
-    height: auto;
-    max-width: 100%;
-    overflow: inherit;
-  }
-  .grid-x .right-panel {
-    margin: 0;
-    padding: 30px 15px;
-    width: 100%;
-  }
-  .nav-menu {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 15px;
-  }
-  .site-sidebar {
-    position: relative;
-  }
-  .site-navigation {
-    position: absolute;
-    right: -100%;
-    z-index: 222;
-    top: 71px;
-    background-color: #041330;
-    width: 100%;
-    transition: all 0.5s;
-  }
-  .active .site-navigation {
-    right: 0;
-  }
-  .site-navigation ul {
-    margin-top: 0;
-  }
+
+.lab-buttons a.lab-button {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--bg-white);
+  border: 2px solid var(--bg-light);
+  border-radius: 8px;
+  color: var(--text-body);
+  font-weight: 600;
+  transition: var(--transition-fast);
+  text-decoration: none;
 }
-@media screen and (max-width: 39.9375em) {
-  .table-responsive {
-    max-width: 100%;
-    overflow: auto;
+
+.lab-buttons a.lab-button:hover {
+  border-color: var(--secondary-blue);
+  background: var(--bg-light);
+}
+
+.lab-buttons a.lab-button.active {
+  border-color: var(--accent-orange);
+  background: rgba(212, 113, 34, 0.05);
+}
+
+.lab-buttons a.lab-button .dot {
+  width: 16px;
+  height: 16px;
+  background: var(--bg-light);
+  border: 2px solid var(--text-muted);
+  border-radius: 50%;
+  margin-right: 12px;
+  transition: var(--transition-fast);
+}
+
+.lab-buttons a.lab-button.active .dot {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+}
+
+.lab-note {
+  color: var(--text-body);
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+.lab-note a {
+  color: var(--secondary-blue);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* ============================================
+   Lab Status Table
+   ============================================ */
+.small-table {
+  border: 1px solid var(--bg-light);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 550px;
+  margin-top: 20px;
+  background: var(--bg-white);
+}
+
+.small-table table {
+  margin: 0;
+  width: 100%;
+}
+
+.small-table thead tr {
+  background: var(--primary-blue);
+}
+
+.small-table th {
+  color: var(--text-inverse);
+  font-weight: 600;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.small-table tbody tr {
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.small-table tbody tr:nth-child(odd) {
+  background: var(--bg-light);
+}
+
+.small-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.small-table td {
+  color: var(--text-body);
+  padding: 12px 16px;
+  font-size: 14px;
+  border: none;
+}
+
+.small-table td span.switch {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.small-table td span.switch.green,
+.small-table td span.switch:not(.red) {
+  background: var(--success);
+  color: var(--text-inverse);
+}
+
+.small-table td span.switch.red {
+  background: var(--error);
+  color: var(--text-inverse);
+}
+
+/* ============================================
+   Password Popup
+   ============================================ */
+.reveal-overlay {
+  background: rgba(22, 50, 91, 0.9);
+}
+
+.pw-popup {
+  border: none;
+  border-radius: 12px;
+  background: var(--bg-white);
+  outline: none;
+  max-width: 800px !important;
+  padding: 32px 40px;
+  box-shadow: var(--shadow-lg);
+}
+
+.pw-popup .close-button {
+  color: var(--secondary-blue);
+  font-size: 14px;
+  text-transform: uppercase;
+  text-decoration: none;
+  font-weight: 600;
+  top: 24px;
+  right: 24px;
+}
+
+.pw-popup .close-button:hover {
+  color: var(--accent-orange);
+}
+
+.pw-popup h3 {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pw-popup h4 {
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 400;
+  margin-bottom: 24px;
+}
+
+.pw-popup .table-responsive {
+  margin-top: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--bg-light);
+}
+
+.pw-popup .table-responsive table {
+  margin: 0;
+}
+
+.pw-popup .table-responsive thead tr {
+  background: var(--primary-blue);
+}
+
+.pw-popup .table-responsive th {
+  color: var(--text-inverse);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pw-popup .table-responsive tbody tr {
+  background: var(--bg-white);
+}
+
+.pw-popup .table-responsive tbody tr:nth-child(odd) {
+  background: var(--bg-light);
+}
+
+.pw-popup .table-responsive td {
+  color: var(--text-body);
+  padding: 12px 16px;
+  font-size: 14px;
+  border: none;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.pw-popup .table-responsive th,
+.pw-popup .table-responsive td {
+  border-right: 1px solid var(--bg-light);
+}
+
+.pw-popup .table-responsive th:last-child,
+.pw-popup .table-responsive td:last-child {
+  border-right: none;
+}
+
+/* ============================================
+   Exam Layout Adjustments
+   ============================================ */
+.exam-timer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 24px;
+  background: var(--bg-white);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.exam-timer-section .icon {
+  color: var(--accent-orange);
+  font-size: 32px;
+}
+
+.exam-timer-section .icon-detail h2 {
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.exam-timer-section time {
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* Legacy compatibility */
+.icon-div {
+  display: none; /* Hide old icon div, use header timer instead */
+}
+
+.common-note {
+  max-width: none;
+  font-size: 16px;
+  color: var(--text-body);
+  margin: 0;
+}
+
+/* ============================================
+   Two Column Layout (for Lab Menu + Status)
+   ============================================ */
+.two-column-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* ============================================
+   Responsive Styles
+   ============================================ */
+
+/* Tablet */
+@media screen and (max-width: 1024px) {
+  .main-content {
+    padding: 24px;
+  }
+
+  .two-column-grid {
+    grid-template-columns: 1fr;
   }
 }
 
-/* CVP Status Badge styles moved to style.css (unified system status badge) */
+/* Mobile - Convert rail to bottom nav */
+@media screen and (max-width: 768px) {
+  .top-header {
+    padding: 0 16px;
+  }
+
+  .top-header__title {
+    display: none;
+  }
+
+  .icon-rail {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 60px;
+    flex-direction: row;
+  }
+
+  .icon-rail:hover {
+    width: 100%;
+    height: 60px;
+  }
+
+  .icon-rail__nav {
+    width: 100%;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .icon-rail__list {
+    display: flex;
+    flex-direction: row;
+    height: 60px;
+  }
+
+  .icon-rail__item {
+    flex-shrink: 0;
+  }
+
+  .icon-rail__link {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 16px;
+    border-left: none;
+    border-top: 3px solid transparent;
+  }
+
+  .icon-rail__link.active {
+    border-left: none;
+    border-top-color: var(--accent-orange);
+  }
+
+  .icon-rail__label {
+    display: none;
+  }
+
+  .icon-rail__link i {
+    font-size: 20px;
+  }
+
+  .main-content {
+    margin-left: 0;
+    margin-bottom: 60px;
+    padding: 16px;
+  }
+
+  .welcome-card {
+    padding: 16px 20px;
+  }
+
+  .welcome-card h1 {
+    font-size: 22px;
+  }
+
+  .content-card {
+    padding: 16px;
+  }
+}
+
+/* Small mobile */
+@media screen and (max-width: 480px) {
+  .top-header__timer time {
+    font-size: 16px;
+  }
+
+  .exam-timer-section {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* Legacy sidebar hiding */
+.left-sidebar {
+  display: none;
+}
+
+.grid-x .right-panel {
+  width: 100%;
+  margin-left: 0;
+  padding: 0;
+}

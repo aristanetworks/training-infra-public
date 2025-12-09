@@ -2,19 +2,59 @@
 @import url("https://kit.fontawesome.com/be2f0b0e50.css");
 
 :root {
-  --primary-color: #071c35;
-  --secondary-color: #fbb500;
+  /* Primary Colors (from training.arista.com) */
+  --primary-blue: #16325B;
+  --secondary-blue: #4473A9;
+  --accent-orange: #D47122;
+
+  /* Legacy aliases for backwards compatibility */
+  --primary-color: #16325B;
+  --secondary-color: #D47122;
+
+  /* Backgrounds */
+  --bg-white: #FFFFFF;
+  --bg-light: #F5F7FA;
+  --bg-rail: #16325B;
+
+  /* Text Colors */
+  --text-primary: #16325B;
+  --text-body: #58585B;
+  --text-muted: #8A9199;
+  --text-inverse: #FFFFFF;
+
+  /* Status Colors */
+  --success: #78d82c;
   --neon-green: #78d82c;
+  --error: #e30909;
+  --red: #e30909;
+  --warning: #fbb500;
+
+  /* Legacy colors */
   --light-purple: #dae0fe;
   --blue: #4c5cae;
-  --navy-blue: #051431;
-  --red: #e30909;
+  --navy-blue: #16325B;
+
+  /* Typography */
   --proxima: "proxima-nova", sans-serif;
   --bold: 700;
   --semibold: 600;
   --medium: 500;
   --regular: 400;
   --light: 300;
+
+  /* Spacing */
+  --rail-width-collapsed: 60px;
+  --rail-width-expanded: 220px;
+  --header-height: 60px;
+
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 body * :not(i) {
@@ -22,20 +62,37 @@ body * :not(i) {
 }
 body {
   font-family: var(--proxima);
-  background: var(--navy-blue);
+  background: var(--bg-light);
+  color: var(--text-body);
 }
 .button {
-  padding: 10px 25px;
+  padding: 12px 28px;
   display: inline-block;
-  background-color: var(--secondary-color);
-  color: #000;
-  font-size: 16px;
-  line-height: 24px;
-  letter-spacing: 4.8px;
+  background-color: var(--accent-orange);
+  color: var(--text-inverse);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 .button:hover {
-  background: #ffc52f;
-  color: #000;
+  background: #c5651d;
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.button:active {
+  transform: translateY(0);
+}
+.button.secondary {
+  background-color: var(--secondary-blue);
+}
+.button.secondary:hover {
+  background-color: #3a6491;
 }

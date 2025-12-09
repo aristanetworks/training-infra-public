@@ -151,9 +151,11 @@ th {
   border-right: 0;
 }
 .white-box {
-  padding: 89px;
-  background-color: #fff;
-  border: 3px solid #fbb400;
+  padding: 24px;
+  background-color: var(--bg-white);
+  border: none;
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
 }
 .tile {
   padding: 6px 10px;
@@ -469,41 +471,36 @@ label{
 }
 
 /* ============================================
-   Unified System Status Badge
+   Unified System Status Badge (in header)
    ============================================ */
 
-/* Main badge container - single icon with text */
+/* Main badge container - positioned in header */
 .system-status-badge {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 20px;
-  background: rgba(7, 28, 53, 0.95);
-  border: 2px solid var(--neon-green);
-  color: white;
-  font-size: 14px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--success);
+  color: var(--text-inverse);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: var(--transition-fast);
 }
 
 .system-status-badge:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .system-status-badge.warning {
-  border-color: var(--secondary-color);
+  border-color: var(--warning);
 }
 
 .system-status-badge.critical {
-  border-color: var(--red);
+  border-color: var(--error);
   animation: pulse-critical 1.5s infinite;
 }
 
@@ -545,15 +542,15 @@ label{
 
 .system-status-popup {
   position: fixed;
-  top: 65px;
+  top: calc(var(--header-height) + 8px);
   right: 20px;
   z-index: 1100;
   width: 340px;
-  background: rgba(7, 28, 53, 0.98);
-  border: 2px solid var(--neon-green);
+  background: var(--primary-blue);
+  border: 2px solid var(--success);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  color: white;
+  box-shadow: var(--shadow-lg);
+  color: var(--text-inverse);
   animation: popupFadeIn 0.2s ease;
 }
 
@@ -688,25 +685,15 @@ label{
   font-size: 12px;
 }
 
-/* Responsive adjustments */
-@media screen and (max-width: 63.9375em) {
-  .system-status-badge {
-    top: 60px;
-    right: 10px;
-    padding: 6px 12px;
-    font-size: 12px;
-    z-index: 100;
-  }
-
-  .system-status-icon {
-    font-size: 14px;
+/* Responsive adjustments for status badge */
+@media screen and (max-width: 768px) {
+  .system-status-text {
+    display: none;
   }
 
   .system-status-popup {
-    top: 100px;
     right: 10px;
-    width: calc(100vw - 40px);
+    width: calc(100vw - 20px);
     max-width: 340px;
-    z-index: 99;
   }
 }

@@ -1,36 +1,37 @@
 /**
  * ATL Interactive Topology Diagram Styles
- * Uses ATL color scheme: Navy #071c35, Yellow #fbb500
+ * Modern light theme matching training.arista.com
  */
 
 /* ==========================================
    Container Styles
    ========================================== */
 
-/* Override white-box for topology section - navy with yellow border */
-.topology .white-box {
-    border: 2px solid #fbb500;
-    padding: 0;
-    background-color: #071c35;
+/* Content card for topology - clean white card */
+.content-card #interactive-topology,
+.content-card #static-topology {
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 #interactive-topology {
     position: relative;
     width: 100%;
-    min-height: 650px;
-    height: calc(100vh - 280px);  /* Dynamic height based on viewport */
-    max-height: 1000px;
-    border: none;
-    border-radius: 0;
+    min-height: 550px;
+    height: calc(100vh - 320px);
+    max-height: 800px;
+    border: 1px solid var(--bg-light);
+    border-radius: 8px;
     background-color: #ffffff;
     overflow: hidden;
 }
 
-/* Static topology - white background, no border (outer container has border) */
+/* Static topology - clean white */
 #static-topology {
-    border: none;
+    border: 1px solid var(--bg-light);
     background-color: #ffffff;
     padding: 20px;
+    border-radius: 8px;
 }
 
 #static-topology img {
@@ -38,18 +39,20 @@
     height: auto;
 }
 
-/* CVP Info section - navy background with white text */
+/* CVP Info section - subtle light background */
 #cvp_info {
     display: block;
-    background-color: #071c35;
-    color: #ffffff;
-    padding: 12px 15px;
-    margin-top: 0;
+    background-color: var(--bg-light);
+    color: var(--text-body);
+    padding: 12px 16px;
+    margin-top: 16px;
     font-size: 14px;
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-orange);
 }
 
 #cvp_info h3 {
-    color: #fbb500;
+    color: var(--text-primary);
     margin: 0 0 5px 0;
     font-size: 14px;
     font-weight: 600;
@@ -62,32 +65,31 @@
 }
 
 /* ==========================================
-   Topology Controls - Navy Bar with Yellow Accents
+   Topology Controls - Light theme
    ========================================== */
 .topology-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 0;
-    padding: 12px 15px;
-    background-color: #071c35;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
 }
 
-/* Base button style - transparent with yellow text/border */
+/* Base button style - secondary blue buttons */
 .topology-controls .button {
     margin: 0;
-    padding: 7px 14px;
-    font-size: 11px;
+    padding: 8px 16px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    background-color: transparent;
-    color: #fbb500;
-    border: 1px solid rgba(251, 181, 0, 0.5);
-    border-radius: 0;
+    background-color: var(--secondary-blue);
+    color: var(--text-inverse);
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
-    height: 34px;
+    transition: var(--transition-fast);
+    height: 36px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
@@ -97,26 +99,23 @@
 }
 
 .topology-controls .button:hover {
-    background-color: rgba(251, 181, 0, 0.15);
-    border-color: #fbb500;
-    color: #fbb500;
+    background-color: #3a6491;
+    transform: translateY(-1px);
 }
 
 .topology-controls .button.active {
-    background-color: #fbb500;
-    border-color: #fbb500;
-    color: #071c35;
+    background-color: var(--accent-orange);
 }
 
 .topology-controls .button i {
     margin-right: 6px;
 }
 
-/* Filter Controls - Styled to match ATL theme */
+/* Filter Controls - Light theme */
 #filter-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-left: auto;
     flex-wrap: wrap;
 }
@@ -124,88 +123,83 @@
 #device-type-filters {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
-/* Search input - navy background with white text */
+/* Search input - light background */
 #filter-controls input[type="text"],
 #device-search {
     padding: 0 12px;
-    border: 1px solid rgba(251, 181, 0, 0.5);
-    border-radius: 0;
-    font-size: 12px;
-    font-family: "Proxima Nova", -apple-system, sans-serif;
-    width: 150px;
-    height: 34px;
+    border: 1px solid var(--bg-light);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--proxima);
+    width: 180px;
+    height: 36px;
     box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    /* Override Foundation defaults */
+    transition: var(--transition-fast);
     margin: 0;
     margin-bottom: 0 !important;
     vertical-align: middle;
     display: inline-block;
-    line-height: 30px;
-    /* Navy background with white text */
-    background-color: #0a1929;
-    color: #ffffff;
+    line-height: 34px;
+    background-color: var(--bg-white);
+    color: var(--text-body);
 }
 
 #filter-controls input[type="text"]::placeholder,
 #device-search::placeholder {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
 }
 
 #filter-controls input[type="text"]:focus,
 #device-search:focus {
-    border-color: #fbb500;
+    border-color: var(--secondary-blue);
     outline: none;
-    box-shadow: none;
+    box-shadow: 0 0 0 3px rgba(68, 115, 169, 0.1);
 }
 
-/* Device type filter labels - transparent with yellow text */
+/* Device type filter labels - pill style */
 #device-type-filters label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    padding: 0 10px;
-    height: 34px;
-    background: transparent;
-    color: #fbb500;
-    border: 1px solid rgba(251, 181, 0, 0.5);
-    transition: all 0.2s;
+    padding: 0 12px;
+    height: 32px;
+    background: var(--bg-white);
+    color: var(--text-body);
+    border: 1px solid var(--bg-light);
+    border-radius: 16px;
+    transition: var(--transition-fast);
     box-sizing: border-box;
     vertical-align: middle;
     margin: 0;
 }
 
 #device-type-filters label:hover {
-    background-color: rgba(251, 181, 0, 0.15);
-    border-color: #fbb500;
-    color: #fbb500;
+    border-color: var(--secondary-blue);
+    background: var(--bg-light);
 }
 
 #device-type-filters label:has(input:checked) {
-    background: transparent;
-    color: #fbb500;
-    border-color: #fbb500;
+    background: var(--secondary-blue);
+    color: var(--text-inverse);
+    border-color: var(--secondary-blue);
 }
 
 #device-type-filters label:has(input:not(:checked)) {
-    background: transparent;
-    color: rgba(251, 181, 0, 0.4);
-    border-color: rgba(251, 181, 0, 0.3);
+    background: var(--bg-white);
+    color: var(--text-muted);
 }
 
 #device-type-filters input[type="checkbox"] {
-    width: 12px;
-    height: 12px;
-    accent-color: #fbb500;
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent-orange);
     margin: 0;
 }
 

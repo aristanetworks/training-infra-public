@@ -18,13 +18,130 @@
 </head>
 
 <body>
-  <!-- Unified System Status Badge -->
-  <div id="system-status-badge" class="system-status-badge" title="System Status">
-    <span id="system-status-icon" class="system-status-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
-    <span id="system-status-text" class="system-status-text">Connecting...</span>
-  </div>
+  <!-- Top Header Bar -->
+  <header class="top-header">
+    <div class="top-header__logo">
+      <a href="index.html"><img src="images/arista.svg" alt="Arista" /></a>
+      <h1 class="top-header__title">Arista {{ topo_title }}</h1>
+    </div>
+    <div class="top-header__right">
+      <div class="top-header__timer">
+        <i class="fa-regular fa-clock icon"></i>
+        <time><span id="countdown_timer">00:00:00</span></time>
+      </div>
+      <!-- System Status Badge (moved to header) -->
+      <div id="system-status-badge" class="system-status-badge" title="System Status">
+        <span id="system-status-icon" class="system-status-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
+        <span id="system-status-text" class="system-status-text">Connecting...</span>
+      </div>
+    </div>
+  </header>
 
-  <!-- Unified System Status Popup -->
+  <!-- Icon Rail Navigation -->
+  <nav class="icon-rail">
+    <div class="icon-rail__nav">
+      <ul class="icon-rail__list">
+        <li class="icon-rail__item">
+          <a data-id="home" class="icon-rail__link menu-click active" data-tooltip="Home">
+            <i class="fa-solid fa-house"></i>
+            <span class="icon-rail__label">Home</span>
+          </a>
+        </li>
+        {% if "labguides" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="{{ labguides }}" target="_blank" data-tooltip="Lab Guides">
+            <i class="fa-solid fa-book-open"></i>
+            <span class="icon-rail__label">Lab Guides</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "console" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="/terminal" target="_blank" data-tooltip="Terminal (BETA)">
+            <i class="fa-solid fa-terminal"></i>
+            <span class="icon-rail__label">Terminal (BETA)</span>
+          </a>
+        </li>
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="/ssh/host/192.168.0.1" target="_blank" data-tooltip="Switch Access">
+            <i class="fa-solid fa-server"></i>
+            <span class="icon-rail__label">Switch Access</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "cvp" not in disable_links %}
+        <li class="icon-rail__item" id="cvpLoading">
+          <a class="icon-rail__link cvp-loading" href="/cv" target="_blank" data-tooltip="CVP (Starting...)">
+            <i class="fa-solid fa-sitemap"></i>
+            <span class="icon-rail__label">CVP</span>
+          </a>
+        </li>
+        <li class="icon-rail__item" id="cvpLoaded" style="display: none;">
+          <a class="icon-rail__link" href="/cv" target="_blank" data-tooltip="CVP">
+            <i class="fa-solid fa-sitemap"></i>
+            <span class="icon-rail__label">CVP</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "cvaas" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="https://www.arista.io/" target="_blank" data-tooltip="CVaaS">
+            <i class="fa-solid fa-cloud"></i>
+            <span class="icon-rail__label">CVaaS</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "ide" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="/coder" target="_blank" data-tooltip="Programmability IDE">
+            <i class="fa-solid fa-code"></i>
+            <span class="icon-rail__label">IDE</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "webui" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="/firefox" target="_blank" data-tooltip="WebUI">
+            <i class="fa-solid fa-globe"></i>
+            <span class="icon-rail__label">WebUI</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "jenkins" not in disable_links %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" href="/jenkins" target="_blank" data-tooltip="Jenkins">
+            <i class="fa-solid fa-gear"></i>
+            <span class="icon-rail__label">Jenkins</span>
+          </a>
+        </li>
+        {% end %}
+        {% if "lab_menu" not in disable_links %}
+        <li class="icon-rail__item">
+          <a data-id="lab-menu" class="icon-rail__link menu-click" id="labMenu" data-tooltip="Lab Menu">
+            <i class="fa-solid fa-list"></i>
+            <span class="icon-rail__label">Lab Menu</span>
+          </a>
+        </li>
+        {% end %}
+        <li class="icon-rail__item">
+          <a class="icon-rail__link" data-open="passwords-popup" id="myBtn" data-tooltip="Passwords">
+            <i class="fa-solid fa-key"></i>
+            <span class="icon-rail__label">Passwords</span>
+          </a>
+        </li>
+        {% if "lab_status" not in disable_links %}
+        <li class="icon-rail__item">
+          <a data-id="lab-status" class="icon-rail__link menu-click" id="labStaus" data-tooltip="Lab Status">
+            <i class="fa-solid fa-chart-line"></i>
+            <span class="icon-rail__label">Lab Status</span>
+          </a>
+        </li>
+        {% end %}
+      </ul>
+    </div>
+  </nav>
+
+  <!-- System Status Popup -->
   <div id="system-status-popup" class="system-status-popup" style="display: none;">
     <div class="status-popup-header">
       <h4>System Connectivity</h4>
@@ -60,348 +177,153 @@
     </div>
   </div>
 
-  <header></header>
-  <main>
-    <!-------Index with sidebar-->
-
-    <!-- Initial Loading Overlay -->
-    <div id="initialLoadingOverlay" class="cvp-modal" style="display: flex;">
-      <div class="cvp-modal-content">
-        <div class="cvp-modal-header">
-          <div class="cvp-loading-icon">
-            <div class="loading-spinner"></div>
-          </div>
-          <h2>Services Starting</h2>
+  <!-- Initial Loading Overlay -->
+  <div id="initialLoadingOverlay" class="cvp-modal" style="display: flex;">
+    <div class="cvp-modal-content">
+      <div class="cvp-modal-header">
+        <div class="cvp-loading-icon">
+          <div class="loading-spinner"></div>
         </div>
-        <div class="cvp-modal-body">
-          <p class="cvp-main-message">
-            Lab services are booting up...
-          </p>
-          <div class="cvp-notice">
-            <i class="fa-solid fa-info-circle"></i>
-            <p>Please wait while we establish connection to the lab environment.</p>
-          </div>
-          <p class="cvp-suggestion">
-            This should only take a few seconds.
-          </p>
+        <h2>Services Starting</h2>
+      </div>
+      <div class="cvp-modal-body">
+        <p class="cvp-main-message">
+          Lab services are booting up...
+        </p>
+        <div class="cvp-notice">
+          <i class="fa-solid fa-info-circle"></i>
+          <p>Please wait while we establish connection to the lab environment.</p>
+        </div>
+        <p class="cvp-suggestion">
+          This should only take a few seconds.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CVP Waiting Modal -->
+  <div id="cvpWaitingModal" class="cvp-modal" style="display: none;">
+    <div class="cvp-modal-content">
+      <div class="cvp-modal-header">
+        <div class="cvp-loading-icon" id="cvpLoadingIcon">
+          <div class="loading-spinner"></div>
+        </div>
+        <div class="cvp-ready-icon" id="cvpReadyIcon" style="display: none;">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h2 id="cvpModalTitle">CVP is Starting</h2>
+      </div>
+      <div class="cvp-modal-body">
+        <p class="cvp-main-message" id="cvpModalMessage">
+          Please wait for CVP to start, this can take <strong>15 minutes</strong>.
+        </p>
+        <div class="cvp-notice">
+          <i class="fa-solid fa-info-circle"></i>
+          <p id="cvpNoticeText">This time is <strong>NOT</strong> part of your allocated exam.</p>
+        </div>
+        <p class="cvp-suggestion" id="cvpSuggestion">
+          Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.
+        </p>
+        <div class="cvp-button-container">
+          <button id="cvpStartExamBtn" class="cvp-start-exam-btn" disabled>Start Exam</button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- CVP Waiting Modal -->
-    <div id="cvpWaitingModal" class="cvp-modal" style="display: none;">
-      <div class="cvp-modal-content">
-        <div class="cvp-modal-header">
-          <div class="cvp-loading-icon" id="cvpLoadingIcon">
-            <div class="loading-spinner"></div>
-          </div>
-          <div class="cvp-ready-icon" id="cvpReadyIcon" style="display: none;">
-            <i class="fa-solid fa-circle-check"></i>
-          </div>
-          <h2 id="cvpModalTitle">CVP is Starting</h2>
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Home Panel -->
+    <div id="home" class="panel active">
+      <!-- Welcome Card -->
+      <div class="welcome-card">
+        <h1>Arista {{ topo_title }}</h1>
+        <p>Welcome to the Arista {{ topo_title }}! Use the navigation rail to access lab resources.</p>
+      </div>
+
+      {% if lab_type == "Exam" %}
+      <!-- Exam Timer Section -->
+      <div class="exam-timer-section">
+        <div class="icon"><i class="fa-regular fa-clock"></i></div>
+        <div class="icon-detail">
+          <h2>Time Remaining</h2>
+          <time><span id="countdown_timer_exam">00:00:00</span></time>
         </div>
-        <div class="cvp-modal-body">
-          <p class="cvp-main-message" id="cvpModalMessage">
-            Please wait for CVP to start, this can take <strong>15 minutes</strong>.
-          </p>
-          <div class="cvp-notice">
-            <i class="fa-solid fa-info-circle"></i>
-            <p id="cvpNoticeText">This time is <strong>NOT</strong> part of your allocated exam.</p>
-          </div>
-          <p class="cvp-suggestion" id="cvpSuggestion">
-            Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.
-          </p>
-          <div class="cvp-button-container">
-            <button id="cvpStartExamBtn" class="cvp-start-exam-btn" disabled>Start Exam</button>
+        <button id="submitButton" class="button">Submit Exam</button>
+      </div>
+      {% end %}
+
+      <!-- Topology Section -->
+      <div class="content-card">
+        <div class="content-card__header">
+          <h2 class="content-card__title">Network Topology</h2>
+          <div class="topology-controls">
+            <button id="toggle-topo-view" class="button secondary">
+              <i class="fa-solid fa-image"></i> Switch to Static
+            </button>
+            <div id="filter-controls">
+              <input type="text" id="device-search" placeholder="Search devices..." />
+              <div id="device-type-filters"></div>
+              <button id="reset-layout" class="button secondary">Reset Layout</button>
+              <button id="fit-view" class="button secondary">Fit View</button>
+            </div>
           </div>
         </div>
+
+        <!-- Static Topology (hidden by default) -->
+        <div id="static-topology" class="text-center" style="display: none;">
+          <img src="topo/atd-topo.png" usemap="#image_map" />
+        </div>
+
+        <!-- Interactive Topology (default view) -->
+        <div id="interactive-topology"></div>
+
+        {% if topo_cvp %}
+        <span id="cvp_info"></span>
+        {% end %}
       </div>
     </div>
 
-    <div class="bg-pattern"></div>
-    <div class="grid-container full">
-      <div class="grid-x">
-        <header></header>
-        <!-- <div id="overlay">
-           <button id="overlayButton">Start Exam</button>
-          <button id="overlayButton" disabled>Loading..</button>
-        </div> -->
-        <aside id="sidebar" class="cell small-12 medium-12 large-3 left-sidebar">
-          <div class="site-sidebar">
-            <div class="nav-menu">
-              <a href="index.html" class="site-sidebar__logo"><img src="images/arista.svg" alt="Arista-logo" /></a>
-              <div class="menu-icon hide-for-large">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-            <nav class="site-navigation">
-              <ul>
-                <li>
-                  <a data-id="home" class="site-sidebar__item menu-click current-page">Home</a>
-                </li>
-                {% if "labguides" not in disable_links %}
-
-                <li>
-                  <a data-id="lab-guides" class="site-sidebar__item menu-click" target="_blank"
-                    href="{{ labguides }}">Lab Guides</a>
-                </li>
-                {% end %}
-                {% if "console" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/terminal" target="_blank">Switch Access (BETA)</a>
-                </li>
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
-                </li>
-                {% end %}
-                {% if "cvp" not in disable_links %}
-                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)"
-                  onmouseout="hideToolTip(this)">
-                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank"><s>CVP</s></a>
-                  <span id="tooltiptext">CVP is Starting, Please wait</span>
-                </li>
-                <li id="cvpLoaded">
-                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank">CVP</a>
-                </li>
-                {% end %}
-                {% if "cvaas" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" href="https://www.arista.io/" target="_blank">
-                    CVaaS</a>
-                </li>
-                {% end %}
-                {% if "ide" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/coder" target="_blank">
-                    Programmability IDE</a>
-                </li>
-                {% end %}
-                {% if "webui" not in disable_links %}
-                <li><a class="site-sidebar__item menu-click" href="/firefox" target="_blank">WebUI</a></li>
-                {% end %}
-                {% if "jenkins" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/jenkins" target="_blank">Jenkins</a>
-                </li>
-                {% end %}
-                {% if "lab_menu" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" data-id="lab-menu" id="labMenu" target="_blank">Lab Menu</a>
-                </li>
-                {% end %}
-                <!-- {% if "Tools" not in disable_links %}
-                  <li>
-                      <a class="site-sidebar__item menu-click" style="color: white;cursor: pointer;" id="tools" data-id="tools-div"  target="_blank">Tools</a>
-                  </li>
-                  {% end %} -->
-                <li>
-                  <a class="site-sidebar__item" data-open="passwords-popup" id="myBtn" target="_blank">Passwords</a>
-                </li>
-                {% if "lab_status" not in disable_links %}
-                <li>
-                  <a class="site-sidebar__item menu-click" data-id="lab-status" id="labStaus" target="_blank">Lab
-                    Status</a>
-                </li>
-                {% end %}
-              </ul>
-            </nav>
-          </div>
-        </aside>
-        <main class="cell small-12 medium-12 large-9 right-panel">
-          <div id="home" class="panel active">
-            <h1>Arista {{ topo_title }}</h1>
-            <div class="common-note">
-              Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
-            </div>
-
-            {% if lab_type == "Exam" %}
-            <div class="icon-div"></div>
-            <table class="no-border" style="width: 100%;">
-              <tbody style="background-color: transparent;">
-                <tr>
-                  <td style="text-align: center;">
-                    <div class="icon"><i class="fa-regular fa-clock"></i></div>
-                    <div class="icon-detail">
-                      <h2>Time Remaining</h2>
-                      <time><span id="countdown_timer">00:00:00</span></time>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <button id="submitButton" class="button">Submit Exam</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {% else %}
-            <div class="icon-div" style="text-align: center;">
-              <div class="icon"><i class="fa-regular fa-clock"></i></div>
-              <div class="icon-detail">
-                <h2>Time Remaining</h2>
-                <time><span id="countdown_timer">00:00:00</span></time>
-              </div>
-              {% end %}
-            </div>
-            <!---==============-->
-            <section class="topology">
-              <div class="topology-overview">
-                <div class="white-box">
-                  <!-- View Toggle -->
-                  <div class="topology-controls">
-                    <button id="toggle-topo-view" class="button">
-                      <i class="fa-solid fa-image"></i> Switch to Static
-                    </button>
-                    <div id="filter-controls">
-                      <input type="text" id="device-search" placeholder="Search devices..." />
-                      <div id="device-type-filters"></div>
-                      <button id="reset-layout" class="button">Reset Layout</button>
-                      <button id="fit-view" class="button">Fit View</button>
-                    </div>
-                  </div>
-
-                  <!-- Static Topology (hidden by default) -->
-                  <div id="static-topology" class="text-center" style="display: none;">
-                    <img src="topo/atd-topo.png" usemap="#image_map" />
-                  </div>
-
-                  <!-- Interactive Topology (default view) -->
-                  <div id="interactive-topology"></div>
-
-                  {% if topo_cvp %}
-                  <span id="cvp_info"></span>
-                  <br /><br />
-                  {% end %}
-                </div>
-              </div>
-            </section>
-          </div>
-          <!-------------------------------------------------------------------------------->
-          <div id="lab-menu" class="panel">
-            <h1>Lab Menu</h1>
-            <div class="lab-buttons">
-              {% for key, value in menu_options.items() %}
-              <a class="lab-button" id="{{key}}">
-                <div class="dot"></div>
-                <span>{{value}}</span>
-              </a>
-              {% end %}
-            </div>
-            <button class="button" id="labBtn">Start Lab</button>
-            <div class="lab-note" id="cvpStatus">
-            </div>
-            <div class="lab-note" id="apiResponse">
-            </div>
-          </div>
-
-          <!-- <div id="tools-div" class="panel">
-              <div class="container">
-                <section id="changeLatency" class="mb-3">
-                  <h2>Change Latency</h2>
-                  <form id="latencyForm">
-                    <div class="mb-3">
-                      <label class="form-label">Latency</label>
-                      <div class="form-check">
-                        <input
-                          type="radio"
-                          name="latencyRadio"
-                          id="enableLatency"
-                          value="enable"
-                          required
-                        />
-                        <label for="enableLatency">Enable</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          type="radio"
-                          name="latencyRadio"
-                          id="disableLatency"
-                          value="disable"
-                        />
-                        <label for="disableLatency">Disable</label>
-                      </div>
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label">Multiselect</label>
-                      <div id="multiSelect" class="multiselect">
-                        <label><input type="checkbox" value="RP11x5" /> RP11x5</label>
-                        <label><input type="checkbox" value="RP11x6" /> RP11x6</label>
-                        <label><input type="checkbox" value="RP11x7" /> RP11x7</label>
-                        <label><input type="checkbox" value="RP11x8" /> RP11x8</label>
-                        <label><input type="checkbox" value="RP11x9" /> RP11x9</label>
-                      </div>
-                    </div>
-                    <div id="sliderContainer" class="mb-3">
-                      <label for="rangeSlider" class="form-label">Select delay in milli seconds (ms)</label>
-                      <input
-                        type="range"
-                        id="rangeSlider"
-                        min="100"
-                        max="7000"
-                        value="3000"
-                        required
-                        class="slider"
-                      />
-                      <div style="display: flex; justify-content: space-between">
-                        <span>100</span>
-                        <span id="sliderValue">3000</span>
-                        <span>7000</span>
-                      </div>
-                    </div>
-                    <button type="submit" class="button">Submit</button>
-                  </form>
-                  <div
-                    id="notification"
-                    class="alert alert-danger"
-                    style="display: none"
-                  ></div>
-                  <div id="output" class="mt-3"></div>
-                </section>
-          
-                <section id="viewConfiguration" class="mb-3">
-                  <h2>View Configuration on Devices</h2>
-                  <form id="configForm">
-                    <div class="mb-3">
-                      <label class="form-label">Select device to show config</label>
-                      <div id="deviceSelect" class="multiselect">
-                        <label><input type="checkbox" value="RP11x5" /> RP11x5</label>
-                        <label><input type="checkbox" value="RP11x6" /> RP11x6</label>
-                        <label><input type="checkbox" value="RP11x7" /> RP11x7</label>
-                        <label><input type="checkbox" value="RP11x8" /> RP11x8</label>
-                        <label><input type="checkbox" value="RP11x9" /> RP11x9</label>
-                      </div>
-                    </div>
-                    <button type="submit" class="button">View Config</button>
-                  </form>
-                  <div id="configOutput" class="mt-3"></div>
-                </section>
-              </div>
-            </div> -->
-          <!-------------------------------------------------------------------------------------->
-          <div id="lab-status" class="panel">
-            <h1>Lab Status</h1>
-            <div class="table-responsive small-table">
-              <table id="labStatusByApi" class="responsive-card-table unstriped">
-                </tbody>
-              </table>
-            </div>
-            <div class="lab-note" id="resetLabs" style="color: white;"> </div>
-            <p id="lastUpdated" style="color: white;"></p>
-            <div id="resetOkMSG" style="color: white;"></div>
-
-            <!-- <div class="lab-note">
-                <b>Last updated: </b>3/27/2024 10:05:40 AM
-              </div> -->
-
-            <!--Please <a>Click Here</a> to reset failed switches-->
-
-          </div>
-        </main>
+    <!-- Lab Menu Panel -->
+    <div id="lab-menu" class="panel">
+      <div class="content-card">
+        <div class="content-card__header">
+          <h2 class="content-card__title">Lab Menu</h2>
+        </div>
+        <div class="lab-buttons">
+          {% for key, value in menu_options.items() %}
+          <a class="lab-button" id="{{key}}">
+            <div class="dot"></div>
+            <span>{{value}}</span>
+          </a>
+          {% end %}
+        </div>
+        <button class="button" id="labBtn" style="margin-top: 20px;">Start Lab</button>
+        <div class="lab-note" id="cvpStatus"></div>
+        <div class="lab-note" id="apiResponse"></div>
       </div>
     </div>
 
-    <div class="large reveal pw-popup" id="passwords-popup" data-reveal>
+    <!-- Lab Status Panel -->
+    <div id="lab-status" class="panel">
+      <div class="content-card">
+        <div class="content-card__header">
+          <h2 class="content-card__title">Lab Status</h2>
+        </div>
+        <div class="table-responsive small-table">
+          <table id="labStatusByApi" class="responsive-card-table unstriped">
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="lab-note" id="resetLabs"></div>
+        <p id="lastUpdated" class="lab-note"></p>
+        <div id="resetOkMSG" class="lab-note"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Password Popup -->
+  <div class="large reveal pw-popup" id="passwords-popup" data-reveal>
       <button class="close-button" data-close aria-label="Close reveal" type="button">
         <span aria-hidden="true">Close</span>
       </button>

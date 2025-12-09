@@ -1,43 +1,56 @@
 labStatusInterval = null
 
 $(document).ready(function () {
+  // Legacy sidebar toggle (for backwards compatibility)
   $(".menu-icon,.menu-click").click(function () {
     $(".left-sidebar").toggleClass("active");
   });
+
   $(".topology").click(function () {
     $("#dashboard").hide();
     $("#main").show();
   });
-  $(".menu-click").click(function () {
-    var elements = document.getElementsByClassName('menu-click');
 
+  // Handle navigation clicks (works with both old sidebar and new icon-rail)
+  $(".menu-click").click(function () {
+    // Remove active state from all nav items (both old and new)
+    var elements = document.getElementsByClassName('menu-click');
     for (var i = 0; i < elements.length; i++) {
       elements[i].classList.remove('current-page');
+      elements[i].classList.remove('active');
     }
+
+    // Also handle icon-rail links
+    document.querySelectorAll('.icon-rail__link').forEach(function(link) {
+      link.classList.remove('active');
+    });
+
     $id = $(this).data("id");
     $(this).addClass("current-page");
+    $(this).addClass("active");
+
+    // Show/hide panels
     if ($id == "lab-status" || $id == "lab-menu" || $id == "tools-div") {
       $(".panel").hide();
-
     } else {
       $(".panel").show();
-      $('#lab-status').hide()
-      $('#lab-menu').hide()
-
-
+      $('#lab-status').hide();
+      $('#lab-menu').hide();
     }
+
     $("#" + $id).show();
+
+    // Handle lab status polling
     if ($id == "lab-status") {
-      getLabStatus()
-      labStatusInterval = setInterval(
-        () => {
-          getLabStatus()
-        }, 30000
-      )
+      getLabStatus();
+      labStatusInterval = setInterval(function() {
+        getLabStatus();
+      }, 30000);
     } else {
-      clearInterval(labStatusInterval)
+      clearInterval(labStatusInterval);
     }
   });
+
   $(document).foundation();
 });
 
