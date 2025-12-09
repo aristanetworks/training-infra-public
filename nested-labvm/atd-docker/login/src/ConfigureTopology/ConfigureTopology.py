@@ -16,6 +16,17 @@ from google.protobuf.json_format import Parse, MessageToDict
 from arista.workspace.v1 import services as ws_services
 from cvprac.cvp_client import CvpClient
 
+# Optional imports for enhanced reset functionality
+try:
+    from arista.tag.v2 import services as tag_services
+except ImportError:
+    tag_services = None
+
+try:
+    from arista.configlet.v1 import services as configlet_services
+except ImportError:
+    configlet_services = None
+
 # Try to import cloud_logging_utils from site-packages (Docker) or parent directory (local)
 try:
     from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
@@ -358,6 +369,12 @@ class ConfigureTopology():
                         self.send_to_syslog("ERROR", "Failed to clear inputs for {0}: {1}".format(studio_id, e))
                         print("  ✗ Failed to clear inputs for {0}: {1}".format(studio_id, e))
 
+                # 3.1. Reset tags (removes user tags and tag assignments)
+                self.reset_tags(access_info, reset_ws_id)
+
+                # 3.2. Reset static configlets (removes configlets created in Static Configuration Studio)
+                self.reset_configlets(access_info, reset_ws_id)
+
                 # 3.5. Start Build
                 print("\nStarting build for reset workspace...")
                 try:
@@ -609,24 +626,432 @@ class ConfigureTopology():
                     print("  ✗ Failed to submit/execute workspace: {0}".format(e))
             else:
                 print("No studios to reset.")
-                # Delete the empty workspace
-                try:
-                    json_del_req = json.dumps({
-                        "key": {
-                            "workspace_id": reset_ws_id
-                        }
-                    })
-                    del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
-                    workspace_config_stub.Delete(del_req, timeout=30)
-                    print("  ✓ Deleted empty reset workspace")
-                except:
-                    pass
+                # Still reset tags and configlets even if no studios
+                tags_changed = self.reset_tags(access_info, reset_ws_id)
+                configlets_changed = self.reset_configlets(access_info, reset_ws_id)
+
+                # Use return values to determine if we should submit the workspace
+                if tags_changed or configlets_changed:
+                    try:
+                        # Start build
+                        req_id = str(uuid.uuid4())
+                        json_build_req = json.dumps({
+                            "value": {
+                                "key": {
+                                    "workspace_id": reset_ws_id
+                                },
+                                "request": 1,  # REQUEST_START_BUILD
+                                "request_params": {
+                                    "request_id": req_id
+                                }
+                            }
+                        })
+                        build_req = Parse(json_build_req, ws_services.WorkspaceConfigSetRequest(), False)
+                        workspace_config_stub.Set(build_req, timeout=30)
+                        print("Building workspace...")
+
+                        # Wait for build to complete with polling
+                        for i in range(10):
+                            time.sleep(2)
+                            json_get_req = json.dumps({})
+                            get_req = Parse(json_get_req, ws_services.WorkspaceStreamRequest(), False)
+
+                            for response in workspace_stub.GetAll(get_req, timeout=10):
+                                if hasattr(response, 'value') and response.value:
+                                    ws = response.value
+                                    ws_dict = MessageToDict(ws, preserving_proto_field_name=True)
+                                    key = ws_dict.get('key', {})
+                                    if key.get('workspace_id') == reset_ws_id:
+                                        state = ws_dict.get('state', 'UNKNOWN')
+                                        print("  Build status check {0}/10: {1}".format(i+1, state))
+                                        if str(state) == 'WORKSPACE_STATE_BUILT' or str(state) == 'BUILT' or state == 6:
+                                            break
+                            else:
+                                continue
+                            break
+
+                        # Submit workspace
+                        print("Submitting workspace with tag/configlet changes...")
+                        req_id = str(uuid.uuid4())
+                        json_submit_req = json.dumps({
+                            "value": {
+                                "key": {
+                                    "workspace_id": reset_ws_id
+                                },
+                                "request": 3,  # REQUEST_SUBMIT
+                                "request_params": {
+                                    "request_id": req_id
+                                }
+                            }
+                        })
+                        submit_req = Parse(json_submit_req, ws_services.WorkspaceConfigSetRequest(), False)
+                        workspace_config_stub.Set(submit_req, timeout=30)
+                        print("  ✓ Workspace submitted")
+                    except Exception as e:
+                        self.send_to_syslog("ERROR", "Could not finalize workspace: {0}".format(e))
+                        print("  ✗ Could not finalize workspace: {0}".format(e))
+                else:
+                    # No changes made, delete the empty workspace
+                    try:
+                        json_del_req = json.dumps({
+                            "key": {
+                                "workspace_id": reset_ws_id
+                            }
+                        })
+                        del_req = Parse(json_del_req, ws_services.WorkspaceConfigDeleteRequest(), False)
+                        workspace_config_stub.Delete(del_req, timeout=30)
+                        print("  ✓ Deleted empty reset workspace")
+                    except Exception as e:
+                        self.send_to_syslog("WARNING", "Could not delete empty workspace: {0}".format(e))
 
         except Exception as e:
             self.send_to_syslog("ERROR", "Failed to reset Studios: {0}".format(str(e)))
             print("Failed to reset Studios: {0}".format(str(e)))
             return False
 
+    def reset_tags(self, access_info, workspace_id):
+        """
+        Reset all user tags and tag assignments in CloudVision.
+        This addresses the issue where tags generated by studios persist after reset.
+
+        Parameters:
+        access_info: Lab access information dict
+        workspace_id: The workspace ID to use for the reset operation
+
+        Returns:
+        bool: True if reset successful or made changes, False otherwise
+        """
+        # Check if tag_services is available
+        if tag_services is None:
+            self.send_to_syslog("WARNING", "arista.tag.v2 not available - skipping tag reset")
+            print("  ⚠ arista.tag.v2 not available - skipping tag reset")
+            return False
+
+        self.send_to_syslog("INFO", "Resetting CloudVision Tags...")
+        print("\n=== Resetting CloudVision Tags ===")
+
+        changes_made = False
+        try:
+            channel = self.get_grpc_channel(access_info)
+
+            # Initialize tag service stubs
+            tag_stub = tag_services.TagServiceStub(channel)
+            tag_config_stub = tag_services.TagConfigServiceStub(channel)
+            tag_assignment_stub = tag_services.TagAssignmentServiceStub(channel)
+            tag_assignment_config_stub = tag_services.TagAssignmentConfigServiceStub(channel)
+
+            def get_value(field):
+                if hasattr(field, 'value'):
+                    return field.value
+                return field
+
+            # 1. Get all tag assignments from mainline and remove them
+            print("Identifying tag assignments to remove...")
+            tag_assignments_to_remove = []
+
+            try:
+                json_req = json.dumps({})
+                req = Parse(json_req, tag_services.TagAssignmentStreamRequest(), False)
+
+                for response in tag_assignment_stub.GetAll(req, timeout=30):
+                    if hasattr(response, 'value') and response.value:
+                        val = response.value
+                        key = val.key
+
+                        ws_id = get_value(key.workspace_id) if hasattr(key, 'workspace_id') else ""
+
+                        # Only process mainline tag assignments
+                        if ws_id == "":
+                            tag_assignments_to_remove.append({
+                                'element_type': get_value(key.element_type) if hasattr(key, 'element_type') else None,
+                                'label': get_value(key.label) if hasattr(key, 'label') else None,
+                                'value': get_value(key.value) if hasattr(key, 'value') else None,
+                                'device_id': get_value(key.device_id) if hasattr(key, 'device_id') else None,
+                                'interface_id': get_value(key.interface_id) if hasattr(key, 'interface_id') else None,
+                            })
+
+                self.send_to_syslog("OK", "Found {0} tag assignments to remove".format(len(tag_assignments_to_remove)))
+                print("Found {0} tag assignments to remove".format(len(tag_assignments_to_remove)))
+
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to list tag assignments: {0}".format(e))
+                print("  ✗ Failed to list tag assignments: {0}".format(e))
+
+            # 2. Remove tag assignments in the workspace
+            if tag_assignments_to_remove:
+                print("Removing tag assignments...")
+                removed_count = 0
+                for ta in tag_assignments_to_remove:
+                    try:
+                        # Build the key for deletion
+                        key_dict = {
+                            "workspace_id": workspace_id,
+                        }
+                        if ta['element_type'] is not None:
+                            key_dict['element_type'] = ta['element_type']
+                        if ta['label']:
+                            key_dict['label'] = ta['label']
+                        if ta['value']:
+                            key_dict['value'] = ta['value']
+                        if ta['device_id']:
+                            key_dict['device_id'] = ta['device_id']
+                        if ta['interface_id']:
+                            key_dict['interface_id'] = ta['interface_id']
+
+                        # Use Set with remove=True pattern (same as studio inputs)
+                        json_set_req = json.dumps({
+                            "value": {
+                                "key": key_dict,
+                                "remove": True
+                            }
+                        })
+                        set_req = Parse(json_set_req, tag_services.TagAssignmentConfigSetRequest(), False)
+                        tag_assignment_config_stub.Set(set_req, timeout=30)
+                        removed_count += 1
+                    except Exception as e:
+                        # Some assignments may not be deletable (system tags)
+                        if 'permission' not in str(e).lower() and 'not found' not in str(e).lower():
+                            self.send_to_syslog("WARNING", "Could not delete tag assignment {0}: {1}".format(ta.get('label', 'unknown'), e))
+
+                self.send_to_syslog("OK", "Removed {0} tag assignments".format(removed_count))
+                print("  ✓ Removed {0} tag assignments".format(removed_count))
+                if removed_count > 0:
+                    changes_made = True
+
+            # 3. Get all user-defined tags from mainline and remove them
+            print("Identifying user tags to remove...")
+            tags_to_remove = []
+
+            # System tag labels that should not be deleted
+            system_labels = ['topology_hint_pod', 'topology_hint_datacenter', 'topology_hint_rack',
+                           'topology_hint_type', 'device_type', 'eos_version', 'terminattr_version',
+                           'model', 'serial_number', 'hostname']
+
+            try:
+                json_req = json.dumps({})
+                req = Parse(json_req, tag_services.TagStreamRequest(), False)
+
+                for response in tag_stub.GetAll(req, timeout=30):
+                    if hasattr(response, 'value') and response.value:
+                        val = response.value
+                        key = val.key
+
+                        ws_id = get_value(key.workspace_id) if hasattr(key, 'workspace_id') else ""
+                        label = get_value(key.label) if hasattr(key, 'label') else ""
+
+                        # Only process mainline tags that are not system tags
+                        if ws_id == "" and label not in system_labels:
+                            tags_to_remove.append({
+                                'element_type': get_value(key.element_type) if hasattr(key, 'element_type') else None,
+                                'label': label,
+                                'value': get_value(key.value) if hasattr(key, 'value') else None,
+                            })
+
+                self.send_to_syslog("OK", "Found {0} user tags to remove".format(len(tags_to_remove)))
+                print("Found {0} user tags to remove".format(len(tags_to_remove)))
+
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to list tags: {0}".format(e))
+                print("  ✗ Failed to list tags: {0}".format(e))
+
+            # 4. Remove user tags in the workspace
+            if tags_to_remove:
+                print("Removing user tags...")
+                removed_count = 0
+                for tag in tags_to_remove:
+                    try:
+                        key_dict = {
+                            "workspace_id": workspace_id,
+                        }
+                        if tag['element_type'] is not None:
+                            key_dict['element_type'] = tag['element_type']
+                        if tag['label']:
+                            key_dict['label'] = tag['label']
+                        if tag['value']:
+                            key_dict['value'] = tag['value']
+
+                        # Use Set with remove=True pattern (same as studio inputs)
+                        json_set_req = json.dumps({
+                            "value": {
+                                "key": key_dict,
+                                "remove": True
+                            }
+                        })
+                        set_req = Parse(json_set_req, tag_services.TagConfigSetRequest(), False)
+                        tag_config_stub.Set(set_req, timeout=30)
+                        removed_count += 1
+                    except Exception as e:
+                        # Some tags may not be deletable
+                        if 'permission' not in str(e).lower() and 'not found' not in str(e).lower():
+                            self.send_to_syslog("WARNING", "Could not delete tag {0}: {1}".format(tag.get('label', 'unknown'), e))
+
+                self.send_to_syslog("OK", "Removed {0} user tags".format(removed_count))
+                print("  ✓ Removed {0} user tags".format(removed_count))
+                if removed_count > 0:
+                    changes_made = True
+
+            return changes_made
+
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to reset tags: {0}".format(str(e)))
+            print("Failed to reset tags: {0}".format(str(e)))
+            return False
+
+    def reset_configlets(self, access_info, workspace_id):
+        """
+        Reset all static configlets created in the Static Configuration Studio.
+        This removes the configlets themselves, not just unassigns them.
+
+        Parameters:
+        access_info: Lab access information dict
+        workspace_id: The workspace ID to use for the reset operation
+
+        Returns:
+        bool: True if reset successful and made changes, False otherwise
+        """
+        # Check if configlet_services is available
+        if configlet_services is None:
+            self.send_to_syslog("WARNING", "arista.configlet.v1 not available - skipping configlet reset")
+            print("  ⚠ arista.configlet.v1 not available - skipping configlet reset")
+            return False
+
+        self.send_to_syslog("INFO", "Resetting Static Configuration Studio configlets...")
+        print("\n=== Resetting Static Configlets ===")
+
+        changes_made = False
+        try:
+            channel = self.get_grpc_channel(access_info)
+
+            # Initialize configlet service stubs
+            configlet_stub = configlet_services.ConfigletServiceStub(channel)
+            configlet_config_stub = configlet_services.ConfigletConfigServiceStub(channel)
+            configlet_assignment_stub = configlet_services.ConfigletAssignmentServiceStub(channel)
+            configlet_assignment_config_stub = configlet_services.ConfigletAssignmentConfigServiceStub(channel)
+
+            def get_value(field):
+                if hasattr(field, 'value'):
+                    return field.value
+                return field
+
+            # System configlets that should not be deleted
+            system_configlets = ['ATD-INFRA']
+
+            # 1. Get all configlet assignments from mainline and remove them
+            print("Identifying configlet assignments to remove...")
+            assignments_to_remove = []
+
+            try:
+                json_req = json.dumps({})
+                req = Parse(json_req, configlet_services.ConfigletAssignmentStreamRequest(), False)
+
+                for response in configlet_assignment_stub.GetAll(req, timeout=30):
+                    if hasattr(response, 'value') and response.value:
+                        val = response.value
+                        key = val.key
+
+                        ws_id = get_value(key.workspace_id) if hasattr(key, 'workspace_id') else ""
+                        assignment_id = get_value(key.configlet_assignment_id) if hasattr(key, 'configlet_assignment_id') else ""
+
+                        # Only process mainline assignments
+                        if ws_id == "" and assignment_id:
+                            assignments_to_remove.append(assignment_id)
+
+                self.send_to_syslog("OK", "Found {0} configlet assignments to remove".format(len(assignments_to_remove)))
+                print("Found {0} configlet assignments to remove".format(len(assignments_to_remove)))
+
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to list configlet assignments: {0}".format(e))
+                print("  ✗ Failed to list configlet assignments: {0}".format(e))
+
+            # 2. Remove configlet assignments in the workspace
+            if assignments_to_remove:
+                print("Removing configlet assignments...")
+                removed_count = 0
+                for assignment_id in assignments_to_remove:
+                    try:
+                        # Use Set with remove=True pattern (same as studio inputs)
+                        json_set_req = json.dumps({
+                            "value": {
+                                "key": {
+                                    "workspace_id": workspace_id,
+                                    "configlet_assignment_id": assignment_id
+                                },
+                                "remove": True
+                            }
+                        })
+                        set_req = Parse(json_set_req, configlet_services.ConfigletAssignmentConfigSetRequest(), False)
+                        configlet_assignment_config_stub.Set(set_req, timeout=30)
+                        removed_count += 1
+                    except Exception as e:
+                        if 'permission' not in str(e).lower() and 'not found' not in str(e).lower():
+                            self.send_to_syslog("WARNING", "Could not delete configlet assignment {0}: {1}".format(assignment_id, e))
+
+                self.send_to_syslog("OK", "Removed {0} configlet assignments".format(removed_count))
+                print("  ✓ Removed {0} configlet assignments".format(removed_count))
+                if removed_count > 0:
+                    changes_made = True
+
+            # 3. Get all static configlets from mainline and remove them
+            print("Identifying static configlets to remove...")
+            configlets_to_remove = []
+
+            try:
+                json_req = json.dumps({})
+                req = Parse(json_req, configlet_services.ConfigletStreamRequest(), False)
+
+                for response in configlet_stub.GetAll(req, timeout=30):
+                    if hasattr(response, 'value') and response.value:
+                        val = response.value
+                        key = val.key
+
+                        ws_id = get_value(key.workspace_id) if hasattr(key, 'workspace_id') else ""
+                        configlet_id = get_value(key.configlet_id) if hasattr(key, 'configlet_id') else ""
+
+                        # Only process mainline configlets that are not system configlets
+                        if ws_id == "" and configlet_id and configlet_id not in system_configlets:
+                            configlets_to_remove.append(configlet_id)
+
+                self.send_to_syslog("OK", "Found {0} static configlets to remove".format(len(configlets_to_remove)))
+                print("Found {0} static configlets to remove".format(len(configlets_to_remove)))
+
+            except Exception as e:
+                self.send_to_syslog("ERROR", "Failed to list configlets: {0}".format(e))
+                print("  ✗ Failed to list configlets: {0}".format(e))
+
+            # 4. Remove static configlets in the workspace
+            if configlets_to_remove:
+                print("Removing static configlets...")
+                removed_count = 0
+                for configlet_id in configlets_to_remove:
+                    try:
+                        # Use Set with remove=True pattern (same as studio inputs)
+                        json_set_req = json.dumps({
+                            "value": {
+                                "key": {
+                                    "workspace_id": workspace_id,
+                                    "configlet_id": configlet_id
+                                },
+                                "remove": True
+                            }
+                        })
+                        set_req = Parse(json_set_req, configlet_services.ConfigletConfigSetRequest(), False)
+                        configlet_config_stub.Set(set_req, timeout=30)
+                        removed_count += 1
+                    except Exception as e:
+                        if 'permission' not in str(e).lower() and 'not found' not in str(e).lower():
+                            self.send_to_syslog("WARNING", "Could not delete configlet {0}: {1}".format(configlet_id, e))
+
+                self.send_to_syslog("OK", "Removed {0} static configlets".format(removed_count))
+                print("  ✓ Removed {0} static configlets".format(removed_count))
+                if removed_count > 0:
+                    changes_made = True
+
+            return changes_made
+
+        except Exception as e:
+            self.send_to_syslog("ERROR", "Failed to reset configlets: {0}".format(str(e)))
+            print("Failed to reset configlets: {0}".format(str(e)))
+            return False
 
     def deploy_lab(self):
 
