@@ -65,10 +65,23 @@ body {
   background: var(--bg-light);
   color: var(--text-body);
 }
+
+/* Override Foundation's question mark cursor on tooltips */
+.has-tip,
+[data-tooltip],
+abbr[title] {
+  cursor: pointer !important;
+  border-bottom: none !important;
+}
+
+/* Ensure links have pointer cursor */
+a, button, [role="button"] {
+  cursor: pointer;
+}
 .button {
   padding: 12px 28px;
   display: inline-block;
-  background-color: var(--accent-orange);
+  background-color: var(--secondary-blue);
   color: var(--text-inverse);
   font-size: 14px;
   line-height: 20px;
@@ -82,7 +95,7 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .button:hover {
-  background: #c5651d;
+  background: #3a6491;
   color: var(--text-inverse);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);

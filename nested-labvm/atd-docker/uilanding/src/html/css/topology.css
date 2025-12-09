@@ -48,7 +48,7 @@
     margin-top: 16px;
     font-size: 14px;
     border-radius: 6px;
-    border-left: 3px solid var(--accent-orange);
+    border-left: 3px solid var(--secondary-blue);
 }
 
 #cvp_info h3 {
@@ -104,7 +104,7 @@
 }
 
 .topology-controls .button.active {
-    background-color: var(--accent-orange);
+    background-color: var(--primary-blue);
 }
 
 .topology-controls .button i {
@@ -199,7 +199,7 @@
 #device-type-filters input[type="checkbox"] {
     width: 14px;
     height: 14px;
-    accent-color: var(--accent-orange);
+    accent-color: var(--secondary-blue);
     margin: 0;
 }
 

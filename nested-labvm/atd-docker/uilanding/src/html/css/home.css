@@ -57,7 +57,7 @@
 }
 
 .top-header__timer .icon {
-  color: var(--accent-orange);
+  color: var(--secondary-blue);
   font-size: 16px;
 }
 
@@ -116,16 +116,18 @@
   white-space: nowrap;
   border-left: 3px solid transparent;
   opacity: 0.75;
+  cursor: pointer;
 }
 
 .icon-rail__link:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   opacity: 1;
+  cursor: pointer;
 }
 
 .icon-rail__link.active {
-  background: rgba(255, 255, 255, 0.1);
-  border-left-color: var(--accent-orange);
+  background: rgba(68, 115, 169, 0.3);
+  border-left-color: var(--secondary-blue);
   opacity: 1;
 }
 
@@ -147,29 +149,6 @@
   opacity: 1;
 }
 
-/* Tooltip for collapsed state */
-.icon-rail__link[data-tooltip]:not(:hover)::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: calc(var(--rail-width-collapsed) + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--primary-blue);
-  color: var(--text-inverse);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-fast);
-  box-shadow: var(--shadow-md);
-  z-index: 200;
-}
-
-.icon-rail:not(:hover) .icon-rail__link:hover::after {
-  opacity: 1;
-}
 
 /* CVP Loading state */
 .icon-rail__link.cvp-loading {
@@ -206,7 +185,7 @@
   padding: 24px 32px;
   margin-bottom: 24px;
   box-shadow: var(--shadow-sm);
-  border-left: 4px solid var(--accent-orange);
+  border-left: 4px solid var(--secondary-blue);
 }
 
 .welcome-card h1 {
@@ -257,7 +236,7 @@
   display: block;
   width: 40px;
   height: 3px;
-  background: var(--accent-orange);
+  background: var(--secondary-blue);
   margin-top: 8px;
   border-radius: 2px;
 }
@@ -302,8 +281,8 @@
 }
 
 .lab-buttons a.lab-button.active {
-  border-color: var(--accent-orange);
-  background: rgba(212, 113, 34, 0.05);
+  border-color: var(--secondary-blue);
+  background: rgba(68, 115, 169, 0.08);
 }
 
 .lab-buttons a.lab-button .dot {
@@ -317,8 +296,8 @@
 }
 
 .lab-buttons a.lab-button.active .dot {
-  background: var(--accent-orange);
-  border-color: var(--accent-orange);
+  background: var(--secondary-blue);
+  border-color: var(--secondary-blue);
 }
 
 .lab-note {
@@ -430,7 +409,7 @@
 }
 
 .pw-popup .close-button:hover {
-  color: var(--accent-orange);
+  color: var(--secondary-blue);
 }
 
 .pw-popup h3 {
@@ -513,7 +492,7 @@
 }
 
 .exam-timer-section .icon {
-  color: var(--accent-orange);
+  color: var(--secondary-blue);
   font-size: 32px;
 }
 
@@ -618,7 +597,7 @@
 
   .icon-rail__link.active {
     border-left: none;
-    border-top-color: var(--accent-orange);
+    border-top-color: var(--secondary-blue);
   }
 
   .icon-rail__label {

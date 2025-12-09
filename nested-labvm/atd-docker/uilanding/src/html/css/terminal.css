@@ -1,0 +1,892 @@
+/**
+ * Terminal Page Styles
+ * Dark theme for terminal interface with blue accents
+ */
+
+/* ==========================================
+   Reset and Base
+   ========================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--proxima);
+  background: var(--primary-blue);
+  color: #eee;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.terminal-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* ==========================================
+   Device Sidebar
+   ========================================== */
+.device-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #0a1929;
+  border-right: 1px solid var(--secondary-blue);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s, min-width 0.2s;
+}
+
+.device-sidebar.collapsed {
+  width: 48px;
+  min-width: 48px;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--secondary-blue);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sidebar-header-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-sidebar.collapsed .sidebar-header-content {
+  display: none;
+}
+
+.sidebar-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.sidebar-header .back-link {
+  font-size: 13px;
+  color: var(--secondary-blue);
+  text-decoration: none;
+}
+
+.sidebar-header .back-link:hover {
+  color: #6b9fd4;
+  text-decoration: underline;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  color: var(--secondary-blue);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  color: #6b9fd4;
+}
+
+.device-sidebar.collapsed .sidebar-toggle {
+  margin: 0 auto;
+}
+
+/* Hide content when collapsed */
+.device-sidebar.collapsed .device-tree,
+.device-sidebar.collapsed .credentials-panel,
+.device-sidebar.collapsed .jump-server-link {
+  display: none;
+}
+
+.device-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+/* ==========================================
+   Jump Server Link
+   ========================================== */
+.jump-server-link {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 0 12px 12px 12px;
+  background: transparent;
+  border: 1px solid var(--secondary-blue);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: #fff;
+  transition: all 0.15s;
+}
+
+.jump-server-link:hover {
+  background: rgba(68, 115, 169, 0.1);
+}
+
+.jump-server-link.connected {
+  background: rgba(120, 216, 44, 0.1);
+  border-color: var(--success);
+}
+
+.jump-server-link .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 12px;
+  background: transparent;
+  border: 2px solid var(--secondary-blue);
+}
+
+.jump-server-link.connected .status-dot {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.jump-server-link .server-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.jump-server-link .server-ip {
+  font-size: 12px;
+  color: var(--secondary-blue);
+}
+
+/* ==========================================
+   Device Groups
+   ========================================== */
+.device-group {
+  margin-bottom: 8px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--secondary-blue);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.group-header:hover {
+  background: rgba(68, 115, 169, 0.05);
+}
+
+.group-header .arrow {
+  margin-right: 10px;
+  transition: transform 0.2s;
+  font-size: 10px;
+}
+
+.group-header.collapsed .arrow {
+  transform: rotate(-90deg);
+}
+
+.group-devices {
+  display: block;
+}
+
+.group-devices.hidden {
+  display: none;
+}
+
+/* ==========================================
+   Device Items
+   ========================================== */
+.device-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 24px;
+  padding-left: 40px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #fff;
+  transition: background 0.15s;
+  border-left: 4px solid transparent;
+}
+
+.device-item:hover {
+  background: rgba(217, 217, 217, 0.1);
+}
+
+.device-item.connected {
+  background: rgba(217, 217, 217, 0.1);
+  border-left-color: var(--success);
+}
+
+.device-item .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 10px;
+  background: transparent;
+}
+
+.device-item.connected .status-dot {
+  background: var(--success);
+}
+
+.device-item .device-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-item .device-ip {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 8px;
+}
+
+/* ==========================================
+   Credentials Panel
+   ========================================== */
+.credentials-panel {
+  padding: 16px 20px;
+  background: var(--primary-blue);
+  border-top: 1px solid var(--secondary-blue);
+  font-size: 13px;
+}
+
+.credentials-panel .label {
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.credentials-panel .value {
+  color: var(--success);
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ==========================================
+   Main Content
+   ========================================== */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ==========================================
+   Tab Bar
+   ========================================== */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  background: var(--primary-blue);
+  border-bottom: 1px solid var(--secondary-blue);
+  height: 44px;
+  padding: 0 12px;
+  position: relative;
+  z-index: 1000;
+}
+
+.tabs-scroll-area {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-right: 8px;
+}
+
+.tabs-scroll-area::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs-scroll-area::-webkit-scrollbar-thumb {
+  background: var(--secondary-blue);
+  border-radius: 2px;
+}
+
+.tab-bar-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px dashed var(--secondary-blue);
+}
+
+/* ==========================================
+   Tabs
+   ========================================== */
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid rgba(68, 115, 169, 0.3);
+  border-bottom: none;
+  border-radius: 0;
+  margin-right: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.tab:hover {
+  background: rgba(68, 115, 169, 0.1);
+  color: #fff;
+}
+
+.tab.active {
+  background: var(--primary-blue);
+  color: #fff;
+  border-color: var(--secondary-blue);
+  border-bottom: 1px solid var(--primary-blue);
+}
+
+.tab .tab-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab .close-btn {
+  margin-left: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.tab .close-btn:hover {
+  background: rgba(68, 115, 169, 0.2);
+  color: var(--secondary-blue);
+}
+
+/* ==========================================
+   Tab Overflow Dropdown
+   ========================================== */
+.tab-overflow {
+  position: relative;
+  display: none;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.tab-overflow.visible {
+  display: flex;
+  align-items: center;
+}
+
+.tab-overflow-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--secondary-blue);
+  border-radius: 0;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.tab-overflow-btn:hover {
+  background: rgba(68, 115, 169, 0.1);
+}
+
+.tab-overflow-btn .count {
+  background: var(--secondary-blue);
+  color: var(--primary-blue);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 0;
+  font-weight: 700;
+}
+
+.tab-overflow-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--primary-blue);
+  border: 1px solid var(--secondary-blue);
+  border-radius: 0;
+  min-width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10000;
+  display: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tab-overflow-menu.open {
+  display: block;
+}
+
+.tab-overflow-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed rgba(68, 115, 169, 0.3);
+}
+
+.tab-overflow-item:last-child {
+  border-bottom: none;
+}
+
+.tab-overflow-item:hover {
+  background: rgba(68, 115, 169, 0.1);
+}
+
+.tab-overflow-item.active {
+  color: var(--secondary-blue);
+  background: rgba(68, 115, 169, 0.05);
+}
+
+.tab-overflow-item .device-ip {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   Toggle Buttons
+   ========================================== */
+.topology-toggle,
+.panel-toggle,
+.split-toggle {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--secondary-blue);
+  border-radius: 0;
+  color: var(--secondary-blue);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.topology-toggle:hover,
+.panel-toggle:hover,
+.split-toggle:hover {
+  background: rgba(68, 115, 169, 0.15);
+}
+
+.topology-toggle.active,
+.panel-toggle.active,
+.split-toggle.active {
+  background: var(--secondary-blue);
+  color: var(--primary-blue);
+}
+
+.split-toggle {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.split-toggle:hover {
+  border-color: var(--secondary-blue);
+  color: var(--secondary-blue);
+}
+
+.split-toggle.active {
+  background: var(--secondary-blue);
+  border-color: var(--secondary-blue);
+  color: var(--primary-blue);
+}
+
+/* ==========================================
+   Terminal Area
+   ========================================== */
+.terminal-area {
+  flex: 1;
+  display: flex;
+  background: var(--primary-blue);
+  overflow: hidden;
+}
+
+.terminal-frames {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.terminal-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: none;
+}
+
+.terminal-frame.active {
+  display: block;
+}
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-state h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+  color: var(--secondary-blue);
+  font-weight: 600;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+/* ==========================================
+   Split View Container
+   ========================================== */
+.split-container {
+  display: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.split-container.visible {
+  display: flex;
+}
+
+.split-container.visible ~ .terminal-frames {
+  display: none;
+}
+
+.split-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.split-pane:first-child {
+  border-right: 2px solid var(--secondary-blue);
+}
+
+.split-pane-header {
+  padding: 10px 14px;
+  background: var(--primary-blue);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(68, 115, 169, 0.3);
+}
+
+.split-pane-header .pane-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.split-pane-header .pane-device {
+  color: var(--secondary-blue);
+}
+
+.split-pane-header.next-target {
+  background: rgba(68, 115, 169, 0.1);
+  border-left: 3px solid var(--secondary-blue);
+}
+
+.split-pane-header.next-target .pane-label::after {
+  content: ' (next)';
+  font-size: 10px;
+  color: var(--success);
+  margin-left: 4px;
+}
+
+.split-pane-content {
+  flex: 1;
+  position: relative;
+  background: var(--primary-blue);
+}
+
+.split-pane-content iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.split-pane-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+.split-pane-empty p {
+  margin-bottom: 12px;
+}
+
+.split-pane-select {
+  padding: 10px 20px;
+  background: var(--secondary-blue);
+  border: none;
+  border-radius: 0;
+  color: var(--primary-blue);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.split-pane-select:hover {
+  background: #6b9fd4;
+}
+
+/* ==========================================
+   Side Panel (shared styles)
+   ========================================== */
+.side-panel {
+  width: 50%;
+  max-width: 600px;
+  min-width: 300px;
+  background: var(--primary-blue);
+  border-left: 1px solid var(--secondary-blue);
+  display: none;
+  flex-direction: column;
+}
+
+.side-panel.visible {
+  display: flex;
+}
+
+.side-panel-header {
+  padding: 14px 18px;
+  background: var(--primary-blue);
+  border-bottom: 1px solid var(--secondary-blue);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.side-panel-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--secondary-blue);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.side-panel-close {
+  background: none;
+  border: none;
+  color: var(--secondary-blue);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.side-panel-close:hover {
+  color: #6b9fd4;
+}
+
+.side-panel-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================
+   Topology Panel
+   ========================================== */
+.topology-panel .side-panel-content {
+  padding: 0;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.topology-panel .side-panel-content img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Compact topology controls for side panel */
+.topology-panel .topo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--primary-blue);
+  border-bottom: 1px solid rgba(68, 115, 169, 0.3);
+}
+
+.topology-panel .topo-controls input[type="text"] {
+  flex: 1;
+  min-width: 100px;
+  padding: 6px 10px;
+  border: 1px solid rgba(68, 115, 169, 0.5);
+  border-radius: 0;
+  background: var(--primary-blue);
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.topology-panel .topo-controls input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.topology-panel .topo-controls input[type="text"]:focus {
+  border-color: var(--secondary-blue);
+  outline: none;
+}
+
+.topology-panel .topo-controls .topo-btn {
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid rgba(68, 115, 169, 0.5);
+  color: var(--secondary-blue);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.topology-panel .topo-controls .topo-btn:hover {
+  background: rgba(68, 115, 169, 0.15);
+  border-color: var(--secondary-blue);
+}
+
+.topology-panel .topo-controls .topo-btn.active {
+  background: var(--secondary-blue);
+  color: var(--primary-blue);
+}
+
+.topology-panel .topo-controls .topo-btn.auto-focus {
+  margin-left: auto;
+}
+
+/* Interactive topology container in side panel */
+.topology-panel #terminal-topology {
+  flex: 1;
+  min-height: 300px;
+  background: #ffffff;
+  border: 2px solid var(--secondary-blue);
+  margin: 12px;
+}
+
+.topology-panel #terminal-topology.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-blue);
+}
+
+/* Tooltip overrides for terminal page - ensure visibility */
+.topology-tooltip {
+  z-index: 100000 !important;
+}
+
+.topology-tooltip .tooltip-value {
+  color: #071c35 !important;
+}
+
+.topology-tooltip .tooltip-value.status-unknown {
+  color: #666666 !important;
+}
+
+.topology-tooltip .tooltip-footer {
+  color: #666666 !important;
+}
+
+/* Context menu z-index for terminal page */
+.topology-context-menu {
+  z-index: 100001 !important;
+}
+
+/* ==========================================
+   Lab Guides Panel
+   ========================================== */
+.labguides-panel .side-panel-content {
+  padding: 0;
+}
+
+.labguides-panel .side-panel-content iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ==========================================
+   Loading State
+   ========================================== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 20px;
+}
+
+.loading::after {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--secondary-blue);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Capture panel styles are in capture.css */
