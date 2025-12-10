@@ -139,18 +139,18 @@
   z-index: 100001 !important;
 }
 
-/* Fix for sidebar menu items - they need a background since they're transparent */
-.site-sidebar .driver-active-element,
-.site-navigation .driver-active-element,
-.site-sidebar li.driver-active-element,
-.site-sidebar a.driver-active-element,
-#cvpLoaded.driver-active-element,
-#cvpLoading.driver-active-element,
-#labMenu.driver-active-element,
-#myBtn.driver-active-element,
-#labStaus.driver-active-element,
-a.site-sidebar__item.driver-active-element {
+/*
+ * When tour is active, force background on all sidebar elements.
+ * This ensures menu items are visible when highlighted.
+ */
+body.tour-active #sidebar li,
+body.tour-active #sidebar a,
+body.tour-active .left-sidebar li,
+body.tour-active .left-sidebar a,
+body.tour-active .site-sidebar li,
+body.tour-active .site-sidebar a {
   background-color: #04152a !important;
+  position: relative !important;
   z-index: 100001 !important;
 }
 

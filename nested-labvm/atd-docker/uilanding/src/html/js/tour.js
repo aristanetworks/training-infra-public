@@ -256,14 +256,11 @@ const ATLTour = {
         }
       },
       onDestroyed: () => {
+        // Remove tour class from body
+        document.body.classList.remove('tour-active');
+
         // Mark tour as completed
         self.markCompleted();
-
-        // Restore any remaining backgrounds
-        document.querySelectorAll('[data-original-bg]').forEach(el => {
-          el.style.backgroundColor = el.dataset.originalBg || '';
-          delete el.dataset.originalBg;
-        });
 
         // Return to home panel
         const homeLink = document.querySelector('a[data-id="home"]');
@@ -285,6 +282,8 @@ const ATLTour = {
    */
   start() {
     if (this.driver) {
+      // Add class to body for CSS targeting
+      document.body.classList.add('tour-active');
       this.driver.drive();
     } else {
       console.error('[ATLTour] Tour not initialized');
