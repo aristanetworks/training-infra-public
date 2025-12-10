@@ -311,7 +311,21 @@ const ATLTour = {
 
 // Initialize tour when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  // Wait for initial loading overlay to close before initializing
+  // Always bind the button immediately so it works on click
+  const tourBtn = document.getElementById('startTourBtn');
+  if (tourBtn) {
+    tourBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Initialize if not already done
+      if (!ATLTour.driver) {
+        ATLTour.init();
+      }
+      ATLTour.start();
+    });
+    console.log('[ATLTour] Button bound');
+  }
+
+  // Wait for initial loading overlay to close before auto-starting
   const checkOverlay = () => {
     const overlay = document.getElementById('initialLoadingOverlay');
     if (!overlay || overlay.style.display === 'none') {
