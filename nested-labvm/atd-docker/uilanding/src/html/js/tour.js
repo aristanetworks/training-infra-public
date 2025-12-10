@@ -1,14 +1,14 @@
 /**
- * ATL Guided Tour using Driver.js
+ * ATL Guided Tour using TourGuide.js
  * Provides an interactive walkthrough of the UILanding interface
  */
 
 const ATLTour = {
-  driver: null,
+  tg: null,
   STORAGE_KEY: 'atl-tour-completed',
 
   /**
-   * Define tour steps - each step highlights a UI element with description
+   * Define tour steps
    */
   getSteps() {
     const steps = [];
@@ -16,26 +16,18 @@ const ATLTour = {
     // Step 1: Welcome + System Status
     if (document.getElementById('system-status-badge')) {
       steps.push({
-        element: '#system-status-badge',
-        popover: {
-          title: 'Welcome to Arista Training Labs!',
-          description: 'This badge shows your system connectivity status. Click it to see detailed connection information for CVP, WebSocket, and gRPC services.',
-          side: 'bottom',
-          align: 'end'
-        }
+        target: '#system-status-badge',
+        title: 'Welcome to Arista Training Labs!',
+        content: 'This badge shows your system connectivity status. Click it to see detailed connection information for CVP, WebSocket, and gRPC services.'
       });
     }
 
     // Step 2: Sidebar Navigation
     if (document.getElementById('sidebar')) {
       steps.push({
-        element: '#sidebar',
-        popover: {
-          title: 'Navigation Menu',
-          description: 'Use this sidebar to navigate between different sections of your lab environment. All your tools and resources are accessible from here.',
-          side: 'right',
-          align: 'start'
-        }
+        target: '#sidebar',
+        title: 'Navigation Menu',
+        content: 'Use this sidebar to navigate between different sections of your lab environment. All your tools and resources are accessible from here.'
       });
     }
 
@@ -43,13 +35,9 @@ const ATLTour = {
     const labGuidesLink = document.querySelector('a[href*="labguides"]');
     if (labGuidesLink) {
       steps.push({
-        element: 'a[href*="labguides"]',
-        popover: {
-          title: 'Lab Guides',
-          description: 'Access step-by-step documentation for your lab exercises. This opens in a new tab with detailed instructions.',
-          side: 'right',
-          align: 'start'
-        }
+        target: 'a[href*="labguides"]',
+        title: 'Lab Guides',
+        content: 'Access step-by-step documentation for your lab exercises. This opens in a new tab with detailed instructions.'
       });
     }
 
@@ -57,13 +45,9 @@ const ATLTour = {
     const cvpLink = document.getElementById('cvpLoaded');
     if (cvpLink) {
       steps.push({
-        element: '#cvpLoaded',
-        popover: {
-          title: 'CloudVision Portal (CVP)',
-          description: 'Access CloudVision Portal to manage your network devices, view telemetry data, and execute change controls.',
-          side: 'right',
-          align: 'start'
-        }
+        target: '#cvpLoaded',
+        title: 'CloudVision Portal (CVP)',
+        content: 'Access CloudVision Portal to manage your network devices, view telemetry data, and execute change controls.'
       });
     }
 
@@ -71,13 +55,9 @@ const ATLTour = {
     const ideLink = document.querySelector('a[href="/coder"]');
     if (ideLink) {
       steps.push({
-        element: 'a[href="/coder"]',
-        popover: {
-          title: 'Programmability IDE',
-          description: 'Launch VS Code in your browser to write and test automation scripts. Pre-configured with Arista tools and examples.',
-          side: 'right',
-          align: 'start'
-        }
+        target: 'a[href="/coder"]',
+        title: 'Programmability IDE',
+        content: 'Launch VS Code in your browser to write and test automation scripts. Pre-configured with Arista tools and examples.'
       });
     }
 
@@ -85,118 +65,59 @@ const ATLTour = {
     const labMenu = document.getElementById('labMenu');
     if (labMenu) {
       steps.push({
-        element: '#labMenu',
-        popover: {
-          title: 'Lab Menu',
-          description: 'Select and configure different lab scenarios. Each lab option applies specific configurations to your network devices.',
-          side: 'right',
-          align: 'start'
-        },
-        onHighlightStarted: () => {
-          // Switch to Lab Menu panel
-          const menuClick = document.getElementById('labMenu');
-          if (menuClick) {
-            menuClick.click();
-          }
-        }
+        target: '#labMenu',
+        title: 'Lab Menu',
+        content: 'Select and configure different lab scenarios. Each lab option applies specific configurations to your network devices.'
       });
     }
 
-    // Step 7: Lab Menu Panel (if we switched to it)
-    const labMenuPanel = document.getElementById('lab-menu');
-    if (labMenuPanel) {
-      steps.push({
-        element: '#lab-menu',
-        popover: {
-          title: 'Lab Options',
-          description: 'Choose a lab scenario from the available options, then click "Start Lab" to apply the configuration. Progress will be shown below.',
-          side: 'left',
-          align: 'start'
-        }
-      });
-    }
-
-    // Step 8: Passwords
+    // Step 7: Passwords
     const passwordsBtn = document.getElementById('myBtn');
     if (passwordsBtn) {
       steps.push({
-        element: '#myBtn',
-        popover: {
-          title: 'Passwords',
-          description: 'Click here to view all usernames and passwords for accessing devices, CVP, and other lab resources.',
-          side: 'right',
-          align: 'start'
-        },
-        onHighlightStarted: () => {
-          // Return to Home panel
-          const homeLink = document.querySelector('a[data-id="home"]');
-          if (homeLink) {
-            homeLink.click();
-          }
-        }
+        target: '#myBtn',
+        title: 'Passwords',
+        content: 'Click here to view all usernames and passwords for accessing devices, CVP, and other lab resources.'
       });
     }
 
-    // Step 9: Lab Status
+    // Step 8: Lab Status
     const labStatus = document.getElementById('labStaus');
     if (labStatus) {
       steps.push({
-        element: '#labStaus',
-        popover: {
-          title: 'Lab Status',
-          description: 'Monitor the health and status of all devices in your lab environment. Useful for troubleshooting connectivity issues.',
-          side: 'right',
-          align: 'start'
-        }
+        target: '#labStaus',
+        title: 'Lab Status',
+        content: 'Monitor the health and status of all devices in your lab environment. Useful for troubleshooting connectivity issues.'
       });
     }
 
-    // Step 10: Topology View
+    // Step 9: Topology View
     const topology = document.querySelector('.topology');
     if (topology) {
       steps.push({
-        element: '.topology',
-        popover: {
-          title: 'Network Topology',
-          description: 'Interactive visualization of your lab network. Click on devices to see details, drag to rearrange, and use scroll to zoom.',
-          side: 'top',
-          align: 'center'
-        },
-        onHighlightStarted: () => {
-          // Ensure we're on Home panel
-          const homeLink = document.querySelector('a[data-id="home"]');
-          if (homeLink) {
-            homeLink.click();
-          }
-        }
+        target: '.topology',
+        title: 'Network Topology',
+        content: 'Interactive visualization of your lab network. Click on devices to see details, drag to rearrange, and use scroll to zoom.'
       });
     }
 
-    // Step 11: Topology Controls
+    // Step 10: Topology Controls
     const topoControls = document.querySelector('.topology-controls');
     if (topoControls) {
       steps.push({
-        element: '.topology-controls',
-        popover: {
-          title: 'Topology Controls',
-          description: 'Switch between static and interactive views, search for devices, filter by device type, and reset the layout.',
-          side: 'bottom',
-          align: 'start'
-        }
+        target: '.topology-controls',
+        title: 'Topology Controls',
+        content: 'Switch between static and interactive views, search for devices, filter by device type, and reset the layout.'
       });
     }
 
-    // Step 12: Time Remaining
+    // Step 11: Time Remaining
     const timer = document.getElementById('countdown_timer');
     if (timer) {
       steps.push({
-        element: '#countdown_timer',
-        popover: {
-          title: 'Time Remaining',
-          description: 'Keep an eye on your remaining lab time. The timer shows how much time you have left in your session.',
-          side: 'bottom',
-          align: 'center'
-        }
+        target: '#countdown_timer',
+        title: 'Time Remaining',
+        content: 'Keep an eye on your remaining lab time. The timer shows how much time you have left in your session.'
       });
     }
 
@@ -204,12 +125,12 @@ const ATLTour = {
   },
 
   /**
-   * Initialize the Driver.js tour
+   * Initialize the TourGuide.js tour
    */
   init() {
-    // Check if Driver.js is loaded (v1.x uses window.driver.js)
-    if (typeof window.driver === 'undefined' || typeof window.driver.js === 'undefined') {
-      console.error('[ATLTour] Driver.js not loaded');
+    // Check if TourGuide.js is loaded
+    if (typeof tourguide === 'undefined' || typeof tourguide.TourGuideClient === 'undefined') {
+      console.error('[ATLTour] TourGuide.js not loaded');
       return;
     }
 
@@ -220,88 +141,48 @@ const ATLTour = {
       return;
     }
 
-    // Driver.js v1.x API
-    const self = this;
-    this.driver = window.driver.js.driver({
-      showProgress: true,
-      animate: true,
-      allowClose: true,
-      overlayClickNext: false,
-      stagePadding: 10,
-      stageRadius: 8,
-      popoverClass: 'atl-tour-popover',
-      progressText: 'Step {{current}} of {{total}}',
-      nextBtnText: 'Next',
-      prevBtnText: 'Back',
-      doneBtnText: 'Finish',
-      onHighlightStarted: (element, step, options) => {
-        // Get the actual DOM element - Driver.js passes it differently
-        let el = null;
-        if (element instanceof HTMLElement) {
-          el = element;
-        } else if (element && element.element instanceof HTMLElement) {
-          el = element.element;
-        } else if (step && step.element) {
-          el = document.querySelector(step.element);
-        }
+    // Create TourGuide instance
+    this.tg = new tourguide.TourGuideClient({
+      steps: steps,
+      backdropColor: 'rgba(7, 28, 53, 0.8)',
+      targetPadding: 10,
+      nextLabel: 'Next',
+      prevLabel: 'Back',
+      finishLabel: 'Finish',
+      showStepProgress: true,
+      exitOnEscape: true,
+      exitOnClickOutside: false,
+      autoScroll: true,
+      autoScrollOffset: 50
+    });
 
-        if (el) {
-          const isInSidebar = el.closest('#sidebar') || el.closest('.left-sidebar');
-          if (isInSidebar) {
-            // Store original background
-            el.setAttribute('data-orig-bg', el.style.backgroundColor || '');
-            // Apply highlight background only (don't change position)
-            el.style.setProperty('background-color', '#04152a', 'important');
-          }
-        }
-      },
-      onDeselected: (element, step, options) => {
-        // Get the actual DOM element
-        let el = null;
-        if (element instanceof HTMLElement) {
-          el = element;
-        } else if (element && element.element instanceof HTMLElement) {
-          el = element.element;
-        } else if (step && step.element) {
-          el = document.querySelector(step.element);
-        }
+    // Listen for tour finish
+    this.tg.onFinish(() => {
+      this.markCompleted();
+      document.body.classList.remove('tour-active');
 
-        // Restore original background
-        if (el && el.hasAttribute('data-orig-bg')) {
-          el.style.backgroundColor = el.getAttribute('data-orig-bg');
-          el.removeAttribute('data-orig-bg');
-        }
-      },
-      onDestroyed: () => {
-        // Remove tour class from body
-        document.body.classList.remove('tour-active');
+      // Return to home panel
+      const homeLink = document.querySelector('a[data-id="home"]');
+      if (homeLink) {
+        homeLink.click();
+      }
+    });
 
-        // Mark tour as completed
-        self.markCompleted();
-
-        // Return to home panel
-        const homeLink = document.querySelector('a[data-id="home"]');
-        if (homeLink) {
-          homeLink.click();
-        }
-      },
-      steps: steps
+    // Listen for tour close/exit
+    this.tg.onAfterExit(() => {
+      document.body.classList.remove('tour-active');
     });
 
     console.log('[ATLTour] Initialized with', steps.length, 'steps');
-
-    // Bind the start button
-    this.bindStartButton();
   },
 
   /**
    * Start the tour
    */
   start() {
-    if (this.driver) {
-      // Add class to body for CSS targeting
+    if (this.tg) {
       document.body.classList.add('tour-active');
-      this.driver.drive();
+      this.tg.start();
     } else {
       console.error('[ATLTour] Tour not initialized');
     }
@@ -330,25 +211,10 @@ const ATLTour = {
   },
 
   /**
-   * Bind click handler to the tour button
-   */
-  bindStartButton() {
-    const tourBtn = document.getElementById('startTourBtn');
-    if (tourBtn) {
-      tourBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.start();
-      });
-    }
-  },
-
-  /**
    * Auto-start tour for first-time visitors
-   * Called after the initial loading overlay is hidden
    */
   autoStart() {
     if (!this.isCompleted()) {
-      // Small delay to ensure UI is ready
       setTimeout(() => {
         this.start();
       }, 500);
@@ -358,13 +224,12 @@ const ATLTour = {
 
 // Initialize tour when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  // Always bind the button immediately so it works on click
+  // Bind the button immediately
   const tourBtn = document.getElementById('startTourBtn');
   if (tourBtn) {
     tourBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      // Initialize if not already done
-      if (!ATLTour.driver) {
+      if (!ATLTour.tg) {
         ATLTour.init();
       }
       ATLTour.start();
@@ -379,12 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ATLTour.init();
       ATLTour.autoStart();
     } else {
-      // Check again in 500ms
       setTimeout(checkOverlay, 500);
     }
   };
 
-  // Start checking after a brief delay
   setTimeout(checkOverlay, 1000);
 });
 
