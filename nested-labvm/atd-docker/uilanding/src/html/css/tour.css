@@ -139,6 +139,21 @@
   z-index: 100001 !important;
 }
 
+/* Fix for sidebar menu items - they need a background since they're transparent */
+.site-sidebar .driver-active-element,
+.site-navigation .driver-active-element,
+.site-sidebar li.driver-active-element,
+.site-sidebar a.driver-active-element,
+#cvpLoaded.driver-active-element,
+#cvpLoading.driver-active-element,
+#labMenu.driver-active-element,
+#myBtn.driver-active-element,
+#labStaus.driver-active-element,
+a.site-sidebar__item.driver-active-element {
+  background-color: #04152a !important;
+  z-index: 100001 !important;
+}
+
 /* Tour button in sidebar */
 .tour-button {
   display: flex;
