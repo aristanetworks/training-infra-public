@@ -150,8 +150,6 @@ body.tour-active .left-sidebar a,
 body.tour-active .site-sidebar li,
 body.tour-active .site-sidebar a {
   background-color: #04152a !important;
-  position: relative !important;
-  z-index: 100001 !important;
 }
 
 /* Tour button in sidebar */
