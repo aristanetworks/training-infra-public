@@ -144,8 +144,10 @@ const ATLTour = {
     // Create TourGuide instance
     this.tg = new tourguide.TourGuideClient({
       steps: steps,
-      backdropColor: 'rgba(7, 28, 53, 0.8)',
-      targetPadding: 10,
+      backdropColor: 'rgba(7, 28, 53, 0.85)',
+      backdropAnimate: true,
+      targetPadding: 15,
+      dialogZ: 100002,
       nextLabel: 'Next',
       prevLabel: 'Back',
       finishLabel: 'Finish',
@@ -153,7 +155,8 @@ const ATLTour = {
       exitOnEscape: true,
       exitOnClickOutside: false,
       autoScroll: true,
-      autoScrollOffset: 50
+      autoScrollOffset: 50,
+      propagateEvents: true
     });
 
     // Listen for tour finish
