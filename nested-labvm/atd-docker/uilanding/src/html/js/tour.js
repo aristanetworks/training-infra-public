@@ -229,6 +229,7 @@ const ATLTour = {
       overlayClickNext: false,
       stagePadding: 10,
       stageRadius: 8,
+      stageBackground: '#04152a',
       popoverClass: 'atl-tour-popover',
       progressText: 'Step {{current}} of {{total}}',
       nextBtnText: 'Next',
