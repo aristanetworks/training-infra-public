@@ -11,6 +11,8 @@
   border-radius: 8px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
   font-family: 'proxima-nova', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  padding: 1rem !important;
+  overflow: visible !important;
 }
 
 /* Dialog title */
@@ -40,7 +42,12 @@
 .tg-dialog-footer {
   margin-top: 1rem !important;
   padding-top: 0.75rem !important;
+  padding-bottom: 0.5rem !important;
   border-top: 1px dashed rgba(251, 181, 0, 0.3) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
 }
 
 /* Navigation buttons */
@@ -72,13 +79,25 @@
   background-color: #d49b00 !important;
 }
 
-/* Close button */
-.tg-dialog-close-btn {
-  color: rgba(255, 255, 255, 0.7) !important;
+/* Close button (X) */
+.tg-dialog-close-btn,
+.tg-dialog button[class*="close"],
+.tg-dialog .tg-close,
+.tg-dialog-header button {
+  color: #ffffff !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 1.5rem !important;
+  opacity: 0.7 !important;
+  cursor: pointer !important;
 }
 
-.tg-dialog-close-btn:hover {
+.tg-dialog-close-btn:hover,
+.tg-dialog button[class*="close"]:hover,
+.tg-dialog .tg-close:hover,
+.tg-dialog-header button:hover {
   color: #fbb500 !important;
+  opacity: 1 !important;
 }
 
 /* Backdrop - TourGuide uses box-shadow for the overlay effect */
