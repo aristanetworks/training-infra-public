@@ -81,9 +81,16 @@
   color: #fbb500 !important;
 }
 
-/* Backdrop */
+/* Backdrop - TourGuide uses box-shadow for the overlay effect */
 .tg-backdrop {
-  background-color: rgba(7, 28, 53, 0.8) !important;
+  position: fixed !important;
+  z-index: 99999 !important;
+  pointer-events: none !important;
+  border-radius: 4px !important;
+}
+
+.tg-backdrop.allow-interaction {
+  pointer-events: none !important;
 }
 
 /* Target highlight - the cutout area */
