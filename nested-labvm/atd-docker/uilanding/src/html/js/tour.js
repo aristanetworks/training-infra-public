@@ -221,6 +221,7 @@ const ATLTour = {
     }
 
     // Driver.js v1.x API
+    const self = this;
     this.driver = window.driver.js.driver({
       showProgress: true,
       animate: true,
@@ -233,9 +234,10 @@ const ATLTour = {
       nextBtnText: 'Next',
       prevBtnText: 'Back',
       doneBtnText: 'Finish',
-      onDestroyStarted: () => {
+      overlayColor: 'rgba(7, 28, 53, 0.5)',
+      onDestroyed: () => {
         // Mark tour as completed
-        this.markCompleted();
+        self.markCompleted();
 
         // Return to home panel
         const homeLink = document.querySelector('a[data-id="home"]');

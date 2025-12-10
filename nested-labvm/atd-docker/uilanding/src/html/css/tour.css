@@ -119,15 +119,17 @@
   color: #fbb500 !important;
 }
 
-/* Overlay */
+/* Overlay - lighter so highlighted areas are visible */
 .driver-overlay {
-  background-color: rgba(7, 28, 53, 0.75) !important;
+  background-color: rgba(7, 28, 53, 0.5) !important;
 }
 
-/* Highlighted element */
+/* Highlighted element - bright background */
 .driver-active-element {
   outline: 3px solid #fbb500 !important;
   outline-offset: 4px !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(251, 181, 0, 0.5) !important;
 }
 
 /* Tour button in sidebar */
