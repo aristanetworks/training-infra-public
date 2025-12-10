@@ -119,17 +119,24 @@
   color: #fbb500 !important;
 }
 
-/* Overlay - lighter so highlighted areas are visible */
+/* Overlay - dim background */
 .driver-overlay {
-  background-color: rgba(7, 28, 53, 0.5) !important;
+  background-color: rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Highlighted element - bright background */
+/* Highlighted element - ensure it's above overlay and visible */
 .driver-active-element {
+  position: relative !important;
+  z-index: 100001 !important;
   outline: 3px solid #fbb500 !important;
-  outline-offset: 4px !important;
-  background-color: #ffffff !important;
-  box-shadow: 0 0 20px rgba(251, 181, 0, 0.5) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(251, 181, 0, 0.4) !important;
+}
+
+/* Fix for fixed-position elements like sidebar */
+.left-sidebar.driver-active-element,
+#sidebar.driver-active-element {
+  z-index: 100001 !important;
 }
 
 /* Tour button in sidebar */

@@ -234,7 +234,6 @@ const ATLTour = {
       nextBtnText: 'Next',
       prevBtnText: 'Back',
       doneBtnText: 'Finish',
-      overlayColor: 'rgba(7, 28, 53, 0.5)',
       onDestroyed: () => {
         // Mark tour as completed
         self.markCompleted();
