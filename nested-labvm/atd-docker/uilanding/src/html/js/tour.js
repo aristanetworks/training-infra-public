@@ -229,15 +229,41 @@ const ATLTour = {
       overlayClickNext: false,
       stagePadding: 10,
       stageRadius: 8,
-      stageBackground: '#04152a',
       popoverClass: 'atl-tour-popover',
       progressText: 'Step {{current}} of {{total}}',
       nextBtnText: 'Next',
       prevBtnText: 'Back',
       doneBtnText: 'Finish',
+      onHighlightStarted: (element) => {
+        // Add background to sidebar elements that are normally transparent
+        if (element && element.element) {
+          const el = element.element;
+          const isInSidebar = el.closest('#sidebar') || el.closest('.left-sidebar');
+          if (isInSidebar) {
+            el.dataset.originalBg = el.style.backgroundColor || '';
+            el.style.backgroundColor = '#04152a';
+          }
+        }
+      },
+      onDeselected: (element) => {
+        // Restore original background
+        if (element && element.element) {
+          const el = element.element;
+          if (el.dataset.originalBg !== undefined) {
+            el.style.backgroundColor = el.dataset.originalBg;
+            delete el.dataset.originalBg;
+          }
+        }
+      },
       onDestroyed: () => {
         // Mark tour as completed
         self.markCompleted();
+
+        // Restore any remaining backgrounds
+        document.querySelectorAll('[data-original-bg]').forEach(el => {
+          el.style.backgroundColor = el.dataset.originalBg || '';
+          delete el.dataset.originalBg;
+        });
 
         // Return to home panel
         const homeLink = document.querySelector('a[data-id="home"]');
