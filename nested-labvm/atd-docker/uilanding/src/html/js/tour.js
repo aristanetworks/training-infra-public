@@ -234,24 +234,46 @@ const ATLTour = {
       nextBtnText: 'Next',
       prevBtnText: 'Back',
       doneBtnText: 'Finish',
-      onHighlightStarted: (element) => {
-        // Add background to sidebar elements that are normally transparent
-        if (element && element.element) {
-          const el = element.element;
+      onHighlightStarted: (element, step, options) => {
+        console.log('[ATLTour] onHighlightStarted called', element, step, options);
+        // Get the actual DOM element - Driver.js passes it differently
+        let el = null;
+        if (element instanceof HTMLElement) {
+          el = element;
+        } else if (element && element.element instanceof HTMLElement) {
+          el = element.element;
+        } else if (step && step.element) {
+          el = document.querySelector(step.element);
+        }
+
+        console.log('[ATLTour] Found element:', el);
+
+        if (el) {
           const isInSidebar = el.closest('#sidebar') || el.closest('.left-sidebar');
           if (isInSidebar) {
-            el.dataset.originalBg = el.style.backgroundColor || '';
-            el.style.backgroundColor = '#04152a';
+            // Store original styles
+            el.setAttribute('data-orig-bg', el.style.backgroundColor || '');
+            el.setAttribute('data-orig-pos', el.style.position || '');
+            el.setAttribute('data-orig-z', el.style.zIndex || '');
+            // Apply highlight styles
+            el.style.setProperty('background-color', '#04152a', 'important');
+            el.style.setProperty('position', 'relative', 'important');
+            el.style.setProperty('z-index', '100001', 'important');
+            console.log('[ATLTour] Applied sidebar styles to', el);
           }
         }
       },
       onDeselected: (element) => {
-        // Restore original background
+        // Restore original styles
         if (element && element.element) {
           const el = element.element;
-          if (el.dataset.originalBg !== undefined) {
-            el.style.backgroundColor = el.dataset.originalBg;
-            delete el.dataset.originalBg;
+          if (el.hasAttribute('data-orig-bg')) {
+            el.style.backgroundColor = el.getAttribute('data-orig-bg');
+            el.style.position = el.getAttribute('data-orig-pos');
+            el.style.zIndex = el.getAttribute('data-orig-z');
+            el.removeAttribute('data-orig-bg');
+            el.removeAttribute('data-orig-pos');
+            el.removeAttribute('data-orig-z');
           }
         }
       },
