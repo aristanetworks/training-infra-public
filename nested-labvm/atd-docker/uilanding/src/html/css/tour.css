@@ -1,0 +1,149 @@
+/**
+ * ATL Driver.js Tour Styling
+ * Custom theme matching Arista Training Labs color palette
+ */
+
+/* Override Driver.js popover styles */
+.driver-popover {
+  background-color: #071c35 !important;
+  color: #ffffff !important;
+  border: 3px solid #fbb500 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  font-family: 'proxima-nova', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  max-width: 400px !important;
+}
+
+/* Popover arrow */
+.driver-popover-arrow {
+  border-color: #fbb500 !important;
+}
+
+.driver-popover-arrow-side-left,
+.driver-popover-arrow-side-right,
+.driver-popover-arrow-side-top,
+.driver-popover-arrow-side-bottom {
+  border-color: transparent !important;
+}
+
+.driver-popover-arrow-side-left::before,
+.driver-popover-arrow-side-left::after {
+  border-right-color: #fbb500 !important;
+}
+
+.driver-popover-arrow-side-right::before,
+.driver-popover-arrow-side-right::after {
+  border-left-color: #fbb500 !important;
+}
+
+.driver-popover-arrow-side-top::before,
+.driver-popover-arrow-side-top::after {
+  border-bottom-color: #fbb500 !important;
+}
+
+.driver-popover-arrow-side-bottom::before,
+.driver-popover-arrow-side-bottom::after {
+  border-top-color: #fbb500 !important;
+}
+
+/* Title styling */
+.driver-popover-title {
+  color: #fbb500 !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  border-bottom: 1px dashed rgba(251, 181, 0, 0.3) !important;
+}
+
+/* Description styling */
+.driver-popover-description {
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+}
+
+/* Progress text */
+.driver-popover-progress-text {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 0.8rem !important;
+}
+
+/* Footer / navigation buttons container */
+.driver-popover-footer {
+  margin-top: 1rem !important;
+  padding-top: 0.75rem !important;
+  border-top: 1px dashed rgba(251, 181, 0, 0.3) !important;
+}
+
+/* Navigation buttons */
+.driver-popover-navigation-btns {
+  gap: 0.5rem !important;
+}
+
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+  background-color: transparent !important;
+  color: #fbb500 !important;
+  border: 2px solid #fbb500 !important;
+  border-radius: 4px !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.driver-popover-prev-btn:hover,
+.driver-popover-next-btn:hover {
+  background-color: #fbb500 !important;
+  color: #071c35 !important;
+}
+
+/* Primary (Next/Done) button */
+.driver-popover-next-btn {
+  background-color: #fbb500 !important;
+  color: #071c35 !important;
+}
+
+.driver-popover-next-btn:hover {
+  background-color: #d49b00 !important;
+}
+
+/* Close button */
+.driver-popover-close-btn {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 1.5rem !important;
+}
+
+.driver-popover-close-btn:hover {
+  color: #fbb500 !important;
+}
+
+/* Overlay */
+.driver-overlay {
+  background-color: rgba(7, 28, 53, 0.75) !important;
+}
+
+/* Highlighted element */
+.driver-active-element {
+  outline: 3px solid #fbb500 !important;
+  outline-offset: 4px !important;
+}
+
+/* Tour button in sidebar */
+.tour-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(251, 181, 0, 0.3);
+}
+
+.tour-button i {
+  color: #fbb500;
+}
+
+.tour-button:hover {
+  color: #fbb500 !important;
+}
