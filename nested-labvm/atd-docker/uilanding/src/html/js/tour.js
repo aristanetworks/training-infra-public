@@ -207,8 +207,8 @@ const ATLTour = {
    * Initialize the Driver.js tour
    */
   init() {
-    // Check if Driver.js is loaded
-    if (typeof driver === 'undefined') {
+    // Check if Driver.js is loaded (v1.x uses window.driver.js)
+    if (typeof window.driver === 'undefined' || typeof window.driver.js === 'undefined') {
       console.error('[ATLTour] Driver.js not loaded');
       return;
     }
@@ -220,7 +220,8 @@ const ATLTour = {
       return;
     }
 
-    this.driver = driver({
+    // Driver.js v1.x API
+    this.driver = window.driver.js.driver({
       showProgress: true,
       animate: true,
       allowClose: true,
@@ -244,6 +245,8 @@ const ATLTour = {
       },
       steps: steps
     });
+
+    console.log('[ATLTour] Initialized with', steps.length, 'steps');
 
     // Bind the start button
     this.bindStartButton();
