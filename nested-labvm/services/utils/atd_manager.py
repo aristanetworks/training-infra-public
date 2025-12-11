@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-ATD Manager - Python implementation of atdStartup and atdUpdate shell scripts
+ATD Manager - Python implementation of atdStartup functionality
 
 This module provides a clean, maintainable Python implementation of the ATD
-(Arista Training Labs) startup and update functionality.
+(Arista Training Labs) startup functionality.
+
+Note: Git update operations are handled by atdUpdate.sh (bash script).
+      This module is called by atdStartup.sh after git pull completes.
 
 Classes:
     - ConfigManager: Handles YAML configuration file operations
@@ -15,14 +18,10 @@ Classes:
     - LabguideManager: Manages lab guide downloads and extraction
     - ExamManager: Handles exam-related functionality
     - ATDStartup: Main startup orchestrator
-    - ATDUpdate: Main update orchestrator
 
 Usage:
     # Run startup
     python3 atd_manager.py startup
-
-    # Run update
-    python3 atd_manager.py update
 
     # Check container health
     python3 atd_manager.py check-containers
@@ -1579,141 +1578,17 @@ class ATDStartup:
 
 
 # =============================================================================
-# Main ATD Update Class
-# =============================================================================
-
-class ATDUpdate:
-    """Main update orchestrator - Python equivalent of atdUpdate.sh"""
-
-    def __init__(self, config: ATDConfig = None):
-        self.config = config or ATDConfig()
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-        # Initialize Cloud Logging
-        self.cloud_logging = CloudLoggingManager()
-        self.cloud_logging.setup(
-            service_name='atd-update',
-            additional_labels={'operation': 'update'}
-        )
-
-        # Initialize managers
-        self.config_manager = ConfigManager(self.config)
-        self.git_manager = GitManager(self.config.atd_opt_path)
-        self.file_manager = FileManager()
-
-    def run(self) -> bool:
-        """Execute the full update sequence"""
-        self.logger.info("Starting ATD Update")
-
-        # Log update event to Cloud Logging
-        self.cloud_logging.log_structured(
-            "ATD Update initiated",
-            severity='INFO',
-            labels={'service': 'atd-update', 'phase': 'init'}
-        )
-
-        try:
-            # Get branch from config
-            branch = self.config_manager.get_value(
-                self.config.atd_repo_path,
-                'atd-public-branch'
-            )
-
-            # Get repo URL (default if not specified)
-            repo = self.config_manager.get_value(
-                self.config.atd_repo_path,
-                'public-repo'
-            )
-            if not repo:
-                repo = self.config.default_repo
-
-            # Update git repository
-            self.git_manager.update_to_branch(branch, repo)
-
-            # Update shell scripts
-            self.file_manager.rsync(
-                f'{self.config.atd_opt_path}/nested-labvm/services/atdUpdate/atdUpdate.sh',
-                '/usr/local/bin/'
-            )
-            self.file_manager.rsync(
-                f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/atdStartup.sh',
-                '/usr/local/bin/'
-            )
-
-            # Update Python scripts
-            self.file_manager.rsync(
-                f'{self.config.atd_opt_path}/nested-labvm/services/atdUpdate/atdUpdate.py',
-                '/usr/local/bin/'
-            )
-            self.file_manager.rsync(
-                f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/atdStartup.py',
-                '/usr/local/bin/'
-            )
-
-            # Update utils module
-            self.file_manager.ensure_directory('/usr/local/lib/atd-services/utils')
-            self.file_manager.rsync(
-                f'{self.config.atd_opt_path}/nested-labvm/services/utils/',
-                '/usr/local/lib/atd-services/utils/'
-            )
-
-            # Execute startup
-            # Log git update success
-            self.cloud_logging.log_structured(
-                f"Git repository updated to branch: {branch}",
-                severity='INFO',
-                labels={'service': 'atd-update', 'phase': 'git-update'},
-                branch=branch,
-                repo=repo
-            )
-
-            self.logger.info("Executing ATD Startup")
-            startup = ATDStartup(self.config)
-            result = startup.run()
-
-            # Log final status
-            if result:
-                self.cloud_logging.log_structured(
-                    "ATD Update completed successfully",
-                    severity='INFO',
-                    labels={'service': 'atd-update', 'phase': 'complete', 'status': 'success'},
-                    branch=branch
-                )
-            else:
-                self.cloud_logging.log_structured(
-                    "ATD Update completed with startup failure",
-                    severity='WARNING',
-                    labels={'service': 'atd-update', 'phase': 'complete', 'status': 'partial-failure'}
-                )
-
-            return result
-
-        except Exception as e:
-            self.logger.error(f"ATD Update failed: {e}")
-
-            # Log failure to Cloud Logging
-            self.cloud_logging.log_structured(
-                f"ATD Update failed: {e}",
-                severity='ERROR',
-                labels={'service': 'atd-update', 'phase': 'complete', 'status': 'failed'},
-                error=str(e)
-            )
-            return False
-
-
-# =============================================================================
 # Main Entry Point
 # =============================================================================
 
 def main():
     """Main entry point for the ATD Manager"""
     parser = argparse.ArgumentParser(
-        description='ATD Manager - Manage ATD startup, update, and maintenance tasks',
+        description='ATD Manager - Manage ATD startup and maintenance tasks',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     python3 atd_manager.py startup           # Run ATD startup sequence
-    python3 atd_manager.py update            # Run ATD update sequence
     python3 atd_manager.py check-containers  # Check container health
     python3 atd_manager.py check-exam        # Check exam submission status
         """
@@ -1721,7 +1596,7 @@ Examples:
 
     parser.add_argument(
         'command',
-        choices=['startup', 'update', 'check-containers', 'check-exam'],
+        choices=['startup', 'check-containers', 'check-exam'],
         help='Command to execute'
     )
 
@@ -1742,11 +1617,6 @@ Examples:
     if args.command == 'startup':
         startup = ATDStartup(config)
         success = startup.run()
-        sys.exit(0 if success else 1)
-
-    elif args.command == 'update':
-        update = ATDUpdate(config)
-        success = update.run()
         sys.exit(0 if success else 1)
 
     elif args.command == 'check-containers':
