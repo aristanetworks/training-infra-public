@@ -413,6 +413,15 @@ class CVPDeviceManager:
         try:
             devices = self.client.api.get_inventory()
             print(f"✓ Retrieved {len(devices)} devices from CVP")
+
+            # Debug: Print first device structure to understand available fields
+            if devices:
+                print(f"\n🔍 DEBUG: Sample device fields (first device):")
+                sample = devices[0]
+                for key in sorted(sample.keys()):
+                    if 'status' in key.lower() or 'streaming' in key.lower():
+                        print(f"   {key}: {sample.get(key)}")
+
             return devices
 
         except Exception as e:
@@ -429,9 +438,22 @@ class CVPDeviceManager:
         Returns:
             List of devices with inactive streaming
         """
+        # Debug: Print all unique streaming statuses found
+        status_counts = {}
+        for device in devices:
+            status = device.get('streamingStatus', 'MISSING')
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+        print(f"\n🔍 DEBUG: Streaming status values found in CVP:")
+        for status, count in sorted(status_counts.items()):
+            print(f"   '{status}': {count} devices")
+
+        # Check for inactive status (case-insensitive)
+        # CVP may return: 'inactive', 'Inactive', 'INACTIVE', or 'INACTIVE_STREAMING'
         inactive_devices = [
             device for device in devices
-            if device.get('streamingStatus') == 'inactive'
+            if device.get('streamingStatus', '').lower() in ['inactive', 'inactive_streaming']
+            or device.get('streamingStatus') == 'Inactive'
         ]
 
         print(f"\n📊 Streaming Status Summary:")
@@ -929,29 +951,73 @@ Examples:
             print("\n✗ Failed to connect to CVP. Exiting.")
             sys.exit(1)
 
-    # Wait for devices to stabilize after CVP is up
-    # Devices may initially show as active but become inactive after some time
-    print("\n⏳ Waiting 300 seconds for devices to stabilize after CVP startup...")
-    logger.info("Waiting 300 seconds for devices to stabilize after CVP startup")
-    cloud_logging.log_structured(
-        "Waiting 300 seconds for devices to stabilize after CVP startup",
-        severity='INFO',
-        labels={'service': 'cvp-device-registration', 'event': 'device-stabilization-wait'}
-    )
-    time.sleep(300)
     # Get Undefined container
     if not manager.get_undefined_container():
         print("\n✗ Failed to get Undefined container. Exiting.")
         sys.exit(1)
 
-    # Get all devices
-    devices = manager.get_devices()
-    if not devices:
-        print("\n✗ No devices found or failed to retrieve devices. Exiting.")
-        sys.exit(1)
+    # Poll for inactive devices with smart retry logic
+    # Instead of waiting a fixed time, check every minute for up to 10 minutes
+    # If inactive devices found -> proceed with registration
+    # If all devices active -> wait and recheck (up to 10 times) to catch delayed failures
+    print("\n" + "=" * 80)
+    print("🔍 DEVICE STATUS MONITORING")
+    print("=" * 80)
+    print("   Checking device streaming status every 60 seconds...")
+    print("   Will proceed immediately if inactive devices are found")
+    print("   Will recheck up to 10 times if all devices appear active")
 
-    # Filter inactive streaming devices
-    inactive_devices = manager.get_inactive_streaming_devices(devices)
+    cloud_logging.log_structured(
+        "Starting device status monitoring loop",
+        severity='INFO',
+        labels={'service': 'cvp-device-registration', 'event': 'status-monitoring-started'}
+    )
+
+    max_checks = 10
+    check_interval = 60  # seconds
+    consecutive_all_active = 0
+    inactive_devices = []
+
+    for check_num in range(1, max_checks + 1):
+        print(f"\n⏳ Check {check_num}/{max_checks}: Retrieving device status...")
+
+        devices = manager.get_devices()
+        if not devices:
+            print(f"   ⚠ Could not retrieve devices, waiting {check_interval}s before retry...")
+            time.sleep(check_interval)
+            continue
+
+        # Get inactive devices
+        inactive_devices = manager.get_inactive_streaming_devices(devices)
+
+        if inactive_devices:
+            # Found inactive devices - proceed with registration immediately
+            print(f"\n✓ Found {len(inactive_devices)} inactive device(s) on check {check_num}")
+            cloud_logging.log_structured(
+                f"Found {len(inactive_devices)} inactive devices on check {check_num}",
+                severity='INFO',
+                labels={'service': 'cvp-device-registration', 'event': 'inactive-devices-found'},
+                inactive_count=len(inactive_devices),
+                check_number=check_num
+            )
+            break
+        else:
+            # All devices appear active - but they might become inactive later
+            consecutive_all_active += 1
+            print(f"   ✓ All {len(devices)} devices showing active (check {consecutive_all_active}/{max_checks})")
+
+            if check_num < max_checks:
+                print(f"   ⏳ Waiting {check_interval}s before next check (devices may become inactive)...")
+                time.sleep(check_interval)
+            else:
+                print(f"\n✅ All devices remained active after {max_checks} checks ({max_checks} minutes)")
+                cloud_logging.log_structured(
+                    f"All devices remained active after {max_checks} checks",
+                    severity='INFO',
+                    labels={'service': 'cvp-device-registration', 'event': 'all-devices-active'},
+                    total_devices=len(devices),
+                    checks_performed=max_checks
+                )
 
     # Process inactive devices
     results = manager.process_inactive_devices(
