@@ -79,13 +79,37 @@ class ConfigureTopology():
         cvp_clnt = ''
         cvpUsername = access_info['login_info']['jump_host']['user']
         cvpPassword = access_info['login_info']['jump_host']['pw']
+        cvp_ip = access_info['nodes']['cvp'][0]['ip']
+        attempt = 0
+        self.logger.info(f"Attempting CVP connection to {cvp_ip}", extra={'labels': {
+            'operation': 'cvp-connect',
+            'cvp_ip': cvp_ip,
+            'username': cvpUsername
+        }})
         while not cvp_clnt:
+            attempt += 1
             try:
-                cvp_clnt = CVPCON(access_info['nodes']['cvp'][0]['ip'], cvpUsername, cvpPassword)
-                self.send_to_syslog("OK","Connected to CVP at {0}".format(access_info['nodes']['cvp'][0]['ip']))
+                self.logger.debug(f"CVP connection attempt {attempt}", extra={'labels': {
+                    'operation': 'cvp-connect',
+                    'attempt': attempt
+                }})
+                cvp_clnt = CVPCON(cvp_ip, cvpUsername, cvpPassword)
+                self.send_to_syslog("OK","Connected to CVP at {0}".format(cvp_ip))
+                self.logger.info(f"Successfully connected to CVP after {attempt} attempt(s)", extra={'labels': {
+                    'operation': 'cvp-connect',
+                    'cvp_ip': cvp_ip,
+                    'attempts': attempt,
+                    'status': 'success'
+                }})
                 return cvp_clnt
-            except:
+            except Exception as e:
                 self.send_to_syslog("ERROR", "CVP is currently unavailable....Retrying in 30 seconds.")
+                self.logger.warning(f"CVP connection failed (attempt {attempt}): {str(e)}", extra={'labels': {
+                    'operation': 'cvp-connect',
+                    'attempt': attempt,
+                    'error': str(e),
+                    'status': 'retry'
+                }})
                 time.sleep(30)
 
     def remove_configlets(self,device,lab_configlets):
@@ -94,11 +118,23 @@ class ConfigureTopology():
         Define base configlets that are to be untouched
         """
         base_configlets = ['ATD-INFRA']
-        
+
         configlets_to_remove = []
         configlets_to_remain = base_configlets
 
+        self.logger.debug(f"Processing configlets for device {device.hostname}", extra={'labels': {
+            'operation': 'remove-configlets',
+            'device': device.hostname,
+            'lab_configlets': str(lab_configlets)
+        }})
+
         configlets = self.client.getConfigletsByNetElementId(device)
+        self.logger.debug(f"Found {len(configlets.get('configletList', []))} configlets on {device.hostname}", extra={'labels': {
+            'operation': 'remove-configlets',
+            'device': device.hostname,
+            'configlet_count': len(configlets.get('configletList', []))
+        }})
+
         for configlet in configlets['configletList']:
             if configlet['name'] in base_configlets:
                 configlets_to_remain.append(configlet['name'])
@@ -107,37 +143,94 @@ class ConfigureTopology():
                 configlets_to_remove.append(configlet['name'])
                 self.send_to_syslog("INFO", "Configlet {0} not part of lab configlets on {1} - Removing from device".format(configlet['name'], device.hostname))
             else:
-                pass
+                self.logger.debug(f"Configlet {configlet['name']} is a lab configlet - keeping", extra={'labels': {
+                    'operation': 'remove-configlets',
+                    'device': device.hostname,
+                    'configlet': configlet['name']
+                }})
+
+        self.logger.info(f"Configlet changes for {device.hostname}: removing {len(configlets_to_remove)}, keeping {len(configlets_to_remain)}", extra={'labels': {
+            'operation': 'remove-configlets',
+            'device': device.hostname,
+            'to_remove': configlets_to_remove,
+            'to_remain': configlets_to_remain
+        }})
+
         if len(configlets_to_remain) > 0:
             device.removeConfiglets(self.client,configlets_to_remove)
             self.client.addDeviceConfiglets(device, configlets_to_remain)
             self.client.applyConfiglets(device)
+            self.logger.info(f"Applied configlet changes to {device.hostname}", extra={'labels': {
+                'operation': 'remove-configlets',
+                'device': device.hostname,
+                'status': 'applied'
+            }})
         else:
-            pass
+            self.logger.debug(f"No configlet changes needed for {device.hostname}", extra={'labels': {
+                'operation': 'remove-configlets',
+                'device': device.hostname,
+                'status': 'no-changes'
+            }})
 
     def get_device_info(self):
         eos_devices = []
+        self.logger.info(f"Retrieving device inventory from CVP", extra={'labels': {
+            'operation': 'get-device-info',
+            'device_count': len(self.client.inventory)
+        }})
         for dev in self.client.inventory:
             tmp_eos = self.client.inventory[dev]
             tmp_eos_sw = CVPSWITCH(dev, tmp_eos['ipAddress'])
             tmp_eos_sw.updateDevice(self.client)
             eos_devices.append(tmp_eos_sw)
+            self.logger.debug(f"Retrieved device info for {dev} ({tmp_eos['ipAddress']})", extra={'labels': {
+                'operation': 'get-device-info',
+                'device': dev,
+                'ip': tmp_eos['ipAddress']
+            }})
+        self.logger.info(f"Retrieved {len(eos_devices)} devices from CVP inventory", extra={'labels': {
+            'operation': 'get-device-info',
+            'total_devices': len(eos_devices)
+        }})
         return(eos_devices)
 
 
     def update_topology(self,configlets):
         # Get all the devices in CVP
+        self.logger.info(f"Starting topology update for lab: {self.selected_lab}", extra={'labels': {
+            'operation': 'update-topology',
+            'lab': self.selected_lab
+        }})
+
         devices = self.get_device_info()
         # Loop through all devices
-        
+
+        self.logger.info(f"Processing {len(devices)} devices for topology update", extra={'labels': {
+            'operation': 'update-topology',
+            'device_count': len(devices)
+        }})
+
         for device in devices:
             # Get the actual name of the device
             device_name = device.hostname
-            
+
             # Define a list of configlets built off of the lab yaml file
             lab_configlets = []
-            for configlet_name in configlets[self.selected_lab][device_name]:
-                lab_configlets.append(configlet_name)
+            if device_name in configlets.get(self.selected_lab, {}):
+                for configlet_name in configlets[self.selected_lab][device_name]:
+                    lab_configlets.append(configlet_name)
+            else:
+                self.logger.warning(f"Device {device_name} not found in lab configlets for {self.selected_lab}", extra={'labels': {
+                    'operation': 'update-topology',
+                    'device': device_name,
+                    'lab': self.selected_lab
+                }})
+
+            self.logger.info(f"Configuring device {device_name} with {len(lab_configlets)} configlets", extra={'labels': {
+                'operation': 'update-topology',
+                'device': device_name,
+                'configlets': lab_configlets
+            }})
 
             # Remove unnecessary configlets
             self.remove_configlets(device, lab_configlets)
@@ -146,8 +239,22 @@ class ConfigureTopology():
             self.client.addDeviceConfiglets(device, lab_configlets)
             self.client.applyConfiglets(device)
 
+            self.logger.debug(f"Configlets applied to {device_name}", extra={'labels': {
+                'operation': 'update-topology',
+                'device': device_name,
+                'status': 'applied'
+            }})
+
         # Perform a single Save Topology by default
+        self.logger.info("Saving topology changes to CVP", extra={'labels': {
+            'operation': 'update-topology',
+            'action': 'save-topology'
+        }})
         self.client.saveTopology()
+        self.logger.info("Topology update completed", extra={'labels': {
+            'operation': 'update-topology',
+            'status': 'completed'
+        }})
 
     def send_to_syslog(self,mstat,mtype):
         """
@@ -176,55 +283,148 @@ class ConfigureTopology():
         """
         Pushes a bare config to the EOS device.
         """
+        self.logger.info(f"Pushing bare config to {veos_host} ({veos_ip})", extra={'labels': {
+            'operation': 'push-bare-config',
+            'device': veos_host,
+            'ip': veos_ip
+        }})
+
         # Write config to tmp file
         device_config = "/tmp/" + veos_host + ".cfg"
         with open(device_config,"a") as tmp_config:
             tmp_config.write(veos_config)
 
+        self.logger.debug(f"Written config file to {device_config} ({len(veos_config)} bytes)", extra={'labels': {
+            'operation': 'push-bare-config',
+            'device': veos_host,
+            'config_size': len(veos_config)
+        }})
+
         DEVREBOOT = False
-        veos_ssh = paramiko.SSHClient()
-        veos_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        veos_ssh.connect(hostname=veos_ip, username="root", password="", port="50001")
-        scp = SCPClient(veos_ssh.get_transport())
-        scp.put(device_config,remote_path="/mnt/flash/startup-config")
-        scp.close()
-        veos_ssh.exec_command('FastCli -c "{0}"'.format(cp_start_run))
-        veos_ssh.exec_command('FastCli -c "{0}"'.format(cp_run_start))
-        stdin, stdout, stderr = veos_ssh.exec_command('FastCli -c "{0}"'.format(ztp_cmds))
-        ztp_out = stdout.readlines()
-        if 'Active' in ztp_out[0]:
-            DEVREBOOT = True
-            self.send_to_syslog("INFO", "Rebooting {0}...This will take a couple minutes to come back up".format(veos_host))
-            #veos_ssh.exec_command("/sbin/reboot -f > /dev/null 2>&1 &")
-            veos_ssh.exec_command('FastCli -c "{0}"'.format(ztp_cancel))
-        veos_ssh.close()
+        try:
+            veos_ssh = paramiko.SSHClient()
+            veos_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            self.logger.debug(f"Connecting via SSH to {veos_ip}:50001", extra={'labels': {
+                'operation': 'push-bare-config',
+                'device': veos_host,
+                'action': 'ssh-connect'
+            }})
+
+            veos_ssh.connect(hostname=veos_ip, username="root", password="", port="50001")
+
+            self.logger.debug(f"SSH connected, transferring config via SCP", extra={'labels': {
+                'operation': 'push-bare-config',
+                'device': veos_host,
+                'action': 'scp-transfer'
+            }})
+
+            scp = SCPClient(veos_ssh.get_transport())
+            scp.put(device_config,remote_path="/mnt/flash/startup-config")
+            scp.close()
+
+            self.logger.debug(f"Config transferred, executing copy commands", extra={'labels': {
+                'operation': 'push-bare-config',
+                'device': veos_host,
+                'action': 'copy-commands'
+            }})
+
+            veos_ssh.exec_command('FastCli -c "{0}"'.format(cp_start_run))
+            veos_ssh.exec_command('FastCli -c "{0}"'.format(cp_run_start))
+            stdin, stdout, stderr = veos_ssh.exec_command('FastCli -c "{0}"'.format(ztp_cmds))
+            ztp_out = stdout.readlines()
+
+            if ztp_out and 'Active' in ztp_out[0]:
+                DEVREBOOT = True
+                self.send_to_syslog("INFO", "Rebooting {0}...This will take a couple minutes to come back up".format(veos_host))
+                self.logger.info(f"ZTP active on {veos_host}, cancelling and rebooting", extra={'labels': {
+                    'operation': 'push-bare-config',
+                    'device': veos_host,
+                    'action': 'ztp-cancel',
+                    'reboot': True
+                }})
+                veos_ssh.exec_command('FastCli -c "{0}"'.format(ztp_cancel))
+            else:
+                self.logger.debug(f"ZTP not active on {veos_host}", extra={'labels': {
+                    'operation': 'push-bare-config',
+                    'device': veos_host,
+                    'ztp_status': 'inactive'
+                }})
+
+            veos_ssh.close()
+
+            self.logger.info(f"Successfully pushed config to {veos_host}", extra={'labels': {
+                'operation': 'push-bare-config',
+                'device': veos_host,
+                'status': 'success',
+                'reboot_required': DEVREBOOT
+            }})
+
+        except Exception as e:
+            self.logger.error(f"Failed to push config to {veos_host}: {str(e)}", extra={'labels': {
+                'operation': 'push-bare-config',
+                'device': veos_host,
+                'ip': veos_ip,
+                'error': str(e),
+                'status': 'failed'
+            }})
+            raise
+
         return(DEVREBOOT)
 
     def check_for_tasks(self):
+        self.logger.debug("Checking for in-progress tasks in CVP", extra={'labels': {
+            'operation': 'check-tasks'
+        }})
+
         self.client.getRecentTasks(50)
         tasks_in_progress = False
+        in_progress_tasks = []
+
         for task in self.client.tasks['recent']:
             if 'in progress' in task['workOrderUserDefinedStatus'].lower():
                 self.send_to_syslog('INFO', 'Task Check: Task {0} status: {1}'.format(task['workOrderId'],task['workOrderUserDefinedStatus']))
                 tasks_in_progress = True
+                in_progress_tasks.append(task['workOrderId'])
             else:
                 pass
-        
+
         if tasks_in_progress:
             self.send_to_syslog('INFO', 'Tasks in progress. Waiting for 10 seconds.')
+            self.logger.info(f"Waiting for {len(in_progress_tasks)} tasks to complete: {in_progress_tasks}", extra={'labels': {
+                'operation': 'check-tasks',
+                'in_progress_count': len(in_progress_tasks),
+                'task_ids': str(in_progress_tasks)
+            }})
             print('Tasks are currently executing. Waiting 10 seconds...')
             time.sleep(10)
             self.check_for_tasks()
 
         else:
+            self.logger.debug("No tasks in progress", extra={'labels': {
+                'operation': 'check-tasks',
+                'status': 'clear'
+            }})
             return
 
     def get_cvprac_client(self, access_info):
         cvpUsername = access_info['login_info']['jump_host']['user']
         cvpPassword = access_info['login_info']['jump_host']['pw']
         cvp_ip = access_info['nodes']['cvp'][0]['ip']
+
+        self.logger.debug(f"Creating cvprac client for {cvp_ip}", extra={'labels': {
+            'operation': 'get-cvprac-client',
+            'cvp_ip': cvp_ip
+        }})
+
         clnt = CvpClient()
         clnt.connect([cvp_ip], cvpUsername, cvpPassword)
+
+        self.logger.debug(f"cvprac client connected to {cvp_ip}", extra={'labels': {
+            'operation': 'get-cvprac-client',
+            'status': 'connected'
+        }})
+
         return clnt
 
     def get_grpc_channel(self, access_info):
@@ -232,29 +432,70 @@ class ConfigureTopology():
         cvpPassword = access_info['login_info']['jump_host']['pw']
         cvp_ip = access_info['nodes']['cvp'][0]['ip']
 
+        self.logger.info(f"Creating gRPC channel to CVP at {cvp_ip}", extra={'labels': {
+            'operation': 'get-grpc-channel',
+            'cvp_ip': cvp_ip
+        }})
+
         # Get token
         try:
+            self.logger.debug(f"Authenticating to get CVP token", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-token'
+            }})
             response = requests.post(
                 'https://{0}/cvpservice/login/authenticate.do'.format(cvp_ip),
                 auth=(cvpUsername, cvpPassword),
                 verify=False
             )
             token = response.json()['sessionId']
+            self.logger.debug(f"Successfully obtained CVP token", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-token',
+                'status': 'success'
+            }})
         except Exception as e:
             self.send_to_syslog("ERROR", "Failed to get CVP token: {0}".format(str(e)))
+            self.logger.error(f"Failed to get CVP token: {str(e)}", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-token',
+                'error': str(e),
+                'status': 'failed'
+            }})
             raise e
 
         # Get cert
         try:
+            self.logger.debug(f"Fetching CVP SSL certificate", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-cert'
+            }})
             cert = ssl.get_server_certificate((cvp_ip, 443))
+            self.logger.debug(f"Successfully obtained CVP SSL certificate", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-cert',
+                'status': 'success'
+            }})
         except Exception as e:
             self.send_to_syslog("ERROR", "Failed to get CVP cert: {0}".format(str(e)))
+            self.logger.error(f"Failed to get CVP certificate: {str(e)}", extra={'labels': {
+                'operation': 'get-grpc-channel',
+                'action': 'get-cert',
+                'error': str(e),
+                'status': 'failed'
+            }})
             raise e
 
         # Create channel
         call_creds = grpc.access_token_call_credentials(token)
         channel_creds = grpc.ssl_channel_credentials(root_certificates=cert.encode())
         conn_creds = grpc.composite_channel_credentials(channel_creds, call_creds)
+
+        self.logger.info(f"gRPC channel created successfully to {cvp_ip}:443", extra={'labels': {
+            'operation': 'get-grpc-channel',
+            'cvp_ip': cvp_ip,
+            'status': 'success'
+        }})
 
         return grpc.secure_channel('{0}:443'.format(cvp_ip), conn_creds)
 
@@ -1054,21 +1295,52 @@ class ConfigureTopology():
             return False
 
     def deploy_lab(self):
+        """
+        Main method to deploy/configure a lab topology.
+        """
+        deploy_start_time = time.time()
 
+        self.logger.info(f"=== Starting Lab Deployment ===", extra={'labels': {
+            'operation': 'deploy-lab',
+            'menu': self.selected_menu,
+            'lab': self.selected_lab,
+            'public_module': self.public_module_flag
+        }})
 
         # Check for additional commands in lab yaml file
-        lab_file = open('/home/arista/menus/{0}'.format(self.selected_menu + '.yaml'))
+        lab_menu_path = '/home/arista/menus/{0}'.format(self.selected_menu + '.yaml')
+        self.logger.debug(f"Loading lab menu from {lab_menu_path}", extra={'labels': {
+            'operation': 'deploy-lab',
+            'action': 'load-menu'
+        }})
+
+        lab_file = open(lab_menu_path)
         lab_info = YAML().load(lab_file)
         lab_file.close()
 
         additional_commands = []
         if 'additional_commands' in lab_info['lab_list'][self.selected_lab]:
             additional_commands = lab_info['lab_list'][self.selected_lab]['additional_commands']
+            self.logger.debug(f"Found {len(additional_commands)} additional commands for lab", extra={'labels': {
+                'operation': 'deploy-lab',
+                'additional_commands_count': len(additional_commands)
+            }})
 
         # Get access info for the topology
+        self.logger.debug(f"Loading access info from /etc/atd/ACCESS_INFO.yaml", extra={'labels': {
+            'operation': 'deploy-lab',
+            'action': 'load-access-info'
+        }})
+
         f = open('/etc/atd/ACCESS_INFO.yaml')
         access_info = YAML().load(f)
         f.close()
+
+        topology = access_info.get('topology', 'unknown')
+        self.logger.info(f"Topology: {topology}", extra={'labels': {
+            'operation': 'deploy-lab',
+            'topology': topology
+        }})
 
         # List of configlets
         lab_configlets = lab_info['labconfiglets']
@@ -1079,52 +1351,121 @@ class ConfigureTopology():
 
         # Check if the topo has CVP, and if it does, create CVP connection
         if 'cvp' in access_info['nodes']:
+            self.logger.info(f"CVP detected in topology, connecting...", extra={'labels': {
+                'operation': 'deploy-lab',
+                'mode': 'cvp'
+            }})
+
             self.client = self.connect_to_cvp(access_info)
 
             # Handle Reset vs Standard Lab
             if self.selected_lab == 'reset':
                 self.send_to_syslog("INFO", "Performing CVP Studio reset...")
+                self.logger.info(f"Performing CVP Studio reset (Master Reset)", extra={'labels': {
+                    'operation': 'deploy-lab',
+                    'action': 'reset-studios'
+                }})
                 print("\n=== CVP Studio Reset ===")
                 self.reset_studios(access_info)
                 self.send_to_syslog("OK", "CVP Studio reset completed")
+                self.logger.info(f"CVP Studio reset completed", extra={'labels': {
+                    'operation': 'deploy-lab',
+                    'action': 'reset-studios',
+                    'status': 'completed'
+                }})
 
             self.check_for_tasks()
 
             # Config the topology
+            self.logger.info(f"Updating topology configuration", extra={'labels': {
+                'operation': 'deploy-lab',
+                'action': 'update-topology'
+            }})
             self.update_topology(lab_configlets)
+
             # Wait time for CVP to generate tasks
+            self.logger.debug(f"Waiting 15 seconds for CVP to generate tasks", extra={'labels': {
+                'operation': 'deploy-lab',
+                'action': 'wait-for-tasks'
+            }})
             time.sleep(15)
-            
+
             # Execute all tasks generated from reset_devices()
             print('Gathering task information...')
             self.send_to_syslog("INFO", 'Gathering task information')
             self.client.getAllTasks("pending")
             tasks_to_check = self.client.tasks['pending']
-            self.send_to_syslog('INFO', 'Relevant tasks: {0}'.format([task['workOrderId'] for task in tasks_to_check]))
+            task_ids = [task['workOrderId'] for task in tasks_to_check]
+
+            self.logger.info(f"Found {len(tasks_to_check)} pending tasks to execute", extra={'labels': {
+                'operation': 'deploy-lab',
+                'pending_tasks': len(tasks_to_check),
+                'task_ids': str(task_ids)
+            }})
+
+            self.send_to_syslog('INFO', 'Relevant tasks: {0}'.format(task_ids))
             self.client.execAllTasks("pending")
             self.send_to_syslog("OK", 'Completed setting devices to topology: {}'.format(self.selected_lab))
 
+            self.logger.info(f"Executing {len(tasks_to_check)} pending tasks", extra={'labels': {
+                'operation': 'deploy-lab',
+                'action': 'execute-tasks'
+            }})
+
             print('Waiting on change control to finish executing...')
             all_tasks_completed = False
+            task_check_iteration = 0
+
             while not all_tasks_completed:
+                task_check_iteration += 1
                 tasks_running = []
+                tasks_failed = []
+
                 for task in tasks_to_check:
-                    if self.client.getTaskStatus(task['workOrderId'])['taskStatus'] != 'Completed':
-                        tasks_running.append(task)
-                    elif self.client.getTaskStatus(task['workOrderId'])['taskStatus'] == 'Failed':
-                        print('Task {0} failed.'.format(task['workOrderId']))
+                    task_status = self.client.getTaskStatus(task['workOrderId'])['taskStatus']
+                    if task_status != 'Completed':
+                        if task_status == 'Failed':
+                            tasks_failed.append(task['workOrderId'])
+                            print('Task {0} failed.'.format(task['workOrderId']))
+                            self.logger.error(f"Task {task['workOrderId']} failed", extra={'labels': {
+                                'operation': 'deploy-lab',
+                                'task_id': task['workOrderId'],
+                                'status': 'failed'
+                            }})
+                        else:
+                            tasks_running.append(task['workOrderId'])
                     else:
                         pass
-                
+
+                if task_check_iteration % 5 == 0:  # Log every 5 iterations
+                    self.logger.debug(f"Task check iteration {task_check_iteration}: {len(tasks_running)} running, {len(tasks_failed)} failed", extra={'labels': {
+                        'operation': 'deploy-lab',
+                        'iteration': task_check_iteration,
+                        'running_count': len(tasks_running),
+                        'failed_count': len(tasks_failed)
+                    }})
+
                 if len(tasks_running) == 0:
 
                     # Execute additional commands in linux if needed
                     if len(additional_commands) > 0:
                         print('Running additional setup commands...')
                         self.send_to_syslog('INFO', 'Running additional setup commands.')
+                        self.logger.info(f"Running {len(additional_commands)} additional setup commands", extra={'labels': {
+                            'operation': 'deploy-lab',
+                            'action': 'additional-commands',
+                            'command_count': len(additional_commands)
+                        }})
 
-                        for command in additional_commands:
+                        for idx, command in enumerate(additional_commands):
+                            self.logger.debug(f"Executing additional command {idx + 1}/{len(additional_commands)}: {command[:50]}...", extra={'labels': {
+                                'operation': 'deploy-lab',
+                                'action': 'additional-command',
+                                'command_index': idx + 1
+                            }})
                             os.system(command)
+
+                    deploy_duration = time.time() - deploy_start_time
 
                     if not self.public_module_flag:
                         input('Lab Setup Completed. Please press Enter to continue...')
@@ -1132,10 +1473,28 @@ class ConfigureTopology():
                     else:
                         print('Lab Setup Completed. ')
                         self.send_to_syslog("OK", 'Lab Setup Completed.')
+
+                    self.logger.info(f"=== Lab Deployment Completed Successfully ===", extra={'labels': {
+                        'operation': 'deploy-lab',
+                        'menu': self.selected_menu,
+                        'lab': self.selected_lab,
+                        'duration_seconds': round(deploy_duration, 2),
+                        'tasks_executed': len(tasks_to_check),
+                        'tasks_failed': len(tasks_failed),
+                        'status': 'success'
+                    }})
+
+                    log_operation_success(self.logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
                     all_tasks_completed = True
                 else:
-                    pass
+                    time.sleep(2)  # Small delay between checks
         else:
+            # Non-CVP topology - direct device configuration
+            self.logger.info(f"No CVP in topology, using direct device configuration", extra={'labels': {
+                'operation': 'deploy-lab',
+                'mode': 'direct'
+            }})
+
             # Open up defaults
             f = open('/home/arista/cvp/cvp_info.yaml')
             cvp_info = YAML().load(f)
@@ -1145,27 +1504,63 @@ class ConfigureTopology():
             infra_configs = cvp_configs["containers"]["Tenant"]
 
             self.send_to_syslog("INFO","Setting up {0} lab".format(self.selected_lab))
-            for node in access_info["nodes"]["veos"]:
+
+            device_count = len(access_info["nodes"]["veos"])
+            self.logger.info(f"Configuring {device_count} vEOS devices directly", extra={'labels': {
+                'operation': 'deploy-lab',
+                'device_count': device_count
+            }})
+
+            for idx, node in enumerate(access_info["nodes"]["veos"]):
                 device_config = ""
                 hostname = node["hostname"]
                 base_configs = cvp_configs["netelements"]
                 configs = base_configs[hostname] + infra_configs + lab_configlets[self.selected_lab][hostname]
                 configs = list(dict.fromkeys(configs))
+
+                self.logger.debug(f"Building config for {hostname} ({idx + 1}/{device_count}) with {len(configs)} configlets", extra={'labels': {
+                    'operation': 'deploy-lab',
+                    'device': hostname,
+                    'device_index': idx + 1,
+                    'configlet_count': len(configs)
+                }})
+
                 for config in configs:
                     with open('/opt/atd/topologies/{0}/configlets/{1}'.format(access_info['topology'], config), 'r') as configlet:
                         device_config += configlet.read()
+
                 self.send_to_syslog("INFO","Pushing {0} config for {1} on IP {2} with configlets: {3}".format(self.selected_lab,hostname,node["ip"],configs))
                 self.push_bare_config(hostname, node["ip"], device_config)
 
                 # Execute additional commands in linux if needed
                 if len(additional_commands) > 0:
                     print('Running additional setup commands...')
+                    self.logger.debug(f"Running {len(additional_commands)} additional commands after device {hostname}", extra={'labels': {
+                        'operation': 'deploy-lab',
+                        'device': hostname,
+                        'action': 'additional-commands'
+                    }})
 
                     for command in additional_commands:
                         os.system(command)
+
+            deploy_duration = time.time() - deploy_start_time
+
             if not self.public_module_flag:
                 input('Lab Setup Completed. Please press Enter to continue...')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
             else:
                 print('Lab Setup Completed. ')
                 self.send_to_syslog("OK", 'Lab Setup Completed.')
+
+            self.logger.info(f"=== Lab Deployment Completed Successfully (Direct Mode) ===", extra={'labels': {
+                'operation': 'deploy-lab',
+                'menu': self.selected_menu,
+                'lab': self.selected_lab,
+                'mode': 'direct',
+                'duration_seconds': round(deploy_duration, 2),
+                'devices_configured': device_count,
+                'status': 'success'
+            }})
+
+            log_operation_success(self.logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
