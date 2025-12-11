@@ -931,14 +931,14 @@ Examples:
 
     # Wait for devices to stabilize after CVP is up
     # Devices may initially show as active but become inactive after some time
-    print("\n⏳ Waiting 90 seconds for devices to stabilize after CVP startup...")
-    logger.info("Waiting 90 seconds for devices to stabilize after CVP startup")
+    print("\n⏳ Waiting 180 seconds for devices to stabilize after CVP startup...")
+    logger.info("Waiting 180 seconds for devices to stabilize after CVP startup")
     cloud_logging.log_structured(
-        "Waiting 90 seconds for devices to stabilize after CVP startup",
+        "Waiting 180 seconds for devices to stabilize after CVP startup",
         severity='INFO',
         labels={'service': 'cvp-device-registration', 'event': 'device-stabilization-wait'}
     )
-    time.sleep(90)
+    time.sleep(180)
 
     # Get Undefined container
     if not manager.get_undefined_container():
