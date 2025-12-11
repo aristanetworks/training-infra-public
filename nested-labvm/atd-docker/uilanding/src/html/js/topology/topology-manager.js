@@ -18,7 +18,8 @@ export const IMPAIRMENT_COLORS = {
     latency: '#fbb500',      // Yellow - ATL secondary color
     loss: '#e30909',         // Red - Error/danger
     duplication: '#4c5cae',  // Blue - Primary accent
-    corruption: '#ff8c00'    // Orange - Warning
+    corruption: '#ff8c00',   // Orange - Warning
+    reorder: '#9b59b6'       // Purple - Reorder/jitter
 };
 
 export class TopologyManager {
@@ -564,7 +565,8 @@ export class TopologyManager {
                     (impairments.latency_ms || 0) > 0 ||
                     (impairments.loss_percent || 0) > 0 ||
                     (impairments.duplication_percent || 0) > 0 ||
-                    (impairments.corruption_percent || 0) > 0
+                    (impairments.corruption_percent || 0) > 0 ||
+                    (impairments.reorder_percent || 0) > 0
                 );
 
                 if (hasAny) {
@@ -574,7 +576,9 @@ export class TopologyManager {
                             latency_ms: impairments.latency_ms || 0,
                             loss_percent: impairments.loss_percent || 0,
                             dup_percent: impairments.duplication_percent || 0,
-                            corrupt_percent: impairments.corruption_percent || 0
+                            corrupt_percent: impairments.corruption_percent || 0,
+                            reorder_delay_ms: impairments.reorder_delay_ms || 0,
+                            reorder_percent: impairments.reorder_percent || 0
                         });
                         // Update EventManager's impairment state with edge reference
                         if (this.eventManager) {
@@ -583,6 +587,8 @@ export class TopologyManager {
                                 loss_percent: impairments.loss_percent || 0,
                                 dup_percent: impairments.duplication_percent || 0,
                                 corrupt_percent: impairments.corruption_percent || 0,
+                                reorder_delay_ms: impairments.reorder_delay_ms || 0,
+                                reorder_percent: impairments.reorder_percent || 0,
                                 edge: edge
                             };
                         }
@@ -667,21 +673,23 @@ export class TopologyManager {
     /**
      * Update edge styling to show impairments are active
      * @param {Object} edge - Cytoscape edge
-     * @param {Object} impairments - { latency_ms, loss_percent, dup_percent, corrupt_percent }
+     * @param {Object} impairments - { latency_ms, loss_percent, dup_percent, corrupt_percent, reorder_delay_ms, reorder_percent }
      */
     updateEdgeImpairmentStyle(edge, impairments) {
         if (!edge) return;
 
-        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0 } = impairments;
+        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0, reorder_delay_ms = 0, reorder_percent = 0 } = impairments;
 
         // Store impairment values in edge data for reference
         edge.data('latency_ms', latency_ms);
         edge.data('loss_percent', loss_percent);
         edge.data('dup_percent', dup_percent);
         edge.data('corrupt_percent', corrupt_percent);
+        edge.data('reorder_delay_ms', reorder_delay_ms);
+        edge.data('reorder_percent', reorder_percent);
 
         // Remove all impairment-related classes first
-        edge.removeClass('has-latency has-loss has-duplication has-corruption has-impairments');
+        edge.removeClass('has-latency has-loss has-duplication has-corruption has-reorder has-impairments');
 
         // Count active impairments
         const activeTypes = [];
@@ -689,6 +697,7 @@ export class TopologyManager {
         if (loss_percent > 0) activeTypes.push('loss');
         if (dup_percent > 0) activeTypes.push('duplication');
         if (corrupt_percent > 0) activeTypes.push('corruption');
+        if (reorder_percent > 0) activeTypes.push('reorder');
 
         if (activeTypes.length === 0) {
             // No impairments, clear styling
@@ -713,7 +722,7 @@ export class TopologyManager {
      * Creates a striped effect with hard edges
      */
     calculateImpairmentGradient(impairments) {
-        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0 } = impairments;
+        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0, reorder_percent = 0 } = impairments;
 
         // Use IMPAIRMENT_COLORS constants for consistency
         const colors = [];
@@ -721,6 +730,7 @@ export class TopologyManager {
         if (loss_percent > 0) colors.push(IMPAIRMENT_COLORS.loss);
         if (dup_percent > 0) colors.push(IMPAIRMENT_COLORS.duplication);
         if (corrupt_percent > 0) colors.push(IMPAIRMENT_COLORS.corruption);
+        if (reorder_percent > 0) colors.push(IMPAIRMENT_COLORS.reorder);
 
         if (colors.length === 0) {
             return { colors: '#071c35', positions: '0% 100%' };
@@ -755,11 +765,13 @@ export class TopologyManager {
     clearEdgeImpairmentStyle(edge) {
         if (!edge) return;
 
-        edge.removeClass('has-latency has-loss has-duplication has-corruption has-impairments');
+        edge.removeClass('has-latency has-loss has-duplication has-corruption has-reorder has-impairments');
         edge.removeData('latency_ms');
         edge.removeData('loss_percent');
         edge.removeData('dup_percent');
         edge.removeData('corrupt_percent');
+        edge.removeData('reorder_delay_ms');
+        edge.removeData('reorder_percent');
         edge.removeData('gradientColors');
         edge.removeData('gradientPositions');
     }
@@ -828,7 +840,7 @@ export class TopologyManager {
 
             // Clear all edge impairment styles
             if (this.cy) {
-                this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-impairments').forEach(edge => {
+                this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-reorder, .has-impairments').forEach(edge => {
                     this.clearEdgeImpairmentStyle(edge);
                 });
             }
@@ -1023,7 +1035,7 @@ export class TopologyManager {
         if (!this.impairmentControls) return;
 
         // Check if any edges have impairments
-        const hasActiveImpairments = this.cy && this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-impairments').length > 0;
+        const hasActiveImpairments = this.cy && this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-reorder, .has-impairments').length > 0;
 
         if (hasActiveImpairments) {
             this.impairmentControls.classList.remove('hidden');

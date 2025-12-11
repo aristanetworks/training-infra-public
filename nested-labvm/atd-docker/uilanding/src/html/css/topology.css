@@ -1661,6 +1661,10 @@
     background-color: #ff8c00;
 }
 
+.impairment-color-dot.reorder-dot {
+    background-color: #9b59b6;
+}
+
 .impairment-input {
     width: 100px;
     padding: 8px 10px;
@@ -1838,8 +1842,28 @@
 .tooltip-label.loss-label { color: #e30909; }
 .tooltip-label.dup-label { color: #4c5cae; }
 .tooltip-label.corrupt-label { color: #ff8c00; }
+.tooltip-label.reorder-label { color: #9b59b6; }
 
 .tooltip-value.impairment-value.latency { color: #b38000; font-weight: 600; }
 .tooltip-value.impairment-value.loss { color: #e30909; font-weight: 600; }
 .tooltip-value.impairment-value.dup { color: #4c5cae; font-weight: 600; }
 .tooltip-value.impairment-value.corrupt { color: #ff8c00; font-weight: 600; }
+.tooltip-value.impairment-value.reorder { color: #9b59b6; font-weight: 600; }
+
+/* ==========================================
+   Reorder Input Container (two inputs: delay + percent)
+   ========================================== */
+
+.reorder-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reorder-delay-input {
+    width: 90px;
+}
+
+.reorder-row .impairment-select {
+    width: 90px;
+}

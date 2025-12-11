@@ -558,6 +558,8 @@ export class EventManager {
             loss_percent: 0,
             dup_percent: 0,
             corrupt_percent: 0,
+            reorder_delay_ms: 0,
+            reorder_percent: 0,
             hasAnyImpairment: false
         };
 
@@ -585,7 +587,8 @@ export class EventManager {
                         (info.latency_ms || 0) > 0 ||
                         (info.loss_percent || 0) > 0 ||
                         (info.dup_percent || 0) > 0 ||
-                        (info.corrupt_percent || 0) > 0
+                        (info.corrupt_percent || 0) > 0 ||
+                        (info.reorder_percent || 0) > 0
                     );
                     return {
                         bridgeName,
@@ -593,6 +596,8 @@ export class EventManager {
                         loss_percent: info.loss_percent || 0,
                         dup_percent: info.dup_percent || 0,
                         corrupt_percent: info.corrupt_percent || 0,
+                        reorder_delay_ms: info.reorder_delay_ms || 0,
+                        reorder_percent: info.reorder_percent || 0,
                         hasAnyImpairment
                     };
                 }
@@ -1046,6 +1051,25 @@ export class EventManager {
                     </select>
                 </div>
 
+                <div class="impairment-row reorder-row">
+                    <label class="impairment-label reorder-label">
+                        <span class="impairment-color-dot reorder-dot"></span>
+                        Reorder:
+                    </label>
+                    <div class="reorder-inputs">
+                        <input type="number"
+                               id="impairment-reorder-delay-input"
+                               class="impairment-input reorder-delay-input"
+                               min="100"
+                               max="10000"
+                               value="${currentInfo.reorder_delay_ms || 0}"
+                               placeholder="100-10000ms">
+                        <select id="impairment-reorder-select" class="impairment-select">
+                            ${makeOptions(currentInfo.reorder_percent || 0)}
+                        </select>
+                    </div>
+                </div>
+
                 <div class="impairment-dialog-error" id="impairment-dialog-error"></div>
             </div>
             <div class="impairment-dialog-footer">
@@ -1074,7 +1098,9 @@ export class EventManager {
             const loss = parseInt(document.getElementById('impairment-loss-select').value, 10) || 0;
             const dup = parseInt(document.getElementById('impairment-dup-select').value, 10) || 0;
             const corrupt = parseInt(document.getElementById('impairment-corrupt-select').value, 10) || 0;
-            this.applyImpairments(edge, latency, loss, dup, corrupt);
+            const reorderDelay = parseInt(document.getElementById('impairment-reorder-delay-input').value, 10) || 0;
+            const reorderPercent = parseInt(document.getElementById('impairment-reorder-select').value, 10) || 0;
+            this.applyImpairments(edge, latency, loss, dup, corrupt, reorderDelay, reorderPercent);
         });
 
         clearBtn.addEventListener('click', () => {
@@ -1115,7 +1141,7 @@ export class EventManager {
     /**
      * Apply impairments to an edge
      */
-    async applyImpairments(edge, latencyMs, lossPercent, dupPercent, corruptPercent) {
+    async applyImpairments(edge, latencyMs, lossPercent, dupPercent, corruptPercent, reorderDelayMs = 0, reorderPercent = 0) {
         const errorEl = document.getElementById('impairment-dialog-error');
 
         // Validate latency input
@@ -1145,6 +1171,22 @@ export class EventManager {
         if (corruptPercent < 0 || corruptPercent > 100) {
             if (errorEl) {
                 errorEl.textContent = 'Corruption must be between 0 and 100%';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        // Validate reorder inputs
+        if (reorderPercent > 0 && (reorderDelayMs < 100 || reorderDelayMs > 10000)) {
+            if (errorEl) {
+                errorEl.textContent = 'Reorder delay must be between 100 and 10000ms when reorder is enabled';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+        if (reorderPercent < 0 || reorderPercent > 100) {
+            if (errorEl) {
+                errorEl.textContent = 'Reorder percent must be between 0 and 100%';
                 errorEl.style.display = 'block';
             }
             return;
@@ -1181,7 +1223,9 @@ export class EventManager {
                     latency_ms: latencyMs,
                     loss_percent: lossPercent,
                     duplication_percent: dupPercent,
-                    corruption_percent: corruptPercent
+                    corruption_percent: corruptPercent,
+                    reorder_delay_ms: reorderDelayMs,
+                    reorder_percent: reorderPercent
                 })
             });
 
@@ -1197,6 +1241,8 @@ export class EventManager {
                 loss_percent: lossPercent,
                 dup_percent: dupPercent,
                 corrupt_percent: corruptPercent,
+                reorder_delay_ms: reorderDelayMs,
+                reorder_percent: reorderPercent,
                 edge: edge
             };
 
@@ -1216,7 +1262,9 @@ export class EventManager {
                     latency_ms: latencyMs,
                     loss_percent: lossPercent,
                     dup_percent: dupPercent,
-                    corrupt_percent: corruptPercent
+                    corrupt_percent: corruptPercent,
+                    reorder_delay_ms: reorderDelayMs,
+                    reorder_percent: reorderPercent
                 }, edge);
             } else if (this.onLatencyChange) {
                 // Fallback to legacy callback
@@ -1227,7 +1275,7 @@ export class EventManager {
             this.hideImpairmentDialog();
 
             console.log(`[EventManager] Applied impairments to ${bridge.name}:`, {
-                latencyMs, lossPercent, dupPercent, corruptPercent
+                latencyMs, lossPercent, dupPercent, corruptPercent, reorderDelayMs, reorderPercent
             });
 
         } catch (error) {
@@ -1824,6 +1872,14 @@ export class EventManager {
                     <div class="tooltip-row impairment-row">
                         <span class="tooltip-label corrupt-label">Corruption:</span>
                         <span class="tooltip-value impairment-value corrupt">${impairmentInfo.corrupt_percent}%</span>
+                    </div>
+                `);
+            }
+            if (impairmentInfo.reorder_percent > 0) {
+                rows.push(`
+                    <div class="tooltip-row impairment-row">
+                        <span class="tooltip-label reorder-label">Reorder:</span>
+                        <span class="tooltip-value impairment-value reorder">${impairmentInfo.reorder_percent}% @ ${impairmentInfo.reorder_delay_ms}ms</span>
                     </div>
                 `);
             }

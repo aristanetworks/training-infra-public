@@ -367,7 +367,7 @@ export function getCytoscapeStyles() {
         },
         // ==========================================
         // Impairment Styles
-        // Colors: Latency=#fbb500, Loss=#e30909, Dup=#4c5cae, Corrupt=#ff8c00
+        // Colors: Latency=#fbb500, Loss=#e30909, Dup=#4c5cae, Corrupt=#ff8c00, Reorder=#9b59b6
         // ==========================================
 
         // Single impairment - solid color with dashed line
@@ -412,6 +412,18 @@ export function getCytoscapeStyles() {
             selector: 'edge.has-corruption',
             style: {
                 'line-color': '#ff8c00',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Reorder only (purple)
+        {
+            selector: 'edge.has-reorder',
+            style: {
+                'line-color': '#9b59b6',
                 'line-style': 'dashed',
                 'line-dash-pattern': [8, 4],
                 'width': 3,

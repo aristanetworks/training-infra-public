@@ -1620,22 +1620,104 @@ class CorruptionManager:
             self._corrupt_state.pop(interface, None)
 
 
+class ReorderManager:
+    """
+    Manages packet reordering (jitter) injection using Linux tc netem.
+
+    Uses: tc qdisc ... netem delay Xms reorder Y%
+    The reorder option causes Y% of packets to be sent immediately,
+    while the remaining (100-Y)% are delayed by X ms, creating out-of-order delivery.
+    """
+
+    VALID_PERCENTAGES = [10, 20, 30, 40, 50]
+    MIN_DELAY_MS = 100
+    MAX_DELAY_MS = 10000
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Cache: {interface: {delay_ms, reorder_percent}}
+        self._reorder_state: Dict[str, Dict[str, int]] = {}
+
+    def validate_params(self, delay_ms: int, reorder_percent: int) -> Optional[str]:
+        """Validate reorder parameters. Returns error message or None if valid."""
+        if reorder_percent not in self.VALID_PERCENTAGES and reorder_percent != 0:
+            return f"Reorder percent must be one of {self.VALID_PERCENTAGES} or 0"
+        if reorder_percent > 0:
+            if delay_ms < self.MIN_DELAY_MS:
+                return f"Reorder delay must be at least {self.MIN_DELAY_MS}ms"
+            if delay_ms > self.MAX_DELAY_MS:
+                return f"Reorder delay must not exceed {self.MAX_DELAY_MS}ms"
+        return None
+
+    def get_reorder_params(self, interface: str) -> Optional[Dict[str, int]]:
+        """Get current reorder parameters from interface tc config."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Parse "reorder X%" from netem output
+                reorder_match = re.search(r'reorder\s+(\d+(?:\.\d+)?)%', result.stdout)
+                if reorder_match:
+                    reorder_pct = int(float(reorder_match.group(1)))
+                    # Also get the delay value (required for reorder to work)
+                    delay_match = re.search(r'delay\s+(\d+(?:\.\d+)?)(ms|s|us)', result.stdout)
+                    delay_ms = 0
+                    if delay_match:
+                        value = float(delay_match.group(1))
+                        unit = delay_match.group(2)
+                        if unit == 's':
+                            value *= 1000
+                        elif unit == 'us':
+                            value /= 1000
+                        delay_ms = int(value)
+                    return {"delay_ms": delay_ms, "reorder_percent": reorder_pct}
+        except Exception as e:
+            print(f"[ReorderManager] Error getting reorder on {interface}: {e}")
+        return None
+
+    def get_state(self, interface: str) -> Dict[str, int]:
+        """Get cached reorder state for interface."""
+        return self._reorder_state.get(interface, {"delay_ms": 0, "reorder_percent": 0})
+
+    def set_state(self, interface: str, delay_ms: int, reorder_percent: int):
+        """Update cached reorder state."""
+        with self._lock:
+            if reorder_percent > 0:
+                self._reorder_state[interface] = {
+                    "delay_ms": delay_ms,
+                    "reorder_percent": reorder_percent
+                }
+            else:
+                self._reorder_state.pop(interface, None)
+
+    def clear_state(self, interface: str):
+        """Clear cached reorder state."""
+        with self._lock:
+            self._reorder_state.pop(interface, None)
+
+
 class ImpairmentCoordinator:
     """
     Orchestrates all network impairment managers and executes combined tc netem commands.
 
-    This coordinator ensures that all impairments (latency, loss, duplication, corruption)
+    This coordinator ensures that all impairments (latency, loss, duplication, corruption, reorder)
     are applied together in a single tc netem command, as netem supports combining them.
     """
 
     DEFAULT_RATE = "1000mbit"
 
     def __init__(self, latency_mgr: LatencyManager, loss_mgr: PacketLossManager,
-                 dup_mgr: DuplicationManager, corrupt_mgr: CorruptionManager):
+                 dup_mgr: DuplicationManager, corrupt_mgr: CorruptionManager,
+                 reorder_mgr: ReorderManager):
         self.latency_mgr = latency_mgr
         self.loss_mgr = loss_mgr
         self.dup_mgr = dup_mgr
         self.corrupt_mgr = corrupt_mgr
+        self.reorder_mgr = reorder_mgr
         self._lock = threading.Lock()
 
     def _get_interface_for_bridge(self, bridge_name: str) -> Optional[str]:
@@ -1685,7 +1767,8 @@ class ImpairmentCoordinator:
 
     def configure_impairments(self, bridge_name: str, latency_ms: int = 0,
                                loss_percent: int = 0, dup_percent: int = 0,
-                               corrupt_percent: int = 0) -> Dict:
+                               corrupt_percent: int = 0, reorder_delay_ms: int = 0,
+                               reorder_percent: int = 0) -> Dict:
         """
         Configure all impairments on a bridge's interface using a single tc netem command.
 
@@ -1695,6 +1778,8 @@ class ImpairmentCoordinator:
             loss_percent: Packet loss percentage (0, 10, 20, 30, 40, 50)
             dup_percent: Packet duplication percentage (0, 10, 20, 30, 40, 50)
             corrupt_percent: Packet corruption percentage (0, 10, 20, 30, 40, 50)
+            reorder_delay_ms: Delay for reordering in milliseconds (100-10000)
+            reorder_percent: Packet reorder percentage (0, 10, 20, 30, 40, 50)
         """
         # Validate bridge name
         if not bridge_name or not re.match(r'^[a-zA-Z0-9\-_]+$', bridge_name):
@@ -1721,8 +1806,15 @@ class ImpairmentCoordinator:
             if error:
                 return {"error": error}
 
+        if reorder_percent > 0:
+            error = self.reorder_mgr.validate_params(reorder_delay_ms, reorder_percent)
+            if error:
+                return {"error": error}
+
         # Check if all are zero (clear operation)
-        if latency_ms == 0 and loss_percent == 0 and dup_percent == 0 and corrupt_percent == 0:
+        all_zero = (latency_ms == 0 and loss_percent == 0 and dup_percent == 0 and
+                    corrupt_percent == 0 and reorder_percent == 0)
+        if all_zero:
             return self.clear_impairments(bridge_name)
 
         # Get interface for this bridge
@@ -1769,14 +1861,22 @@ class ImpairmentCoordinator:
                 netem_cmd = ["tc", "qdisc", "add", "dev", interface, "parent", "1:12",
                              "handle", "10:", "netem"]
 
-                if latency_ms > 0:
-                    netem_cmd.extend(["delay", f"{latency_ms}ms"])
+                # For reorder to work, we need delay. If reorder is set but no latency,
+                # use the reorder_delay_ms as the delay value
+                effective_delay = latency_ms
+                if reorder_percent > 0 and latency_ms == 0:
+                    effective_delay = reorder_delay_ms
+
+                if effective_delay > 0:
+                    netem_cmd.extend(["delay", f"{effective_delay}ms"])
                 if loss_percent > 0:
                     netem_cmd.extend(["loss", f"{loss_percent}%"])
                 if dup_percent > 0:
                     netem_cmd.extend(["duplicate", f"{dup_percent}%"])
                 if corrupt_percent > 0:
                     netem_cmd.extend(["corrupt", f"{corrupt_percent}%"])
+                if reorder_percent > 0:
+                    netem_cmd.extend(["reorder", f"{reorder_percent}%"])
 
                 result = subprocess.run(netem_cmd, capture_output=True, text=True, timeout=5)
                 if result.returncode != 0:
@@ -1788,12 +1888,15 @@ class ImpairmentCoordinator:
                 self.loss_mgr.set_state(interface, loss_percent)
                 self.dup_mgr.set_state(interface, dup_percent)
                 self.corrupt_mgr.set_state(interface, corrupt_percent)
+                self.reorder_mgr.set_state(interface, reorder_delay_ms, reorder_percent)
 
                 impairments = {
                     "latency_ms": latency_ms,
                     "loss_percent": loss_percent,
                     "duplication_percent": dup_percent,
-                    "corruption_percent": corrupt_percent
+                    "corruption_percent": corrupt_percent,
+                    "reorder_delay_ms": reorder_delay_ms,
+                    "reorder_percent": reorder_percent
                 }
 
                 print(f"[ImpairmentCoordinator] Configured impairments on {interface} (bridge: {bridge_name}): {impairments}")
@@ -1833,6 +1936,7 @@ class ImpairmentCoordinator:
                 self.loss_mgr.clear_state(interface)
                 self.dup_mgr.clear_state(interface)
                 self.corrupt_mgr.clear_state(interface)
+                self.reorder_mgr.clear_state(interface)
 
                 print(f"[ImpairmentCoordinator] Cleared impairments on {interface} (bridge: {bridge_name})")
                 return {"status": "cleared", "bridge": bridge_name}
@@ -1866,6 +1970,7 @@ class ImpairmentCoordinator:
                             self.loss_mgr.clear_state(interface)
                             self.dup_mgr.clear_state(interface)
                             self.corrupt_mgr.clear_state(interface)
+                            self.reorder_mgr.clear_state(interface)
                             cleared.append(interface)
                             print(f"[ImpairmentCoordinator] Cleared impairments on {interface}")
                         else:
@@ -1890,6 +1995,8 @@ class ImpairmentCoordinator:
                 "loss_percent": 0,
                 "duplication_percent": 0,
                 "corruption_percent": 0,
+                "reorder_delay_ms": 0,
+                "reorder_percent": 0,
                 "has_impairments": False
             }
 
@@ -1898,14 +2005,19 @@ class ImpairmentCoordinator:
         loss = self.loss_mgr.get_loss_percent(interface) or 0
         dup = self.dup_mgr.get_dup_percent(interface) or 0
         corrupt = self.corrupt_mgr.get_corrupt_percent(interface) or 0
+        reorder_params = self.reorder_mgr.get_reorder_params(interface)
+        reorder_delay = reorder_params["delay_ms"] if reorder_params else 0
+        reorder_pct = reorder_params["reorder_percent"] if reorder_params else 0
 
-        has_impairments = latency > 0 or loss > 0 or dup > 0 or corrupt > 0
+        has_impairments = latency > 0 or loss > 0 or dup > 0 or corrupt > 0 or reorder_pct > 0
 
         return {
             "latency_ms": latency,
             "loss_percent": loss,
             "duplication_percent": dup,
             "corruption_percent": corrupt,
+            "reorder_delay_ms": reorder_delay,
+            "reorder_percent": reorder_pct,
             "has_impairments": has_impairments
         }
 
@@ -1954,6 +2066,7 @@ _latency_manager: Optional[LatencyManager] = None
 _loss_manager: Optional[PacketLossManager] = None
 _dup_manager: Optional[DuplicationManager] = None
 _corrupt_manager: Optional[CorruptionManager] = None
+_reorder_manager: Optional[ReorderManager] = None
 _impairment_coordinator: Optional[ImpairmentCoordinator] = None
 
 
@@ -1992,6 +2105,13 @@ def get_corrupt_manager() -> CorruptionManager:
     return _corrupt_manager
 
 
+def get_reorder_manager() -> ReorderManager:
+    global _reorder_manager
+    if _reorder_manager is None:
+        _reorder_manager = ReorderManager()
+    return _reorder_manager
+
+
 def get_impairment_coordinator() -> ImpairmentCoordinator:
     global _impairment_coordinator
     if _impairment_coordinator is None:
@@ -1999,7 +2119,8 @@ def get_impairment_coordinator() -> ImpairmentCoordinator:
             get_latency_manager(),
             get_loss_manager(),
             get_dup_manager(),
-            get_corrupt_manager()
+            get_corrupt_manager(),
+            get_reorder_manager()
         )
     return _impairment_coordinator
 
@@ -2248,6 +2369,8 @@ class ImpairmentsConfigureHandler(SecureHandler):
             loss_percent = int(body.get('loss_percent', 0))
             dup_percent = int(body.get('duplication_percent', 0))
             corrupt_percent = int(body.get('corruption_percent', 0))
+            reorder_delay_ms = int(body.get('reorder_delay_ms', 0))
+            reorder_percent = int(body.get('reorder_percent', 0))
         except (TypeError, ValueError) as e:
             self.set_status(400)
             self.write({"error": f"Invalid parameter value: {str(e)}"})
@@ -2258,7 +2381,9 @@ class ImpairmentsConfigureHandler(SecureHandler):
             latency_ms=latency_ms,
             loss_percent=loss_percent,
             dup_percent=dup_percent,
-            corrupt_percent=corrupt_percent
+            corrupt_percent=corrupt_percent,
+            reorder_delay_ms=reorder_delay_ms,
+            reorder_percent=reorder_percent
         )
 
         if 'error' in result:
