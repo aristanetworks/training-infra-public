@@ -306,8 +306,7 @@ export class EventManager {
         const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
 
         // Check if this edge has latency applied
-        const edgeBridgeName = this.getEdgeBridgeName(edge);
-        const latencyInfo = edgeBridgeName ? this.latencyState[edgeBridgeName] : null;
+        const latencyInfo = this.getEdgeLatencyInfo(edge);
         const hasLatency = latencyInfo && latencyInfo.delay_ms;
 
         // Menu items for edge
@@ -452,17 +451,85 @@ export class EventManager {
     }
 
     /**
-     * Get the bridge name for an edge based on device/port names
-     * Bridge naming convention: {prefix}{device#}{port#}-{prefix}{device#}{port#}
+     * Get the bridge name for an edge by searching latencyState for a matching edge.
+     * Returns the bridge name if found in latencyState, null otherwise.
      */
     getEdgeBridgeName(edge) {
         const data = edge.data();
-        // The bridge name is stored in edge data if available
+
+        // First check if bridge_name is stored in edge data
         if (data.bridge_name) {
             return data.bridge_name;
         }
-        // Otherwise construct from source/target (this may not exactly match bridge names)
-        // Return null to indicate we need to look up from the API
+
+        // Search through latencyState to find a matching bridge by edge data
+        for (const [bridgeName, info] of Object.entries(this.latencyState)) {
+            if (info.edge) {
+                const infoData = info.edge.data();
+                // Check if this is the same edge (by id or by source/target/ports)
+                if (infoData.id === data.id) {
+                    return bridgeName;
+                }
+                // Also check by source/target/ports in case id doesn't match
+                if (infoData.source === data.source &&
+                    infoData.target === data.target &&
+                    infoData.source_port === data.source_port &&
+                    infoData.target_port === data.target_port) {
+                    return bridgeName;
+                }
+                // Check reverse direction too
+                if (infoData.source === data.target &&
+                    infoData.target === data.source &&
+                    infoData.source_port === data.target_port &&
+                    infoData.target_port === data.source_port) {
+                    return bridgeName;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if an edge has latency applied by searching latencyState
+     * Returns { bridgeName, delay_ms } if found, null otherwise
+     */
+    getEdgeLatencyInfo(edge) {
+        const data = edge.data();
+
+        // Search through latencyState
+        for (const [bridgeName, info] of Object.entries(this.latencyState)) {
+            if (info.edge) {
+                const infoData = info.edge.data();
+                // Check if this is the same edge
+                if (infoData.id === data.id) {
+                    return { bridgeName, delay_ms: info.delay_ms };
+                }
+                // Check by source/target/ports
+                if (infoData.source === data.source &&
+                    infoData.target === data.target &&
+                    infoData.source_port === data.source_port &&
+                    infoData.target_port === data.target_port) {
+                    return { bridgeName, delay_ms: info.delay_ms };
+                }
+                // Reverse direction
+                if (infoData.source === data.target &&
+                    infoData.target === data.source &&
+                    infoData.source_port === data.target_port &&
+                    infoData.target_port === data.source_port) {
+                    return { bridgeName, delay_ms: info.delay_ms };
+                }
+            }
+        }
+
+        // Also check if edge has latency class applied (loaded from API on page load)
+        if (edge.hasClass('has-latency')) {
+            const delay_ms = edge.data('latency_ms');
+            if (delay_ms) {
+                return { bridgeName: null, delay_ms };
+            }
+        }
+
         return null;
     }
 
@@ -1085,8 +1152,8 @@ export class EventManager {
                 return;
             }
 
-            // Update tooltip with stats
-            tooltip.innerHTML = this.buildEdgeStatsTooltipHTML(data, sourceStats, targetStats);
+            // Update tooltip with stats (pass edge for latency check)
+            tooltip.innerHTML = this.buildEdgeStatsTooltipHTML(edge, data, sourceStats, targetStats);
             this.adjustTooltipPosition(tooltip);
 
             // Update edge styling based on utilization
@@ -1159,7 +1226,7 @@ export class EventManager {
     /**
      * Build HTML for edge stats tooltip
      */
-    buildEdgeStatsTooltipHTML(edgeData, sourceStats, targetStats) {
+    buildEdgeStatsTooltipHTML(edge, edgeData, sourceStats, targetStats) {
         const formatRate = (bps) => {
             if (bps >= 1000000000) {
                 return `${(bps / 1000000000).toFixed(2)} Gbps`;
@@ -1233,11 +1300,27 @@ export class EventManager {
             updateInfo = `<div class="tooltip-footer">Updated: ${secondsAgo}s ago</div>`;
         }
 
+        // Check for latency info
+        const latencyInfo = this.getEdgeLatencyInfo(edge);
+        let latencySection = '';
+        if (latencyInfo && latencyInfo.delay_ms) {
+            latencySection = `
+                <div class="tooltip-section latency-section">
+                    <span class="section-title">Latency Injection</span>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Delay:</span>
+                        <span class="tooltip-value latency-value">${latencyInfo.delay_ms}ms</span>
+                    </div>
+                </div>
+            `;
+        }
+
         return `
             <div class="tooltip-header">
                 <strong>Link Statistics</strong>
             </div>
             <div class="tooltip-body">
+                ${latencySection}
                 ${buildInterfaceSection(`${edgeData.source}:${edgeData.source_port}`, sourceStats)}
                 ${buildInterfaceSection(`${edgeData.target}:${edgeData.target_port}`, targetStats)}
             </div>

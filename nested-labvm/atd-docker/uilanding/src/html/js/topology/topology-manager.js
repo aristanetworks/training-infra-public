@@ -105,6 +105,9 @@ export class TopologyManager {
             // Add help button
             this.createHelpButton();
 
+            // Add latency controls (hidden by default, shown when latency is active)
+            this.createLatencyControls();
+
             if (this.options.enableStatus) {
                 this.statusUpdater = new StatusUpdater(this.cy, this.options.wsUrl);
                 this.statusUpdater.connect();
@@ -541,22 +544,28 @@ export class TopologyManager {
             const data = await response.json();
             const bridges = data.bridges || [];
 
-            // Update EventManager's latency state
-            if (this.eventManager) {
-                this.eventManager.updateLatencyState(bridges);
-            }
-
             // Update edge styles for bridges with latency enabled
+            // Also update EventManager's latency state with edge references
             for (const bridge of bridges) {
                 if (bridge.latency_enabled && bridge.latency_delay_ms) {
                     const edge = this.findEdgeForBridge(bridge);
                     if (edge) {
                         this.updateEdgeLatencyStyle(edge, bridge.latency_delay_ms);
+                        // Update EventManager's latency state with edge reference
+                        if (this.eventManager) {
+                            this.eventManager.latencyState[bridge.name] = {
+                                delay_ms: bridge.latency_delay_ms,
+                                edge: edge
+                            };
+                        }
                     }
                 }
             }
 
             console.log('[TopologyManager] Loaded latency status for', bridges.length, 'bridges');
+
+            // Update visibility of Clear All Latency button
+            this.updateLatencyControlsVisibility();
 
         } catch (error) {
             console.error('[TopologyManager] Error loading latency status:', error);
@@ -578,6 +587,9 @@ export class TopologyManager {
             this.clearEdgeLatencyStyle(edge);
             console.log(`[TopologyManager] Cleared latency style for ${bridgeName}`);
         }
+
+        // Update visibility of Clear All Latency button
+        this.updateLatencyControlsVisibility();
     }
 
     /**
@@ -805,6 +817,53 @@ export class TopologyManager {
     hideHelpOverlay() {
         if (this.helpOverlay) {
             this.helpOverlay.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Create latency controls (Clear All Latency button)
+     */
+    createLatencyControls() {
+        // Create container for latency controls
+        const container = document.createElement('div');
+        container.id = 'latency-controls';
+        container.className = 'latency-controls hidden';
+
+        // Create Clear All Latency button
+        const clearBtn = document.createElement('button');
+        clearBtn.id = 'clear-all-latency-btn';
+        clearBtn.className = 'latency-clear-btn';
+        clearBtn.innerHTML = '<span class="latency-icon">⏱</span> Clear All Latency';
+        clearBtn.title = 'Remove latency from all links';
+        clearBtn.addEventListener('click', async () => {
+            if (confirm('Remove latency from all links?')) {
+                try {
+                    await this.removeAllLatency();
+                    this.updateLatencyControlsVisibility();
+                } catch (error) {
+                    alert('Failed to remove latency: ' + error.message);
+                }
+            }
+        });
+
+        container.appendChild(clearBtn);
+        this.container.appendChild(container);
+        this.latencyControls = container;
+    }
+
+    /**
+     * Update latency controls visibility based on whether any latency is active
+     */
+    updateLatencyControlsVisibility() {
+        if (!this.latencyControls) return;
+
+        // Check if any edges have latency
+        const hasActiveLatency = this.cy && this.cy.edges('.has-latency').length > 0;
+
+        if (hasActiveLatency) {
+            this.latencyControls.classList.remove('hidden');
+        } else {
+            this.latencyControls.classList.add('hidden');
         }
     }
 
