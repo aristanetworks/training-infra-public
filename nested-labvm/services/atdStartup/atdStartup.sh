@@ -20,13 +20,16 @@ cloud_log() {
     local message="$1"
     local severity="${2:-INFO}"
     python3 -c "
+import sys
+import os
+sys.stderr = open(os.devnull, 'w')
 try:
     from google.cloud import logging
     client = logging.Client()
     logger = client.logger('atd-startup')
     logger.log_text('$message', severity='$severity', labels={'service': 'atd-startup', 'phase': 'bootstrap'})
-except Exception:
-    pass  # Silently fail if Cloud Logging not available
+except:
+    pass
 " 2>/dev/null || true
 }
 
