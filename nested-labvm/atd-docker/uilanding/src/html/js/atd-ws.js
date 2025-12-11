@@ -266,12 +266,14 @@ function createWS(SOCK_URL) {
                 // Build CVP info for legacy display
                 _cvp_info = "<h3>CVP " + reg_data['cvp']['version'] + " is currently " + reg_data['cvp']['status'] + "</h3>";
                 var tasksSummary = "No pending tasks in CVP.";
+                var tasksData = null;  // Raw tasks data for popup display
 
                 if ('tasks' in reg_data) {
                     if (reg_data['tasks']) {
                         if (reg_data['tasks']['status'] == 'Active') {
                             // Loop through all the tasks
                             if (reg_data['tasks']['tasks']) {
+                                tasksData = reg_data['tasks']['tasks'];  // Store raw data
                                 tasksSummary = "";
                                 for (_status in reg_data['tasks']['tasks']) {
                                     if (tasksSummary !== "") tasksSummary += ", ";
@@ -295,7 +297,8 @@ function createWS(SOCK_URL) {
                     window.ConnectivityMonitor.updateCVPStatus(
                         reg_data['cvp']['version'],
                         reg_data['cvp']['status'],
-                        tasksSummary
+                        tasksSummary,
+                        tasksData  // Pass raw tasks data for highlighting
                     );
                 }
             }

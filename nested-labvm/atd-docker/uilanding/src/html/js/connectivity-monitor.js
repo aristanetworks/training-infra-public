@@ -31,7 +31,8 @@
     var cvpStatus = {
         version: null,
         status: null,      // 'UP', 'DOWN', or null
-        tasks: null,
+        tasks: null,       // Summary string for display
+        tasksData: null,   // Raw tasks object with counts by status
         lastUpdate: null
     };
 
@@ -51,6 +52,7 @@
     const CONNECTIVITY_MESSAGES = {
         all_ok: "All systems operational. WebSocket and CVP connections are healthy.",
         cvp_starting: "CVP is starting up. gRPC monitoring will begin once CVP is ready.",
+        cvp_tasks_failed: "CVP has failed tasks that need attention. Check CVP for details.",
         ws_warning: "WebSocket connection unstable. Live updates may be delayed.",
         ws_critical: "WebSocket disconnected. Attempting to reconnect. Real-time updates unavailable.",
         grpc_warning: "CVP gRPC connectivity issue detected. Some lab features may be limited.",
@@ -171,6 +173,19 @@
     }
 
     /**
+     * Check if there are failed CVP tasks
+     */
+    function hasFailedTasks() {
+        if (!cvpStatus.tasksData) return false;
+        for (var status in cvpStatus.tasksData) {
+            if (status.toLowerCase() === 'failed' && cvpStatus.tasksData[status] > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Determine overall health status based on connection states
      */
     function getHealthStatus() {
@@ -185,12 +200,22 @@
                             grpcConnectionStatus.connected ||
                             grpcConnectionStatus.failureCount < CONNECTIVITY_CONFIG.grpc.maxFailures;
 
+        // Check for failed CVP tasks
+        const hasCvpFailedTasks = hasFailedTasks();
+
         let level, message, detailMessage;
 
         if (wsHealthy && cvpUp && grpcHealthy) {
-            level = 'healthy';
-            message = 'All systems operational';
-            detailMessage = CONNECTIVITY_MESSAGES.all_ok;
+            // All connected - but check for failed tasks
+            if (hasCvpFailedTasks) {
+                level = 'warning';
+                message = 'CVP Tasks Failed';
+                detailMessage = CONNECTIVITY_MESSAGES.cvp_tasks_failed;
+            } else {
+                level = 'healthy';
+                message = 'All systems operational';
+                detailMessage = CONNECTIVITY_MESSAGES.all_ok;
+            }
         } else if (wsHealthy && !cvpUp) {
             level = 'warning';
             message = 'CVP starting...';
@@ -266,7 +291,9 @@
                 text.textContent = 'Connected';
             } else if (health.level === 'warning') {
                 // Show more specific text for warnings
-                if (cvpStatus.status !== 'UP') {
+                if (hasFailedTasks()) {
+                    text.textContent = 'CVP Tasks Failed';
+                } else if (cvpStatus.status !== 'UP') {
                     text.textContent = 'CVP Starting...';
                 } else if (!wsConnectionStatus.connected) {
                     text.textContent = 'Reconnecting...';
@@ -289,11 +316,37 @@
 
         // Update CVP row
         var cvpVersionText = document.getElementById('cvp-version-text');
+        var cvpTasksText = document.getElementById('cvp-tasks-text');
         var cvpStatusText = document.getElementById('cvp-status-text');
         var cvpStatusIcon = document.getElementById('cvp-status-row-icon');
 
         if (cvpVersionText) {
             cvpVersionText.textContent = cvpStatus.version || '--';
+        }
+
+        if (cvpTasksText) {
+            // Build tasks display with highlighting for failed tasks
+            if (cvpStatus.tasksData) {
+                var tasksHtml = '(';
+                var first = true;
+                for (var status in cvpStatus.tasksData) {
+                    if (!first) tasksHtml += ', ';
+                    first = false;
+                    var count = cvpStatus.tasksData[status];
+                    // Highlight Failed tasks in red
+                    if (status.toLowerCase() === 'failed') {
+                        tasksHtml += '<span class="task-failed">' + count + ' ' + status + '</span>';
+                    } else {
+                        tasksHtml += count + ' ' + status;
+                    }
+                }
+                tasksHtml += ' tasks)';
+                cvpTasksText.innerHTML = tasksHtml;
+            } else if (cvpStatus.tasks && cvpStatus.tasks !== 'No pending tasks in CVP.') {
+                cvpTasksText.textContent = '(' + cvpStatus.tasks + ')';
+            } else {
+                cvpTasksText.textContent = '';
+            }
         }
 
         if (cvpStatusText) {
@@ -505,19 +558,25 @@
         /**
          * Update CVP status from WebSocket messages
          * Called from atd-ws.js when CVP status updates arrive
+         * @param {string} version - CVP version
+         * @param {string} status - CVP status ('UP', 'DOWN', etc.)
+         * @param {string} tasksInfo - Summary string of tasks
+         * @param {object} tasksData - Raw tasks object with counts by status (e.g., {Pending: 3, Failed: 1})
          */
-        updateCVPStatus: function(version, status, tasksInfo) {
+        updateCVPStatus: function(version, status, tasksInfo, tasksData) {
             var wasNotUp = cvpStatus.status !== 'UP';
 
             cvpStatus.version = version;
             cvpStatus.status = status;
             cvpStatus.tasks = tasksInfo;
+            cvpStatus.tasksData = tasksData || null;
             cvpStatus.lastUpdate = Date.now();
 
             logConnectivityEvent('CVP_STATUS_UPDATE', {
                 version: version,
                 status: status,
-                tasks: tasksInfo
+                tasks: tasksInfo,
+                tasksData: tasksData
             });
 
             // Start gRPC monitoring when CVP becomes UP for the first time

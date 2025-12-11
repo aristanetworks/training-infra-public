@@ -1,221 +1,78 @@
 #!/bin/bash
+#
+# ATD Startup Wrapper Script
+# This script syncs Python files and delegates to the Python implementation
+#
+# The Python script (atd_manager.py startup) handles all startup logic:
+#   - Download base topology
+#   - Setup exam configuration
+#   - Network setup (NAT for cloudeos)
+#   - Labguide download
+#   - Docker container setup
+#   - Systemd timer setup
+#   - And more...
+#
+# Usage: sudo sh /usr/local/bin/atdStartup.sh
+#
 
-echo "Starting atdStartup"
-sudo curl -o /etc/atd/base_topo.yml https://raw.githubusercontent.com/aristanetworks/training-infra-public/nested-release/topologies/base_topo.yml
-TOPO=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value topology)
-APWD=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value login_info.jump_host.pw)
-PROJECT=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value project)
-CVP_VER=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value cvp)
-CVP_VER_MOD=$(echo "$CVP_VER" | sed 's/\./\\./g')
-MACHINE_NAME=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value name)
+# Cloud Logging function - logs to Google Cloud Logging via Python
+cloud_log() {
+    local message="$1"
+    local severity="${2:-INFO}"
+    python3 -c "
+import sys
+import os
+sys.stderr = open(os.devnull, 'w')
+try:
+    from google.cloud import logging
+    client = logging.Client()
+    logger = client.logger('atd-startup')
+    logger.log_text('$message', severity='$severity', labels={'service': 'atd-startup', 'phase': 'bootstrap'})
+except:
+    pass
+" 2>/dev/null || true
+}
 
-LAB_TYPE=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('lab_type', 'Lab'))" 2>/dev/null)
-EXAM_MINUTES=$(python3 -c "import yaml; print(yaml.safe_load(open('/etc/atd/ACCESS_INFO.yaml'))['customer_details'].get('exam_hours', '0'))" 2>/dev/null)
-if [ "$LAB_TYPE" = "Exam" ]; then
-    echo "Exam Duration: ${EXAM_MINUTES:-Unknown}"
-    if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
-        # Update existing value using sed
-        sed -i "s/exam_duration:.*$/exam_duration: ${EXAM_MINUTES:-Unknown}/" /etc/atd/ACCESS_INFO.yaml
-    else
-        # Add new entry if it doesn't exist
-        echo "exam_duration: ${EXAM_MINUTES:-Unknown}" >> /etc/atd/ACCESS_INFO.yaml        
-    fi
-    if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
-        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: True/" /etc/atd/ACCESS_INFO.yaml
-    else
-        echo "examButtonNeeded: True" >> /etc/atd/ACCESS_INFO.yaml
-    fi
-    echo "current topology is exam topology :  $MACHINE_NAME , exam duration: $EXAM_MINUTES "
+echo "============================================================"
+echo "  ATD Startup Script"
+echo "============================================================"
+echo ""
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting atdStartup..."
+cloud_log "ATD Startup script initiated"
+
+# Sync Python scripts and utilities from the repo
+# This ensures Python-based services are available even when called from bash atdUpdate.sh
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Syncing Python scripts and utilities..."
+cloud_log "Syncing Python scripts and utilities"
+mkdir -p /usr/local/lib/atd-services/utils
+rsync -av /opt/atd/nested-labvm/services/atdStartup/atdStartup.py /usr/local/bin/ 2>/dev/null || true
+rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/utils/ 2>/dev/null || true
+
+# Install required Python packages
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing required Python packages..."
+cloud_log "Installing required Python packages"
+pip3 install --upgrade google-cloud-logging cvprac 2>/dev/null || echo "Warning: Failed to install Python packages"
+
+# Run the Python ATD Startup script
+echo ""
+echo "============================================================"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Executing ATD Startup (Python Edition)..."
+echo "============================================================"
+cloud_log "Executing ATD Startup Python script"
+python3 /usr/local/bin/atdStartup.py
+
+# Capture exit code
+EXIT_CODE=$?
+
+echo ""
+echo "============================================================"
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ATD Startup completed successfully!"
+    cloud_log "ATD Startup completed successfully"
 else
-    if grep -q "exam_duration:" /etc/atd/ACCESS_INFO.yaml; then
-        # Update existing value using sed
-        sed -i "s/exam_duration:.*$/exam_duration: 0/" /etc/atd/ACCESS_INFO.yaml
-    else
-        # Add new entry if it doesn't exist
-        echo "exam_duration: 0" >> /etc/atd/ACCESS_INFO.yaml        
-    fi
-    if grep -q "examButtonNeeded:" /etc/atd/ACCESS_INFO.yaml; then
-        sed -i "s/examButtonNeeded:.*$/examButtonNeeded: False/" /etc/atd/ACCESS_INFO.yaml
-    else
-        echo "examButtonNeeded: False" >> /etc/atd/ACCESS_INFO.yaml
-    fi
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ATD Startup failed with exit code: $EXIT_CODE"
+    cloud_log "ATD Startup failed with exit code: $EXIT_CODE" "ERROR"
 fi
+echo "============================================================"
 
-EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
-if [ "$EOS_TYPE" == "container-labs" ]; then
-    EOS_TYPE="ceos"
-fi
-LABGUIDE_FILENAME_URL=$(cat /opt/atd/topologies/metadata.yml | python3 -m shyaml get-value topologies.$PROJECT.$TOPO.labguide_zipfile_url)
-if [ "$PROJECT" == "atd-testdrivetraining-prod" ]; then
-    PROJECT="prod"
-else
-    PROJECT="dev"
-fi
-NEW_BRANCH_NAME=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.$PROJECT.$EOS_TYPE.cvp.$CVP_VER_MOD.branch)
-if [ $? -eq 0 ]; then
-  sed -i "/atd-public-branch/catd-public-branch: $NEW_BRANCH_NAME" /etc/atd/ATD_REPO.yaml
-  echo "changing branch name to $NEW_BRANCH_NAME"
-else
-    echo "not changing any branch name"
-fi
-
-PLATFORM=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.platform)
-if [ $? -eq 0 ] && [ "$PLATFORM" == "cloudeos" ]; then
-    echo "doing NAT in this topology"
-    sudo sysctl -w net.ipv4.ip_forward=1
-    sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-    sudo iptables -A FORWARD -i vmgmt -o eth0 -j ACCEPT
-    sudo iptables -A FORWARD -m state --state ESTABLISHED,RELATED -o vmgmt -j ACCEPT
-else
-    echo "not doing NAT here"
-fi
-
-IFS="/" read -ra url_parts <<< "$LABGUIDE_FILENAME_URL"
-LABGUIDE_FILENAME="${url_parts[-1]}"
-
-LABGUIDE_DIRECTORY="/opt/labguides/web/"
-if [ ! -d "$LABGUIDE_DIRECTORY" ]; then
-  mkdir -p "$LABGUIDE_DIRECTORY"
-  echo "Directory created: $LABGUIDE_DIRECTORY"
-fi
-if [ -e "${LABGUIDE_DIRECTORY}${LABGUIDE_FILENAME}" ]; then
-  echo "File ${LABGUIDE_FILENAME} already exists. Nothing to do."
-else
-  # Remove all files in the target directory
-  rm -rf "${LABGUIDE_DIRECTORY}"*
-  # Download the file from the source URL to the target directory
-  gsutil cp "${LABGUIDE_FILENAME_URL}" "${LABGUIDE_DIRECTORY}"
-  cd $LABGUIDE_DIRECTORY
-  tar -xzf "${LABGUIDE_FILENAME}"
-  echo "File ${LABGUIDE_FILENAME} downloaded to ${LABGUIDE_DIRECTORY}"
-fi
-
-if [ "$(cat /etc/atd/ACCESS_INFO.yaml | grep eos_type)" ]
-then
-    EOS_TYPE=$(cat /etc/atd/ACCESS_INFO.yaml | python3 -m shyaml get-value eos_type)
-else
-    EOS_TYPE=veos
-fi
-
-# Update ssh-key in EOS configlet for Arista user
-ARISTA_SSH=$(cat /home/arista/.ssh/id_rsa.pub)
-
-sed -i "/username arista ssh-key/cusername arista ssh-key ${ARISTA_SSH}" /opt/atd/topologies/$TOPO/configlets/ATD-INFRA
-
-# Update arista user password for Guacamole
-
-find /opt/atd/nested-labvm/atd-docker/*  -type f -print0 | xargs -0 sed -i "s/{ARISTA_REPLACE}/$APWD/g" 
-find /opt/atd/topologies/$TOPO/files/*  -type f -print0 | xargs -0 sed -i "s/{ARISTA_REPLACE}/$APWD/g" 
-
-
-# Perform check to see if docker auth file exists
-if ! [ -f "/home/atdadmin/.docker/config.json" ]
-then
-    echo "Docker auth file not found, creating..."
-    gcloud auth configure-docker gcr.io,us.gcr.io --quiet
-    su atdadmin -c "gcloud auth configure-docker gcr.io,us.gcr.io --quiet"
-fi
-
-# Update the base configlets for ceos/veos mgmt numbering
-
-if [ "$EOS_TYPE" = 'ceos' ] || [ "$EOS_TYPE" = 'container-labs' ]; then
-    sed -i 's/Management1/Management0/g' /opt/atd/topologies/$TOPO/configlets/*
-fi
-
-# Copy topo image to app directory
-rsync -av /opt/atd/topologies/$TOPO/atd-topo.png /opt/atd/topologies/$TOPO/files/apps/uilanding
-
-# Add files to arista home
-rsync -av --update /opt/atd/topologies/$TOPO/files/ /home/arista/arista-dir
-rsync -av /opt/atd/topologies/$TOPO/files/infra /home/arista/
-
-# Perform check if there is a scripts directory
-if [ -d "/opt/atd/topologies/$TOPO/files/scripts" ]
-then
-    rsync -av /opt/atd/topologies/$TOPO/files/scripts /home/arista/GUI_Desktop/
-fi
-
-# Perform a check for the repo directory for datacenter
-if ! [ -d "/home/arista/arista-dir/apps/coder/labfiles/lab6/repo" ] && [ $TOPO == "datacenter" ]
-then
-    mkdir -p /home/arista/arista-dir/apps/coder/labfiles/lab6/repo
-    cd /home/arista/arista-dir/apps/coder/labfiles/lab6/repo
-    git init --bare
-fi
-
-chown -R arista:arista /home/arista
-
-# Update ATD containers
-
-cd /opt/atd/nested-labvm/atd-docker
-
-# su atdadmin -c 'bash docker_build.sh'
-
-# Setting arista user ids for coder container
-export ArID=$(id -u arista)
-export ArGD=$(id -g arista)
-export AtID=$(id -u atdadmin) 
-export AtGD=$(id -g atdadmin)
-
-#docker container prune -f
-
-# Use sed to replace the text
-PLATFORM=$(cat /etc/atd/base_topo.yml | python3 -m shyaml get-value topologies.$TOPO.platform)
-if [ $? -eq 0 ] && [ "$PLATFORM" == "cloudeos" ]; then
-    FILE_PATH="docker-compose.yml"
-    sudo sed -i'' 's|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2|us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2-path-finder|g' /opt/atd/nested-labvm/atd-docker/docker-compose.yml
-    docker compose up -d --remove-orphans --force-recreate
-else
-    docker compose up -d --remove-orphans --force-recreate
-fi
-echo 'y' | docker image prune
-
-systemctl restart sshd
-
-if [ -f "/opt/clab/scripts/containerlabs_setup.py" ]
-then
-    bash /opt/clab/scripts/veth-connection.sh >> /opt/clab/scripts/log.txt
-fi
-os_name=$(grep -i '^NAME=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
-# Check if the OS name is AlmaLinux
-if [[ "$os_name" == "AlmaLinux" ]]; then
-    sudo ip route del 192.168.0.0/24 dev vmgmt
-    sudo ip route add 192.168.0.0/25 dev vmgmt
-fi
-
-# if cEOS Startup present, run it
-if [ -f "/opt/ceos/scripts/.ceos.txt" ]
-then
-    while : ; do
-        [[ -f "/opt/ceos/scripts/Startup.sh" ]] && break
-        echo "Pausing until file exists."
-        sleep 1
-    done
-    bash /opt/ceos/scripts/Startup.sh
-fi
-echo "Executing script to check unhealthy containers"
-rsync -av /opt/atd/nested-labvm/services/atdStartup/unhealthyContainers.sh /usr/local/bin/
-bash /usr/local/bin/unhealthyContainers.sh
-rsync -av /opt/atd/nested-labvm/services/atdStartup/examSubmitContainer.sh /usr/local/bin/
-rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.service /etc/systemd/system
-rsync -av /opt/atd/nested-labvm/services/atdStartup/exam-submission-check.timer /etc/systemd/system
-sudo systemctl daemon-reload
-sudo systemctl enable exam-submission-check.timer
-sudo systemctl start exam-submission-check.timer
-sudo cp /opt/atd/nested-labvm/services/unit-test/UNIT_TEST_CONFIG.yaml /etc/atd/
-sudo mkdir -p /etc/atd/logs
-sudo chmod 755 /etc/atd/logs
-echo "Installing unit test runner to /usr/local/bin/"
-rsync -av /opt/atd/nested-labvm/services/unit-test/run_unit_tests.sh /usr/local/bin/
-sudo chmod +x /usr/local/bin/run_unit_tests.sh
-echo "Installing unit test timer service"
-rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test.service /etc/systemd/system/
-rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test.timer /etc/systemd/system/
-rsync -av /opt/atd/nested-labvm/services/unit-test/atd-unit-test-60min.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-# sudo systemctl enable atd-unit-test.timer
-# sudo systemctl enable atd-unit-test-60min.timer
-# sudo systemctl start atd-unit-test.timer
-# sudo systemctl start atd-unit-test-60min.timer
-echo "Password authentication enabled for SSH"
-sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd
+exit $EXIT_CODE

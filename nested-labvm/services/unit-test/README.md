@@ -1,6 +1,6 @@
 # ATD Unit Test Suite
 
-Comprehensive unit testing suite for Arista Test Drive (ATD) lab environments.
+Comprehensive unit testing suite for Arista Training Labs (ATL) lab environments.
 
 ## Quick Start
 
