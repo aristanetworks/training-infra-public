@@ -1464,9 +1464,497 @@ class LatencyManager:
         return bridges
 
 
+class PacketLossManager:
+    """Manages packet loss injection using Linux tc netem."""
+
+    VALID_PERCENTAGES = [10, 20, 30, 40, 50]
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Cache: {interface: loss_percent}
+        self._loss_state: Dict[str, int] = {}
+
+    def validate_percent(self, percent: int) -> Optional[str]:
+        """Validate loss percentage. Returns error message or None if valid."""
+        if percent not in self.VALID_PERCENTAGES and percent != 0:
+            return f"Loss percent must be one of {self.VALID_PERCENTAGES} or 0"
+        return None
+
+    def get_loss_percent(self, interface: str) -> Optional[int]:
+        """Get current loss percentage from interface tc config."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Parse "loss X%" from netem output
+                match = re.search(r'loss\s+(\d+(?:\.\d+)?)%', result.stdout)
+                if match:
+                    return int(float(match.group(1)))
+        except Exception as e:
+            print(f"[PacketLossManager] Error getting loss on {interface}: {e}")
+        return None
+
+    def get_state(self, interface: str) -> int:
+        """Get cached loss state for interface."""
+        return self._loss_state.get(interface, 0)
+
+    def set_state(self, interface: str, percent: int):
+        """Update cached loss state."""
+        with self._lock:
+            if percent > 0:
+                self._loss_state[interface] = percent
+            else:
+                self._loss_state.pop(interface, None)
+
+    def clear_state(self, interface: str):
+        """Clear cached loss state."""
+        with self._lock:
+            self._loss_state.pop(interface, None)
+
+
+class DuplicationManager:
+    """Manages packet duplication injection using Linux tc netem."""
+
+    VALID_PERCENTAGES = [10, 20, 30, 40, 50]
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Cache: {interface: dup_percent}
+        self._dup_state: Dict[str, int] = {}
+
+    def validate_percent(self, percent: int) -> Optional[str]:
+        """Validate duplication percentage. Returns error message or None if valid."""
+        if percent not in self.VALID_PERCENTAGES and percent != 0:
+            return f"Duplication percent must be one of {self.VALID_PERCENTAGES} or 0"
+        return None
+
+    def get_dup_percent(self, interface: str) -> Optional[int]:
+        """Get current duplication percentage from interface tc config."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Parse "duplicate X%" from netem output
+                match = re.search(r'duplicate\s+(\d+(?:\.\d+)?)%', result.stdout)
+                if match:
+                    return int(float(match.group(1)))
+        except Exception as e:
+            print(f"[DuplicationManager] Error getting duplication on {interface}: {e}")
+        return None
+
+    def get_state(self, interface: str) -> int:
+        """Get cached duplication state for interface."""
+        return self._dup_state.get(interface, 0)
+
+    def set_state(self, interface: str, percent: int):
+        """Update cached duplication state."""
+        with self._lock:
+            if percent > 0:
+                self._dup_state[interface] = percent
+            else:
+                self._dup_state.pop(interface, None)
+
+    def clear_state(self, interface: str):
+        """Clear cached duplication state."""
+        with self._lock:
+            self._dup_state.pop(interface, None)
+
+
+class CorruptionManager:
+    """Manages packet corruption injection using Linux tc netem."""
+
+    VALID_PERCENTAGES = [10, 20, 30, 40, 50]
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Cache: {interface: corrupt_percent}
+        self._corrupt_state: Dict[str, int] = {}
+
+    def validate_percent(self, percent: int) -> Optional[str]:
+        """Validate corruption percentage. Returns error message or None if valid."""
+        if percent not in self.VALID_PERCENTAGES and percent != 0:
+            return f"Corruption percent must be one of {self.VALID_PERCENTAGES} or 0"
+        return None
+
+    def get_corrupt_percent(self, interface: str) -> Optional[int]:
+        """Get current corruption percentage from interface tc config."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Parse "corrupt X%" from netem output
+                match = re.search(r'corrupt\s+(\d+(?:\.\d+)?)%', result.stdout)
+                if match:
+                    return int(float(match.group(1)))
+        except Exception as e:
+            print(f"[CorruptionManager] Error getting corruption on {interface}: {e}")
+        return None
+
+    def get_state(self, interface: str) -> int:
+        """Get cached corruption state for interface."""
+        return self._corrupt_state.get(interface, 0)
+
+    def set_state(self, interface: str, percent: int):
+        """Update cached corruption state."""
+        with self._lock:
+            if percent > 0:
+                self._corrupt_state[interface] = percent
+            else:
+                self._corrupt_state.pop(interface, None)
+
+    def clear_state(self, interface: str):
+        """Clear cached corruption state."""
+        with self._lock:
+            self._corrupt_state.pop(interface, None)
+
+
+class ImpairmentCoordinator:
+    """
+    Orchestrates all network impairment managers and executes combined tc netem commands.
+
+    This coordinator ensures that all impairments (latency, loss, duplication, corruption)
+    are applied together in a single tc netem command, as netem supports combining them.
+    """
+
+    DEFAULT_RATE = "1000mbit"
+
+    def __init__(self, latency_mgr: LatencyManager, loss_mgr: PacketLossManager,
+                 dup_mgr: DuplicationManager, corrupt_mgr: CorruptionManager):
+        self.latency_mgr = latency_mgr
+        self.loss_mgr = loss_mgr
+        self.dup_mgr = dup_mgr
+        self.corrupt_mgr = corrupt_mgr
+        self._lock = threading.Lock()
+
+    def _get_interface_for_bridge(self, bridge_name: str) -> Optional[str]:
+        """Get the first port/interface attached to an OVS bridge."""
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-ports", bridge_name],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                ports = result.stdout.strip().split('\n')
+                ports = [p.strip() for p in ports if p.strip()]
+                if ports:
+                    return ports[0]
+        except Exception as e:
+            print(f"[ImpairmentCoordinator] Error getting bridge ports: {e}")
+        return None
+
+    def _check_tc_exists(self, interface: str) -> bool:
+        """Check if tc qdisc (htb) is configured on interface."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return "htb" in result.stdout
+        except Exception:
+            return False
+
+    def _disable_tc(self, interface: str) -> bool:
+        """Remove tc qdisc from interface."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "del", "dev", interface, "root"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except Exception as e:
+            print(f"[ImpairmentCoordinator] Error disabling tc on {interface}: {e}")
+            return False
+
+    def configure_impairments(self, bridge_name: str, latency_ms: int = 0,
+                               loss_percent: int = 0, dup_percent: int = 0,
+                               corrupt_percent: int = 0) -> Dict:
+        """
+        Configure all impairments on a bridge's interface using a single tc netem command.
+
+        Args:
+            bridge_name: OVS bridge name
+            latency_ms: Delay in milliseconds (0 = no delay)
+            loss_percent: Packet loss percentage (0, 10, 20, 30, 40, 50)
+            dup_percent: Packet duplication percentage (0, 10, 20, 30, 40, 50)
+            corrupt_percent: Packet corruption percentage (0, 10, 20, 30, 40, 50)
+        """
+        # Validate bridge name
+        if not bridge_name or not re.match(r'^[a-zA-Z0-9\-_]+$', bridge_name):
+            return {"error": "Invalid bridge name format"}
+
+        # Validate all parameters
+        if latency_ms > 0:
+            error = self.latency_mgr._validate_delay(latency_ms)
+            if error:
+                return {"error": error}
+
+        if loss_percent > 0:
+            error = self.loss_mgr.validate_percent(loss_percent)
+            if error:
+                return {"error": error}
+
+        if dup_percent > 0:
+            error = self.dup_mgr.validate_percent(dup_percent)
+            if error:
+                return {"error": error}
+
+        if corrupt_percent > 0:
+            error = self.corrupt_mgr.validate_percent(corrupt_percent)
+            if error:
+                return {"error": error}
+
+        # Check if all are zero (clear operation)
+        if latency_ms == 0 and loss_percent == 0 and dup_percent == 0 and corrupt_percent == 0:
+            return self.clear_impairments(bridge_name)
+
+        # Get interface for this bridge
+        interface = self._get_interface_for_bridge(bridge_name)
+        if not interface:
+            return {"error": f"No interface found for bridge '{bridge_name}'"}
+
+        with self._lock:
+            # Remove existing tc config if present
+            if self._check_tc_exists(interface):
+                self._disable_tc(interface)
+
+            try:
+                # Ensure interface is up
+                subprocess.run(
+                    ["ip", "link", "set", "dev", interface, "up"],
+                    capture_output=True,
+                    timeout=5
+                )
+
+                # Add htb root qdisc
+                result = subprocess.run(
+                    ["tc", "qdisc", "add", "dev", interface, "root", "handle", "1:", "htb", "default", "12"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode != 0:
+                    return {"error": f"Failed to add root qdisc: {result.stderr.strip()}"}
+
+                # Add htb class
+                result = subprocess.run(
+                    ["tc", "class", "add", "dev", interface, "parent", "1:1", "classid", "1:12",
+                     "htb", "rate", self.DEFAULT_RATE],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode != 0:
+                    self._disable_tc(interface)
+                    return {"error": f"Failed to add htb class: {result.stderr.strip()}"}
+
+                # Build netem command with all active impairments
+                netem_cmd = ["tc", "qdisc", "add", "dev", interface, "parent", "1:12",
+                             "handle", "10:", "netem"]
+
+                if latency_ms > 0:
+                    netem_cmd.extend(["delay", f"{latency_ms}ms"])
+                if loss_percent > 0:
+                    netem_cmd.extend(["loss", f"{loss_percent}%"])
+                if dup_percent > 0:
+                    netem_cmd.extend(["duplicate", f"{dup_percent}%"])
+                if corrupt_percent > 0:
+                    netem_cmd.extend(["corrupt", f"{corrupt_percent}%"])
+
+                result = subprocess.run(netem_cmd, capture_output=True, text=True, timeout=5)
+                if result.returncode != 0:
+                    self._disable_tc(interface)
+                    return {"error": f"Failed to configure netem: {result.stderr.strip()}"}
+
+                # Update all manager states
+                self.latency_mgr._latency_state[interface] = latency_ms if latency_ms > 0 else 0
+                self.loss_mgr.set_state(interface, loss_percent)
+                self.dup_mgr.set_state(interface, dup_percent)
+                self.corrupt_mgr.set_state(interface, corrupt_percent)
+
+                impairments = {
+                    "latency_ms": latency_ms,
+                    "loss_percent": loss_percent,
+                    "duplication_percent": dup_percent,
+                    "corruption_percent": corrupt_percent
+                }
+
+                print(f"[ImpairmentCoordinator] Configured impairments on {interface} (bridge: {bridge_name}): {impairments}")
+
+                return {
+                    "status": "configured",
+                    "bridge": bridge_name,
+                    "interface": interface,
+                    "impairments": impairments
+                }
+
+            except subprocess.TimeoutExpired:
+                return {"error": "tc command timed out"}
+            except FileNotFoundError:
+                return {"error": "tc command not found"}
+            except Exception as e:
+                return {"error": str(e)}
+
+    def clear_impairments(self, bridge_name: str) -> Dict:
+        """Clear all impairments on a bridge's interface."""
+        # Validate bridge name
+        if not bridge_name or not re.match(r'^[a-zA-Z0-9\-_]+$', bridge_name):
+            return {"error": "Invalid bridge name format"}
+
+        # Get interface for this bridge
+        interface = self._get_interface_for_bridge(bridge_name)
+        if not interface:
+            return {"error": f"No interface found for bridge '{bridge_name}'"}
+
+        with self._lock:
+            if not self._check_tc_exists(interface):
+                return {"status": "already_cleared", "bridge": bridge_name}
+
+            if self._disable_tc(interface):
+                # Clear all manager states
+                self.latency_mgr._latency_state.pop(interface, None)
+                self.loss_mgr.clear_state(interface)
+                self.dup_mgr.clear_state(interface)
+                self.corrupt_mgr.clear_state(interface)
+
+                print(f"[ImpairmentCoordinator] Cleared impairments on {interface} (bridge: {bridge_name})")
+                return {"status": "cleared", "bridge": bridge_name}
+            else:
+                return {"error": f"Failed to clear impairments on {interface}"}
+
+    def clear_all_impairments(self) -> Dict:
+        """Clear impairments from all interfaces."""
+        cleared = []
+        errors = []
+
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-br"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                return {"error": "Failed to list bridges"}
+
+            bridges = [b.strip() for b in result.stdout.strip().split('\n') if b.strip()]
+
+            with self._lock:
+                for bridge in bridges:
+                    interface = self._get_interface_for_bridge(bridge)
+                    if interface and self._check_tc_exists(interface):
+                        if self._disable_tc(interface):
+                            # Clear all manager states
+                            self.latency_mgr._latency_state.pop(interface, None)
+                            self.loss_mgr.clear_state(interface)
+                            self.dup_mgr.clear_state(interface)
+                            self.corrupt_mgr.clear_state(interface)
+                            cleared.append(interface)
+                            print(f"[ImpairmentCoordinator] Cleared impairments on {interface}")
+                        else:
+                            errors.append(interface)
+
+            return {
+                "status": "success",
+                "cleared_count": len(cleared),
+                "interfaces": cleared,
+                "errors": errors if errors else None
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_bridge_impairments(self, bridge_name: str) -> Dict:
+        """Get all impairment status for a bridge."""
+        interface = self._get_interface_for_bridge(bridge_name)
+        if not interface:
+            return {
+                "latency_ms": 0,
+                "loss_percent": 0,
+                "duplication_percent": 0,
+                "corruption_percent": 0,
+                "has_impairments": False
+            }
+
+        # Try to get from tc output first
+        latency = self.latency_mgr.get_tc_delay(interface) or 0
+        loss = self.loss_mgr.get_loss_percent(interface) or 0
+        dup = self.dup_mgr.get_dup_percent(interface) or 0
+        corrupt = self.corrupt_mgr.get_corrupt_percent(interface) or 0
+
+        has_impairments = latency > 0 or loss > 0 or dup > 0 or corrupt > 0
+
+        return {
+            "latency_ms": latency,
+            "loss_percent": loss,
+            "duplication_percent": dup,
+            "corruption_percent": corrupt,
+            "has_impairments": has_impairments
+        }
+
+    def get_all_bridges_with_status(self) -> List[Dict]:
+        """Get list of all bridges with their impairment status."""
+        bridges = []
+
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-br"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                return bridges
+
+            # Reuse CaptureManager's bridge parsing logic
+            capture_manager = get_manager()
+
+            for name in result.stdout.strip().split('\n'):
+                name = name.strip()
+                if not name:
+                    continue
+
+                # Parse bridge name to get device/port info
+                info = capture_manager._parse_bridge_name(name)
+                info['name'] = name
+
+                # Get impairment status
+                impairments = self.get_bridge_impairments(name)
+                info['impairments'] = impairments
+                info['has_impairments'] = impairments['has_impairments']
+
+                bridges.append(info)
+
+        except Exception as e:
+            print(f"[ImpairmentCoordinator] Error getting bridges with status: {e}")
+
+        return bridges
+
+
 # Global managers
 _manager: Optional[CaptureManager] = None
 _latency_manager: Optional[LatencyManager] = None
+_loss_manager: Optional[PacketLossManager] = None
+_dup_manager: Optional[DuplicationManager] = None
+_corrupt_manager: Optional[CorruptionManager] = None
+_impairment_coordinator: Optional[ImpairmentCoordinator] = None
 
 
 def get_manager() -> CaptureManager:
@@ -1481,6 +1969,39 @@ def get_latency_manager() -> LatencyManager:
     if _latency_manager is None:
         _latency_manager = LatencyManager()
     return _latency_manager
+
+
+def get_loss_manager() -> PacketLossManager:
+    global _loss_manager
+    if _loss_manager is None:
+        _loss_manager = PacketLossManager()
+    return _loss_manager
+
+
+def get_dup_manager() -> DuplicationManager:
+    global _dup_manager
+    if _dup_manager is None:
+        _dup_manager = DuplicationManager()
+    return _dup_manager
+
+
+def get_corrupt_manager() -> CorruptionManager:
+    global _corrupt_manager
+    if _corrupt_manager is None:
+        _corrupt_manager = CorruptionManager()
+    return _corrupt_manager
+
+
+def get_impairment_coordinator() -> ImpairmentCoordinator:
+    global _impairment_coordinator
+    if _impairment_coordinator is None:
+        _impairment_coordinator = ImpairmentCoordinator(
+            get_latency_manager(),
+            get_loss_manager(),
+            get_dup_manager(),
+            get_corrupt_manager()
+        )
+    return _impairment_coordinator
 
 
 # HTTP/WebSocket Handlers
@@ -1696,16 +2217,109 @@ class LatencyDisableAllHandler(SecureHandler):
             self.write(result)
 
 
+# Impairment API Handlers (unified control for latency, loss, duplication, corruption)
+
+class ImpairmentsBridgesHandler(SecureHandler):
+    """List bridges with all impairment status."""
+    def get(self):
+        bridges = get_impairment_coordinator().get_all_bridges_with_status()
+        self.write({"bridges": bridges})
+
+
+class ImpairmentsConfigureHandler(SecureHandler):
+    """Configure impairments on a bridge."""
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON"})
+            return
+
+        bridge = body.get('bridge', '')
+        if not bridge:
+            self.set_status(400)
+            self.write({"error": "Missing 'bridge' parameter"})
+            return
+
+        # Get impairment values (default to 0 if not provided)
+        try:
+            latency_ms = int(body.get('latency_ms', 0))
+            loss_percent = int(body.get('loss_percent', 0))
+            dup_percent = int(body.get('duplication_percent', 0))
+            corrupt_percent = int(body.get('corruption_percent', 0))
+        except (TypeError, ValueError) as e:
+            self.set_status(400)
+            self.write({"error": f"Invalid parameter value: {str(e)}"})
+            return
+
+        result = get_impairment_coordinator().configure_impairments(
+            bridge_name=bridge,
+            latency_ms=latency_ms,
+            loss_percent=loss_percent,
+            dup_percent=dup_percent,
+            corrupt_percent=corrupt_percent
+        )
+
+        if 'error' in result:
+            self.set_status(400)
+            self.write(result)
+        else:
+            self.write(result)
+
+
+class ImpairmentsClearHandler(SecureHandler):
+    """Clear all impairments on a bridge."""
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON"})
+            return
+
+        bridge = body.get('bridge', '')
+        if not bridge:
+            self.set_status(400)
+            self.write({"error": "Missing 'bridge' parameter"})
+            return
+
+        result = get_impairment_coordinator().clear_impairments(bridge)
+
+        if 'error' in result:
+            self.set_status(400)
+            self.write(result)
+        else:
+            self.write(result)
+
+
+class ImpairmentsClearAllHandler(SecureHandler):
+    """Clear all impairments on all bridges."""
+    def post(self):
+        result = get_impairment_coordinator().clear_all_impairments()
+
+        if 'error' in result:
+            self.set_status(500)
+            self.write(result)
+        else:
+            self.write(result)
+
+
 def make_app():
     return tornado.web.Application([
         (r"/health", HealthHandler),
         (r"/bridges", BridgesHandler),
         (r"/ws", CaptureWebSocketHandler),
-        # Latency API endpoints
+        # Latency API endpoints (legacy, kept for backwards compatibility)
         (r"/latency/bridges", LatencyBridgesHandler),
         (r"/latency/enable", LatencyEnableHandler),
         (r"/latency/disable", LatencyDisableHandler),
         (r"/latency/disable-all", LatencyDisableAllHandler),
+        # Impairment API endpoints (unified control)
+        (r"/impairments/bridges", ImpairmentsBridgesHandler),
+        (r"/impairments/configure", ImpairmentsConfigureHandler),
+        (r"/impairments/clear", ImpairmentsClearHandler),
+        (r"/impairments/clear-all", ImpairmentsClearAllHandler),
     ])
 
 

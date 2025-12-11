@@ -2715,6 +2715,238 @@ class LatencyDisableAllAPIHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+# Impairment API Handlers (unified control for latency, loss, duplication, corruption)
+
+class ImpairmentsBridgesAPIHandler(BaseHandler):
+    """API endpoint to get bridges with all impairment status."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/impairments/bridges",
+                    method="GET",
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[ImpairmentsBridges] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/bridges",
+                        method="GET",
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[ImpairmentsBridges] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
+
+        except Exception as e:
+            pS(f"[ImpairmentsBridges] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class ImpairmentsConfigureAPIHandler(BaseHandler):
+    """API endpoint to configure impairments on a bridge."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            # Get request body
+            body = self.request.body.decode('utf-8')
+            request_data = json.loads(body) if body else {}
+
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/impairments/configure",
+                    method="POST",
+                    body=json.dumps(request_data),
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[ImpairmentsConfigure] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/configure",
+                        method="POST",
+                        body=json.dumps(request_data),
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[ImpairmentsConfigure] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
+
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'Invalid JSON in request body'}))
+        except Exception as e:
+            pS(f"[ImpairmentsConfigure] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class ImpairmentsClearAPIHandler(BaseHandler):
+    """API endpoint to clear all impairments on a bridge."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            # Get request body
+            body = self.request.body.decode('utf-8')
+            request_data = json.loads(body) if body else {}
+
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear",
+                    method="POST",
+                    body=json.dumps(request_data),
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[ImpairmentsClear] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear",
+                        method="POST",
+                        body=json.dumps(request_data),
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[ImpairmentsClear] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
+
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'Invalid JSON in request body'}))
+        except Exception as e:
+            pS(f"[ImpairmentsClear] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class ImpairmentsClearAllAPIHandler(BaseHandler):
+    """API endpoint to clear all impairments on all bridges."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear-all",
+                    method="POST",
+                    body="{}",
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[ImpairmentsClearAll] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
+                        method="POST",
+                        body="{}",
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[ImpairmentsClearAll] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
+
+        except Exception as e:
+            pS(f"[ImpairmentsClearAll] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -2760,11 +2992,16 @@ if __name__ == "__main__":
         (r'/td-api/capture/status', CaptureStatusAPIHandler),
         (r'/td-api/capture/start', CaptureStartAPIHandler),
         (r'/td-api/capture/stop', CaptureStopAPIHandler),
-        # Latency injection endpoints
+        # Latency injection endpoints (legacy, kept for backwards compatibility)
         (r'/td-api/latency/bridges', LatencyBridgesAPIHandler),
         (r'/td-api/latency/enable', LatencyEnableAPIHandler),
         (r'/td-api/latency/disable', LatencyDisableAPIHandler),
         (r'/td-api/latency/disable-all', LatencyDisableAllAPIHandler),
+        # Impairment injection endpoints (unified control)
+        (r'/td-api/impairments/bridges', ImpairmentsBridgesAPIHandler),
+        (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
+        (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
+        (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

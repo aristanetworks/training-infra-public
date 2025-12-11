@@ -28,12 +28,17 @@ export class EventManager {
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
-        // Latency state: { bridgeName: { delay_ms: number, edge: cytoscape edge } }
+        // Legacy latency state (for backwards compatibility)
         this.latencyState = {};
-        // Latency change callback (for TopologyManager to update edge styles)
+        // Impairment state: { bridgeName: { latency_ms, loss_percent, dup_percent, corrupt_percent, edge } }
+        this.impairmentState = {};
+        // Impairment/Latency change callback (for TopologyManager to update edge styles)
         this.onLatencyChange = options.onLatencyChange || null;
-        // Latency dialog reference
+        this.onImpairmentChange = options.onImpairmentChange || null;
+        // Latency dialog reference (legacy)
         this.latencyDialog = null;
+        // Impairment dialog reference
+        this.impairmentDialog = null;
 
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
@@ -302,12 +307,25 @@ export class EventManager {
         menu.id = 'topo-context-menu';
         menu.className = 'topology-context-menu';
 
-        // Build descriptive link label
-        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+        // Build descriptive link label (escaped to prevent XSS)
+        const linkLabel = `${this.escapeHtml(data.source)}:${this.escapeHtml(data.source_port)} ↔ ${this.escapeHtml(data.target)}:${this.escapeHtml(data.target_port)}`;
 
-        // Check if this edge has latency applied
-        const latencyInfo = this.getEdgeLatencyInfo(edge);
-        const hasLatency = latencyInfo && latencyInfo.delay_ms;
+        // Check if this edge has any impairments applied
+        const impairmentInfo = this.getEdgeImpairmentInfo(edge);
+        const hasImpairments = impairmentInfo && impairmentInfo.hasAnyImpairment;
+
+        // Build impairment label for menu
+        let impairmentLabel = 'Advanced Link Tools';
+        if (hasImpairments) {
+            const parts = [];
+            if (impairmentInfo.latency_ms > 0) parts.push(`${impairmentInfo.latency_ms}ms`);
+            if (impairmentInfo.loss_percent > 0) parts.push(`${impairmentInfo.loss_percent}% loss`);
+            if (impairmentInfo.dup_percent > 0) parts.push(`${impairmentInfo.dup_percent}% dup`);
+            if (impairmentInfo.corrupt_percent > 0) parts.push(`${impairmentInfo.corrupt_percent}% corrupt`);
+            if (parts.length > 0) {
+                impairmentLabel = `Advanced Link Tools (${parts.join(', ')})`;
+            }
+        }
 
         // Menu items for edge
         const menuItems = [
@@ -330,18 +348,11 @@ export class EventManager {
             {
                 type: 'separator'
             },
-            // Latency options
-            hasLatency ? {
-                label: `Remove Latency (${latencyInfo.delay_ms}ms)`,
+            // Advanced Link Tools (Impairment configuration)
+            {
+                label: this.isCeosLab ? 'Advanced Link Tools (vEOS only)' : impairmentLabel,
                 action: () => {
-                    this.removeLatency(edge);
-                    this.hideContextMenu();
-                },
-                disabled: this.isCeosLab
-            } : {
-                label: this.isCeosLab ? 'Add Latency (vEOS only)' : 'Add Latency',
-                action: () => {
-                    this.showLatencyDialog(edge);
+                    this.showImpairmentDialog(edge);
                     this.hideContextMenu();
                 },
                 disabled: this.isCeosLab
@@ -534,14 +545,124 @@ export class EventManager {
     }
 
     /**
-     * Show latency dialog for an edge
+     * Check if an edge has any impairments applied
+     * Returns impairment info object with all impairment values
+     */
+    getEdgeImpairmentInfo(edge) {
+        const data = edge.data();
+
+        // Default empty result
+        const emptyResult = {
+            bridgeName: null,
+            latency_ms: 0,
+            loss_percent: 0,
+            dup_percent: 0,
+            corrupt_percent: 0,
+            hasAnyImpairment: false
+        };
+
+        // Search through impairmentState
+        for (const [bridgeName, info] of Object.entries(this.impairmentState)) {
+            if (info.edge) {
+                const infoData = info.edge.data();
+                // Check if this is the same edge (by id or by source/target/ports)
+                const matchById = infoData.id === data.id;
+                const matchForward = (
+                    infoData.source === data.source &&
+                    infoData.target === data.target &&
+                    infoData.source_port === data.source_port &&
+                    infoData.target_port === data.target_port
+                );
+                const matchReverse = (
+                    infoData.source === data.target &&
+                    infoData.target === data.source &&
+                    infoData.source_port === data.target_port &&
+                    infoData.target_port === data.source_port
+                );
+
+                if (matchById || matchForward || matchReverse) {
+                    const hasAnyImpairment = (
+                        (info.latency_ms || 0) > 0 ||
+                        (info.loss_percent || 0) > 0 ||
+                        (info.dup_percent || 0) > 0 ||
+                        (info.corrupt_percent || 0) > 0
+                    );
+                    return {
+                        bridgeName,
+                        latency_ms: info.latency_ms || 0,
+                        loss_percent: info.loss_percent || 0,
+                        dup_percent: info.dup_percent || 0,
+                        corrupt_percent: info.corrupt_percent || 0,
+                        hasAnyImpairment
+                    };
+                }
+            }
+        }
+
+        // Also check legacy latencyState for backwards compatibility
+        for (const [bridgeName, info] of Object.entries(this.latencyState)) {
+            if (info.edge) {
+                const infoData = info.edge.data();
+                const matchById = infoData.id === data.id;
+                const matchForward = (
+                    infoData.source === data.source &&
+                    infoData.target === data.target &&
+                    infoData.source_port === data.source_port &&
+                    infoData.target_port === data.target_port
+                );
+                const matchReverse = (
+                    infoData.source === data.target &&
+                    infoData.target === data.source &&
+                    infoData.source_port === data.target_port &&
+                    infoData.target_port === data.source_port
+                );
+
+                if (matchById || matchForward || matchReverse) {
+                    return {
+                        bridgeName,
+                        latency_ms: info.delay_ms || 0,
+                        loss_percent: 0,
+                        dup_percent: 0,
+                        corrupt_percent: 0,
+                        hasAnyImpairment: (info.delay_ms || 0) > 0
+                    };
+                }
+            }
+        }
+
+        // Also check if edge has impairment classes applied (loaded from API on page load)
+        if (edge.hasClass('has-impairments') || edge.hasClass('has-latency')) {
+            const latency_ms = edge.data('latency_ms') || 0;
+            const loss_percent = edge.data('loss_percent') || 0;
+            const dup_percent = edge.data('dup_percent') || 0;
+            const corrupt_percent = edge.data('corrupt_percent') || 0;
+            const hasAnyImpairment = latency_ms > 0 || loss_percent > 0 || dup_percent > 0 || corrupt_percent > 0;
+
+            if (hasAnyImpairment) {
+                return {
+                    bridgeName: null,
+                    latency_ms,
+                    loss_percent,
+                    dup_percent,
+                    corrupt_percent,
+                    hasAnyImpairment
+                };
+            }
+        }
+
+        return emptyResult;
+    }
+
+    /**
+     * Show latency dialog for an edge (legacy - kept for backwards compatibility)
      */
     showLatencyDialog(edge) {
         // Hide any existing dialog
         this.hideLatencyDialog();
 
         const data = edge.data();
-        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+        // Escape link label to prevent XSS
+        const linkLabel = `${this.escapeHtml(data.source)}:${this.escapeHtml(data.source_port)} ↔ ${this.escapeHtml(data.target)}:${this.escapeHtml(data.target_port)}`;
 
         // Create dialog overlay
         const overlay = document.createElement('div');
@@ -815,6 +936,374 @@ export class EventManager {
                     delay_ms: bridge.latency_delay_ms,
                     edge: null  // Edge reference will be set when we find it
                 };
+            }
+        }
+    }
+
+    /**
+     * Update impairment state from API data (called by TopologyManager on init)
+     */
+    updateImpairmentState(bridges) {
+        for (const bridge of bridges) {
+            const impairments = bridge.impairments || {};
+            const hasAny = (
+                (impairments.latency_ms || 0) > 0 ||
+                (impairments.loss_percent || 0) > 0 ||
+                (impairments.duplication_percent || 0) > 0 ||
+                (impairments.corruption_percent || 0) > 0
+            );
+
+            if (hasAny) {
+                this.impairmentState[bridge.name] = {
+                    latency_ms: impairments.latency_ms || 0,
+                    loss_percent: impairments.loss_percent || 0,
+                    dup_percent: impairments.duplication_percent || 0,
+                    corrupt_percent: impairments.corruption_percent || 0,
+                    edge: null  // Edge reference will be set when we find it
+                };
+            }
+        }
+    }
+
+    /**
+     * Show impairment configuration dialog for an edge
+     */
+    showImpairmentDialog(edge) {
+        // Hide any existing dialog
+        this.hideImpairmentDialog();
+
+        const data = edge.data();
+        // Escape link label to prevent XSS
+        const linkLabel = `${this.escapeHtml(data.source)}:${this.escapeHtml(data.source_port)} ↔ ${this.escapeHtml(data.target)}:${this.escapeHtml(data.target_port)}`;
+
+        // Get current impairment values for this edge
+        const currentInfo = this.getEdgeImpairmentInfo(edge);
+
+        // Create dialog overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'impairment-dialog-overlay';
+        overlay.className = 'impairment-dialog-overlay';
+
+        // Percentage options for dropdowns
+        const percentOptions = [0, 10, 20, 30, 40, 50];
+        const makeOptions = (selected, label) => percentOptions.map(p =>
+            `<option value="${p}" ${p === selected ? 'selected' : ''}>${p === 0 ? 'None' : p + '%'}</option>`
+        ).join('');
+
+        // Create dialog
+        const dialog = document.createElement('div');
+        dialog.className = 'impairment-dialog';
+
+        dialog.innerHTML = `
+            <div class="impairment-dialog-header">
+                <span class="impairment-dialog-title">Advanced Link Tools</span>
+                <button class="impairment-dialog-close" title="Close">&times;</button>
+            </div>
+            <div class="impairment-dialog-body">
+                <div class="impairment-dialog-link">${linkLabel}</div>
+
+                <div class="impairment-row latency-row">
+                    <label class="impairment-label latency-label">
+                        <span class="impairment-color-dot latency-dot"></span>
+                        Latency (ms):
+                    </label>
+                    <input type="number"
+                           id="impairment-latency-input"
+                           class="impairment-input"
+                           min="0"
+                           max="10000"
+                           value="${currentInfo.latency_ms || 0}"
+                           placeholder="0-10000">
+                </div>
+
+                <div class="impairment-row loss-row">
+                    <label class="impairment-label loss-label">
+                        <span class="impairment-color-dot loss-dot"></span>
+                        Packet Loss:
+                    </label>
+                    <select id="impairment-loss-select" class="impairment-select">
+                        ${makeOptions(currentInfo.loss_percent || 0)}
+                    </select>
+                </div>
+
+                <div class="impairment-row dup-row">
+                    <label class="impairment-label dup-label">
+                        <span class="impairment-color-dot dup-dot"></span>
+                        Duplication:
+                    </label>
+                    <select id="impairment-dup-select" class="impairment-select">
+                        ${makeOptions(currentInfo.dup_percent || 0)}
+                    </select>
+                </div>
+
+                <div class="impairment-row corrupt-row">
+                    <label class="impairment-label corrupt-label">
+                        <span class="impairment-color-dot corrupt-dot"></span>
+                        Corruption:
+                    </label>
+                    <select id="impairment-corrupt-select" class="impairment-select">
+                        ${makeOptions(currentInfo.corrupt_percent || 0)}
+                    </select>
+                </div>
+
+                <div class="impairment-dialog-error" id="impairment-dialog-error"></div>
+            </div>
+            <div class="impairment-dialog-footer">
+                <button class="impairment-dialog-btn clear" id="impairment-clear-btn">Clear All</button>
+                <button class="impairment-dialog-btn cancel" id="impairment-cancel-btn">Cancel</button>
+                <button class="impairment-dialog-btn apply" id="impairment-apply-btn">Apply</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        this.impairmentDialog = overlay;
+
+        // Event handlers
+        const closeBtn = dialog.querySelector('.impairment-dialog-close');
+        const cancelBtn = document.getElementById('impairment-cancel-btn');
+        const applyBtn = document.getElementById('impairment-apply-btn');
+        const clearBtn = document.getElementById('impairment-clear-btn');
+        const latencyInput = document.getElementById('impairment-latency-input');
+
+        closeBtn.addEventListener('click', () => this.hideImpairmentDialog());
+        cancelBtn.addEventListener('click', () => this.hideImpairmentDialog());
+
+        applyBtn.addEventListener('click', () => {
+            const latency = parseInt(latencyInput.value, 10) || 0;
+            const loss = parseInt(document.getElementById('impairment-loss-select').value, 10) || 0;
+            const dup = parseInt(document.getElementById('impairment-dup-select').value, 10) || 0;
+            const corrupt = parseInt(document.getElementById('impairment-corrupt-select').value, 10) || 0;
+            this.applyImpairments(edge, latency, loss, dup, corrupt);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            this.clearImpairments(edge);
+        });
+
+        // Enter key to apply
+        latencyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                applyBtn.click();
+            } else if (e.key === 'Escape') {
+                this.hideImpairmentDialog();
+            }
+        });
+
+        // Click outside to close
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideImpairmentDialog();
+            }
+        });
+    }
+
+    /**
+     * Hide impairment dialog
+     */
+    hideImpairmentDialog() {
+        if (this.impairmentDialog) {
+            this.impairmentDialog.remove();
+            this.impairmentDialog = null;
+        }
+        const existing = document.getElementById('impairment-dialog-overlay');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
+     * Apply impairments to an edge
+     */
+    async applyImpairments(edge, latencyMs, lossPercent, dupPercent, corruptPercent) {
+        const errorEl = document.getElementById('impairment-dialog-error');
+
+        // Validate latency input
+        if (latencyMs < 0 || latencyMs > 10000) {
+            if (errorEl) {
+                errorEl.textContent = 'Latency must be between 0 and 10000ms';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        // Validate percentage inputs (0-100 range)
+        if (lossPercent < 0 || lossPercent > 100) {
+            if (errorEl) {
+                errorEl.textContent = 'Packet loss must be between 0 and 100%';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+        if (dupPercent < 0 || dupPercent > 100) {
+            if (errorEl) {
+                errorEl.textContent = 'Duplication must be between 0 and 100%';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+        if (corruptPercent < 0 || corruptPercent > 100) {
+            if (errorEl) {
+                errorEl.textContent = 'Corruption must be between 0 and 100%';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        const data = edge.data();
+        const applyBtn = document.getElementById('impairment-apply-btn');
+
+        // Disable button while processing
+        if (applyBtn) {
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Applying...';
+        }
+
+        try {
+            // Find the bridge name for this edge
+            const bridgesResponse = await fetch('/td-api/impairments/bridges');
+            if (!bridgesResponse.ok) {
+                throw new Error('Failed to fetch bridges');
+            }
+            const bridgesData = await bridgesResponse.json();
+            const bridge = this.findMatchingBridge(data, bridgesData.bridges);
+
+            if (!bridge) {
+                throw new Error('No matching bridge found for this link');
+            }
+
+            // Apply impairments
+            const response = await fetch('/td-api/impairments/configure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bridge: bridge.name,
+                    latency_ms: latencyMs,
+                    loss_percent: lossPercent,
+                    duplication_percent: dupPercent,
+                    corruption_percent: corruptPercent
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Failed to apply impairments');
+            }
+
+            // Update local state
+            this.impairmentState[bridge.name] = {
+                latency_ms: latencyMs,
+                loss_percent: lossPercent,
+                dup_percent: dupPercent,
+                corrupt_percent: corruptPercent,
+                edge: edge
+            };
+
+            // Also update legacy latencyState for backwards compatibility
+            if (latencyMs > 0) {
+                this.latencyState[bridge.name] = {
+                    delay_ms: latencyMs,
+                    edge: edge
+                };
+            } else {
+                delete this.latencyState[bridge.name];
+            }
+
+            // Notify callback (TopologyManager) to update edge styling
+            if (this.onImpairmentChange) {
+                this.onImpairmentChange(bridge.name, {
+                    latency_ms: latencyMs,
+                    loss_percent: lossPercent,
+                    dup_percent: dupPercent,
+                    corrupt_percent: corruptPercent
+                }, edge);
+            } else if (this.onLatencyChange) {
+                // Fallback to legacy callback
+                this.onLatencyChange(bridge.name, latencyMs, edge);
+            }
+
+            // Close dialog
+            this.hideImpairmentDialog();
+
+            console.log(`[EventManager] Applied impairments to ${bridge.name}:`, {
+                latencyMs, lossPercent, dupPercent, corruptPercent
+            });
+
+        } catch (error) {
+            console.error('[EventManager] Error applying impairments:', error);
+            if (errorEl) {
+                errorEl.textContent = error.message || 'Failed to apply impairments';
+                errorEl.style.display = 'block';
+            }
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.textContent = 'Apply';
+            }
+        }
+    }
+
+    /**
+     * Clear all impairments from an edge
+     */
+    async clearImpairments(edge) {
+        const data = edge.data();
+        const clearBtn = document.getElementById('impairment-clear-btn');
+
+        // Disable button while processing
+        if (clearBtn) {
+            clearBtn.disabled = true;
+            clearBtn.textContent = 'Clearing...';
+        }
+
+        try {
+            // Find the bridge name
+            const bridgesResponse = await fetch('/td-api/impairments/bridges');
+            if (!bridgesResponse.ok) {
+                throw new Error('Failed to fetch bridges');
+            }
+            const bridgesData = await bridgesResponse.json();
+            const bridge = this.findMatchingBridge(data, bridgesData.bridges);
+
+            if (!bridge) {
+                throw new Error('No matching bridge found for this link');
+            }
+
+            // Clear impairments
+            const response = await fetch('/td-api/impairments/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bridge: bridge.name })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Failed to clear impairments');
+            }
+
+            // Update local state
+            delete this.impairmentState[bridge.name];
+            delete this.latencyState[bridge.name];
+
+            // Notify callback (TopologyManager) to update edge styling
+            if (this.onImpairmentChange) {
+                this.onImpairmentChange(bridge.name, null, edge);
+            } else if (this.onLatencyChange) {
+                this.onLatencyChange(bridge.name, null, edge);
+            }
+
+            // Close dialog
+            this.hideImpairmentDialog();
+
+            console.log(`[EventManager] Cleared impairments from ${bridge.name}`);
+
+        } catch (error) {
+            console.error('[EventManager] Error clearing impairments:', error);
+            alert('Failed to clear impairments: ' + (error.message || 'Unknown error'));
+            if (clearBtn) {
+                clearBtn.disabled = false;
+                clearBtn.textContent = 'Clear All';
             }
         }
     }
@@ -1099,18 +1588,18 @@ export class EventManager {
         tooltip.id = 'topo-tooltip';
         tooltip.className = 'topology-tooltip edge-tooltip';
 
-        // Initial tooltip with loading state for stats
+        // Initial tooltip with loading state for stats (escape HTML to prevent XSS)
         tooltip.innerHTML = `
             <div class="tooltip-header">
                 <strong>Link Statistics</strong>
             </div>
             <div class="tooltip-body">
                 <div class="tooltip-section">
-                    <span class="section-title">${data.source}:${data.source_port}</span>
+                    <span class="section-title">${this.escapeHtml(data.source)}:${this.escapeHtml(data.source_port)}</span>
                     <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
                 <div class="tooltip-section">
-                    <span class="section-title">${data.target}:${data.target_port}</span>
+                    <span class="section-title">${this.escapeHtml(data.target)}:${this.escapeHtml(data.target_port)}</span>
                     <div class="tooltip-stats-loading">Loading stats...</div>
                 </div>
             </div>
@@ -1167,7 +1656,7 @@ export class EventManager {
                 return;
             }
 
-            // Show error state
+            // Show error state (escape HTML to prevent XSS)
             tooltip.innerHTML = `
                 <div class="tooltip-header">
                     <strong>Link</strong>
@@ -1175,11 +1664,11 @@ export class EventManager {
                 <div class="tooltip-body">
                     <div class="tooltip-row">
                         <span class="tooltip-label">From:</span>
-                        <span class="tooltip-value">${data.source}:${data.source_port}</span>
+                        <span class="tooltip-value">${this.escapeHtml(data.source)}:${this.escapeHtml(data.source_port)}</span>
                     </div>
                     <div class="tooltip-row">
                         <span class="tooltip-label">To:</span>
-                        <span class="tooltip-value">${data.target}:${data.target_port}</span>
+                        <span class="tooltip-value">${this.escapeHtml(data.target)}:${this.escapeHtml(data.target_port)}</span>
                     </div>
                     <div class="tooltip-row tooltip-error">
                         <span class="tooltip-value">Stats unavailable</span>
@@ -1300,29 +1789,67 @@ export class EventManager {
             updateInfo = `<div class="tooltip-footer">Updated: ${secondsAgo}s ago</div>`;
         }
 
-        // Check for latency info
-        const latencyInfo = this.getEdgeLatencyInfo(edge);
-        let latencySection = '';
-        if (latencyInfo && latencyInfo.delay_ms) {
-            latencySection = `
-                <div class="tooltip-section latency-section">
-                    <span class="section-title">Latency Injection</span>
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Delay:</span>
-                        <span class="tooltip-value latency-value">${latencyInfo.delay_ms}ms</span>
+        // Check for impairment info
+        const impairmentInfo = this.getEdgeImpairmentInfo(edge);
+        let impairmentSection = '';
+        if (impairmentInfo && impairmentInfo.hasAnyImpairment) {
+            const rows = [];
+
+            if (impairmentInfo.latency_ms > 0) {
+                rows.push(`
+                    <div class="tooltip-row impairment-row">
+                        <span class="tooltip-label latency-label">Latency:</span>
+                        <span class="tooltip-value impairment-value latency">${impairmentInfo.latency_ms}ms</span>
                     </div>
-                </div>
-            `;
+                `);
+            }
+            if (impairmentInfo.loss_percent > 0) {
+                rows.push(`
+                    <div class="tooltip-row impairment-row">
+                        <span class="tooltip-label loss-label">Packet Loss:</span>
+                        <span class="tooltip-value impairment-value loss">${impairmentInfo.loss_percent}%</span>
+                    </div>
+                `);
+            }
+            if (impairmentInfo.dup_percent > 0) {
+                rows.push(`
+                    <div class="tooltip-row impairment-row">
+                        <span class="tooltip-label dup-label">Duplication:</span>
+                        <span class="tooltip-value impairment-value dup">${impairmentInfo.dup_percent}%</span>
+                    </div>
+                `);
+            }
+            if (impairmentInfo.corrupt_percent > 0) {
+                rows.push(`
+                    <div class="tooltip-row impairment-row">
+                        <span class="tooltip-label corrupt-label">Corruption:</span>
+                        <span class="tooltip-value impairment-value corrupt">${impairmentInfo.corrupt_percent}%</span>
+                    </div>
+                `);
+            }
+
+            if (rows.length > 0) {
+                impairmentSection = `
+                    <div class="tooltip-section impairment-section">
+                        <span class="section-title">Network Impairments</span>
+                        ${rows.join('')}
+                    </div>
+                `;
+            }
         }
+
+        // Escape device/port names for XSS prevention
+        const srcLabel = `${this.escapeHtml(edgeData.source)}:${this.escapeHtml(edgeData.source_port)}`;
+        const tgtLabel = `${this.escapeHtml(edgeData.target)}:${this.escapeHtml(edgeData.target_port)}`;
 
         return `
             <div class="tooltip-header">
                 <strong>Link Statistics</strong>
             </div>
             <div class="tooltip-body">
-                ${latencySection}
-                ${buildInterfaceSection(`${edgeData.source}:${edgeData.source_port}`, sourceStats)}
-                ${buildInterfaceSection(`${edgeData.target}:${edgeData.target_port}`, targetStats)}
+                ${impairmentSection}
+                ${buildInterfaceSection(srcLabel, sourceStats)}
+                ${buildInterfaceSection(tgtLabel, targetStats)}
             </div>
             ${updateInfo}
         `;

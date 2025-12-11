@@ -10,6 +10,17 @@ import { FilterManager, DEVICE_TYPE_INFO, loadDeviceTypeInfo, getDeviceTypeInfo 
 import { StatusUpdater } from './status-updater.js';
 import { CapturePanel } from './capture-panel.js';
 
+/**
+ * Impairment type color constants
+ * Used for edge styling and gradient calculation
+ */
+export const IMPAIRMENT_COLORS = {
+    latency: '#fbb500',      // Yellow - ATL secondary color
+    loss: '#e30909',         // Red - Error/danger
+    duplication: '#4c5cae',  // Blue - Primary accent
+    corruption: '#ff8c00'    // Orange - Warning
+};
+
 export class TopologyManager {
     constructor(containerId, options = {}) {
         this.containerId = containerId;
@@ -76,7 +87,8 @@ export class TopologyManager {
             this.eventManager = new EventManager(this.cy, this.container, {
                 onOpenTerminal: this.options.onOpenTerminal,
                 eosType: eosType,
-                onLatencyChange: (bridgeName, delayMs, edge) => this.handleLatencyChange(bridgeName, delayMs, edge)
+                onLatencyChange: (bridgeName, delayMs, edge) => this.handleLatencyChange(bridgeName, delayMs, edge),
+                onImpairmentChange: (bridgeName, impairments, edge) => this.handleImpairmentChange(bridgeName, impairments, edge)
             });
 
             if (this.options.enableFilters) {
@@ -97,16 +109,16 @@ export class TopologyManager {
                 }
             }
 
-            // Load initial latency state (don't block on this, but do it early)
-            this.loadLatencyStatus().catch(err => {
-                console.warn('[TopologyManager] Failed to load initial latency status:', err);
+            // Load initial impairment state (don't block on this, but do it early)
+            this.loadImpairmentStatus().catch(err => {
+                console.warn('[TopologyManager] Failed to load initial impairment status:', err);
             });
 
             // Add help button
             this.createHelpButton();
 
-            // Add latency controls (hidden by default, shown when latency is active)
-            this.createLatencyControls();
+            // Add impairment controls (hidden by default, shown when impairments are active)
+            this.createImpairmentControls();
 
             if (this.options.enableStatus) {
                 this.statusUpdater = new StatusUpdater(this.cy, this.options.wsUrl);
@@ -531,30 +543,46 @@ export class TopologyManager {
     }
 
     /**
-     * Load latency status from API and update edge styles
+     * Load impairment status from API and update edge styles
      */
-    async loadLatencyStatus() {
+    async loadImpairmentStatus() {
         try {
-            const response = await fetch('/td-api/latency/bridges');
+            const response = await fetch('/td-api/impairments/bridges');
             if (!response.ok) {
-                console.warn('[TopologyManager] Failed to fetch latency status');
+                console.warn('[TopologyManager] Failed to fetch impairment status');
                 return;
             }
 
             const data = await response.json();
             const bridges = data.bridges || [];
 
-            // Update edge styles for bridges with latency enabled
-            // Also update EventManager's latency state with edge references
+            // Update edge styles for bridges with impairments
+            // Also update EventManager's impairment state with edge references
             for (const bridge of bridges) {
-                if (bridge.latency_enabled && bridge.latency_delay_ms) {
+                const impairments = bridge.impairments || {};
+                const hasAny = (
+                    (impairments.latency_ms || 0) > 0 ||
+                    (impairments.loss_percent || 0) > 0 ||
+                    (impairments.duplication_percent || 0) > 0 ||
+                    (impairments.corruption_percent || 0) > 0
+                );
+
+                if (hasAny) {
                     const edge = this.findEdgeForBridge(bridge);
                     if (edge) {
-                        this.updateEdgeLatencyStyle(edge, bridge.latency_delay_ms);
-                        // Update EventManager's latency state with edge reference
+                        this.updateEdgeImpairmentStyle(edge, {
+                            latency_ms: impairments.latency_ms || 0,
+                            loss_percent: impairments.loss_percent || 0,
+                            dup_percent: impairments.duplication_percent || 0,
+                            corrupt_percent: impairments.corruption_percent || 0
+                        });
+                        // Update EventManager's impairment state with edge reference
                         if (this.eventManager) {
-                            this.eventManager.latencyState[bridge.name] = {
-                                delay_ms: bridge.latency_delay_ms,
+                            this.eventManager.impairmentState[bridge.name] = {
+                                latency_ms: impairments.latency_ms || 0,
+                                loss_percent: impairments.loss_percent || 0,
+                                dup_percent: impairments.duplication_percent || 0,
+                                corrupt_percent: impairments.corruption_percent || 0,
                                 edge: edge
                             };
                         }
@@ -562,57 +590,178 @@ export class TopologyManager {
                 }
             }
 
-            console.log('[TopologyManager] Loaded latency status for', bridges.length, 'bridges');
+            console.log('[TopologyManager] Loaded impairment status for', bridges.length, 'bridges');
 
-            // Update visibility of Clear All Latency button
-            this.updateLatencyControlsVisibility();
+            // Update visibility of Clear All Impairments button
+            this.updateImpairmentControlsVisibility();
 
         } catch (error) {
-            console.error('[TopologyManager] Error loading latency status:', error);
+            console.error('[TopologyManager] Error loading impairment status:', error);
         }
     }
 
     /**
-     * Handle latency change (called by EventManager)
+     * Load latency status from API and update edge styles (legacy support)
+     */
+    async loadLatencyStatus() {
+        // Redirect to impairment status loading
+        return this.loadImpairmentStatus();
+    }
+
+    /**
+     * Handle latency change (called by EventManager) - legacy support
      */
     handleLatencyChange(bridgeName, delayMs, edge) {
         if (!this.cy || !edge) return;
 
         if (delayMs) {
-            // Latency enabled
-            this.updateEdgeLatencyStyle(edge, delayMs);
+            // Latency enabled - use impairment style with just latency
+            this.updateEdgeImpairmentStyle(edge, { latency_ms: delayMs, loss_percent: 0, dup_percent: 0, corrupt_percent: 0 });
             console.log(`[TopologyManager] Updated edge style for ${bridgeName} with ${delayMs}ms latency`);
         } else {
             // Latency removed
-            this.clearEdgeLatencyStyle(edge);
+            this.clearEdgeImpairmentStyle(edge);
             console.log(`[TopologyManager] Cleared latency style for ${bridgeName}`);
         }
 
-        // Update visibility of Clear All Latency button
-        this.updateLatencyControlsVisibility();
+        // Update visibility of Clear All Impairments button
+        this.updateImpairmentControlsVisibility();
     }
 
     /**
-     * Update edge styling to show latency is active
+     * Handle impairment change (called by EventManager)
+     */
+    handleImpairmentChange(bridgeName, impairments, edge) {
+        if (!this.cy || !edge) return;
+
+        if (impairments) {
+            // Impairments configured
+            this.updateEdgeImpairmentStyle(edge, impairments);
+            console.log(`[TopologyManager] Updated edge style for ${bridgeName} with impairments:`, impairments);
+        } else {
+            // All impairments cleared
+            this.clearEdgeImpairmentStyle(edge);
+            console.log(`[TopologyManager] Cleared impairment styles for ${bridgeName}`);
+        }
+
+        // Update visibility of Clear All Impairments button
+        this.updateImpairmentControlsVisibility();
+    }
+
+    /**
+     * Update edge styling to show latency is active (legacy)
      */
     updateEdgeLatencyStyle(edge, delayMs) {
         if (!edge) return;
-
-        // Add class for CSS styling
-        edge.addClass('has-latency');
-
-        // Store delay value in edge data for reference
-        edge.data('latency_ms', delayMs);
+        this.updateEdgeImpairmentStyle(edge, { latency_ms: delayMs, loss_percent: 0, dup_percent: 0, corrupt_percent: 0 });
     }
 
     /**
-     * Clear latency styling from edge
+     * Clear latency styling from edge (legacy)
      */
     clearEdgeLatencyStyle(edge) {
         if (!edge) return;
+        this.clearEdgeImpairmentStyle(edge);
+    }
 
-        edge.removeClass('has-latency');
+    /**
+     * Update edge styling to show impairments are active
+     * @param {Object} edge - Cytoscape edge
+     * @param {Object} impairments - { latency_ms, loss_percent, dup_percent, corrupt_percent }
+     */
+    updateEdgeImpairmentStyle(edge, impairments) {
+        if (!edge) return;
+
+        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0 } = impairments;
+
+        // Store impairment values in edge data for reference
+        edge.data('latency_ms', latency_ms);
+        edge.data('loss_percent', loss_percent);
+        edge.data('dup_percent', dup_percent);
+        edge.data('corrupt_percent', corrupt_percent);
+
+        // Remove all impairment-related classes first
+        edge.removeClass('has-latency has-loss has-duplication has-corruption has-impairments');
+
+        // Count active impairments
+        const activeTypes = [];
+        if (latency_ms > 0) activeTypes.push('latency');
+        if (loss_percent > 0) activeTypes.push('loss');
+        if (dup_percent > 0) activeTypes.push('duplication');
+        if (corrupt_percent > 0) activeTypes.push('corruption');
+
+        if (activeTypes.length === 0) {
+            // No impairments, clear styling
+            this.clearEdgeImpairmentStyle(edge);
+            return;
+        }
+
+        if (activeTypes.length === 1) {
+            // Single impairment - use specific class for solid dashed color
+            edge.addClass(`has-${activeTypes[0]}`);
+        } else {
+            // Multiple impairments - use gradient
+            const gradient = this.calculateImpairmentGradient(impairments);
+            edge.data('gradientColors', gradient.colors);
+            edge.data('gradientPositions', gradient.positions);
+            edge.addClass('has-impairments');
+        }
+    }
+
+    /**
+     * Calculate gradient colors and positions for multiple impairments
+     * Creates a striped effect with hard edges
+     */
+    calculateImpairmentGradient(impairments) {
+        const { latency_ms = 0, loss_percent = 0, dup_percent = 0, corrupt_percent = 0 } = impairments;
+
+        // Use IMPAIRMENT_COLORS constants for consistency
+        const colors = [];
+        if (latency_ms > 0) colors.push(IMPAIRMENT_COLORS.latency);
+        if (loss_percent > 0) colors.push(IMPAIRMENT_COLORS.loss);
+        if (dup_percent > 0) colors.push(IMPAIRMENT_COLORS.duplication);
+        if (corrupt_percent > 0) colors.push(IMPAIRMENT_COLORS.corruption);
+
+        if (colors.length === 0) {
+            return { colors: '#071c35', positions: '0% 100%' };
+        }
+
+        if (colors.length === 1) {
+            return { colors: `${colors[0]} ${colors[0]}`, positions: '0% 100%' };
+        }
+
+        // Create striped gradient with equal segments
+        const segmentSize = 100 / colors.length;
+        const gradientColors = [];
+        const gradientPositions = [];
+
+        colors.forEach((color, i) => {
+            const start = i * segmentSize;
+            const end = (i + 1) * segmentSize;
+            // Add color twice for hard edges (striped effect)
+            gradientColors.push(color, color);
+            gradientPositions.push(`${start}%`, `${end}%`);
+        });
+
+        return {
+            colors: gradientColors.join(' '),
+            positions: gradientPositions.join(' ')
+        };
+    }
+
+    /**
+     * Clear all impairment styling from edge
+     */
+    clearEdgeImpairmentStyle(edge) {
+        if (!edge) return;
+
+        edge.removeClass('has-latency has-loss has-duplication has-corruption has-impairments');
         edge.removeData('latency_ms');
+        edge.removeData('loss_percent');
+        edge.removeData('dup_percent');
+        edge.removeData('corrupt_percent');
+        edge.removeData('gradientColors');
+        edge.removeData('gradientPositions');
     }
 
     /**
@@ -661,11 +810,11 @@ export class TopologyManager {
     }
 
     /**
-     * Remove all latency from all links
+     * Remove all impairments from all links
      */
-    async removeAllLatency() {
+    async removeAllImpairments() {
         try {
-            const response = await fetch('/td-api/latency/disable-all', {
+            const response = await fetch('/td-api/impairments/clear-all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: '{}'
@@ -674,27 +823,36 @@ export class TopologyManager {
             const result = await response.json();
 
             if (!response.ok || result.error) {
-                throw new Error(result.error || 'Failed to remove all latency');
+                throw new Error(result.error || 'Failed to remove all impairments');
             }
 
-            // Clear all edge latency styles
+            // Clear all edge impairment styles
             if (this.cy) {
-                this.cy.edges('.has-latency').removeClass('has-latency');
-                this.cy.edges().removeData('latency_ms');
+                this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-impairments').forEach(edge => {
+                    this.clearEdgeImpairmentStyle(edge);
+                });
             }
 
             // Clear EventManager state
             if (this.eventManager) {
                 this.eventManager.latencyState = {};
+                this.eventManager.impairmentState = {};
             }
 
-            console.log('[TopologyManager] Removed all latency:', result);
+            console.log('[TopologyManager] Removed all impairments:', result);
             return result;
 
         } catch (error) {
-            console.error('[TopologyManager] Error removing all latency:', error);
+            console.error('[TopologyManager] Error removing all impairments:', error);
             throw error;
         }
+    }
+
+    /**
+     * Remove all latency from all links (legacy - redirects to removeAllImpairments)
+     */
+    async removeAllLatency() {
+        return this.removeAllImpairments();
     }
 
     /**
@@ -821,50 +979,64 @@ export class TopologyManager {
     }
 
     /**
-     * Create latency controls (Clear All Latency button)
+     * Create impairment controls (Clear All Impairments button)
      */
-    createLatencyControls() {
-        // Create container for latency controls
+    createImpairmentControls() {
+        // Create container for impairment controls
         const container = document.createElement('div');
-        container.id = 'latency-controls';
-        container.className = 'latency-controls hidden';
+        container.id = 'impairment-controls';
+        container.className = 'impairment-controls hidden';
 
-        // Create Clear All Latency button
+        // Create Clear All Impairments button
         const clearBtn = document.createElement('button');
-        clearBtn.id = 'clear-all-latency-btn';
-        clearBtn.className = 'latency-clear-btn';
-        clearBtn.innerHTML = '<span class="latency-icon">⏱</span> Clear All Latency';
-        clearBtn.title = 'Remove latency from all links';
+        clearBtn.id = 'clear-all-impairments-btn';
+        clearBtn.className = 'impairment-clear-btn';
+        clearBtn.innerHTML = '<span class="impairment-icon">⚡</span> Clear All Impairments';
+        clearBtn.title = 'Remove all impairments from all links';
         clearBtn.addEventListener('click', async () => {
-            if (confirm('Remove latency from all links?')) {
+            if (confirm('Remove all impairments from all links?')) {
                 try {
-                    await this.removeAllLatency();
-                    this.updateLatencyControlsVisibility();
+                    await this.removeAllImpairments();
+                    this.updateImpairmentControlsVisibility();
                 } catch (error) {
-                    alert('Failed to remove latency: ' + error.message);
+                    alert('Failed to remove impairments: ' + error.message);
                 }
             }
         });
 
         container.appendChild(clearBtn);
         this.container.appendChild(container);
-        this.latencyControls = container;
+        this.impairmentControls = container;
     }
 
     /**
-     * Update latency controls visibility based on whether any latency is active
+     * Create latency controls (legacy - redirects to createImpairmentControls)
+     */
+    createLatencyControls() {
+        this.createImpairmentControls();
+    }
+
+    /**
+     * Update impairment controls visibility based on whether any impairments are active
+     */
+    updateImpairmentControlsVisibility() {
+        if (!this.impairmentControls) return;
+
+        // Check if any edges have impairments
+        const hasActiveImpairments = this.cy && this.cy.edges('.has-latency, .has-loss, .has-duplication, .has-corruption, .has-impairments').length > 0;
+
+        if (hasActiveImpairments) {
+            this.impairmentControls.classList.remove('hidden');
+        } else {
+            this.impairmentControls.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Update latency controls visibility (legacy - redirects to updateImpairmentControlsVisibility)
      */
     updateLatencyControlsVisibility() {
-        if (!this.latencyControls) return;
-
-        // Check if any edges have latency
-        const hasActiveLatency = this.cy && this.cy.edges('.has-latency').length > 0;
-
-        if (hasActiveLatency) {
-            this.latencyControls.classList.remove('hidden');
-        } else {
-            this.latencyControls.classList.add('hidden');
-        }
+        this.updateImpairmentControlsVisibility();
     }
 
     /**
@@ -897,4 +1069,5 @@ if (typeof window !== 'undefined') {
     window.TopologyManager = TopologyManager;
     window.LAYOUT_OPTIONS = LAYOUT_OPTIONS;
     window.DEVICE_TYPE_INFO = DEVICE_TYPE_INFO;
+    window.IMPAIRMENT_COLORS = IMPAIRMENT_COLORS;
 }
