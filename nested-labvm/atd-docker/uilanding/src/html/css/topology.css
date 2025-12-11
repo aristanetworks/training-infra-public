@@ -38,23 +38,6 @@
     height: auto;
 }
 
-/* CVP Info section - navy background with white text */
-#cvp_info {
-    display: block;
-    background-color: #071c35;
-    color: #ffffff;
-    padding: 12px 15px;
-    margin-top: 0;
-    font-size: 14px;
-}
-
-#cvp_info h3 {
-    color: #fbb500;
-    margin: 0 0 5px 0;
-    font-size: 14px;
-    font-weight: 600;
-}
-
 #interactive-topology.loading {
     display: flex;
     align-items: center;

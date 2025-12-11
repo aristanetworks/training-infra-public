@@ -263,8 +263,6 @@ function createWS(SOCK_URL) {
                 }
             }
             if ('cvp' in reg_data) {
-                // Build CVP info for legacy display
-                _cvp_info = "<h3>CVP " + reg_data['cvp']['version'] + " is currently " + reg_data['cvp']['status'] + "</h3>";
                 var tasksSummary = "No pending tasks in CVP.";
                 var tasksData = null;  // Raw tasks data for popup display
 
@@ -283,12 +281,6 @@ function createWS(SOCK_URL) {
                             }
                         }
                     }
-                }
-
-                // Update old display if it exists
-                var oldCvpInfo = document.getElementById("cvp_info");
-                if (oldCvpInfo) {
-                    oldCvpInfo.innerHTML = _cvp_info + tasksSummary;
                 }
 
                 // Update unified connectivity monitor with CVP status
