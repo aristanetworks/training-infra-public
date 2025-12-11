@@ -25,7 +25,7 @@ fi
 
 # Install google-cloud-logging package
 echo "Installing google-cloud-logging package..."
-pip3 install --upgrade google-cloud-logging 2>/dev/null || echo "Warning: Failed to install google-cloud-logging package"
+pip3 install --upgrade google-cloud-logging cvprac 2>/dev/null || echo "Warning: Failed to install google-cloud-logging package"
 
 # Run the Python script (which handles git, sync, and startup)
 python3 /usr/local/bin/atdUpdate.py
@@ -35,6 +35,7 @@ EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "ATD Update completed successfully"
+    # CVP device registration now runs via docker-compose (atd-cvp-device-registration container)
 else
     echo "ATD Update failed with exit code: $EXIT_CODE"
 fi
