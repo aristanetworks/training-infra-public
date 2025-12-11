@@ -494,6 +494,7 @@ def normalize_device_name(name):
     - Simple: leaf1 -> Leaf1, spine2 -> Spine2
     - With suffix: spine1-dc1 -> Spine1-DC1, leaf2-dc2 -> Leaf2-DC2
     - Compound: memleaf1 -> Memleaf1, borderleaf1 -> Borderleaf1
+    - Abbreviations: PE1 -> PE1, P3 -> P3 (preserve uppercase abbreviations)
     """
     import re
 
@@ -509,6 +510,10 @@ def normalize_device_name(name):
         if re.match(r'^[dD][cC]\d+$', part):
             # Uppercase the DC suffix
             result_parts.append(part.upper())
+        # Check if this part is an uppercase abbreviation followed by numbers (PE1, P3, CE1, etc.)
+        elif re.match(r'^[A-Z]+\d*$', part):
+            # Preserve uppercase abbreviations like PE1, P3, CE1
+            result_parts.append(part)
         else:
             # Capitalize first letter, keep rest of case
             # This turns 'leaf5' -> 'Leaf5', 'memleaf1' -> 'Memleaf1'

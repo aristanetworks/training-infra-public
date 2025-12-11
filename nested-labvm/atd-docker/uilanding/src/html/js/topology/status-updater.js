@@ -17,6 +17,53 @@ export class StatusUpdater {
         this.statusPollInterval = null;
         this.statusPollDelay = 30000; // 30 seconds
         this.isPolling = false;
+
+        // Build case-insensitive node lookup map (lowercase key -> actual node ID)
+        this.nodeLookupMap = this.buildNodeLookupMap();
+    }
+
+    /**
+     * Build a case-insensitive lookup map for node IDs
+     * Maps lowercase node ID to actual node ID in Cytoscape
+     */
+    buildNodeLookupMap() {
+        const map = {};
+        this.cy.nodes().forEach(node => {
+            const actualId = node.id();
+            map[actualId.toLowerCase()] = actualId;
+        });
+        return map;
+    }
+
+    /**
+     * Find node by ID using case-insensitive matching
+     * Returns { node, effectiveNodeId } or { node: empty, effectiveNodeId: null }
+     */
+    findNodeCaseInsensitive(nodeId) {
+        // Try exact match first
+        let node = this.cy.$id(nodeId);
+        if (!node.empty()) {
+            return { node, effectiveNodeId: nodeId };
+        }
+
+        // Use lookup map for case-insensitive match
+        const lookupKey = nodeId.toLowerCase();
+        const actualId = this.nodeLookupMap[lookupKey];
+        if (actualId) {
+            node = this.cy.$id(actualId);
+            if (!node.empty()) {
+                return { node, effectiveNodeId: actualId };
+            }
+        }
+
+        return { node: this.cy.$id('__nonexistent__'), effectiveNodeId: null };
+    }
+
+    /**
+     * Refresh the node lookup map (call if topology changes)
+     */
+    refreshNodeLookupMap() {
+        this.nodeLookupMap = this.buildNodeLookupMap();
     }
 
     /**
@@ -101,17 +148,21 @@ export class StatusUpdater {
         // Handle CVP status
         if (data.cvp) {
             const cvpStatus = data.cvp.status === 'UP' ? 'up' : 'down';
-            // If there's a CVP node, update its status
-            const cvpNode = this.cy.$id('CVP');
-            if (!cvpNode.empty()) {
-                this.updateNodeStatus('CVP', cvpStatus);
+            // If there's a CVP node, update its status (case-insensitive)
+            const { node: cvpNode, effectiveNodeId } = this.findNodeCaseInsensitive('CVP');
+            if (!cvpNode.empty() && effectiveNodeId) {
+                this.updateNodeStatus(effectiveNodeId, cvpStatus);
             }
         }
 
         // Handle per-device status if available
         if (data.devices) {
             Object.entries(data.devices).forEach(([nodeId, status]) => {
-                this.updateNodeStatus(nodeId, status.status || 'unknown');
+                // Use case-insensitive lookup
+                const { effectiveNodeId } = this.findNodeCaseInsensitive(nodeId);
+                if (effectiveNodeId) {
+                    this.updateNodeStatus(effectiveNodeId, status.status || 'unknown');
+                }
             });
         }
 
@@ -126,7 +177,7 @@ export class StatusUpdater {
     }
 
     /**
-     * Update a node's status
+     * Update a node's status (expects the correct/resolved node ID)
      */
     updateNodeStatus(nodeId, status) {
         const node = this.cy.$id(nodeId);
@@ -194,10 +245,10 @@ export class StatusUpdater {
     }
 
     /**
-     * Get current status for a node
+     * Get current status for a node (case-insensitive lookup)
      */
     getNodeStatus(nodeId) {
-        const node = this.cy.$id(nodeId);
+        const { node } = this.findNodeCaseInsensitive(nodeId);
         if (node.empty()) {
             return null;
         }
@@ -286,20 +337,10 @@ export class StatusUpdater {
                 let unmatchedDevices = [];
 
                 Object.entries(data.devices).forEach(([nodeId, deviceStatus]) => {
-                    // Try exact match first, then lowercase (handle case mismatches)
-                    let node = this.cy.$id(nodeId);
-                    let effectiveNodeId = nodeId;
+                    // Use case-insensitive lookup to handle any naming variations
+                    const { node, effectiveNodeId } = this.findNodeCaseInsensitive(nodeId);
 
-                    if (node.empty()) {
-                        // Try lowercase version (API returns 'Spine1', Cytoscape uses 'spine1')
-                        const lowercaseId = nodeId.toLowerCase();
-                        node = this.cy.$id(lowercaseId);
-                        if (!node.empty()) {
-                            effectiveNodeId = lowercaseId;
-                        }
-                    }
-
-                    if (node.empty()) {
+                    if (node.empty() || !effectiveNodeId) {
                         unmatchedDevices.push(nodeId);
                     } else {
                         matchedCount++;
@@ -346,7 +387,11 @@ export class StatusUpdater {
             }
 
             const data = await response.json();
-            this.updateNodeStatus(nodeId, data.status || 'unknown');
+            // Use case-insensitive lookup to find the correct node ID
+            const { effectiveNodeId } = this.findNodeCaseInsensitive(nodeId);
+            if (effectiveNodeId) {
+                this.updateNodeStatus(effectiveNodeId, data.status || 'unknown');
+            }
 
             return data;
         } catch (error) {
