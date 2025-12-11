@@ -52,6 +52,7 @@
     const CONNECTIVITY_MESSAGES = {
         all_ok: "All systems operational. WebSocket and CVP connections are healthy.",
         cvp_starting: "CVP is starting up. gRPC monitoring will begin once CVP is ready.",
+        cvp_tasks_failed: "CVP has failed tasks that need attention. Check CVP for details.",
         ws_warning: "WebSocket connection unstable. Live updates may be delayed.",
         ws_critical: "WebSocket disconnected. Attempting to reconnect. Real-time updates unavailable.",
         grpc_warning: "CVP gRPC connectivity issue detected. Some lab features may be limited.",
@@ -172,6 +173,19 @@
     }
 
     /**
+     * Check if there are failed CVP tasks
+     */
+    function hasFailedTasks() {
+        if (!cvpStatus.tasksData) return false;
+        for (var status in cvpStatus.tasksData) {
+            if (status.toLowerCase() === 'failed' && cvpStatus.tasksData[status] > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Determine overall health status based on connection states
      */
     function getHealthStatus() {
@@ -186,12 +200,22 @@
                             grpcConnectionStatus.connected ||
                             grpcConnectionStatus.failureCount < CONNECTIVITY_CONFIG.grpc.maxFailures;
 
+        // Check for failed CVP tasks
+        const hasCvpFailedTasks = hasFailedTasks();
+
         let level, message, detailMessage;
 
         if (wsHealthy && cvpUp && grpcHealthy) {
-            level = 'healthy';
-            message = 'All systems operational';
-            detailMessage = CONNECTIVITY_MESSAGES.all_ok;
+            // All connected - but check for failed tasks
+            if (hasCvpFailedTasks) {
+                level = 'warning';
+                message = 'CVP Tasks Failed';
+                detailMessage = CONNECTIVITY_MESSAGES.cvp_tasks_failed;
+            } else {
+                level = 'healthy';
+                message = 'All systems operational';
+                detailMessage = CONNECTIVITY_MESSAGES.all_ok;
+            }
         } else if (wsHealthy && !cvpUp) {
             level = 'warning';
             message = 'CVP starting...';
@@ -267,7 +291,9 @@
                 text.textContent = 'Connected';
             } else if (health.level === 'warning') {
                 // Show more specific text for warnings
-                if (cvpStatus.status !== 'UP') {
+                if (hasFailedTasks()) {
+                    text.textContent = 'CVP Tasks Failed';
+                } else if (cvpStatus.status !== 'UP') {
                     text.textContent = 'CVP Starting...';
                 } else if (!wsConnectionStatus.connected) {
                     text.textContent = 'Reconnecting...';
