@@ -2473,6 +2473,248 @@ class CaptureStopAPIHandler(BaseHandler):
         }))
 
 
+# Latency API Handlers (proxy to captureservice)
+
+class LatencyBridgesAPIHandler(BaseHandler):
+    """API endpoint to list bridges with latency status."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient
+            http_client = AsyncHTTPClient()
+
+            bridges = []
+            try:
+                response = await http_client.fetch(
+                    f"{self.CAPTURE_SERVICE_URL}/latency/bridges",
+                    request_timeout=5
+                )
+                data = json.loads(response.body.decode('utf-8'))
+                bridges = data.get('bridges', [])
+            except Exception as e:
+                pS(f"[LatencyBridges] Primary service failed: {e}, trying fallback...")
+                try:
+                    response = await http_client.fetch(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/bridges",
+                        request_timeout=5
+                    )
+                    data = json.loads(response.body.decode('utf-8'))
+                    bridges = data.get('bridges', [])
+                except Exception as e2:
+                    pS(f"[LatencyBridges] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({
+                        'error': 'Latency service unavailable',
+                        'bridges': []
+                    }))
+                    return
+
+            self.write(json.dumps({
+                'bridges': bridges,
+                'count': len(bridges)
+            }))
+
+        except Exception as e:
+            pS(f"[LatencyBridges] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class LatencyEnableAPIHandler(BaseHandler):
+    """API endpoint to enable latency on a bridge."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'Invalid JSON'}))
+            return
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            request_body = json.dumps(body)
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/latency/enable",
+                    method="POST",
+                    body=request_body,
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=10
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[LatencyEnable] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/enable",
+                        method="POST",
+                        body=request_body,
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=10
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[LatencyEnable] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Latency service unavailable'}))
+
+        except Exception as e:
+            pS(f"[LatencyEnable] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class LatencyDisableAPIHandler(BaseHandler):
+    """API endpoint to disable latency on a bridge."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write(json.dumps({'error': 'Invalid JSON'}))
+            return
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            request_body = json.dumps(body)
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/latency/disable",
+                    method="POST",
+                    body=request_body,
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=10
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[LatencyDisable] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable",
+                        method="POST",
+                        body=request_body,
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=10
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[LatencyDisable] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Latency service unavailable'}))
+
+        except Exception as e:
+            pS(f"[LatencyDisable] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
+class LatencyDisableAllAPIHandler(BaseHandler):
+    """API endpoint to disable latency on all bridges."""
+
+    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/latency/disable-all",
+                    method="POST",
+                    body="{}",
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[LatencyDisableAll] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable-all",
+                        method="POST",
+                        body="{}",
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[LatencyDisableAll] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Latency service unavailable'}))
+
+        except Exception as e:
+            pS(f"[LatencyDisableAll] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -2518,6 +2760,11 @@ if __name__ == "__main__":
         (r'/td-api/capture/status', CaptureStatusAPIHandler),
         (r'/td-api/capture/start', CaptureStartAPIHandler),
         (r'/td-api/capture/stop', CaptureStopAPIHandler),
+        # Latency injection endpoints
+        (r'/td-api/latency/bridges', LatencyBridgesAPIHandler),
+        (r'/td-api/latency/enable', LatencyEnableAPIHandler),
+        (r'/td-api/latency/disable', LatencyDisableAPIHandler),
+        (r'/td-api/latency/disable-all', LatencyDisableAllAPIHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))

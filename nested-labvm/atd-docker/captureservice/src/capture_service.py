@@ -1172,8 +1172,301 @@ class CaptureManager:
                 self._stop_session_unsafe(sid, "shutdown")
 
 
-# Global manager
+class LatencyManager:
+    """Manages link latency injection using Linux tc (traffic control)."""
+
+    # Latency constraints
+    MIN_DELAY_MS = 1
+    MAX_DELAY_MS = 10000
+    DEFAULT_RATE = "1000mbit"  # Rate limit for htb class
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Cache: {interface: delay_ms}
+        self._latency_state: Dict[str, int] = {}
+
+    def _validate_delay(self, delay_ms: int) -> Optional[str]:
+        """Validate delay value. Returns error message or None if valid."""
+        if not isinstance(delay_ms, int):
+            return "Delay must be an integer"
+        if delay_ms < self.MIN_DELAY_MS:
+            return f"Delay must be at least {self.MIN_DELAY_MS}ms"
+        if delay_ms > self.MAX_DELAY_MS:
+            return f"Delay must not exceed {self.MAX_DELAY_MS}ms"
+        return None
+
+    def _get_interface_for_bridge(self, bridge_name: str) -> Optional[str]:
+        """Get the first port/interface attached to an OVS bridge."""
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-ports", bridge_name],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                ports = result.stdout.strip().split('\n')
+                ports = [p.strip() for p in ports if p.strip()]
+                if ports:
+                    return ports[0]
+        except Exception as e:
+            print(f"[LatencyManager] Error getting bridge ports: {e}")
+        return None
+
+    def check_tc_exists(self, interface: str) -> bool:
+        """Check if tc qdisc (htb) is configured on interface."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return "htb" in result.stdout
+        except Exception as e:
+            print(f"[LatencyManager] Error checking tc on {interface}: {e}")
+            return False
+
+    def get_tc_delay(self, interface: str) -> Optional[int]:
+        """Get current netem delay in ms from interface. Returns None if not configured."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Parse "delay Xms" or "delay X.Xms" from netem output
+                match = re.search(r'delay\s+(\d+(?:\.\d+)?)(ms|s|us)', result.stdout)
+                if match:
+                    value = float(match.group(1))
+                    unit = match.group(2)
+                    if unit == 's':
+                        value *= 1000
+                    elif unit == 'us':
+                        value /= 1000
+                    return int(value)
+        except Exception as e:
+            print(f"[LatencyManager] Error getting tc delay on {interface}: {e}")
+        return None
+
+    def enable_latency(self, bridge_name: str, delay_ms: int) -> Dict:
+        """
+        Enable latency on a bridge's interface using tc netem.
+
+        Uses htb (Hierarchical Token Bucket) with netem for delay injection:
+        - Root qdisc: htb with default class
+        - Class: htb rate limit
+        - Leaf qdisc: netem delay
+        """
+        # Validate delay
+        error = self._validate_delay(delay_ms)
+        if error:
+            return {"error": error}
+
+        # Validate bridge name
+        if not bridge_name or not re.match(r'^[a-zA-Z0-9\-_]+$', bridge_name):
+            return {"error": "Invalid bridge name format"}
+
+        # Get interface for this bridge
+        interface = self._get_interface_for_bridge(bridge_name)
+        if not interface:
+            return {"error": f"No interface found for bridge '{bridge_name}'"}
+
+        with self._lock:
+            # Check if already configured
+            if self.check_tc_exists(interface):
+                # Remove existing config first
+                self._disable_tc_unsafe(interface)
+
+            try:
+                # Ensure interface is up
+                subprocess.run(
+                    ["ip", "link", "set", "dev", interface, "up"],
+                    capture_output=True,
+                    timeout=5
+                )
+
+                # Add htb root qdisc
+                result = subprocess.run(
+                    ["tc", "qdisc", "add", "dev", interface, "root", "handle", "1:", "htb", "default", "12"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode != 0:
+                    return {"error": f"Failed to add root qdisc: {result.stderr.strip()}"}
+
+                # Add htb class
+                result = subprocess.run(
+                    ["tc", "class", "add", "dev", interface, "parent", "1:1", "classid", "1:12",
+                     "htb", "rate", self.DEFAULT_RATE],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode != 0:
+                    # Cleanup on failure
+                    self._disable_tc_unsafe(interface)
+                    return {"error": f"Failed to add htb class: {result.stderr.strip()}"}
+
+                # Add netem qdisc with delay
+                result = subprocess.run(
+                    ["tc", "qdisc", "add", "dev", interface, "parent", "1:12", "handle", "10:",
+                     "netem", "delay", f"{delay_ms}ms"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode != 0:
+                    # Cleanup on failure
+                    self._disable_tc_unsafe(interface)
+                    return {"error": f"Failed to add netem delay: {result.stderr.strip()}"}
+
+                # Update state cache
+                self._latency_state[interface] = delay_ms
+
+                print(f"[LatencyManager] Enabled {delay_ms}ms latency on {interface} (bridge: {bridge_name})")
+
+                return {
+                    "status": "enabled",
+                    "bridge": bridge_name,
+                    "interface": interface,
+                    "delay_ms": delay_ms
+                }
+
+            except subprocess.TimeoutExpired:
+                return {"error": "tc command timed out"}
+            except FileNotFoundError:
+                return {"error": "tc command not found"}
+            except Exception as e:
+                return {"error": str(e)}
+
+    def _disable_tc_unsafe(self, interface: str) -> bool:
+        """Remove tc qdisc from interface. Caller must hold lock."""
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "del", "dev", interface, "root"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            # Remove from state cache
+            self._latency_state.pop(interface, None)
+            return result.returncode == 0
+        except Exception as e:
+            print(f"[LatencyManager] Error disabling tc on {interface}: {e}")
+            return False
+
+    def disable_latency(self, bridge_name: str) -> Dict:
+        """Disable latency on a bridge's interface."""
+        # Validate bridge name
+        if not bridge_name or not re.match(r'^[a-zA-Z0-9\-_]+$', bridge_name):
+            return {"error": "Invalid bridge name format"}
+
+        # Get interface for this bridge
+        interface = self._get_interface_for_bridge(bridge_name)
+        if not interface:
+            return {"error": f"No interface found for bridge '{bridge_name}'"}
+
+        with self._lock:
+            if not self.check_tc_exists(interface):
+                return {"status": "already_disabled", "bridge": bridge_name}
+
+            if self._disable_tc_unsafe(interface):
+                print(f"[LatencyManager] Disabled latency on {interface} (bridge: {bridge_name})")
+                return {"status": "disabled", "bridge": bridge_name}
+            else:
+                return {"error": f"Failed to disable latency on {interface}"}
+
+    def disable_all_latency(self) -> Dict:
+        """Remove latency from all interfaces with tc configured."""
+        disabled = []
+        errors = []
+
+        # Get all OVS bridges
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-br"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                return {"error": "Failed to list bridges"}
+
+            bridges = [b.strip() for b in result.stdout.strip().split('\n') if b.strip()]
+
+            with self._lock:
+                for bridge in bridges:
+                    interface = self._get_interface_for_bridge(bridge)
+                    if interface and self.check_tc_exists(interface):
+                        if self._disable_tc_unsafe(interface):
+                            disabled.append(interface)
+                            print(f"[LatencyManager] Disabled latency on {interface}")
+                        else:
+                            errors.append(interface)
+
+            return {
+                "status": "success",
+                "disabled_count": len(disabled),
+                "interfaces": disabled,
+                "errors": errors if errors else None
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_bridges_with_status(self) -> List[Dict]:
+        """Get list of bridges with their latency status."""
+        bridges = []
+
+        try:
+            result = subprocess.run(
+                ["ovs-vsctl", "list-br"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                return bridges
+
+            # Reuse CaptureManager's bridge parsing logic
+            capture_manager = get_manager()
+
+            for name in result.stdout.strip().split('\n'):
+                name = name.strip()
+                if not name:
+                    continue
+
+                # Parse bridge name to get device/port info
+                info = capture_manager._parse_bridge_name(name)
+                info['name'] = name
+
+                # Get interface for this bridge
+                interface = self._get_interface_for_bridge(name)
+                if interface:
+                    delay = self.get_tc_delay(interface)
+                    info['latency_enabled'] = delay is not None
+                    info['latency_delay_ms'] = delay
+                    info['interface'] = interface
+                else:
+                    info['latency_enabled'] = False
+                    info['latency_delay_ms'] = None
+                    info['interface'] = None
+
+                bridges.append(info)
+
+        except Exception as e:
+            print(f"[LatencyManager] Error getting bridges with status: {e}")
+
+        return bridges
+
+
+# Global managers
 _manager: Optional[CaptureManager] = None
+_latency_manager: Optional[LatencyManager] = None
 
 
 def get_manager() -> CaptureManager:
@@ -1181,6 +1474,13 @@ def get_manager() -> CaptureManager:
     if _manager is None:
         _manager = CaptureManager()
     return _manager
+
+
+def get_latency_manager() -> LatencyManager:
+    global _latency_manager
+    if _latency_manager is None:
+        _latency_manager = LatencyManager()
+    return _latency_manager
 
 
 # HTTP/WebSocket Handlers
@@ -1310,11 +1610,102 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
             get_manager().stop_capture(self.session_id, self.client_id)
 
 
+# Latency API Handlers
+
+class LatencyBridgesHandler(SecureHandler):
+    """List bridges with latency status."""
+    def get(self):
+        bridges = get_latency_manager().get_bridges_with_status()
+        self.write({"bridges": bridges})
+
+
+class LatencyEnableHandler(SecureHandler):
+    """Enable latency on a bridge."""
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON"})
+            return
+
+        bridge = body.get('bridge', '')
+        delay_ms = body.get('delay_ms')
+
+        if not bridge:
+            self.set_status(400)
+            self.write({"error": "Missing 'bridge' parameter"})
+            return
+
+        if delay_ms is None:
+            self.set_status(400)
+            self.write({"error": "Missing 'delay_ms' parameter"})
+            return
+
+        try:
+            delay_ms = int(delay_ms)
+        except (TypeError, ValueError):
+            self.set_status(400)
+            self.write({"error": "delay_ms must be an integer"})
+            return
+
+        result = get_latency_manager().enable_latency(bridge, delay_ms)
+
+        if 'error' in result:
+            self.set_status(400)
+            self.write(result)
+        else:
+            self.write(result)
+
+
+class LatencyDisableHandler(SecureHandler):
+    """Disable latency on a bridge."""
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON"})
+            return
+
+        bridge = body.get('bridge', '')
+
+        if not bridge:
+            self.set_status(400)
+            self.write({"error": "Missing 'bridge' parameter"})
+            return
+
+        result = get_latency_manager().disable_latency(bridge)
+
+        if 'error' in result:
+            self.set_status(400)
+            self.write(result)
+        else:
+            self.write(result)
+
+
+class LatencyDisableAllHandler(SecureHandler):
+    """Disable latency on all bridges."""
+    def post(self):
+        result = get_latency_manager().disable_all_latency()
+
+        if 'error' in result:
+            self.set_status(500)
+            self.write(result)
+        else:
+            self.write(result)
+
+
 def make_app():
     return tornado.web.Application([
         (r"/health", HealthHandler),
         (r"/bridges", BridgesHandler),
         (r"/ws", CaptureWebSocketHandler),
+        # Latency API endpoints
+        (r"/latency/bridges", LatencyBridgesHandler),
+        (r"/latency/enable", LatencyEnableHandler),
+        (r"/latency/disable", LatencyDisableHandler),
+        (r"/latency/disable-all", LatencyDisableAllHandler),
     ])
 
 

@@ -365,6 +365,18 @@ export function getCytoscapeStyles() {
                 'z-index': 998
             }
         },
+        // Latency indicator - yellow dashed line for links with latency injection
+        {
+            selector: 'edge.has-latency',
+            style: {
+                'line-color': '#fbb500',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
         {
             selector: 'node.faded',
             style: {

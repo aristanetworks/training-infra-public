@@ -75,7 +75,8 @@ export class TopologyManager {
             console.log('[TopologyManager] eos_type:', eosType);
             this.eventManager = new EventManager(this.cy, this.container, {
                 onOpenTerminal: this.options.onOpenTerminal,
-                eosType: eosType
+                eosType: eosType,
+                onLatencyChange: (bridgeName, delayMs, edge) => this.handleLatencyChange(bridgeName, delayMs, edge)
             });
 
             if (this.options.enableFilters) {
@@ -95,6 +96,11 @@ export class TopologyManager {
                     this.eventManager.capturePanel = this.capturePanel;
                 }
             }
+
+            // Load initial latency state (don't block on this, but do it early)
+            this.loadLatencyStatus().catch(err => {
+                console.warn('[TopologyManager] Failed to load initial latency status:', err);
+            });
 
             // Add help button
             this.createHelpButton();
@@ -518,6 +524,164 @@ export class TopologyManager {
     hideCapturePanel() {
         if (this.capturePanel) {
             this.capturePanel.hide();
+        }
+    }
+
+    /**
+     * Load latency status from API and update edge styles
+     */
+    async loadLatencyStatus() {
+        try {
+            const response = await fetch('/td-api/latency/bridges');
+            if (!response.ok) {
+                console.warn('[TopologyManager] Failed to fetch latency status');
+                return;
+            }
+
+            const data = await response.json();
+            const bridges = data.bridges || [];
+
+            // Update EventManager's latency state
+            if (this.eventManager) {
+                this.eventManager.updateLatencyState(bridges);
+            }
+
+            // Update edge styles for bridges with latency enabled
+            for (const bridge of bridges) {
+                if (bridge.latency_enabled && bridge.latency_delay_ms) {
+                    const edge = this.findEdgeForBridge(bridge);
+                    if (edge) {
+                        this.updateEdgeLatencyStyle(edge, bridge.latency_delay_ms);
+                    }
+                }
+            }
+
+            console.log('[TopologyManager] Loaded latency status for', bridges.length, 'bridges');
+
+        } catch (error) {
+            console.error('[TopologyManager] Error loading latency status:', error);
+        }
+    }
+
+    /**
+     * Handle latency change (called by EventManager)
+     */
+    handleLatencyChange(bridgeName, delayMs, edge) {
+        if (!this.cy || !edge) return;
+
+        if (delayMs) {
+            // Latency enabled
+            this.updateEdgeLatencyStyle(edge, delayMs);
+            console.log(`[TopologyManager] Updated edge style for ${bridgeName} with ${delayMs}ms latency`);
+        } else {
+            // Latency removed
+            this.clearEdgeLatencyStyle(edge);
+            console.log(`[TopologyManager] Cleared latency style for ${bridgeName}`);
+        }
+    }
+
+    /**
+     * Update edge styling to show latency is active
+     */
+    updateEdgeLatencyStyle(edge, delayMs) {
+        if (!edge) return;
+
+        // Add class for CSS styling
+        edge.addClass('has-latency');
+
+        // Store delay value in edge data for reference
+        edge.data('latency_ms', delayMs);
+    }
+
+    /**
+     * Clear latency styling from edge
+     */
+    clearEdgeLatencyStyle(edge) {
+        if (!edge) return;
+
+        edge.removeClass('has-latency');
+        edge.removeData('latency_ms');
+    }
+
+    /**
+     * Find Cytoscape edge that matches a bridge
+     */
+    findEdgeForBridge(bridge) {
+        if (!this.cy || !bridge) return null;
+
+        const srcDevice = (bridge.source_device_name || '').toLowerCase();
+        const tgtDevice = (bridge.target_device_name || '').toLowerCase();
+        const srcPort = (bridge.source_port_name || '').toLowerCase();
+        const tgtPort = (bridge.target_port_name || '').toLowerCase();
+
+        // Search all edges for a match
+        const edges = this.cy.edges();
+        for (let i = 0; i < edges.length; i++) {
+            const edge = edges[i];
+            const data = edge.data();
+
+            const edgeSrc = (data.source || '').toLowerCase();
+            const edgeTgt = (data.target || '').toLowerCase();
+            const edgeSrcPort = (data.source_port || '').toLowerCase();
+            const edgeTgtPort = (data.target_port || '').toLowerCase();
+
+            // Check both directions
+            const matchForward = (
+                edgeSrc === srcDevice &&
+                edgeTgt === tgtDevice &&
+                edgeSrcPort === srcPort &&
+                edgeTgtPort === tgtPort
+            );
+
+            const matchReverse = (
+                edgeSrc === tgtDevice &&
+                edgeTgt === srcDevice &&
+                edgeSrcPort === tgtPort &&
+                edgeTgtPort === srcPort
+            );
+
+            if (matchForward || matchReverse) {
+                return edge;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Remove all latency from all links
+     */
+    async removeAllLatency() {
+        try {
+            const response = await fetch('/td-api/latency/disable-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Failed to remove all latency');
+            }
+
+            // Clear all edge latency styles
+            if (this.cy) {
+                this.cy.edges('.has-latency').removeClass('has-latency');
+                this.cy.edges().removeData('latency_ms');
+            }
+
+            // Clear EventManager state
+            if (this.eventManager) {
+                this.eventManager.latencyState = {};
+            }
+
+            console.log('[TopologyManager] Removed all latency:', result);
+            return result;
+
+        } catch (error) {
+            console.error('[TopologyManager] Error removing all latency:', error);
+            throw error;
         }
     }
 

@@ -28,6 +28,13 @@ export class EventManager {
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
+        // Latency state: { bridgeName: { delay_ms: number, edge: cytoscape edge } }
+        this.latencyState = {};
+        // Latency change callback (for TopologyManager to update edge styles)
+        this.onLatencyChange = options.onLatencyChange || null;
+        // Latency dialog reference
+        this.latencyDialog = null;
+
         // Store bound handler reference for proper cleanup (prevents memory leak)
         this.boundKeyDownHandler = (evt) => this.handleKeyDown(evt);
         this.boundClickHandler = (evt) => this.handleDocumentClick(evt);
@@ -298,6 +305,11 @@ export class EventManager {
         // Build descriptive link label
         const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
 
+        // Check if this edge has latency applied
+        const edgeBridgeName = this.getEdgeBridgeName(edge);
+        const latencyInfo = edgeBridgeName ? this.latencyState[edgeBridgeName] : null;
+        const hasLatency = latencyInfo && latencyInfo.delay_ms;
+
         // Menu items for edge
         const menuItems = [
             {
@@ -315,6 +327,25 @@ export class EventManager {
                     this.showEdgeTooltip(evt);
                     this.hideContextMenu();
                 }
+            },
+            {
+                type: 'separator'
+            },
+            // Latency options
+            hasLatency ? {
+                label: `Remove Latency (${latencyInfo.delay_ms}ms)`,
+                action: () => {
+                    this.removeLatency(edge);
+                    this.hideContextMenu();
+                },
+                disabled: this.isCeosLab
+            } : {
+                label: this.isCeosLab ? 'Add Latency (vEOS only)' : 'Add Latency',
+                action: () => {
+                    this.showLatencyDialog(edge);
+                    this.hideContextMenu();
+                },
+                disabled: this.isCeosLab
             },
             {
                 type: 'separator'
@@ -417,6 +448,307 @@ export class EventManager {
         } else {
             console.warn('[EventManager] Capture panel not available');
             alert('Packet capture feature is not available on this page.\n\nPlease use the main topology diagram page.');
+        }
+    }
+
+    /**
+     * Get the bridge name for an edge based on device/port names
+     * Bridge naming convention: {prefix}{device#}{port#}-{prefix}{device#}{port#}
+     */
+    getEdgeBridgeName(edge) {
+        const data = edge.data();
+        // The bridge name is stored in edge data if available
+        if (data.bridge_name) {
+            return data.bridge_name;
+        }
+        // Otherwise construct from source/target (this may not exactly match bridge names)
+        // Return null to indicate we need to look up from the API
+        return null;
+    }
+
+    /**
+     * Show latency dialog for an edge
+     */
+    showLatencyDialog(edge) {
+        // Hide any existing dialog
+        this.hideLatencyDialog();
+
+        const data = edge.data();
+        const linkLabel = `${data.source}:${data.source_port} ↔ ${data.target}:${data.target_port}`;
+
+        // Create dialog overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'latency-dialog-overlay';
+        overlay.className = 'latency-dialog-overlay';
+
+        // Create dialog
+        const dialog = document.createElement('div');
+        dialog.className = 'latency-dialog';
+
+        dialog.innerHTML = `
+            <div class="latency-dialog-header">
+                <span class="latency-dialog-title">Add Latency</span>
+                <button class="latency-dialog-close" title="Close">&times;</button>
+            </div>
+            <div class="latency-dialog-body">
+                <div class="latency-dialog-link">${linkLabel}</div>
+                <div class="latency-dialog-input-group">
+                    <label for="latency-delay-input">Delay (milliseconds):</label>
+                    <input type="number"
+                           id="latency-delay-input"
+                           class="latency-delay-input"
+                           min="1"
+                           max="10000"
+                           value="100"
+                           placeholder="1-10000">
+                    <span class="latency-input-hint">Valid range: 1-10000ms</span>
+                </div>
+                <div class="latency-dialog-error" id="latency-dialog-error"></div>
+            </div>
+            <div class="latency-dialog-footer">
+                <button class="latency-dialog-btn cancel" id="latency-cancel-btn">Cancel</button>
+                <button class="latency-dialog-btn apply" id="latency-apply-btn">Apply</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        this.latencyDialog = overlay;
+
+        // Focus the input
+        const input = document.getElementById('latency-delay-input');
+        input.focus();
+        input.select();
+
+        // Event handlers
+        const closeBtn = dialog.querySelector('.latency-dialog-close');
+        const cancelBtn = document.getElementById('latency-cancel-btn');
+        const applyBtn = document.getElementById('latency-apply-btn');
+
+        closeBtn.addEventListener('click', () => this.hideLatencyDialog());
+        cancelBtn.addEventListener('click', () => this.hideLatencyDialog());
+
+        applyBtn.addEventListener('click', () => {
+            const delay = parseInt(input.value, 10);
+            this.applyLatency(edge, delay);
+        });
+
+        // Enter key to apply
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const delay = parseInt(input.value, 10);
+                this.applyLatency(edge, delay);
+            } else if (e.key === 'Escape') {
+                this.hideLatencyDialog();
+            }
+        });
+
+        // Click outside to close
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hideLatencyDialog();
+            }
+        });
+    }
+
+    /**
+     * Hide latency dialog
+     */
+    hideLatencyDialog() {
+        if (this.latencyDialog) {
+            this.latencyDialog.remove();
+            this.latencyDialog = null;
+        }
+        const existing = document.getElementById('latency-dialog-overlay');
+        if (existing) {
+            existing.remove();
+        }
+    }
+
+    /**
+     * Apply latency to an edge
+     */
+    async applyLatency(edge, delayMs) {
+        const errorEl = document.getElementById('latency-dialog-error');
+
+        // Validate input
+        if (isNaN(delayMs) || delayMs < 1 || delayMs > 10000) {
+            if (errorEl) {
+                errorEl.textContent = 'Please enter a valid delay between 1 and 10000ms';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        const data = edge.data();
+        const applyBtn = document.getElementById('latency-apply-btn');
+
+        // Disable button while processing
+        if (applyBtn) {
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Applying...';
+        }
+
+        try {
+            // First, we need to find the bridge name for this edge
+            // Fetch bridges and find matching one
+            const bridgesResponse = await fetch('/td-api/latency/bridges');
+            if (!bridgesResponse.ok) {
+                throw new Error('Failed to fetch bridges');
+            }
+            const bridgesData = await bridgesResponse.json();
+            const bridge = this.findMatchingBridge(data, bridgesData.bridges);
+
+            if (!bridge) {
+                throw new Error('No matching bridge found for this link');
+            }
+
+            // Apply latency
+            const response = await fetch('/td-api/latency/enable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bridge: bridge.name,
+                    delay_ms: delayMs
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Failed to apply latency');
+            }
+
+            // Update local state
+            this.latencyState[bridge.name] = {
+                delay_ms: delayMs,
+                edge: edge
+            };
+
+            // Notify callback (TopologyManager) to update edge styling
+            if (this.onLatencyChange) {
+                this.onLatencyChange(bridge.name, delayMs, edge);
+            }
+
+            // Close dialog
+            this.hideLatencyDialog();
+
+            console.log(`[EventManager] Applied ${delayMs}ms latency to ${bridge.name}`);
+
+        } catch (error) {
+            console.error('[EventManager] Error applying latency:', error);
+            if (errorEl) {
+                errorEl.textContent = error.message || 'Failed to apply latency';
+                errorEl.style.display = 'block';
+            }
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.textContent = 'Apply';
+            }
+        }
+    }
+
+    /**
+     * Remove latency from an edge
+     */
+    async removeLatency(edge) {
+        const data = edge.data();
+
+        try {
+            // Find the bridge name
+            const bridgesResponse = await fetch('/td-api/latency/bridges');
+            if (!bridgesResponse.ok) {
+                throw new Error('Failed to fetch bridges');
+            }
+            const bridgesData = await bridgesResponse.json();
+            const bridge = this.findMatchingBridge(data, bridgesData.bridges);
+
+            if (!bridge) {
+                throw new Error('No matching bridge found for this link');
+            }
+
+            // Remove latency
+            const response = await fetch('/td-api/latency/disable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bridge: bridge.name })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Failed to remove latency');
+            }
+
+            // Update local state
+            delete this.latencyState[bridge.name];
+
+            // Notify callback (TopologyManager) to update edge styling
+            if (this.onLatencyChange) {
+                this.onLatencyChange(bridge.name, null, edge);
+            }
+
+            console.log(`[EventManager] Removed latency from ${bridge.name}`);
+
+        } catch (error) {
+            console.error('[EventManager] Error removing latency:', error);
+            alert('Failed to remove latency: ' + (error.message || 'Unknown error'));
+        }
+    }
+
+    /**
+     * Find matching bridge for edge data
+     */
+    findMatchingBridge(edgeData, bridges) {
+        if (!edgeData || !bridges || !bridges.length) {
+            return null;
+        }
+
+        const srcLower = (edgeData.source || '').toLowerCase();
+        const tgtLower = (edgeData.target || '').toLowerCase();
+        const srcPortLower = (edgeData.source_port || '').toLowerCase();
+        const tgtPortLower = (edgeData.target_port || '').toLowerCase();
+
+        for (const bridge of bridges) {
+            const bSrcDevice = (bridge.source_device_name || '').toLowerCase();
+            const bTgtDevice = (bridge.target_device_name || '').toLowerCase();
+            const bSrcPort = (bridge.source_port_name || '').toLowerCase();
+            const bTgtPort = (bridge.target_port_name || '').toLowerCase();
+
+            // Check both directions
+            const matchForward = (
+                bSrcDevice === srcLower &&
+                bTgtDevice === tgtLower &&
+                bSrcPort === srcPortLower &&
+                bTgtPort === tgtPortLower
+            );
+
+            const matchReverse = (
+                bSrcDevice === tgtLower &&
+                bTgtDevice === srcLower &&
+                bSrcPort === tgtPortLower &&
+                bTgtPort === srcPortLower
+            );
+
+            if (matchForward || matchReverse) {
+                return bridge;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Update latency state from API data (called by TopologyManager on init)
+     */
+    updateLatencyState(bridges) {
+        for (const bridge of bridges) {
+            if (bridge.latency_enabled && bridge.latency_delay_ms) {
+                this.latencyState[bridge.name] = {
+                    delay_ms: bridge.latency_delay_ms,
+                    edge: null  // Edge reference will be set when we find it
+                };
+            }
         }
     }
 
@@ -1325,6 +1657,7 @@ export class EventManager {
         this.hideDetailsPanel();
         this.hideRunningConfigModal();
         this.hideFocusIndicator();
+        this.hideLatencyDialog();
 
         // Remove global listeners to prevent memory leak
         document.removeEventListener('keydown', this.boundKeyDownHandler);
