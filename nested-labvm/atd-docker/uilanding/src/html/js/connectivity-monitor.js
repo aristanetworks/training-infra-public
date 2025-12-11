@@ -31,7 +31,8 @@
     var cvpStatus = {
         version: null,
         status: null,      // 'UP', 'DOWN', or null
-        tasks: null,
+        tasks: null,       // Summary string for display
+        tasksData: null,   // Raw tasks object with counts by status
         lastUpdate: null
     };
 
@@ -298,7 +299,24 @@
         }
 
         if (cvpTasksText) {
-            if (cvpStatus.tasks && cvpStatus.tasks !== 'No pending tasks in CVP.') {
+            // Build tasks display with highlighting for failed tasks
+            if (cvpStatus.tasksData) {
+                var tasksHtml = '(';
+                var first = true;
+                for (var status in cvpStatus.tasksData) {
+                    if (!first) tasksHtml += ', ';
+                    first = false;
+                    var count = cvpStatus.tasksData[status];
+                    // Highlight Failed tasks in red
+                    if (status.toLowerCase() === 'failed') {
+                        tasksHtml += '<span class="task-failed">' + count + ' ' + status + '</span>';
+                    } else {
+                        tasksHtml += count + ' ' + status;
+                    }
+                }
+                tasksHtml += ' tasks)';
+                cvpTasksText.innerHTML = tasksHtml;
+            } else if (cvpStatus.tasks && cvpStatus.tasks !== 'No pending tasks in CVP.') {
                 cvpTasksText.textContent = '(' + cvpStatus.tasks + ')';
             } else {
                 cvpTasksText.textContent = '';
@@ -514,19 +532,25 @@
         /**
          * Update CVP status from WebSocket messages
          * Called from atd-ws.js when CVP status updates arrive
+         * @param {string} version - CVP version
+         * @param {string} status - CVP status ('UP', 'DOWN', etc.)
+         * @param {string} tasksInfo - Summary string of tasks
+         * @param {object} tasksData - Raw tasks object with counts by status (e.g., {Pending: 3, Failed: 1})
          */
-        updateCVPStatus: function(version, status, tasksInfo) {
+        updateCVPStatus: function(version, status, tasksInfo, tasksData) {
             var wasNotUp = cvpStatus.status !== 'UP';
 
             cvpStatus.version = version;
             cvpStatus.status = status;
             cvpStatus.tasks = tasksInfo;
+            cvpStatus.tasksData = tasksData || null;
             cvpStatus.lastUpdate = Date.now();
 
             logConnectivityEvent('CVP_STATUS_UPDATE', {
                 version: version,
                 status: status,
-                tasks: tasksInfo
+                tasks: tasksInfo,
+                tasksData: tasksData
             });
 
             // Start gRPC monitoring when CVP becomes UP for the first time

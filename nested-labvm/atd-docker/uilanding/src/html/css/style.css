@@ -644,6 +644,11 @@ label{
   margin-left: 5px;
 }
 
+.status-row-tasks .task-failed {
+  color: var(--red);
+  font-weight: 600;
+}
+
 .status-row-value {
   flex: 1;
   text-align: right;

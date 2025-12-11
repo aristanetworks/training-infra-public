@@ -3,7 +3,7 @@
 ATD Manager - Python implementation of atdStartup and atdUpdate shell scripts
 
 This module provides a clean, maintainable Python implementation of the ATD
-(Arista Test Drive) startup and update functionality.
+(Arista Training Labs) startup and update functionality.
 
 Classes:
     - ConfigManager: Handles YAML configuration file operations
