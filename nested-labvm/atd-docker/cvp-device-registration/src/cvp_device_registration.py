@@ -17,7 +17,7 @@ import yaml
 import socket
 import logging
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
 # Suppress gRPC fork warnings to reduce log noise
@@ -157,7 +157,7 @@ class CloudLoggingManager:
             payload = {
                 'message': message,
                 'hostname': self.hostname,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 **kwargs
             }
 
@@ -175,6 +175,9 @@ def reset_cvp_updater_container() -> bool:
     Reset the atd-cvpupdater container by clearing its state file and restarting it.
     This forces the container to re-sync with CVP after device re-registration.
 
+    Note: When running inside a Docker container, uses Docker socket mounted at
+    /var/run/docker.sock. No sudo required.
+
     Returns:
         bool: True if successful, False otherwise
     """
@@ -186,7 +189,7 @@ def reset_cvp_updater_container() -> bool:
         # Step 1: Remove the .cvpState.txt file inside the container
         print("   Removing CVP state file...")
         rm_cmd = [
-            "sudo", "docker", "exec", "atd-cvpupdater",
+            "docker", "exec", "atd-cvpupdater",
             "rm", "-f", "/home/arista/CVP_DATA/.cvpState.txt"
         ]
         result = subprocess.run(rm_cmd, capture_output=True, text=True, timeout=30)
@@ -205,7 +208,7 @@ def reset_cvp_updater_container() -> bool:
 
         # Step 2: Restart the container
         print("   Restarting atd-cvpupdater container...")
-        restart_cmd = ["sudo", "docker", "restart", "atd-cvpupdater"]
+        restart_cmd = ["docker", "restart", "atd-cvpupdater"]
         result = subprocess.run(restart_cmd, capture_output=True, text=True, timeout=60)
 
         if result.returncode != 0:
@@ -223,8 +226,8 @@ def reset_cvp_updater_container() -> bool:
         logger.error("Docker command timed out during cvpupdater reset")
         return False
     except FileNotFoundError:
-        print("   ✗ Docker command not found - are you running on the correct host?")
-        logger.error("Docker command not found")
+        print("   ✗ Docker command not found - is Docker socket mounted?")
+        logger.error("Docker command not found - ensure /var/run/docker.sock is mounted")
         return False
     except Exception as e:
         print(f"   ✗ Error resetting cvpupdater: {e}")

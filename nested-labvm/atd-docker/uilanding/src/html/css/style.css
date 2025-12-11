@@ -638,6 +638,12 @@ label{
   min-width: 70px;
 }
 
+.status-row-tasks {
+  color: #b8c5d6;
+  font-size: 11px;
+  margin-left: 5px;
+}
+
 .status-row-value {
   flex: 1;
   text-align: right;

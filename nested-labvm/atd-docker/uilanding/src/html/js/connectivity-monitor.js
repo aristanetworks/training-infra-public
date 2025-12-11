@@ -289,11 +289,20 @@
 
         // Update CVP row
         var cvpVersionText = document.getElementById('cvp-version-text');
+        var cvpTasksText = document.getElementById('cvp-tasks-text');
         var cvpStatusText = document.getElementById('cvp-status-text');
         var cvpStatusIcon = document.getElementById('cvp-status-row-icon');
 
         if (cvpVersionText) {
             cvpVersionText.textContent = cvpStatus.version || '--';
+        }
+
+        if (cvpTasksText) {
+            if (cvpStatus.tasks && cvpStatus.tasks !== 'No pending tasks in CVP.') {
+                cvpTasksText.textContent = '(' + cvpStatus.tasks + ')';
+            } else {
+                cvpTasksText.textContent = '';
+            }
         }
 
         if (cvpStatusText) {
