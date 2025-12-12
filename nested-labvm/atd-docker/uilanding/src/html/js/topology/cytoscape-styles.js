@@ -365,6 +365,86 @@ export function getCytoscapeStyles() {
                 'z-index': 998
             }
         },
+        // ==========================================
+        // Impairment Styles
+        // Colors: Latency=#fbb500, Loss=#e30909, Dup=#4c5cae, Corrupt=#ff8c00, Reorder=#9b59b6
+        // ==========================================
+
+        // Single impairment - solid color with dashed line
+        // Latency only (yellow)
+        {
+            selector: 'edge.has-latency',
+            style: {
+                'line-color': '#fbb500',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Packet Loss only (red)
+        {
+            selector: 'edge.has-loss',
+            style: {
+                'line-color': '#e30909',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Duplication only (blue)
+        {
+            selector: 'edge.has-duplication',
+            style: {
+                'line-color': '#4c5cae',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Corruption only (orange)
+        {
+            selector: 'edge.has-corruption',
+            style: {
+                'line-color': '#ff8c00',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Reorder only (purple)
+        {
+            selector: 'edge.has-reorder',
+            style: {
+                'line-color': '#9b59b6',
+                'line-style': 'dashed',
+                'line-dash-pattern': [8, 4],
+                'width': 3,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
+        // Multiple impairments - striped gradient
+        // Uses line-gradient with colors stored in edge data
+        {
+            selector: 'edge.has-impairments',
+            style: {
+                'line-fill': 'linear-gradient',
+                'line-gradient-stop-colors': 'data(gradientColors)',
+                'line-gradient-stop-positions': 'data(gradientPositions)',
+                'line-style': 'solid',
+                'width': 4,
+                'opacity': 1,
+                'z-index': 997
+            }
+        },
         {
             selector: 'node.faded',
             style: {

@@ -1291,3 +1291,578 @@
         font-size: 12px;
     }
 }
+
+/* ==========================================
+   Latency Dialog Styles
+   ========================================== */
+
+.latency-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(7, 28, 53, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.latency-dialog {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(7, 28, 53, 0.25);
+    min-width: 320px;
+    max-width: 400px;
+    animation: slideIn 0.15s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.latency-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #071c35;
+    border-radius: 8px 8px 0 0;
+}
+
+.latency-dialog-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.latency-dialog-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.latency-dialog-close:hover {
+    opacity: 1;
+}
+
+.latency-dialog-body {
+    padding: 20px;
+}
+
+.latency-dialog-link {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.latency-dialog-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.latency-dialog-input-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #071c35;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.latency-delay-input {
+    padding: 10px 12px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: border-color 0.15s;
+}
+
+.latency-delay-input:focus {
+    outline: none;
+    border-color: #fbb500;
+}
+
+.latency-input-hint {
+    font-size: 11px;
+    color: #888;
+}
+
+.latency-dialog-error {
+    display: none;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #fff0f0;
+    border: 1px solid #e30909;
+    border-radius: 4px;
+    color: #e30909;
+    font-size: 12px;
+}
+
+.latency-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+    border-radius: 0 0 8px 8px;
+}
+
+.latency-dialog-btn {
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.latency-dialog-btn.cancel {
+    background: #ffffff;
+    border: 1px solid #ddd;
+    color: #666;
+}
+
+.latency-dialog-btn.cancel:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+
+.latency-dialog-btn.apply {
+    background: #fbb500;
+    border: 1px solid #fbb500;
+    color: #071c35;
+}
+
+.latency-dialog-btn.apply:hover {
+    background: #e5a600;
+    border-color: #e5a600;
+}
+
+.latency-dialog-btn.apply:disabled {
+    background: #ddd;
+    border-color: #ddd;
+    color: #888;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   Latency Tooltip Section Styles
+   ========================================== */
+
+.tooltip-section.latency-section {
+    background: #fff8e5;
+    border-left: 3px solid #fbb500;
+    padding-left: 10px;
+    margin-bottom: 10px;
+}
+
+.tooltip-section.latency-section .section-title {
+    color: #b38000;
+}
+
+.tooltip-value.latency-value {
+    color: #b38000;
+    font-weight: 600;
+}
+
+/* ==========================================
+   Latency Controls (Clear All Button)
+   ========================================== */
+
+.latency-controls {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    z-index: 100;
+    transition: opacity 0.2s ease;
+}
+
+.latency-controls.hidden {
+    display: none;
+}
+
+.latency-clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #fbb500;
+    border: none;
+    border-radius: 4px;
+    color: #071c35;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.15s ease;
+}
+
+.latency-clear-btn:hover {
+    background: #e5a600;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+}
+
+.latency-clear-btn:active {
+    transform: translateY(1px);
+}
+
+.latency-clear-btn .latency-icon {
+    font-size: 14px;
+}
+
+/* ==========================================
+   Impairment Dialog Styles (Advanced Link Tools)
+   ========================================== */
+
+.impairment-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(7, 28, 53, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.impairment-dialog {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(7, 28, 53, 0.25);
+    min-width: 360px;
+    max-width: 440px;
+    animation: slideIn 0.15s ease-out;
+}
+
+.impairment-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #071c35;
+    border-radius: 8px 8px 0 0;
+}
+
+.impairment-dialog-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.impairment-dialog-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.impairment-dialog-close:hover {
+    opacity: 1;
+}
+
+.impairment-dialog-body {
+    padding: 20px;
+}
+
+.impairment-dialog-link {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-family: monospace;
+    text-align: center;
+}
+
+.impairment-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.impairment-row:last-of-type {
+    border-bottom: none;
+    margin-bottom: 8px;
+}
+
+.impairment-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #071c35;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Color dots for each impairment type */
+.impairment-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.impairment-color-dot.latency-dot {
+    background-color: #fbb500;
+}
+
+.impairment-color-dot.loss-dot {
+    background-color: #e30909;
+}
+
+.impairment-color-dot.dup-dot {
+    background-color: #4c5cae;
+}
+
+.impairment-color-dot.corrupt-dot {
+    background-color: #ff8c00;
+}
+
+.impairment-color-dot.reorder-dot {
+    background-color: #9b59b6;
+}
+
+.impairment-input {
+    width: 100px;
+    padding: 8px 10px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: border-color 0.15s;
+    text-align: center;
+}
+
+.impairment-input:focus {
+    outline: none;
+    border-color: #fbb500;
+}
+
+.impairment-select {
+    width: 100px;
+    padding: 8px 10px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: border-color 0.15s;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.impairment-select:focus {
+    outline: none;
+    border-color: #fbb500;
+}
+
+.impairment-dialog-error {
+    display: none;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #fff0f0;
+    border: 1px solid #e30909;
+    border-radius: 4px;
+    color: #e30909;
+    font-size: 12px;
+}
+
+.impairment-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+    border-radius: 0 0 8px 8px;
+}
+
+.impairment-dialog-btn {
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.impairment-dialog-btn.cancel {
+    background: #ffffff;
+    border: 1px solid #ddd;
+    color: #666;
+}
+
+.impairment-dialog-btn.cancel:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+
+.impairment-dialog-btn.apply {
+    background: #fbb500;
+    border: 1px solid #fbb500;
+    color: #071c35;
+}
+
+.impairment-dialog-btn.apply:hover {
+    background: #e5a600;
+    border-color: #e5a600;
+}
+
+.impairment-dialog-btn.apply:disabled {
+    background: #ddd;
+    border-color: #ddd;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.impairment-dialog-btn.clear {
+    background: transparent;
+    border: 1px solid #e30909;
+    color: #e30909;
+    margin-right: auto;  /* Push to left side */
+}
+
+.impairment-dialog-btn.clear:hover {
+    background: #e30909;
+    color: #ffffff;
+}
+
+.impairment-dialog-btn.clear:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   Impairment Controls (Clear All Button)
+   ========================================== */
+
+.impairment-controls {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    z-index: 100;
+    transition: opacity 0.2s ease;
+}
+
+.impairment-controls.hidden {
+    display: none;
+}
+
+.impairment-clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #fbb500;
+    border: none;
+    border-radius: 4px;
+    color: #071c35;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: "Proxima Nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.15s ease;
+}
+
+.impairment-clear-btn:hover {
+    background: #e5a600;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+}
+
+.impairment-clear-btn:active {
+    transform: translateY(1px);
+}
+
+/* ==========================================
+   Impairment Tooltip Section Styles
+   ========================================== */
+
+.tooltip-section.impairment-section {
+    background: #f8f8f8;
+    border-left: 3px solid #071c35;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.tooltip-section.impairment-section .section-title {
+    color: #071c35;
+    margin-bottom: 8px;
+}
+
+.tooltip-row.impairment-row {
+    padding: 3px 0;
+}
+
+.tooltip-label.latency-label { color: #b38000; }
+.tooltip-label.loss-label { color: #e30909; }
+.tooltip-label.dup-label { color: #4c5cae; }
+.tooltip-label.corrupt-label { color: #ff8c00; }
+.tooltip-label.reorder-label { color: #9b59b6; }
+
+.tooltip-value.impairment-value.latency { color: #b38000; font-weight: 600; }
+.tooltip-value.impairment-value.loss { color: #e30909; font-weight: 600; }
+.tooltip-value.impairment-value.dup { color: #4c5cae; font-weight: 600; }
+.tooltip-value.impairment-value.corrupt { color: #ff8c00; font-weight: 600; }
+.tooltip-value.impairment-value.reorder { color: #9b59b6; font-weight: 600; }
+
+/* ==========================================
+   Reorder Input Container (two inputs: delay + percent)
+   ========================================== */
+
+.reorder-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reorder-delay-input {
+    width: 90px;
+}
+
+.reorder-row .impairment-select {
+    width: 90px;
+}
