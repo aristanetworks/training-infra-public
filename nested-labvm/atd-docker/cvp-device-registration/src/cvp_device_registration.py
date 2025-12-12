@@ -381,6 +381,80 @@ class CVPDeviceManager:
 
         return False
 
+    def verify_cvp_services_ready(self, max_retries: int = 10, retry_interval: int = 15) -> bool:
+        """
+        Verify that CVP web services are fully ready, not just API connection.
+
+        This checks that inventory/container services are responding, which is
+        required before device registration operations.
+
+        Args:
+            max_retries: Maximum number of verification attempts
+            retry_interval: Seconds to wait between attempts
+
+        Returns:
+            bool: True if services are ready, False otherwise
+        """
+        print(f"\n🔍 Verifying CVP web services are ready...")
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Test 1: Get containers (inventory service)
+                containers = self.client.api.get_containers()
+
+                if not containers or 'data' not in containers:
+                    raise Exception("Container service returned empty or invalid response")
+
+                # Test 2: Get inventory (device service)
+                inventory = self.client.api.get_inventory()
+
+                # If we get here, services are ready
+                print(f"✓ CVP web services ready (inventory: {len(inventory)} devices, containers: {len(containers.get('data', []))})")
+
+                self.cloud_logging.log_structured(
+                    "CVP web services verified ready",
+                    severity='INFO',
+                    labels={'service': 'cvp-device-registration', 'event': 'services-ready'},
+                    attempt=attempt,
+                    device_count=len(inventory),
+                    container_count=len(containers.get('data', []))
+                )
+
+                return True
+
+            except Exception as e:
+                error_msg = str(e)
+
+                # Check for upstream connection errors (service not ready)
+                is_upstream_error = any(keyword in error_msg.lower() for keyword in [
+                    'upstream', 'service unavailable', 'connection failure',
+                    'reset before headers', 'disconnect/reset'
+                ])
+
+                if attempt < max_retries:
+                    if is_upstream_error:
+                        print(f"⏳ Attempt {attempt}/{max_retries}: CVP web services not ready yet")
+                        print(f"   Error: {error_msg[:100]}")
+                    else:
+                        print(f"⚠ Attempt {attempt}/{max_retries}: {error_msg[:100]}")
+
+                    print(f"   Waiting {retry_interval} seconds for CVP services to initialize...")
+                    time.sleep(retry_interval)
+                else:
+                    print(f"✗ CVP web services failed to become ready after {max_retries} attempts")
+                    print(f"   Last error: {error_msg}")
+
+                    self.cloud_logging.log_structured(
+                        f"CVP web services not ready after {max_retries} attempts",
+                        severity='ERROR',
+                        labels={'service': 'cvp-device-registration', 'event': 'services-not-ready'},
+                        error=error_msg,
+                        attempts=max_retries
+                    )
+                    return False
+
+        return False
+
     def get_undefined_container(self) -> bool:
         """
         Get the Undefined container key needed for device operations.
@@ -951,7 +1025,14 @@ Examples:
             print("\n✗ Failed to connect to CVP. Exiting.")
             sys.exit(1)
 
-    # Get Undefined container
+    # Verify CVP web services are fully ready (not just API connection)
+    # This prevents "upstream connect error" when CVP is still initializing
+    if not manager.verify_cvp_services_ready(max_retries=10, retry_interval=15):
+        print("\n✗ CVP web services not ready. This usually means CVP is still starting up.")
+        print("   Try restarting the container or waiting a few more minutes.")
+        sys.exit(1)
+    time.sleep(30)  # Short wait to ensure stability
+    # Get Undefined container (should work now that services are verified ready)
     if not manager.get_undefined_container():
         print("\n✗ Failed to get Undefined container. Exiting.")
         sys.exit(1)
