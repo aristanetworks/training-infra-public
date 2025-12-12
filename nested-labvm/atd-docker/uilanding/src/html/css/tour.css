@@ -11,8 +11,11 @@
   border-radius: 8px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
   font-family: 'proxima-nova', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  padding: 1rem !important;
+  padding: 1.25rem !important;
   overflow: visible !important;
+  min-width: 320px !important;
+  max-width: 420px !important;
+  box-sizing: border-box !important;
 }
 
 /* Dialog title */
@@ -29,7 +32,10 @@
 .tg-dialog-body {
   color: #ffffff !important;
   font-size: 0.95rem !important;
-  line-height: 1.5 !important;
+  line-height: 1.6 !important;
+  padding-bottom: 0.5rem !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 /* Step progress */
@@ -42,12 +48,15 @@
 .tg-dialog-footer {
   margin-top: 1rem !important;
   padding-top: 0.75rem !important;
-  padding-bottom: 0.5rem !important;
+  padding-bottom: 0 !important;
   border-top: 1px dashed rgba(251, 181, 0, 0.3) !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  gap: 0.5rem !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+  clear: both !important;
+  position: relative !important;
 }
 
 /* Navigation buttons */
@@ -56,10 +65,14 @@
   color: #fbb500 !important;
   border: 2px solid #fbb500 !important;
   border-radius: 4px !important;
-  padding: 0.5rem 1rem !important;
+  padding: 0.5rem 1.25rem !important;
   font-weight: 500 !important;
   cursor: pointer !important;
   transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+  min-width: 80px !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
 }
 
 .tg-dialog-btn:hover {
@@ -148,4 +161,36 @@ body.tour-active .site-sidebar a {
 
 .tour-button:hover {
   color: #fbb500 !important;
+}
+
+/* Responsive styles for smaller screens */
+@media screen and (max-width: 480px) {
+  .tg-dialog {
+    min-width: 280px !important;
+    max-width: 95vw !important;
+    padding: 1rem !important;
+  }
+
+  .tg-dialog-title {
+    font-size: 1.1rem !important;
+  }
+
+  .tg-dialog-body {
+    font-size: 0.9rem !important;
+  }
+
+  .tg-dialog-btn {
+    padding: 0.4rem 0.75rem !important;
+    min-width: 70px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .tg-dialog-footer {
+    gap: 0.5rem !important;
+  }
+}
+
+/* Ensure dialog stays in viewport during resize */
+.tg-dialog {
+  transform-origin: center center !important;
 }

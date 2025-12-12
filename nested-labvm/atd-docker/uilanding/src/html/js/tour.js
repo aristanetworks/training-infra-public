@@ -6,6 +6,20 @@
 const ATLTour = {
   tg: null,
   STORAGE_KEY: 'atl-tour-completed',
+  _resizeHandler: null,
+  _visibilityHandler: null,
+  _orientationHandler: null,
+
+  /**
+   * Debounce utility for resize events
+   */
+  _debounce(func, wait) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  },
 
   /**
    * Define tour steps
@@ -148,6 +162,8 @@ const ATLTour = {
       backdropAnimate: true,
       targetPadding: 15,
       dialogZ: 100002,
+      dialogMaxWidth: 420,
+      dialogAnimate: true,
       nextLabel: 'Next',
       prevLabel: 'Back',
       finishLabel: 'Finish',
@@ -158,6 +174,40 @@ const ATLTour = {
       autoScrollOffset: 50,
       propagateEvents: true
     });
+
+    // Handle window resize to refresh tour positions
+    this._resizeHandler = this._debounce(() => {
+      if (this.tg && this.tg.isVisible) {
+        this.tg.refresh();
+      }
+    }, 150);
+    window.addEventListener('resize', this._resizeHandler);
+
+    // Handle visibility change (tab switching)
+    this._visibilityHandler = () => {
+      if (!document.hidden && this.tg && this.tg.isVisible) {
+        // Short delay to let DOM settle after visibility change
+        setTimeout(() => {
+          if (this.tg && this.tg.isVisible) {
+            this.tg.refresh();
+          }
+        }, 100);
+      }
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
+
+    // Handle orientation change (mobile devices)
+    this._orientationHandler = this._debounce(() => {
+      if (this.tg && this.tg.isVisible) {
+        // Longer delay for orientation change to allow layout to settle
+        setTimeout(() => {
+          if (this.tg && this.tg.isVisible) {
+            this.tg.refresh();
+          }
+        }, 300);
+      }
+    }, 100);
+    window.addEventListener('orientationchange', this._orientationHandler);
 
     // Listen for tour finish
     this.tg.onFinish(() => {
@@ -211,6 +261,31 @@ const ATLTour = {
   reset() {
     localStorage.removeItem(this.STORAGE_KEY);
     console.log('[ATLTour] Tour reset - will show on next page load');
+  },
+
+  /**
+   * Force refresh tour positions (useful after layout changes)
+   */
+  refresh() {
+    if (this.tg && this.tg.isVisible) {
+      this.tg.refresh();
+      console.log('[ATLTour] Positions refreshed');
+    }
+  },
+
+  /**
+   * Cleanup event listeners
+   */
+  cleanup() {
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler);
+    }
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+    }
+    if (this._orientationHandler) {
+      window.removeEventListener('orientationchange', this._orientationHandler);
+    }
   },
 
   /**
