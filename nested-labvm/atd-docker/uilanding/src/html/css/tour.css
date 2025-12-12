@@ -51,7 +51,7 @@
   padding-bottom: 0 !important;
   border-top: 1px dashed rgba(251, 181, 0, 0.3) !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: column-reverse !important;
   align-items: stretch !important;
   gap: 0.5rem !important;
   clear: both !important;
@@ -77,22 +77,14 @@
   color: #071c35 !important;
 }
 
-/* Primary button (Next/Finish) - appears first (top) */
-.tg-dialog-btn-next,
-.tg-dialog-btn-finish {
+/* Primary button (Next/Finish) - styled prominently */
+.tg-dialog-footer .tg-dialog-btn:last-child {
   background-color: #fbb500 !important;
   color: #071c35 !important;
-  order: -1 !important;
 }
 
-.tg-dialog-btn-next:hover,
-.tg-dialog-btn-finish:hover {
+.tg-dialog-footer .tg-dialog-btn:last-child:hover {
   background-color: #d49b00 !important;
-}
-
-/* Back button appears last (bottom) */
-.tg-dialog-btn-prev {
-  order: 1 !important;
 }
 
 /* Close button (X) - aggressive selectors to override library defaults */

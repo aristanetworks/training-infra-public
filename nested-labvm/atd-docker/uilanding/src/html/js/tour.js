@@ -156,6 +156,7 @@ const ATLTour = {
     }
 
     // Create TourGuide instance
+    // Disable autoScroll - we handle scrolling manually to fix timing issues
     this.tg = new tourguide.TourGuideClient({
       steps: steps,
       backdropColor: 'rgba(7, 28, 53, 0.85)',
@@ -170,7 +171,7 @@ const ATLTour = {
       showStepProgress: true,
       exitOnEscape: true,
       exitOnClickOutside: false,
-      autoScroll: true,
+      autoScroll: false,
       autoScrollOffset: 50,
       propagateEvents: true
     });
@@ -217,14 +218,35 @@ const ATLTour = {
     }, 100);
     window.addEventListener('orientationchange', this._orientationHandler);
 
-    // Refresh positions when step changes (handles dynamic elements like topology)
+    // Handle step changes - manually scroll and refresh positions
     this.tg.onAfterStepChange(() => {
-      // Short delay to let any animations complete
-      setTimeout(() => {
-        if (this.tg && this.tg.isVisible) {
-          this.tg.refresh();
+      // Get current step's target element
+      const currentStep = this.tg.tourSteps[this.tg.activeStep];
+      if (currentStep && currentStep.target) {
+        const targetEl = document.querySelector(currentStep.target);
+        if (targetEl) {
+          // Scroll the target into view with smooth behavior
+          targetEl.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          });
+
+          // Wait for scroll to complete, then refresh positions
+          // Use multiple refreshes to ensure accuracy after scroll settles
+          setTimeout(() => {
+            if (this.tg && this.tg.isVisible) {
+              this.tg.refresh();
+            }
+          }, 400);
+
+          setTimeout(() => {
+            if (this.tg && this.tg.isVisible) {
+              this.tg.refresh();
+            }
+          }, 700);
         }
-      }, 100);
+      }
     });
 
     // Listen for tour finish
@@ -254,6 +276,24 @@ const ATLTour = {
     if (this.tg) {
       document.body.classList.add('tour-active');
       this.tg.start();
+
+      // Scroll first step into view and refresh
+      const firstStep = this.tg.tourSteps[0];
+      if (firstStep && firstStep.target) {
+        const targetEl = document.querySelector(firstStep.target);
+        if (targetEl) {
+          targetEl.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          });
+          setTimeout(() => {
+            if (this.tg && this.tg.isVisible) {
+              this.tg.refresh();
+            }
+          }, 400);
+        }
+      }
     } else {
       console.error('[ATLTour] Tour not initialized');
     }
