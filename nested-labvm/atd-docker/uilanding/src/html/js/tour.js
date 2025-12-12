@@ -176,11 +176,19 @@ const ATLTour = {
     });
 
     // Handle window resize to refresh tour positions
+    // Use longer delay to allow layout (especially Cytoscape topology) to settle
     this._resizeHandler = this._debounce(() => {
       if (this.tg && this.tg.isVisible) {
+        // First refresh immediately
         this.tg.refresh();
+        // Then refresh again after layout has fully settled
+        setTimeout(() => {
+          if (this.tg && this.tg.isVisible) {
+            this.tg.refresh();
+          }
+        }, 300);
       }
-    }, 150);
+    }, 250);
     window.addEventListener('resize', this._resizeHandler);
 
     // Handle visibility change (tab switching)
@@ -208,6 +216,16 @@ const ATLTour = {
       }
     }, 100);
     window.addEventListener('orientationchange', this._orientationHandler);
+
+    // Refresh positions when step changes (handles dynamic elements like topology)
+    this.tg.onAfterStepChange(() => {
+      // Short delay to let any animations complete
+      setTimeout(() => {
+        if (this.tg && this.tg.isVisible) {
+          this.tg.refresh();
+        }
+      }, 100);
+    });
 
     // Listen for tour finish
     this.tg.onFinish(() => {

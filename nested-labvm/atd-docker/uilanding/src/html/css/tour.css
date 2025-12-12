@@ -44,17 +44,16 @@
   font-size: 0.8rem !important;
 }
 
-/* Footer / buttons container */
+/* Footer / buttons container - vertical layout with Next on top */
 .tg-dialog-footer {
   margin-top: 1rem !important;
   padding-top: 0.75rem !important;
   padding-bottom: 0 !important;
   border-top: 1px dashed rgba(251, 181, 0, 0.3) !important;
   display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  gap: 0.75rem !important;
-  flex-wrap: wrap !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
   clear: both !important;
   position: relative !important;
 }
@@ -65,14 +64,12 @@
   color: #fbb500 !important;
   border: 2px solid #fbb500 !important;
   border-radius: 4px !important;
-  padding: 0.5rem 1.25rem !important;
+  padding: 0.6rem 1.25rem !important;
   font-weight: 500 !important;
   cursor: pointer !important;
   transition: all 0.2s ease !important;
-  white-space: nowrap !important;
-  min-width: 80px !important;
   text-align: center !important;
-  flex-shrink: 0 !important;
+  width: 100% !important;
 }
 
 .tg-dialog-btn:hover {
@@ -80,11 +77,12 @@
   color: #071c35 !important;
 }
 
-/* Primary button (Next/Finish) */
+/* Primary button (Next/Finish) - appears first (top) */
 .tg-dialog-btn-next,
 .tg-dialog-btn-finish {
   background-color: #fbb500 !important;
   color: #071c35 !important;
+  order: -1 !important;
 }
 
 .tg-dialog-btn-next:hover,
@@ -92,24 +90,41 @@
   background-color: #d49b00 !important;
 }
 
-/* Close button (X) */
+/* Back button appears last (bottom) */
+.tg-dialog-btn-prev {
+  order: 1 !important;
+}
+
+/* Close button (X) - aggressive selectors to override library defaults */
 .tg-dialog-close-btn,
 .tg-dialog button[class*="close"],
 .tg-dialog .tg-close,
-.tg-dialog-header button {
+.tg-dialog-header button,
+.tg-dialog [class*="close"],
+.tg-dialog button:not(.tg-dialog-btn),
+[data-tg-tour] button[class*="close"],
+.tg-dialog svg,
+.tg-dialog button svg,
+.tg-dialog button path {
   color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
   background: transparent !important;
   border: none !important;
   font-size: 1.5rem !important;
-  opacity: 0.7 !important;
+  opacity: 0.8 !important;
   cursor: pointer !important;
 }
 
 .tg-dialog-close-btn:hover,
 .tg-dialog button[class*="close"]:hover,
 .tg-dialog .tg-close:hover,
-.tg-dialog-header button:hover {
+.tg-dialog-header button:hover,
+.tg-dialog [class*="close"]:hover,
+.tg-dialog button:not(.tg-dialog-btn):hover {
   color: #fbb500 !important;
+  fill: #fbb500 !important;
+  stroke: #fbb500 !important;
   opacity: 1 !important;
 }
 
@@ -180,13 +195,12 @@ body.tour-active .site-sidebar a {
   }
 
   .tg-dialog-btn {
-    padding: 0.4rem 0.75rem !important;
-    min-width: 70px !important;
+    padding: 0.5rem 0.75rem !important;
     font-size: 0.85rem !important;
   }
 
   .tg-dialog-footer {
-    gap: 0.5rem !important;
+    gap: 0.4rem !important;
   }
 }
 
