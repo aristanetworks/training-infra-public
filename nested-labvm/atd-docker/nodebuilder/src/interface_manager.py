@@ -8,6 +8,7 @@ Handles:
 - Attaching interfaces to VMs
 """
 
+import os
 import re
 import subprocess
 from typing import Dict, List, Optional, Tuple
