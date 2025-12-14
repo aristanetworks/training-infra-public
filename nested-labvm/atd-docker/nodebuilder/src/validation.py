@@ -14,12 +14,12 @@ from typing import Dict, List, Optional, Set, Tuple
 from ruamel.yaml import YAML
 
 
-def parse_dnsmasq_config(path: str = '/etc/dnsmasq.d/atd.conf') -> List[Dict]:
+def parse_dnsmasq_config(path: str = '/etc/NetworkManager/dnsmasq.d/atd.conf') -> List[Dict]:
     """
     Parse dnsmasq DHCP host entries.
 
-    Format: dhcp-host=MAC  IP  HOSTNAME (whitespace-separated after =)
-    Example: dhcp-host=00:1c:73:b1:c6:01	192.168.0.11	eos2
+    Format: dhcp-host=MAC,IP,HOSTNAME (comma-separated)
+    Example: dhcp-host=00:1c:73:18:c6:01,192.168.0.78,eos69
 
     Args:
         path: Path to dnsmasq config file
@@ -33,13 +33,13 @@ def parse_dnsmasq_config(path: str = '/etc/dnsmasq.d/atd.conf') -> List[Dict]:
             for line in f:
                 line = line.strip()
                 if line.startswith('dhcp-host='):
-                    # Remove prefix and split on whitespace
+                    # Remove prefix and split on comma
                     content = line.replace('dhcp-host=', '')
-                    parts = content.split()
+                    parts = content.split(',')
                     if len(parts) >= 2:
-                        mac = parts[0]
-                        ip = parts[1]
-                        hostname = parts[2] if len(parts) > 2 else ''
+                        mac = parts[0].strip()
+                        ip = parts[1].strip()
+                        hostname = parts[2].strip() if len(parts) > 2 else ''
                         entries.append({
                             'mac': mac,
                             'ip': ip,
