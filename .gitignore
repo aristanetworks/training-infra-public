@@ -2,3 +2,5 @@
 .vscode
 .history
 atd-public.code-workspace
+__pycache__/
+*.pyc
