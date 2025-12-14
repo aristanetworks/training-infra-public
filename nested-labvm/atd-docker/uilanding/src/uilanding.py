@@ -2972,6 +2972,54 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
     CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
     CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
+    async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        try:
+            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+            http_client = AsyncHTTPClient()
+
+            try:
+                request = HTTPRequest(
+                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear-all",
+                    method="POST",
+                    body="{}",
+                    headers={"Content-Type": "application/json"},
+                    request_timeout=30
+                )
+                response = await http_client.fetch(request)
+                data = json.loads(response.body.decode('utf-8'))
+                self.write(json.dumps(data))
+            except Exception as e:
+                pS(f"[ImpairmentsClearAll] Primary service failed: {e}, trying fallback...")
+                try:
+                    request = HTTPRequest(
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
+                        method="POST",
+                        body="{}",
+                        headers={"Content-Type": "application/json"},
+                        request_timeout=30
+                    )
+                    response = await http_client.fetch(request)
+                    data = json.loads(response.body.decode('utf-8'))
+                    self.write(json.dumps(data))
+                except Exception as e2:
+                    pS(f"[ImpairmentsClearAll] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
+
+        except Exception as e:
+            pS(f"[ImpairmentsClearAll] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
 
 # ===============================
 # Nodebuilder Proxy Handlers
@@ -3061,54 +3109,6 @@ class NodeBuilderProxyHandler(BaseHandler):
                     }))
         except Exception as e:
             pS(f"[NodeBuilderProxy] Error: {e}")
-            traceback.print_exc()
-            self.set_status(500)
-            self.write(json.dumps({'error': str(e)}))
-
-    async def post(self):
-        if not self.current_user:
-            self.set_status(401)
-            self.write(json.dumps({'error': 'Authentication required'}))
-            return
-
-        self.set_header("Content-Type", "application/json")
-        self.set_header("Access-Control-Allow-Origin", "*")
-
-        try:
-            from tornado.httpclient import AsyncHTTPClient, HTTPRequest
-            http_client = AsyncHTTPClient()
-
-            try:
-                request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear-all",
-                    method="POST",
-                    body="{}",
-                    headers={"Content-Type": "application/json"},
-                    request_timeout=30
-                )
-                response = await http_client.fetch(request)
-                data = json.loads(response.body.decode('utf-8'))
-                self.write(json.dumps(data))
-            except Exception as e:
-                pS(f"[ImpairmentsClearAll] Primary service failed: {e}, trying fallback...")
-                try:
-                    request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
-                        method="POST",
-                        body="{}",
-                        headers={"Content-Type": "application/json"},
-                        request_timeout=30
-                    )
-                    response = await http_client.fetch(request)
-                    data = json.loads(response.body.decode('utf-8'))
-                    self.write(json.dumps(data))
-                except Exception as e2:
-                    pS(f"[ImpairmentsClearAll] Fallback also failed: {e2}")
-                    self.set_status(503)
-                    self.write(json.dumps({'error': 'Impairments service unavailable'}))
-
-        except Exception as e:
-            pS(f"[ImpairmentsClearAll] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
