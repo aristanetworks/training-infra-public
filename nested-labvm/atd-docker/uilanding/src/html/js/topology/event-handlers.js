@@ -83,6 +83,13 @@ export class EventManager {
             }
         });
 
+        // Background right-click - show add node menu (KVM labs only)
+        this.cy.on('cxttap', (evt) => {
+            if (evt.target === this.cy) {
+                this.showBackgroundContextMenu(evt);
+            }
+        });
+
         // Prevent browser context menu on the topology container
         this.container.addEventListener('contextmenu', (evt) => {
             evt.preventDefault();
@@ -289,6 +296,86 @@ export class EventManager {
         if (existing) {
             existing.remove();
         }
+    }
+
+    /**
+     * Show context menu when right-clicking on empty canvas background
+     * Provides options like "Add New Node" (KVM only), "Fit to View", etc.
+     */
+    showBackgroundContextMenu(evt) {
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Menu items for background
+        const menuItems = [
+            {
+                label: this.isCeosLab ? 'Add New Node (vEOS only)' : 'Add New Node',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addNodeWizard) {
+                        window.addNodeWizard.show();
+                    } else {
+                        console.error('AddNodeWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Fit to View',
+                action: () => {
+                    this.hideContextMenu();
+                    this.cy.fit(50);
+                }
+            },
+            {
+                label: 'Reset Zoom',
+                action: () => {
+                    this.hideContextMenu();
+                    this.cy.zoom(1);
+                    this.cy.center();
+                }
+            }
+        ];
+
+        // Build menu HTML using same pattern as showContextMenu
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const separator = document.createElement('div');
+                separator.className = 'context-menu-separator';
+                menu.appendChild(separator);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                menuItem.textContent = item.label;
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', item.action);
+                }
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Position the menu at click location
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if menu would go off screen
+        this.adjustMenuPosition(menu);
     }
 
     /**

@@ -128,6 +128,16 @@ export class TopologyManager {
                 this.statusUpdater.startStatusPolling();
             }
 
+            // Initialize AddNodeWizard for dynamic node addition (KVM labs only)
+            if (typeof window.AddNodeWizard !== 'undefined') {
+                window.addNodeWizard = new window.AddNodeWizard(this);
+                console.log('[TopologyManager] AddNodeWizard initialized');
+
+                // Check if there are user nodes that need restoration (after reboot)
+                // This shows a notification banner if user-added VMs are not running
+                window.addNodeWizard.showRestoreNotificationIfNeeded();
+            }
+
             this.isInitialized = true;
             this.hideLoading();
 
@@ -1049,6 +1059,63 @@ export class TopologyManager {
      */
     updateLatencyControlsVisibility() {
         this.updateImpairmentControlsVisibility();
+    }
+
+    /**
+     * Refresh topology data from server and update the diagram
+     * Called after adding new nodes to update the display
+     */
+    async refreshTopology() {
+        console.log('[TopologyManager] Refreshing topology...');
+        try {
+            // Clear topology cache by adding timestamp
+            const newData = await this.fetchTopology();
+
+            if (!newData || !newData.nodes) {
+                console.warn('[TopologyManager] Refresh returned invalid data');
+                return;
+            }
+
+            // Find nodes that don't exist in current graph
+            const existingNodeIds = new Set(this.cy.nodes().map(n => n.id()));
+            const existingEdgeIds = new Set(this.cy.edges().map(e => e.id()));
+
+            const newNodes = newData.nodes.filter(n => !existingNodeIds.has(n.data.id));
+            const newEdges = newData.edges.filter(e => !existingEdgeIds.has(e.data.id));
+
+            if (newNodes.length > 0 || newEdges.length > 0) {
+                console.log(`[TopologyManager] Adding ${newNodes.length} new nodes and ${newEdges.length} new edges`);
+
+                // Add new elements to the graph
+                this.cy.add([...newNodes, ...newEdges]);
+
+                // Re-run layout to position new nodes
+                // Use preset layout to respect server-calculated positions
+                this.cy.layout({
+                    name: 'preset',
+                    fit: true,
+                    padding: 50
+                }).run();
+
+                // Update stored topology data
+                this.topologyData = newData;
+
+                // Store new node positions for reset
+                newNodes.forEach(node => {
+                    if (node.position) {
+                        this.originalPositions[node.data.id] = { ...node.position };
+                    }
+                });
+            } else {
+                console.log('[TopologyManager] No new nodes or edges to add');
+            }
+
+            return newData;
+
+        } catch (error) {
+            console.error('[TopologyManager] Failed to refresh topology:', error);
+            throw error;
+        }
     }
 
     /**

@@ -271,6 +271,32 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - cvpupdater
+  nodebuilder:
+    container_name: atd-nodebuilder
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.0
+    restart: always
+    # Host network mode required to access libvirt socket and OVS bridges on host
+    network_mode: host
+    # Privileged mode required for VM creation and interface management
+    privileged: true
+    environment:
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      # Required for OVS bridge management
+      - NET_ADMIN
+    volumes:
+      # Persistence for user-added nodes
+      - /etc/atd:/etc/atd:rw
+      # Topology files (read-only)
+      - /opt/atd:/opt/atd:ro
+      # libvirt socket for virsh commands
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
+      # VM disk images
+      - /var/lib/libvirt/images:/var/lib/libvirt/images:rw
+      # OVS socket for bridge management
+      - /var/run/openvswitch:/var/run/openvswitch:rw
+      # dnsmasq config for IP/MAC lookup
+      - /etc/dnsmasq.d:/etc/dnsmasq.d:ro
 networks:
   atd_nginx:
 volumes:

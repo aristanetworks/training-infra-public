@@ -161,19 +161,33 @@ class ExamAuthenticationHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 class LoginHandler(BaseHandler):
+    def _validate_credentials(self, username: str, password: str) -> bool:
+        """
+        Validate username and password using constant-time comparison.
+
+        Security: Uses secrets.compare_digest to prevent timing attacks.
+        Always computes both hashes regardless of username validity.
+        """
+        tmp_username_hash = hashlib.sha512((username + salt).encode('utf-8')).hexdigest()
+        tmp_pwd_hash = hashlib.sha512((password + salt).encode('utf-8')).hexdigest()
+
+        # Get stored password hash, or use a dummy value if username not found
+        # This ensures constant-time behavior regardless of username validity
+        stored_pwd_hash = accounts.get(tmp_username_hash, 'invalid_user_dummy_hash')
+
+        # Use constant-time comparison to prevent timing attacks
+        return secrets.compare_digest(tmp_pwd_hash, stored_pwd_hash)
+
     def get(self):
         AUTH = False
+        decoded_cred = None
         if 'auth' in self.request.arguments:
             try:
                 decoded_cred = decodeID(self.get_argument('auth'))
-                tmp_username_hash = hashlib.sha512((decoded_cred['user'] + salt).encode('utf-8')).hexdigest()
-                if tmp_username_hash in accounts:
-                    tmp_pwd_hash = hashlib.sha512((decoded_cred['pwd'] + salt).encode('utf-8')).hexdigest()
-                    if tmp_pwd_hash == accounts[tmp_username_hash]:
-                        AUTH = True
+                AUTH = self._validate_credentials(decoded_cred['user'], decoded_cred['pwd'])
             except:
                 pass
-        if AUTH:
+        if AUTH and decoded_cred:
             self.set_secure_cookie("user", decoded_cred['user'])
             self.redirect('/')
         else:
@@ -183,17 +197,12 @@ class LoginHandler(BaseHandler):
             )
 
     def post(self):
-        tmp_username_hash = hashlib.sha512((self.get_argument("name") + salt).encode('utf-8')).hexdigest()
-        if tmp_username_hash in accounts:
-            tmp_pwd_hash = hashlib.sha512((self.get_argument("pwd") + salt).encode('utf-8')).hexdigest()
-            if tmp_pwd_hash == accounts[tmp_username_hash]:
-                self.set_secure_cookie("user", self.get_argument("name"))
-                self.redirect("/")
-            else:
-                self.render(
-                    BASE_PATH + 'login.html',
-                    LOGIN_MESSAGE="Wrong username and/or password."
-                )
+        username = self.get_argument("name")
+        password = self.get_argument("pwd")
+
+        if self._validate_credentials(username, password):
+            self.set_secure_cookie("user", username)
+            self.redirect("/")
         else:
             self.render(
                 BASE_PATH + 'login.html',
@@ -436,6 +445,19 @@ def pS(mtype):
 _TOPO_BUILD_CACHE = None
 # Cache for merged device list from both sources
 _ALL_DEVICES_CACHE = None
+# Track user_nodes.yaml modification time for cache invalidation
+_USER_NODES_MTIME = 0
+
+
+def invalidate_devices_cache():
+    """
+    Invalidate the devices cache.
+    Called when user nodes are added/removed to ensure fresh data.
+    """
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME
+    _ALL_DEVICES_CACHE = None
+    _USER_NODES_MTIME = 0
+    pS("Devices cache invalidated")
 
 
 def _get_topo_build_data():
@@ -524,12 +546,25 @@ def normalize_device_name(name):
 
 def get_all_devices():
     """
-    Get all devices from topo_build.yml (the authoritative topology source).
-    Returns a dict of {device_name: {'ip': ip_address}}.
+    Get all devices from topo_build.yml and user_nodes.yaml.
+    Returns a dict of {device_name: {'ip': ip_address, 'user_added': bool}}.
     Uses caching to avoid repeated lookups.
     Device names are normalized to consistent capitalization.
+    Cache is auto-invalidated when user_nodes.yaml changes.
     """
-    global _ALL_DEVICES_CACHE
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME
+
+    # Check if user_nodes.yaml has been modified since last cache
+    user_nodes_path = '/etc/atd/user_nodes.yaml'
+    try:
+        if os.path.exists(user_nodes_path):
+            current_mtime = os.path.getmtime(user_nodes_path)
+            if current_mtime > _USER_NODES_MTIME:
+                # File changed, invalidate cache
+                _ALL_DEVICES_CACHE = None
+                _USER_NODES_MTIME = current_mtime
+    except OSError:
+        pass
 
     if _ALL_DEVICES_CACHE is not None:
         return _ALL_DEVICES_CACHE
@@ -547,10 +582,30 @@ def get_all_devices():
                         ip = ''
                     # Normalize device name to consistent capitalization
                     display_name = normalize_device_name(name)
-                    devices[display_name] = {'ip': ip}
+                    devices[display_name] = {'ip': ip, 'user_added': False}
+
+    # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
+    # user_nodes_path already defined above for mtime check
+    try:
+        if os.path.exists(user_nodes_path):
+            with open(user_nodes_path, 'r') as f:
+                user_data = YAML().load(f)
+            if user_data and 'nodes' in user_data and user_data['nodes']:
+                for node_entry in user_data['nodes']:
+                    if isinstance(node_entry, dict):
+                        for name, info in node_entry.items():
+                            ip = info.get('ip_addr', '')
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {'ip': ip, 'user_added': True}
+                pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
+        # Continue without user nodes - don't fail the whole device list
 
     _ALL_DEVICES_CACHE = devices
-    pS(f"Cached {len(devices)} devices from topo_build.yml")
+    pS(f"Cached {len(devices)} devices from topo_build.yml + user_nodes.yaml")
     return devices
 
 
@@ -1403,6 +1458,25 @@ class TopologyAPIHandler(BaseHandler):
         except Exception as e:
             pS(f"Error parsing topology file: {e}")
             return {'error': f'Failed to parse topology file: {str(e)}', 'error_type': 'parse_error'}
+
+        # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
+        user_nodes_path = '/etc/atd/user_nodes.yaml'
+        try:
+            if os.path.exists(user_nodes_path):
+                with open(user_nodes_path, 'r') as f:
+                    user_data = YAML().load(f)
+                if user_data and 'nodes' in user_data and user_data['nodes']:
+                    # Ensure topo_data has nodes list
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Append user-added nodes
+                    topo_data['nodes'].extend(user_data['nodes'])
+                    pS(f"Merged {len(user_data['nodes'])} user-added nodes from {user_nodes_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_nodes.yaml: {e}")
+            # Continue without user nodes - don't fail the whole topology load
 
         # Validate topo_data structure
         if topo_data is None:
@@ -2898,6 +2972,99 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
     CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
     CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
+
+# ===============================
+# Nodebuilder Proxy Handlers
+# ===============================
+
+class NodeBuilderProxyHandler(BaseHandler):
+    """
+    Proxy handler for nodebuilder service API calls.
+
+    The nodebuilder service runs on port 8090 with host network mode
+    for libvirt/virsh access. This handler proxies requests from the
+    UI to the nodebuilder service.
+    """
+
+    NODEBUILDER_URL = "http://host.docker.internal:8090"
+    NODEBUILDER_URL_FALLBACK = "http://172.17.0.1:8090"
+
+    async def get(self, path):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        await self._proxy_request('GET', path)
+
+    async def post(self, path):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        await self._proxy_request('POST', path, self.request.body)
+
+    async def options(self, path):
+        """Handle CORS preflight requests."""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.set_header("Access-Control-Max-Age", "86400")
+        self.set_status(204)
+        self.finish()
+
+    async def _proxy_request(self, method, path, body=None):
+        """Proxy request to nodebuilder service."""
+        from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+
+        http_client = AsyncHTTPClient()
+        url = f"/{path}" if path else ""
+
+        try:
+            # Try primary URL first (Docker Desktop)
+            try:
+                request = HTTPRequest(
+                    f"{self.NODEBUILDER_URL}{url}",
+                    method=method,
+                    body=body if method == 'POST' else None,
+                    headers={"Content-Type": "application/json"} if body else {},
+                    request_timeout=60
+                )
+                response = await http_client.fetch(request)
+                self.write(response.body)
+            except Exception as e:
+                pS(f"[NodeBuilderProxy] Primary failed: {e}, trying fallback...")
+                # Try fallback URL (Linux Docker)
+                try:
+                    request = HTTPRequest(
+                        f"{self.NODEBUILDER_URL_FALLBACK}{url}",
+                        method=method,
+                        body=body if method == 'POST' else None,
+                        headers={"Content-Type": "application/json"} if body else {},
+                        request_timeout=60
+                    )
+                    response = await http_client.fetch(request)
+                    self.write(response.body)
+                except Exception as e2:
+                    pS(f"[NodeBuilderProxy] Fallback also failed: {e2}")
+                    self.set_status(503)
+                    self.write(json.dumps({
+                        'error': 'Nodebuilder service unavailable',
+                        'detail': str(e2)
+                    }))
+        except Exception as e:
+            pS(f"[NodeBuilderProxy] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
     async def post(self):
         if not self.current_user:
             self.set_status(401)
@@ -3002,6 +3169,8 @@ if __name__ == "__main__":
         (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
         (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
+        # Nodebuilder endpoints (dynamic node addition for KVM labs)
+        (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
