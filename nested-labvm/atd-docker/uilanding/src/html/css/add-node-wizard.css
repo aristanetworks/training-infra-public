@@ -313,6 +313,18 @@
 }
 
 /* Connection Step (Step 3) */
+.wizard-step-connections h3 {
+    color: #fff !important;
+}
+
+.wizard-step-connections .step-description {
+    color: #aaa !important;
+}
+
+.wizard-step-connections strong {
+    color: #6bb3f8 !important;
+}
+
 .connection-hint {
     margin-bottom: 20px;
     padding: 12px 16px;
@@ -365,9 +377,10 @@
 
 .device-card-header label {
     font-weight: 600;
-    color: #fff;
+    color: #fff !important;
     cursor: pointer;
     font-size: 14px;
+    -webkit-text-fill-color: #fff !important;
 }
 
 .device-card-info {
@@ -375,16 +388,19 @@
     flex-direction: column;
     gap: 4px;
     font-size: 12px;
-    color: #888;
+    color: #888 !important;
     margin-left: 28px;
+    -webkit-text-fill-color: #888 !important;
 }
 
 .next-port {
-    color: #28a745;
+    color: #28a745 !important;
+    -webkit-text-fill-color: #28a745 !important;
 }
 
 .used-ports {
-    color: #666;
+    color: #666 !important;
+    -webkit-text-fill-color: #666 !important;
 }
 
 .no-devices {
