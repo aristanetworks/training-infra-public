@@ -316,6 +316,110 @@ async def restore_user_nodes(request):
         return web.json_response({'error': str(e)}, status=500)
 
 
+@routes.post('/save-config')
+async def save_config(request):
+    """
+    Save running config to startup config on a device via pyeAPI.
+
+    Request body: { "device": "spine1", "ip": "192.168.0.11" }
+    """
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    device = data.get('device', '')
+    ip = data.get('ip', '')
+
+    if not device:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+    if not ip:
+        return web.json_response({'error': 'Device IP is required'}, status=400)
+
+    try:
+        import pyeapi
+
+        # Connect to device using eAPI
+        connection = pyeapi.connect(
+            transport='https',
+            host=ip,
+            username='arista',
+            password='arista',
+            return_node=True
+        )
+
+        # Execute write memory command
+        result = connection.enable(['write memory'])
+
+        logger.info(f"Saved config on {device} ({ip})")
+
+        return web.json_response({
+            'status': 'saved',
+            'device': device,
+            'ip': ip,
+            'result': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error saving config on {device}: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+
+@routes.post('/reboot-devices')
+async def reboot_devices(request):
+    """
+    Reboot one or more devices via virsh.
+
+    Request body: { "devices": ["spine1", "leaf1"] }
+
+    Note: This reboots the VMs, not graceful EOS reload.
+    Target devices need to be rebooted to see newly attached interfaces.
+    """
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    devices = data.get('devices', [])
+
+    if not devices:
+        return web.json_response({'error': 'At least one device is required'}, status=400)
+
+    if not isinstance(devices, list):
+        return web.json_response({'error': 'Devices must be a list'}, status=400)
+
+    results = []
+    errors = []
+
+    for device in devices:
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ['virsh', 'reboot', device],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                errors.append({'device': device, 'error': result.stderr.strip()})
+            else:
+                results.append({'device': device, 'status': 'rebooting'})
+                logger.info(f"Rebooted device: {device}")
+
+        except subprocess.TimeoutExpired:
+            errors.append({'device': device, 'error': 'Timeout rebooting device'})
+        except Exception as e:
+            errors.append({'device': device, 'error': str(e)})
+
+    return web.json_response({
+        'status': 'completed',
+        'rebooted': results,
+        'errors': errors
+    })
+
+
 def create_app():
     """Create and configure the application"""
     app = web.Application()

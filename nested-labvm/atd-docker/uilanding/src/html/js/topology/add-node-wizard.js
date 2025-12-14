@@ -737,7 +737,13 @@ class AddNodeWizard {
             this.logMessage(log, `VM: ${result.node?.name || this.nodeConfig.name}`);
             this.logMessage(log, `IP: ${result.node?.ip || this.nodeConfig.ip}`);
 
-            // Show success state
+            // Get unique target devices that need rebooting
+            const targetDevices = [...new Set(this.nodeConfig.connections.map(c => c.target_device))];
+
+            // Store result for later use
+            this.createdNode = result.node || { name: this.nodeConfig.name, ip: this.nodeConfig.ip };
+
+            // Show success state with reboot options
             content.innerHTML = `
                 <div class="wizard-success">
                     <div class="success-icon">&#10004;</div>
@@ -748,8 +754,117 @@ class AddNodeWizard {
                         <p>IP Address: <code>${this.escapeHtml(this.nodeConfig.ip)}</code></p>
                         <p>MAC Address: <code>${this.escapeHtml(this.nodeConfig.mac)}</code></p>
                     </div>
+
+                    <div class="reboot-section">
+                        <h4>&#9888; Target Device Reboot Required</h4>
+                        <p>The following devices need to be rebooted to detect the new interfaces:</p>
+                        <div class="target-devices-list">
+                            ${targetDevices.map(device => {
+                                const deviceInfo = this.targetDevices?.find(d => d.name === device);
+                                const deviceIp = deviceInfo?.ip_addr || '';
+                                return `
+                                    <div class="target-device-row" data-device="${this.escapeHtml(device)}" data-ip="${this.escapeHtml(deviceIp)}">
+                                        <span class="device-name">${this.escapeHtml(device)}</span>
+                                        <span class="device-ip">${this.escapeHtml(deviceIp)}</span>
+                                        <button class="save-config-btn" title="Save running config to startup config">
+                                            Save Config
+                                        </button>
+                                        <span class="save-status"></span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div class="reboot-actions">
+                            <p class="reboot-warning">&#9888; Save running configs before rebooting to preserve any configuration changes.</p>
+                            <button class="reboot-all-btn">Reboot Target Devices</button>
+                            <span class="reboot-status"></span>
+                        </div>
+                    </div>
                 </div>
             `;
+
+            // Set up save config button handlers
+            content.querySelectorAll('.save-config-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const row = e.target.closest('.target-device-row');
+                    const device = row.dataset.device;
+                    const ip = row.dataset.ip;
+                    const statusSpan = row.querySelector('.save-status');
+
+                    e.target.disabled = true;
+                    e.target.textContent = 'Saving...';
+                    statusSpan.textContent = '';
+                    statusSpan.className = 'save-status';
+
+                    try {
+                        const response = await fetch('/td-api/nodes/save-config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ device, ip })
+                        });
+
+                        const result = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(result.error || 'Failed to save config');
+                        }
+
+                        e.target.textContent = 'Saved ✓';
+                        statusSpan.textContent = '✓';
+                        statusSpan.className = 'save-status success';
+                    } catch (error) {
+                        console.error('Error saving config:', error);
+                        e.target.textContent = 'Save Config';
+                        e.target.disabled = false;
+                        statusSpan.textContent = '✗ ' + error.message;
+                        statusSpan.className = 'save-status error';
+                    }
+                });
+            });
+
+            // Set up reboot button handler
+            const rebootBtn = content.querySelector('.reboot-all-btn');
+            const rebootStatus = content.querySelector('.reboot-status');
+
+            rebootBtn.addEventListener('click', async () => {
+                rebootBtn.disabled = true;
+                rebootBtn.textContent = 'Rebooting...';
+                rebootStatus.textContent = '';
+                rebootStatus.className = 'reboot-status';
+
+                try {
+                    const response = await fetch('/td-api/nodes/reboot-devices', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ devices: targetDevices })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to reboot devices');
+                    }
+
+                    const rebootedCount = result.rebooted?.length || 0;
+                    const errorCount = result.errors?.length || 0;
+
+                    if (errorCount > 0) {
+                        rebootBtn.textContent = 'Reboot Complete';
+                        rebootStatus.textContent = `✓ ${rebootedCount} rebooted, ${errorCount} failed`;
+                        rebootStatus.className = 'reboot-status warning';
+                    } else {
+                        rebootBtn.textContent = 'Rebooted ✓';
+                        rebootStatus.textContent = `✓ ${rebootedCount} device${rebootedCount !== 1 ? 's' : ''} rebooting`;
+                        rebootStatus.className = 'reboot-status success';
+                    }
+                } catch (error) {
+                    console.error('Error rebooting devices:', error);
+                    rebootBtn.textContent = 'Reboot Target Devices';
+                    rebootBtn.disabled = false;
+                    rebootStatus.textContent = '✗ ' + error.message;
+                    rebootStatus.className = 'reboot-status error';
+                }
+            });
 
             // Update button to close
             nextBtn.textContent = 'Close';
