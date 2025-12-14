@@ -166,14 +166,13 @@ async def validate_node(request):
     if not name_valid:
         errors.append(name_error)
 
-    # Validate IP is in available list
+    # Validate IP is in available list (only if provided - IP is selected in step 2)
     ip = data.get('ip', '')
     if ip:
         available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
         if not any(entry['ip'] == ip for entry in available):
             errors.append(f"IP {ip} is not available or already in use")
-    else:
-        errors.append("IP address is required")
+    # Note: IP is not required for name-only validation in step 1
 
     return web.json_response({
         'valid': len(errors) == 0,
