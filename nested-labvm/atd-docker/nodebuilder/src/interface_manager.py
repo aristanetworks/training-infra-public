@@ -365,10 +365,10 @@ def attach_interface_to_vm(
     mac: Optional[str] = None
 ) -> Dict:
     """
-    Attach a new network interface to a running VM.
+    Attach a new network interface to a running VM using OVS bridge.
 
-    Uses virsh attach-interface with both --live and --config flags
-    to make the change persistent.
+    Uses virsh attach-device with an XML file that includes the
+    OVS virtualport type, which is required for OVS bridges.
 
     Args:
         vm_name: Name of the VM
@@ -378,18 +378,30 @@ def attach_interface_to_vm(
     Returns:
         Dict with status and details
     """
+    import tempfile
+
+    # Generate interface XML with OVS virtualport type
+    mac_element = f"<mac address='{mac}'/>" if mac else ""
+    interface_xml = f"""<interface type='bridge'>
+  {mac_element}
+  <source bridge='{bridge_name}'/>
+  <model type='virtio'/>
+  <virtualport type='openvswitch'/>
+</interface>"""
+
+    xml_path = None
     try:
+        # Write XML to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(interface_xml)
+            xml_path = f.name
+
+        # Attach using virsh attach-device
         cmd = [
-            'virsh', 'attach-interface', vm_name,
-            '--type', 'bridge',
-            '--source', bridge_name,
-            '--model', 'virtio',
+            'virsh', 'attach-device', vm_name, xml_path,
             '--config',  # Persist across reboots
             '--live'     # Apply immediately
         ]
-
-        if mac:
-            cmd.extend(['--mac', mac])
 
         result = subprocess.run(
             cmd,
@@ -411,6 +423,10 @@ def attach_interface_to_vm(
         raise RuntimeError(f"Timeout attaching interface to {vm_name}")
     except Exception as e:
         raise RuntimeError(f"Error attaching interface to {vm_name}: {e}")
+    finally:
+        # Clean up temp file
+        if xml_path and os.path.exists(xml_path):
+            os.remove(xml_path)
 
 
 def detach_interface_from_vm(
