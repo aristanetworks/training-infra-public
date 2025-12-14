@@ -7,8 +7,9 @@ import re
 
 # Service configuration
 SERVICE_PORT = int(os.getenv('NODEBUILDER_PORT', 8090))
-# Security: Bind to localhost only - accessed via uilanding proxy
-SERVICE_HOST = os.getenv('NODEBUILDER_HOST', '127.0.0.1')
+# Bind to all interfaces - required for uilanding proxy access via Docker bridge
+# Security note: Port 8090 is not exposed externally, only accessible from host
+SERVICE_HOST = os.getenv('NODEBUILDER_HOST', '0.0.0.0')
 
 # File paths
 DNSMASQ_PATH = os.getenv('DNSMASQ_PATH', '/etc/NetworkManager/dnsmasq.d/atd.conf')

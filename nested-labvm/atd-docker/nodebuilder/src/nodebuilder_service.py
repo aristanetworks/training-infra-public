@@ -48,6 +48,60 @@ async def health(request):
     })
 
 
+@routes.get('/debug')
+async def debug(request):
+    """Debug endpoint to check file access and parsing"""
+    import os
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+    from validation import parse_dnsmasq_config, get_topo_nodes, get_user_nodes
+
+    topo_build_path = get_topo_build_path()
+
+    debug_info = {
+        'dnsmasq_path': DNSMASQ_PATH,
+        'dnsmasq_exists': os.path.exists(DNSMASQ_PATH),
+        'topo_build_path': topo_build_path,
+        'topo_build_exists': os.path.exists(topo_build_path),
+        'user_nodes_path': USER_NODES_PATH,
+        'user_nodes_exists': os.path.exists(USER_NODES_PATH),
+    }
+
+    # Try to read dnsmasq file
+    if os.path.exists(DNSMASQ_PATH):
+        try:
+            with open(DNSMASQ_PATH, 'r') as f:
+                lines = f.readlines()[:10]  # First 10 lines
+            debug_info['dnsmasq_first_lines'] = [l.strip() for l in lines]
+            debug_info['dnsmasq_total_lines'] = len(open(DNSMASQ_PATH).readlines())
+        except Exception as e:
+            debug_info['dnsmasq_read_error'] = str(e)
+
+    # Try to parse dnsmasq
+    try:
+        entries = parse_dnsmasq_config(DNSMASQ_PATH)
+        debug_info['dnsmasq_entries_count'] = len(entries)
+        debug_info['dnsmasq_first_entries'] = entries[:5] if entries else []
+    except Exception as e:
+        debug_info['dnsmasq_parse_error'] = str(e)
+
+    # Try to get topo nodes
+    try:
+        topo_nodes = get_topo_nodes(topo_build_path)
+        debug_info['topo_nodes_count'] = len(topo_nodes)
+        debug_info['topo_node_ips'] = [n.get('ip_addr') for n in topo_nodes[:5]]
+    except Exception as e:
+        debug_info['topo_parse_error'] = str(e)
+
+    # Try to get user nodes
+    try:
+        user_nodes = get_user_nodes(USER_NODES_PATH)
+        debug_info['user_nodes_count'] = len(user_nodes)
+    except Exception as e:
+        debug_info['user_nodes_error'] = str(e)
+
+    return web.json_response(debug_info)
+
+
 @routes.get('/available-ips')
 async def available_ips(request):
     """Return IPs from dnsmasq not already in use"""
@@ -279,7 +333,7 @@ def main():
     """Main entry point"""
     logger.info(f"Starting Nodebuilder Service on {SERVICE_HOST}:{SERVICE_PORT}")
     app = create_app()
-    # Security: Bind to localhost only - accessed via uilanding proxy
+    # Bind to configured host (0.0.0.0 for Docker bridge access)
     web.run_app(app, host=SERVICE_HOST, port=SERVICE_PORT)
 
 
