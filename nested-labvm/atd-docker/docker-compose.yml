@@ -295,8 +295,8 @@ services:
       - /var/lib/libvirt/images:/var/lib/libvirt/images:rw
       # OVS socket for bridge management
       - /var/run/openvswitch:/var/run/openvswitch:rw
-      # dnsmasq config for IP/MAC lookup
-      - /etc/dnsmasq.d:/etc/dnsmasq.d:ro
+      # dnsmasq config for IP/MAC lookup (NetworkManager managed)
+      - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
 networks:
   atd_nginx:
 volumes:

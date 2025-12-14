@@ -11,7 +11,7 @@ SERVICE_PORT = int(os.getenv('NODEBUILDER_PORT', 8090))
 SERVICE_HOST = os.getenv('NODEBUILDER_HOST', '127.0.0.1')
 
 # File paths
-DNSMASQ_PATH = os.getenv('DNSMASQ_PATH', '/etc/dnsmasq.d/atd.conf')
+DNSMASQ_PATH = os.getenv('DNSMASQ_PATH', '/etc/NetworkManager/dnsmasq.d/atd.conf')
 ACCESS_INFO_PATH = os.getenv('ACCESS_INFO_PATH', '/etc/atd/ACCESS_INFO.yaml')
 USER_NODES_PATH = os.getenv('USER_NODES_PATH', '/etc/atd/user_nodes.yaml')
 

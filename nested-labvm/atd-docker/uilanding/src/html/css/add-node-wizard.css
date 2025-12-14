@@ -193,12 +193,13 @@
 .form-select {
     width: 100%;
     padding: 12px 14px;
-    background: #2a2a2a;
+    background: #2a2a2a !important;
     border: 1px solid #444;
     border-radius: 6px;
-    color: #fff;
+    color: #fff !important;
     font-size: 15px;
     transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-text-fill-color: #fff !important;
 }
 
 .form-input:focus,
@@ -206,6 +207,19 @@
     outline: none;
     border-color: #0066cc;
     box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+    background: #2a2a2a !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+/* Override browser autofill styles */
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #2a2a2a inset !important;
+    -webkit-text-fill-color: #fff !important;
+    background-color: #2a2a2a !important;
+    color: #fff !important;
 }
 
 .form-input::placeholder {
