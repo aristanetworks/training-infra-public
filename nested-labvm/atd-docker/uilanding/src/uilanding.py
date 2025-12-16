@@ -204,30 +204,38 @@ class topoRequestHandler(BaseHandler):
     def get(self):
         host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
-        if lab_type == "Exam" and 'auth' in self.request.arguments and 'honorlock' not in self.request.arguments:
-            # Exam access without honorlock parameter - redirect to exam authentication
-            # This ensures ExamSessionGuard (in honorlock-index.html) runs to detect multi-tab scenarios
-            # Note: We don't check self.current_user here because:
-            #   1. Session cookies persist even after tabs close
-            #   2. Only frontend localStorage heartbeat can reliably detect active tabs
-            #   3. ExamSessionGuard will handle multi-tab detection properly
-            self.redirect('/exam-authentication')
-            return()
-        if not self.current_user:
-            if lab_type == "Exam":
 
-                if 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
-                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
-                elif 'auth' in self.request.arguments:
-                    self.redirect('/exam-authentication')
-                else:
-                    self.redirect('/login')
+        # For Exam labs: ALWAYS require Honorlock authentication flow
+        # This prevents bypass via direct URL access or cached sessions
+        if lab_type == "Exam":
+            # Check if user accessed via proper Honorlock flow (has 'honorlock' parameter)
+            if 'honorlock' in self.request.arguments:
+                # Valid Honorlock flow - proceed with authentication
+                if not self.current_user:
+                    # Redirect to login with auth credentials
+                    if 'auth' in self.request.arguments:
+                        self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                    else:
+                        self.redirect('/login')
+                    return()
+                # else: User authenticated via Honorlock - allow access (continue to line 232+)
             else:
-                if 'auth' in self.request.arguments:
-                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
-                else:
-                    self.redirect('/login')
+                # No 'honorlock' parameter - force Honorlock authentication
+                # This blocks:
+                #   1. Direct URL access: https://lab.com/
+                #   2. Cached session access without Honorlock
+                #   3. Manual auth parameter manipulation
+                self.redirect('/exam-authentication')
+                return()
 
+        # Handle non-authenticated users for regular (non-Exam) labs
+        # Note: Exam labs are already handled above (lines 210-229)
+        if not self.current_user:
+            # Regular lab authentication
+            if 'auth' in self.request.arguments:
+                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            else:
+                self.redirect('/login')
             return()
         else:
             _topo_cvp = False
