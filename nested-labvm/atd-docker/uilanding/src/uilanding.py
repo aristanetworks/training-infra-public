@@ -205,17 +205,12 @@ class topoRequestHandler(BaseHandler):
         host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
         if lab_type == "Exam" and 'auth' in self.request.arguments and 'honorlock' not in self.request.arguments:
-            # If user already has a session, don't disrupt it
-            # This prevents Tab B from killing Tab A's session
-            if self.current_user:
-                # User already authenticated - show "exam already running" page
-                # This prevents Tab B from loading the exam while Tab A is active
-                self.redirect('/exam-already-running')
-                return()
-
-            # No active session - proceed with Honorlock auth (first-time access)
-            # Clear authentication and force re-authentication through Honorlock
-            self.clear_cookie("user")
+            # Exam access without honorlock parameter - redirect to exam authentication
+            # This ensures ExamSessionGuard (in honorlock-index.html) runs to detect multi-tab scenarios
+            # Note: We don't check self.current_user here because:
+            #   1. Session cookies persist even after tabs close
+            #   2. Only frontend localStorage heartbeat can reliably detect active tabs
+            #   3. ExamSessionGuard will handle multi-tab detection properly
             self.redirect('/exam-authentication')
             return()
         if not self.current_user:
