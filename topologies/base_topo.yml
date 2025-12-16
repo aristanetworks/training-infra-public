@@ -1098,7 +1098,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2025.1-12162025
+            branch: v2025.1-11252025-hl
             orderable: true
             image: base-ceos-training-lx-cl-2025-1-4321-20250408-141208
             eos:
