@@ -357,7 +357,7 @@ topologies:
             resources:
               cpu: 80
               ram: 110
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-veos-training-l4-v2-2025-1-20251006
             eos:
@@ -497,7 +497,7 @@ topologies:
             resources:
               cpu: 76
               ram: 150
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-veos-training-l7-2025-1-4321-20250909
             eos:
@@ -564,7 +564,7 @@ topologies:
             resources:
               cpu: 80
               ram: 160
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-veos-training-l7-part-3-avd-2025-1-4321-20250910
             eos:
@@ -889,7 +889,7 @@ topologies:
             resources:
               cpu: 80
               ram: 160
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-ceos-training-l7-part-2-v3-2025-1-4301-20250910
             eos:
@@ -1098,7 +1098,7 @@ topologies:
             resources:
               cpu: 48
               ram: 110
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-ceos-training-lx-cl-2025-1-4321-20250408-141208
             eos:
@@ -1274,7 +1274,7 @@ topologies:
             resources:
               cpu: 72
               ram: 160
-            branch:  v2025.1-11252025-hl
+            branch:  v2025.1-12162025
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20251003
             eos:
@@ -1332,7 +1332,7 @@ topologies:
             resources:
               cpu: 68
               ram: 160
-            branch: v2025.1-11252025-hl
+            branch: v2025.1-12162025
             orderable: true
             image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
             eos:
