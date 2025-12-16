@@ -42,6 +42,45 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DEBUG = False
 
+
+class SafeLogger:
+    """
+    Wrapper for logger that catches and suppresses cloud logging errors
+    to prevent them from breaking application flow.
+    """
+    def __init__(self, logger):
+        self.logger = logger
+        self.raw_logger = logger  # Expose raw logger for utility functions
+        self._fallback_enabled = False
+
+    def _safe_log(self, level, message, *args, **kwargs):
+        """Safely log with fallback to syslog if cloud logging fails."""
+        try:
+            log_method = getattr(self.logger, level)
+            log_method(message, *args, **kwargs)
+        except Exception as e:
+            # Fallback to syslog if cloud logging fails
+            if not self._fallback_enabled:
+                syslog.syslog(syslog.LOG_WARNING, f"Cloud logging failed, falling back to syslog: {str(e)}")
+                self._fallback_enabled = True
+            # Log to syslog as backup
+            syslog.syslog(getattr(syslog, f'LOG_{level.upper()}', syslog.LOG_INFO), message)
+
+    def debug(self, message, *args, **kwargs):
+        self._safe_log('debug', message, *args, **kwargs)
+
+    def info(self, message, *args, **kwargs):
+        self._safe_log('info', message, *args, **kwargs)
+
+    def warning(self, message, *args, **kwargs):
+        self._safe_log('warning', message, *args, **kwargs)
+
+    def error(self, message, *args, **kwargs):
+        self._safe_log('error', message, *args, **kwargs)
+
+    def critical(self, message, *args, **kwargs):
+        self._safe_log('critical', message, *args, **kwargs)
+
 # Cmds to copy bare startup to running
 cp_run_start = """enable
 copy running-config startup-config
@@ -62,7 +101,9 @@ zerotouch cancel
 class ConfigureTopology():
 
     def __init__(self,selected_menu,selected_lab,public_module_flag=False):
-        self.logger = setup_cloud_logging('ConfigureTopology')
+        # Wrap logger with SafeLogger to prevent cloud logging failures from breaking execution
+        raw_logger = setup_cloud_logging('ConfigureTopology')
+        self.logger = SafeLogger(raw_logger)
         self.logger.info(f"ConfigureTopology initialized", extra={'labels': {
             'menu': selected_menu,
             'lab': selected_lab,
@@ -71,7 +112,10 @@ class ConfigureTopology():
         self.selected_menu = selected_menu
         self.selected_lab = selected_lab
         self.public_module_flag = public_module_flag
-        log_operation_start(self.logger, 'deploy-lab', menu=selected_menu, lab=selected_lab)
+        try:
+            log_operation_start(raw_logger, 'deploy-lab', menu=selected_menu, lab=selected_lab)
+        except Exception as e:
+            syslog.syslog(syslog.LOG_WARNING, f"log_operation_start failed: {str(e)}")
         self.deploy_lab()
 
     def connect_to_cvp(self,access_info):
@@ -91,14 +135,14 @@ class ConfigureTopology():
             try:
                 self.logger.debug(f"CVP connection attempt {attempt}", extra={'labels': {
                     'operation': 'cvp-connect',
-                    'attempt': attempt
+                    'attempt': str(attempt)
                 }})
                 cvp_clnt = CVPCON(cvp_ip, cvpUsername, cvpPassword)
                 self.send_to_syslog("OK","Connected to CVP at {0}".format(cvp_ip))
                 self.logger.info(f"Successfully connected to CVP after {attempt} attempt(s)", extra={'labels': {
                     'operation': 'cvp-connect',
                     'cvp_ip': cvp_ip,
-                    'attempts': attempt,
+                    'attempts': str(attempt),
                     'status': 'success'
                 }})
                 return cvp_clnt
@@ -106,7 +150,7 @@ class ConfigureTopology():
                 self.send_to_syslog("ERROR", "CVP is currently unavailable....Retrying in 30 seconds.")
                 self.logger.warning(f"CVP connection failed (attempt {attempt}): {str(e)}", extra={'labels': {
                     'operation': 'cvp-connect',
-                    'attempt': attempt,
+                    'attempt': str(attempt),
                     'error': str(e),
                     'status': 'retry'
                 }})
@@ -132,7 +176,7 @@ class ConfigureTopology():
         self.logger.debug(f"Found {len(configlets.get('configletList', []))} configlets on {device.hostname}", extra={'labels': {
             'operation': 'remove-configlets',
             'device': device.hostname,
-            'configlet_count': len(configlets.get('configletList', []))
+            'configlet_count': str(len(configlets.get('configletList', [])))
         }})
 
         for configlet in configlets['configletList']:
@@ -152,8 +196,8 @@ class ConfigureTopology():
         self.logger.info(f"Configlet changes for {device.hostname}: removing {len(configlets_to_remove)}, keeping {len(configlets_to_remain)}", extra={'labels': {
             'operation': 'remove-configlets',
             'device': device.hostname,
-            'to_remove': configlets_to_remove,
-            'to_remain': configlets_to_remain
+            'to_remove': str(configlets_to_remove),
+            'to_remain': str(configlets_to_remain)
         }})
 
         if len(configlets_to_remain) > 0:
@@ -176,7 +220,7 @@ class ConfigureTopology():
         eos_devices = []
         self.logger.info(f"Retrieving device inventory from CVP", extra={'labels': {
             'operation': 'get-device-info',
-            'device_count': len(self.client.inventory)
+            'device_count': str(len(self.client.inventory))
         }})
         for dev in self.client.inventory:
             tmp_eos = self.client.inventory[dev]
@@ -190,7 +234,7 @@ class ConfigureTopology():
             }})
         self.logger.info(f"Retrieved {len(eos_devices)} devices from CVP inventory", extra={'labels': {
             'operation': 'get-device-info',
-            'total_devices': len(eos_devices)
+            'total_devices': str(len(eos_devices))
         }})
         return(eos_devices)
 
@@ -207,7 +251,7 @@ class ConfigureTopology():
 
         self.logger.info(f"Processing {len(devices)} devices for topology update", extra={'labels': {
             'operation': 'update-topology',
-            'device_count': len(devices)
+            'device_count': str(len(devices))
         }})
 
         for device in devices:
@@ -229,7 +273,7 @@ class ConfigureTopology():
             self.logger.info(f"Configuring device {device_name} with {len(lab_configlets)} configlets", extra={'labels': {
                 'operation': 'update-topology',
                 'device': device_name,
-                'configlets': lab_configlets
+                'configlets': str(lab_configlets)
             }})
 
             # Remove unnecessary configlets
@@ -297,7 +341,7 @@ class ConfigureTopology():
         self.logger.debug(f"Written config file to {device_config} ({len(veos_config)} bytes)", extra={'labels': {
             'operation': 'push-bare-config',
             'device': veos_host,
-            'config_size': len(veos_config)
+            'config_size': str(len(veos_config))
         }})
 
         DEVREBOOT = False
@@ -341,7 +385,7 @@ class ConfigureTopology():
                     'operation': 'push-bare-config',
                     'device': veos_host,
                     'action': 'ztp-cancel',
-                    'reboot': True
+                    'reboot': 'true'
                 }})
                 veos_ssh.exec_command('FastCli -c "{0}"'.format(ztp_cancel))
             else:
@@ -357,7 +401,7 @@ class ConfigureTopology():
                 'operation': 'push-bare-config',
                 'device': veos_host,
                 'status': 'success',
-                'reboot_required': DEVREBOOT
+                'reboot_required': str(DEVREBOOT)
             }})
 
         except Exception as e:
@@ -393,7 +437,7 @@ class ConfigureTopology():
             self.send_to_syslog('INFO', 'Tasks in progress. Waiting for 10 seconds.')
             self.logger.info(f"Waiting for {len(in_progress_tasks)} tasks to complete: {in_progress_tasks}", extra={'labels': {
                 'operation': 'check-tasks',
-                'in_progress_count': len(in_progress_tasks),
+                'in_progress_count': str(len(in_progress_tasks)),
                 'task_ids': str(in_progress_tasks)
             }})
             print('Tasks are currently executing. Waiting 10 seconds...')
@@ -1304,7 +1348,7 @@ class ConfigureTopology():
             'operation': 'deploy-lab',
             'menu': self.selected_menu,
             'lab': self.selected_lab,
-            'public_module': self.public_module_flag
+            'public_module': str(self.public_module_flag)
         }})
 
         # Check for additional commands in lab yaml file
@@ -1323,7 +1367,7 @@ class ConfigureTopology():
             additional_commands = lab_info['lab_list'][self.selected_lab]['additional_commands']
             self.logger.debug(f"Found {len(additional_commands)} additional commands for lab", extra={'labels': {
                 'operation': 'deploy-lab',
-                'additional_commands_count': len(additional_commands)
+                'additional_commands_count': str(len(additional_commands))
             }})
 
         # Get access info for the topology
@@ -1399,7 +1443,7 @@ class ConfigureTopology():
 
             self.logger.info(f"Found {len(tasks_to_check)} pending tasks to execute", extra={'labels': {
                 'operation': 'deploy-lab',
-                'pending_tasks': len(tasks_to_check),
+                'pending_tasks': str(len(tasks_to_check)),
                 'task_ids': str(task_ids)
             }})
 
@@ -1440,9 +1484,9 @@ class ConfigureTopology():
                 if task_check_iteration % 5 == 0:  # Log every 5 iterations
                     self.logger.debug(f"Task check iteration {task_check_iteration}: {len(tasks_running)} running, {len(tasks_failed)} failed", extra={'labels': {
                         'operation': 'deploy-lab',
-                        'iteration': task_check_iteration,
-                        'running_count': len(tasks_running),
-                        'failed_count': len(tasks_failed)
+                        'iteration': str(task_check_iteration),
+                        'running_count': str(len(tasks_running)),
+                        'failed_count': str(len(tasks_failed))
                     }})
 
                 if len(tasks_running) == 0:
@@ -1454,14 +1498,14 @@ class ConfigureTopology():
                         self.logger.info(f"Running {len(additional_commands)} additional setup commands", extra={'labels': {
                             'operation': 'deploy-lab',
                             'action': 'additional-commands',
-                            'command_count': len(additional_commands)
+                            'command_count': str(len(additional_commands))
                         }})
 
                         for idx, command in enumerate(additional_commands):
                             self.logger.debug(f"Executing additional command {idx + 1}/{len(additional_commands)}: {command[:50]}...", extra={'labels': {
                                 'operation': 'deploy-lab',
                                 'action': 'additional-command',
-                                'command_index': idx + 1
+                                'command_index': str(idx + 1)
                             }})
                             os.system(command)
 
@@ -1478,13 +1522,16 @@ class ConfigureTopology():
                         'operation': 'deploy-lab',
                         'menu': self.selected_menu,
                         'lab': self.selected_lab,
-                        'duration_seconds': round(deploy_duration, 2),
-                        'tasks_executed': len(tasks_to_check),
-                        'tasks_failed': len(tasks_failed),
+                        'duration_seconds': str(round(deploy_duration, 2)),
+                        'tasks_executed': str(len(tasks_to_check)),
+                        'tasks_failed': str(len(tasks_failed)),
                         'status': 'success'
                     }})
 
-                    log_operation_success(self.logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
+                    try:
+                        log_operation_success(self.logger.raw_logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
+                    except Exception as e:
+                        syslog.syslog(syslog.LOG_WARNING, f"log_operation_success failed: {str(e)}")
                     all_tasks_completed = True
                 else:
                     time.sleep(2)  # Small delay between checks
@@ -1508,7 +1555,7 @@ class ConfigureTopology():
             device_count = len(access_info["nodes"]["veos"])
             self.logger.info(f"Configuring {device_count} vEOS devices directly", extra={'labels': {
                 'operation': 'deploy-lab',
-                'device_count': device_count
+                'device_count': str(device_count)
             }})
 
             for idx, node in enumerate(access_info["nodes"]["veos"]):
@@ -1521,8 +1568,8 @@ class ConfigureTopology():
                 self.logger.debug(f"Building config for {hostname} ({idx + 1}/{device_count}) with {len(configs)} configlets", extra={'labels': {
                     'operation': 'deploy-lab',
                     'device': hostname,
-                    'device_index': idx + 1,
-                    'configlet_count': len(configs)
+                    'device_index': str(idx + 1),
+                    'configlet_count': str(len(configs))
                 }})
 
                 for config in configs:
@@ -1558,9 +1605,12 @@ class ConfigureTopology():
                 'menu': self.selected_menu,
                 'lab': self.selected_lab,
                 'mode': 'direct',
-                'duration_seconds': round(deploy_duration, 2),
-                'devices_configured': device_count,
+                'duration_seconds': str(round(deploy_duration, 2)),
+                'devices_configured': str(device_count),
                 'status': 'success'
             }})
 
-            log_operation_success(self.logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
+            try:
+                log_operation_success(self.logger.raw_logger, 'deploy-lab', menu=self.selected_menu, lab=self.selected_lab, duration=round(deploy_duration, 2))
+            except Exception as e:
+                syslog.syslog(syslog.LOG_WARNING, f"log_operation_success failed: {str(e)}")
