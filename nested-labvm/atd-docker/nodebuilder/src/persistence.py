@@ -257,3 +257,46 @@ def user_node_exists(name: str, path: str = DEFAULT_USER_NODES_PATH) -> bool:
         True if node exists
     """
     return get_user_node(name, path) is not None
+
+
+def remove_neighbor_references(
+    deleted_node_name: str,
+    path: str = DEFAULT_USER_NODES_PATH
+) -> int:
+    """
+    Remove all neighbor references to a deleted node from other user nodes.
+
+    When a node is deleted, other nodes may still have it listed as a neighbor.
+    This function cleans up those orphaned references.
+
+    Args:
+        deleted_node_name: Name of the node that was deleted
+        path: Path to user_nodes.yaml
+
+    Returns:
+        Number of neighbor references removed
+    """
+    data = load_user_nodes(path)
+    removed_count = 0
+
+    for node_entry in data.get('nodes', []):
+        for node_name, node_info in node_entry.items():
+            neighbors = node_info.get('neighbors', [])
+            original_count = len(neighbors)
+
+            # Filter out references to the deleted node
+            node_info['neighbors'] = [
+                n for n in neighbors
+                if n.get('neighborDevice', '').lower() != deleted_node_name.lower()
+            ]
+
+            removed_count += original_count - len(node_info['neighbors'])
+
+    if removed_count > 0:
+        save_user_nodes(data, path)
+        logger.info(
+            f"Removed {removed_count} neighbor reference(s) to deleted node "
+            f"'{deleted_node_name}' from other user nodes"
+        )
+
+    return removed_count

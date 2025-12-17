@@ -297,6 +297,21 @@ services:
       - /var/run/openvswitch:/var/run/openvswitch:rw
       # dnsmasq config for IP/MAC lookup (NetworkManager managed)
       - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
+  consoleservice:
+    container_name: atd-consoleservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_consoleservice:1.0.0
+    restart: on-failure
+    # Host network mode required to access libvirt socket on host
+    network_mode: host
+    # Privileged mode required for virsh console access
+    privileged: true
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # libvirt socket for virsh console commands
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
+      # ATD config (read-only)
+      - /etc/atd:/etc/atd:ro
 networks:
   atd_nginx:
 volumes:

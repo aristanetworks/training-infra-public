@@ -176,6 +176,17 @@ export class EventManager {
                 disabled: !data.ip || data.ip === 'N/A'
             },
             {
+                label: 'Open Console (Serial)',
+                action: () => {
+                    // Open console page in new tab with device name
+                    window.open(`/console?device=${encodeURIComponent(data.label)}`, '_blank');
+                    this.hideContextMenu();
+                },
+                // Only show for KVM labs (virsh console not available for cEOS)
+                hidden: this.isCeosLab,
+                disabled: !data.label
+            },
+            {
                 label: 'Focus on Device',
                 action: () => {
                     this.enterFocusMode(node);
@@ -209,18 +220,48 @@ export class EventManager {
                     this.hideContextMenu();
                 },
                 disabled: !data.ip || data.ip === 'N/A'
+            },
+            {
+                type: 'separator',
+                // Only show separator if edit/delete options are visible
+                hidden: !data.user_added || this.isCeosLab
+            },
+            {
+                label: 'Edit Connections',
+                action: () => {
+                    this.showEditConnectionsDialog(data.label);
+                    this.hideContextMenu();
+                },
+                // Only show for user-added nodes in KVM labs
+                hidden: !data.user_added || this.isCeosLab
+            },
+            {
+                label: 'Delete Node',
+                action: () => {
+                    this.confirmDeleteNode(data.label, data.ip);
+                    this.hideContextMenu();
+                },
+                // Only show for user-added nodes in KVM labs
+                hidden: !data.user_added || this.isCeosLab,
+                className: 'danger'
             }
         ];
 
         // Build menu HTML
         menuItems.forEach(item => {
+            // Skip hidden items (e.g., console option on cEOS labs)
+            if (item.hidden) return;
+
             if (item.type === 'separator') {
                 const sep = document.createElement('div');
                 sep.className = 'context-menu-separator';
                 menu.appendChild(sep);
             } else {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                let className = 'context-menu-item';
+                if (item.disabled) className += ' disabled';
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
 
                 // Only add icon if provided
                 if (item.icon) {
@@ -299,6 +340,686 @@ export class EventManager {
     }
 
     /**
+     * Show confirmation dialog for deleting a user-added node
+     */
+    confirmDeleteNode(nodeName, nodeIp) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'delete-node-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-dialog';
+
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h3>Delete Node</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>${nodeName}</strong>?</p>
+                <p class="warning-text">This will:</p>
+                <ul>
+                    <li>Stop and remove the VM</li>
+                    <li>Delete the disk image</li>
+                    <li>Remove all network connections</li>
+                </ul>
+                <p class="warning-text">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-btn">Delete Node</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Handle cancel
+        document.getElementById('cancel-delete-btn').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        // Handle confirm
+        document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Deleting...';
+
+            try {
+                const response = await fetch('/td-api/nodes/delete-node', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: nodeName })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to delete node');
+                }
+
+                // Success - refresh topology
+                overlay.remove();
+                if (window.topologyManager) {
+                    await window.topologyManager.refreshTopology();
+                }
+
+                // Show success notification
+                this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
+
+            } catch (error) {
+                console.error('Error deleting node:', error);
+                this.showNotification(`Failed to delete node: ${error.message}`, 'error');
+                overlay.remove();
+            }
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        });
+
+        // Close on escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    /**
+     * Show a notification toast
+     */
+    showNotification(message, type = 'info') {
+        // Create or get notification container
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            document.body.appendChild(container);
+        }
+
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+
+        container.appendChild(notification);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
+    }
+
+    /**
+     * Show dialog for editing connections on a user-added node
+     */
+    async showEditConnectionsDialog(nodeName) {
+        // Fetch current connections and available targets
+        try {
+            const [connectionsResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+
+            const connectionsData = await connectionsResp.json();
+            const targetsData = await targetsResp.json();
+
+            if (!connectionsResp.ok) {
+                throw new Error(connectionsData.error || 'Failed to fetch connections');
+            }
+
+            const connections = connectionsData.connections || [];
+            const targetDevices = targetsData.devices || [];
+
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'edit-connections-modal';
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-dialog edit-connections-dialog';
+
+            // Build connection list HTML
+            let connectionsHtml = connections.map((conn, i) => `
+                <div class="connection-row" data-index="${i}">
+                    <span class="connection-info">
+                        <strong>${conn.local_port}</strong> &rarr;
+                        ${conn.target_device}:${conn.target_port}
+                    </span>
+                    <button class="btn btn-sm btn-danger remove-connection-btn"
+                            data-local-port="${conn.local_port}"
+                            data-target-device="${conn.target_device}"
+                            data-target-port="${conn.target_port}">
+                        Remove
+                    </button>
+                </div>
+            `).join('');
+
+            if (connections.length === 0) {
+                connectionsHtml = '<p class="no-connections">No connections configured</p>';
+            }
+
+            // Build target device options
+            const targetOptions = targetDevices.map(device =>
+                `<option value="${device.name}">${device.name}</option>`
+            ).join('');
+
+            modal.innerHTML = `
+                <div class="modal-header">
+                    <h3>Edit Connections - ${nodeName}</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="edit-section">
+                        <h4>Current Connections</h4>
+                        <div class="connections-list">${connectionsHtml}</div>
+                    </div>
+                    <div class="edit-section">
+                        <h4>Add Connection</h4>
+                        <div class="add-connection-form">
+                            <select id="add-target-device" class="form-control">
+                                <option value="">Select target device...</option>
+                                ${targetOptions}
+                            </select>
+                            <button class="btn btn-primary" id="add-connection-btn" disabled>
+                                Add Connection
+                            </button>
+                        </div>
+                    </div>
+                    <div id="edit-status" class="edit-status hidden"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="close-edit-btn">Close</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Track changes
+            const pendingRemovals = [];
+
+            // Enable add button when target selected
+            const addTargetSelect = document.getElementById('add-target-device');
+            const addBtn = document.getElementById('add-connection-btn');
+
+            addTargetSelect.addEventListener('change', () => {
+                addBtn.disabled = !addTargetSelect.value;
+            });
+
+            // Handle remove connection
+            modal.querySelectorAll('.remove-connection-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const localPort = btn.dataset.localPort;
+                    const targetDevice = btn.dataset.targetDevice;
+                    const targetPort = btn.dataset.targetPort;
+
+                    btn.disabled = true;
+                    btn.textContent = 'Removing...';
+
+                    try {
+                        const response = await fetch('/td-api/nodes/edit-node', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: nodeName,
+                                remove_connections: [{
+                                    local_port: localPort,
+                                    target_device: targetDevice,
+                                    target_port: targetPort
+                                }]
+                            })
+                        });
+
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error);
+
+                        // Remove from UI
+                        btn.closest('.connection-row').remove();
+
+                        // Check if no connections left
+                        if (modal.querySelectorAll('.connection-row').length === 0) {
+                            modal.querySelector('.connections-list').innerHTML =
+                                '<p class="no-connections">No connections configured</p>';
+                        }
+
+                        this.showNotification(`Removed connection ${localPort}`, 'success');
+
+                        // Refresh topology
+                        if (window.topologyManager) {
+                            await window.topologyManager.refreshTopology();
+                        }
+
+                    } catch (error) {
+                        btn.disabled = false;
+                        btn.textContent = 'Remove';
+                        this.showNotification(`Failed to remove: ${error.message}`, 'error');
+                    }
+                });
+            });
+
+            // Handle add connection
+            addBtn.addEventListener('click', async () => {
+                const targetDevice = addTargetSelect.value;
+                if (!targetDevice) return;
+
+                addBtn.disabled = true;
+                addBtn.textContent = 'Adding...';
+
+                try {
+                    const response = await fetch('/td-api/nodes/edit-node', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: nodeName,
+                            add_connections: [{ target_device: targetDevice }]
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+
+                    // Refresh the dialog to show new connection
+                    overlay.remove();
+                    this.showEditConnectionsDialog(nodeName);
+
+                    this.showNotification(`Added connection to ${targetDevice}`, 'success');
+
+                    // Refresh topology
+                    if (window.topologyManager) {
+                        await window.topologyManager.refreshTopology();
+                    }
+
+                } catch (error) {
+                    addBtn.disabled = false;
+                    addBtn.textContent = 'Add Connection';
+                    this.showNotification(`Failed to add: ${error.message}`, 'error');
+                }
+            });
+
+            // Handle close
+            document.getElementById('close-edit-btn').addEventListener('click', () => {
+                overlay.remove();
+            });
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+
+            // Close on escape
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+        } catch (error) {
+            console.error('Error showing edit dialog:', error);
+            this.showNotification(`Failed to load connections: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Show dialog for adding a cluster of nodes
+     */
+    async showAddClusterDialog() {
+        try {
+            // Fetch templates and available targets
+            const [templatesResp, targetsResp, ipsResp] = await Promise.all([
+                fetch('/td-api/nodes/cluster-templates'),
+                fetch('/td-api/nodes/target-devices'),
+                fetch('/td-api/nodes/available-ips')
+            ]);
+
+            const templatesData = await templatesResp.json();
+            const targetsData = await targetsResp.json();
+            const ipsData = await ipsResp.json();
+
+            if (!templatesResp.ok) {
+                throw new Error(templatesData.error || 'Failed to fetch templates');
+            }
+
+            const templates = templatesData.templates || [];
+            const targetDevices = targetsData.devices || [];
+            const availableIps = ipsData.available_ips || [];
+
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'add-cluster-modal';
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-dialog cluster-dialog';
+
+            // Build template options
+            const templateOptions = templates.map(t => `
+                <option value="${t.id}"
+                        data-nodes="${t.node_count}"
+                        data-description="${t.description}">
+                    ${t.display_name} (${t.node_count} nodes)
+                </option>
+            `).join('');
+
+            // Build target device options
+            const targetOptions = targetDevices.map(d =>
+                `<option value="${d.name}">${d.name}</option>`
+            ).join('');
+
+            modal.innerHTML = `
+                <div class="modal-header">
+                    <h3>Add Node Cluster</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Cluster Template</label>
+                        <select id="cluster-template" class="form-control">
+                            <option value="">Select a template...</option>
+                            ${templateOptions}
+                        </select>
+                        <p id="template-description" class="help-text"></p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Name Prefix (optional)</label>
+                        <input type="text" id="cluster-prefix" class="form-control"
+                               placeholder="e.g., dc1 creates dc1_isp1, dc1_isp2">
+                        <p class="help-text">Prefix added to all node names in the cluster</p>
+                    </div>
+
+                    <div id="external-connections-section" class="form-group hidden">
+                        <label>External Connections</label>
+                        <p class="help-text">Connect cluster nodes to existing topology devices</p>
+                        <div id="external-connections-list"></div>
+                    </div>
+
+                    <div id="impairments-section" class="form-group hidden">
+                        <label>Link Impairments (Internal Links)</label>
+                        <p class="help-text">Apply network impairments to connections between cluster nodes</p>
+                        <div class="impairment-controls-grid">
+                            <div class="impairment-input-group">
+                                <label>Latency (ms)</label>
+                                <input type="number" id="cluster-latency" class="form-control"
+                                       min="0" max="1000" step="1" placeholder="0">
+                            </div>
+                            <div class="impairment-input-group">
+                                <label>Jitter (ms)</label>
+                                <input type="number" id="cluster-jitter" class="form-control"
+                                       min="0" max="500" step="1" placeholder="0">
+                            </div>
+                            <div class="impairment-input-group">
+                                <label>Packet Loss (%)</label>
+                                <input type="number" id="cluster-loss" class="form-control"
+                                       min="0" max="100" step="0.1" placeholder="0">
+                            </div>
+                        </div>
+                        <p id="default-impairments" class="help-text"></p>
+                    </div>
+
+                    <div id="cluster-summary" class="cluster-summary hidden">
+                        <h4>Summary</h4>
+                        <p>Available IPs: <strong>${availableIps.length}</strong></p>
+                        <p id="nodes-to-create"></p>
+                        <p id="internal-connections-info"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancel-cluster-btn">Cancel</button>
+                    <button class="btn btn-primary" id="create-cluster-btn" disabled>
+                        Create Cluster
+                    </button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            const templateSelect = document.getElementById('cluster-template');
+            const prefixInput = document.getElementById('cluster-prefix');
+            const createBtn = document.getElementById('create-cluster-btn');
+            const descriptionEl = document.getElementById('template-description');
+            const externalSection = document.getElementById('external-connections-section');
+            const externalList = document.getElementById('external-connections-list');
+            const impairmentsSection = document.getElementById('impairments-section');
+            const summarySection = document.getElementById('cluster-summary');
+            const nodesToCreateEl = document.getElementById('nodes-to-create');
+            const internalConnectionsInfo = document.getElementById('internal-connections-info');
+            const defaultImpairmentsEl = document.getElementById('default-impairments');
+            const latencyInput = document.getElementById('cluster-latency');
+            const jitterInput = document.getElementById('cluster-jitter');
+            const lossInput = document.getElementById('cluster-loss');
+
+            let selectedTemplate = null;
+
+            // Handle template selection
+            templateSelect.addEventListener('change', () => {
+                const templateId = templateSelect.value;
+                selectedTemplate = templates.find(t => t.id === templateId);
+
+                if (selectedTemplate) {
+                    descriptionEl.textContent = selectedTemplate.description;
+
+                    // Show external connections
+                    externalSection.classList.remove('hidden');
+                    externalList.innerHTML = selectedTemplate.external_connections.map((ext, i) => `
+                        <div class="external-connection-row">
+                            <label>
+                                ${ext.from_node}: ${ext.description}
+                                ${ext.required ? '<span class="required">*</span>' : ''}
+                            </label>
+                            <select id="ext-conn-${i}" class="form-control ext-conn-select"
+                                    data-from-node="${ext.from_node}" ${ext.required ? 'required' : ''}>
+                                <option value="">Select target device...</option>
+                                ${targetOptions}
+                            </select>
+                        </div>
+                    `).join('');
+
+                    // Show impairments section if template has internal connections
+                    if (selectedTemplate.internal_connections && selectedTemplate.internal_connections.length > 0) {
+                        impairmentsSection.classList.remove('hidden');
+
+                        // Set default impairments from template
+                        const defaults = selectedTemplate.default_impairments || {};
+                        latencyInput.value = defaults.latency_ms || '';
+                        jitterInput.value = defaults.jitter_ms || '';
+                        lossInput.value = defaults.loss_percent || '';
+
+                        if (Object.keys(defaults).length > 0) {
+                            const defaultParts = [];
+                            if (defaults.latency_ms) defaultParts.push(`${defaults.latency_ms}ms latency`);
+                            if (defaults.jitter_ms) defaultParts.push(`${defaults.jitter_ms}ms jitter`);
+                            if (defaults.loss_percent) defaultParts.push(`${defaults.loss_percent}% loss`);
+                            defaultImpairmentsEl.textContent = `Template defaults: ${defaultParts.join(', ')}`;
+                        } else {
+                            defaultImpairmentsEl.textContent = 'No default impairments for this template';
+                        }
+                    } else {
+                        impairmentsSection.classList.add('hidden');
+                    }
+
+                    // Show summary
+                    summarySection.classList.remove('hidden');
+                    const prefix = prefixInput.value.trim();
+                    const nodeNames = selectedTemplate.nodes.map(n =>
+                        prefix ? `${prefix}_${n.name_suffix}` : n.name_suffix
+                    ).join(', ');
+                    nodesToCreateEl.innerHTML = `Will create: <strong>${nodeNames}</strong>`;
+
+                    // Show internal connections info
+                    if (selectedTemplate.internal_connections && selectedTemplate.internal_connections.length > 0) {
+                        const intConns = selectedTemplate.internal_connections.map(c =>
+                            `${c.from} ↔ ${c.to}`
+                        ).join(', ');
+                        internalConnectionsInfo.innerHTML = `Internal links: <strong>${intConns}</strong>`;
+                    } else {
+                        internalConnectionsInfo.innerHTML = '';
+                    }
+
+                    // Check if we have enough IPs
+                    if (availableIps.length < selectedTemplate.node_count) {
+                        nodesToCreateEl.innerHTML += `<br><span class="error-text">Not enough IPs! Need ${selectedTemplate.node_count}, have ${availableIps.length}</span>`;
+                        createBtn.disabled = true;
+                    } else {
+                        createBtn.disabled = false;
+                    }
+                } else {
+                    descriptionEl.textContent = '';
+                    externalSection.classList.add('hidden');
+                    impairmentsSection.classList.add('hidden');
+                    summarySection.classList.add('hidden');
+                    createBtn.disabled = true;
+                }
+            });
+
+            // Update node names when prefix changes
+            prefixInput.addEventListener('input', () => {
+                if (selectedTemplate) {
+                    const prefix = prefixInput.value.trim();
+                    const nodeNames = selectedTemplate.nodes.map(n =>
+                        prefix ? `${prefix}_${n.name_suffix}` : n.name_suffix
+                    ).join(', ');
+                    nodesToCreateEl.innerHTML = `Will create: <strong>${nodeNames}</strong>`;
+                }
+            });
+
+            // Handle create
+            createBtn.addEventListener('click', async () => {
+                if (!selectedTemplate) return;
+
+                // Collect external connections
+                const externalConnections = [];
+                const extSelects = modal.querySelectorAll('.ext-conn-select');
+                let valid = true;
+
+                extSelects.forEach(select => {
+                    const fromNode = select.dataset.fromNode;
+                    const targetDevice = select.value;
+                    const required = select.hasAttribute('required');
+
+                    if (required && !targetDevice) {
+                        valid = false;
+                        select.classList.add('error');
+                    } else {
+                        select.classList.remove('error');
+                        if (targetDevice) {
+                            externalConnections.push({
+                                from_node: fromNode,
+                                target_device: targetDevice
+                            });
+                        }
+                    }
+                });
+
+                if (!valid) {
+                    this.showNotification('Please fill in all required connections', 'error');
+                    return;
+                }
+
+                createBtn.disabled = true;
+                createBtn.textContent = 'Creating...';
+
+                try {
+                    // Collect impairment values
+                    const impairments = {};
+                    const latencyVal = parseInt(latencyInput.value, 10) || 0;
+                    const jitterVal = parseInt(jitterInput.value, 10) || 0;
+                    const lossVal = parseFloat(lossInput.value) || 0;
+
+                    if (latencyVal > 0) impairments.latency_ms = latencyVal;
+                    if (jitterVal > 0) impairments.jitter_ms = jitterVal;
+                    if (lossVal > 0) impairments.loss_percent = lossVal;
+
+                    const response = await fetch('/td-api/nodes/add-cluster', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            template_id: selectedTemplate.id,
+                            name_prefix: prefixInput.value.trim(),
+                            external_connections: externalConnections,
+                            impairments: Object.keys(impairments).length > 0 ? impairments : null
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+
+                    // Apply impairments to internal bridges if any were specified
+                    if (result.impairments_to_apply && result.impairments_to_apply.length > 0) {
+                        createBtn.textContent = 'Applying impairments...';
+
+                        for (const impInfo of result.impairments_to_apply) {
+                            try {
+                                await fetch('/td-api/impairments/configure', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        bridge: impInfo.bridge,
+                                        latency_ms: impInfo.impairments.latency_ms || 0,
+                                        loss_percent: impInfo.impairments.loss_percent || 0,
+                                        duplication_percent: 0,
+                                        corruption_percent: 0
+                                    })
+                                });
+                            } catch (impError) {
+                                console.warn(`Failed to apply impairments to ${impInfo.bridge}:`, impError);
+                            }
+                        }
+                    }
+
+                    overlay.remove();
+                    this.showNotification(
+                        `Created cluster with ${result.nodes.length} nodes`,
+                        'success'
+                    );
+
+                    // Refresh topology
+                    if (window.topologyManager) {
+                        await window.topologyManager.refreshTopology();
+                    }
+
+                } catch (error) {
+                    createBtn.disabled = false;
+                    createBtn.textContent = 'Create Cluster';
+                    this.showNotification(`Failed: ${error.message}`, 'error');
+                }
+            });
+
+            // Handle cancel
+            document.getElementById('cancel-cluster-btn').addEventListener('click', () => {
+                overlay.remove();
+            });
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            // Close on escape
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+        } catch (error) {
+            console.error('Error showing cluster dialog:', error);
+            this.showNotification(`Failed to load: ${error.message}`, 'error');
+        }
+    }
+
+    /**
      * Show context menu when right-clicking on empty canvas background
      * Provides options like "Add New Node" (KVM only), "Fit to View", etc.
      */
@@ -323,6 +1044,14 @@ export class EventManager {
                     } else {
                         console.error('AddNodeWizard not initialized');
                     }
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: this.isCeosLab ? 'Add Cluster (vEOS only)' : 'Add Cluster',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showAddClusterDialog();
                 },
                 disabled: this.isCeosLab
             },

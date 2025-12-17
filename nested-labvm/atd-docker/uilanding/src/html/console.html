@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Console - {{ topo_title }}</title>
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/typography.css" />
+  <!-- xterm.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--proxima);
+      background: #1e1e1e;
+      color: #eee;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .console-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Header */
+    .console-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: #252525;
+      border-bottom: 1px solid #444;
+    }
+
+    .console-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .console-header h1 .device-name {
+      color: #4ec9b0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #888;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #666;
+    }
+
+    .status-dot.connected {
+      background: #28a745;
+      box-shadow: 0 0 6px rgba(40, 167, 69, 0.5);
+    }
+
+    .status-dot.disconnected {
+      background: #dc3545;
+    }
+
+    .status-dot.connecting {
+      background: #ffc107;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .header-btn {
+      padding: 8px 16px;
+      border: 1px solid #444;
+      background: transparent;
+      color: #ccc;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      background: #333;
+      border-color: #666;
+    }
+
+    .header-btn.primary {
+      background: #0066cc;
+      border-color: #0066cc;
+      color: #fff;
+    }
+
+    .header-btn.primary:hover {
+      background: #0055aa;
+    }
+
+    .back-link {
+      color: #888;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .back-link:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    /* Terminal */
+    .terminal-wrapper {
+      flex: 1;
+      padding: 8px;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Info bar */
+    .info-bar {
+      padding: 8px 20px;
+      background: #252525;
+      border-top: 1px solid #444;
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-bar .hint {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .info-bar kbd {
+      background: #333;
+      border: 1px solid #444;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 11px;
+    }
+
+    /* Connection states */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-content {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .overlay-content h2 {
+      margin-bottom: 16px;
+      color: #fff;
+    }
+
+    .overlay-content p {
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #0066cc;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    /* Device selector */
+    .device-selector {
+      margin-top: 20px;
+    }
+
+    .device-list {
+      max-height: 300px;
+      overflow-y: auto;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 4px;
+      margin-top: 12px;
+    }
+
+    .device-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #333;
+      transition: background 0.2s;
+    }
+
+    .device-item:last-child {
+      border-bottom: none;
+    }
+
+    .device-item:hover {
+      background: #333;
+    }
+
+    .device-item .name {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .device-item .state {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    .device-item .state.running {
+      background: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+    }
+
+    .device-item .state.stopped {
+      background: rgba(220, 53, 69, 0.2);
+      color: #dc3545;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="console-container">
+    <!-- Header -->
+    <header class="console-header">
+      <h1>
+        <a href="/" class="back-link">&larr; Back</a>
+        Serial Console: <span class="device-name" id="deviceName">-</span>
+      </h1>
+      <div class="header-actions">
+        <div class="status-indicator">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Disconnected</span>
+        </div>
+        <button class="header-btn" id="reconnectBtn" style="display: none;">Reconnect</button>
+        <button class="header-btn" id="selectDeviceBtn">Change Device</button>
+      </div>
+    </header>
+
+    <!-- Terminal -->
+    <div class="terminal-wrapper">
+      <div id="terminal"></div>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <div class="hint">
+        <span>Disconnect: <kbd>Ctrl</kbd>+<kbd>]</kbd></span>
+        <span>Login: arista / {{ ARISTA_PWD }}</span>
+      </div>
+      <span id="termSize">-</span>
+    </div>
+  </div>
+
+  <!-- Connecting overlay -->
+  <div class="overlay" id="connectingOverlay">
+    <div class="overlay-content">
+      <div class="spinner"></div>
+      <h2>Connecting to console...</h2>
+      <p id="connectingDevice">-</p>
+    </div>
+  </div>
+
+  <!-- Error overlay -->
+  <div class="overlay hidden" id="errorOverlay">
+    <div class="overlay-content">
+      <div class="error-icon">&#10060;</div>
+      <h2>Connection Failed</h2>
+      <p id="errorMessage">Unable to connect to console</p>
+      <button class="header-btn primary" id="retryBtn">Retry</button>
+      <button class="header-btn" id="selectAnotherBtn">Select Another Device</button>
+    </div>
+  </div>
+
+  <!-- Device selector overlay -->
+  <div class="overlay hidden" id="deviceSelectorOverlay">
+    <div class="overlay-content">
+      <h2>Select Device</h2>
+      <p>Choose a VM to connect to its serial console</p>
+      <div class="device-selector">
+        <div class="device-list" id="deviceList">
+          <div style="padding: 20px; text-align: center; color: #888;">Loading devices...</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px;">
+        <button class="header-btn" id="cancelSelectBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Console Manager
+    const ConsoleManager = {
+      term: null,
+      ws: null,
+      fitAddon: null,
+      currentDevice: null,
+      reconnectAttempts: 0,
+      maxReconnectAttempts: 3,
+
+      init() {
+        // Initialize xterm.js
+        this.term = new Terminal({
+          cursorBlink: true,
+          cursorStyle: 'block',
+          fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+          fontSize: 14,
+          lineHeight: 1.2,
+          theme: {
+            background: '#000000',
+            foreground: '#ffffff',
+            cursor: '#ffffff',
+            cursorAccent: '#000000',
+            selectionBackground: '#3a3d41',
+          },
+          allowProposedApi: true
+        });
+
+        this.fitAddon = new FitAddon.FitAddon();
+        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+
+        this.term.loadAddon(this.fitAddon);
+        this.term.loadAddon(webLinksAddon);
+
+        this.term.open(document.getElementById('terminal'));
+        this.fitAddon.fit();
+
+        // Handle terminal resize
+        window.addEventListener('resize', () => this.handleResize());
+
+        // Setup button handlers
+        this.setupEventHandlers();
+
+        // Check URL for device parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const device = urlParams.get('device');
+
+        if (device) {
+          this.connect(device);
+        } else {
+          this.showDeviceSelector();
+        }
+      },
+
+      setupEventHandlers() {
+        document.getElementById('reconnectBtn').addEventListener('click', () => {
+          if (this.currentDevice) {
+            this.connect(this.currentDevice);
+          }
+        });
+
+        document.getElementById('selectDeviceBtn').addEventListener('click', () => {
+          this.showDeviceSelector();
+        });
+
+        document.getElementById('retryBtn').addEventListener('click', () => {
+          if (this.currentDevice) {
+            document.getElementById('errorOverlay').classList.add('hidden');
+            this.connect(this.currentDevice);
+          }
+        });
+
+        document.getElementById('selectAnotherBtn').addEventListener('click', () => {
+          document.getElementById('errorOverlay').classList.add('hidden');
+          this.showDeviceSelector();
+        });
+
+        document.getElementById('cancelSelectBtn').addEventListener('click', () => {
+          document.getElementById('deviceSelectorOverlay').classList.add('hidden');
+        });
+      },
+
+      async connect(device) {
+        this.currentDevice = device;
+        this.reconnectAttempts++;
+
+        // Update UI
+        document.getElementById('deviceName').textContent = device;
+        document.getElementById('connectingDevice').textContent = device;
+        document.getElementById('connectingOverlay').classList.remove('hidden');
+        document.getElementById('errorOverlay').classList.add('hidden');
+        document.getElementById('deviceSelectorOverlay').classList.add('hidden');
+
+        this.setStatus('connecting');
+
+        // Close existing connection if any
+        if (this.ws) {
+          this.ws.close();
+          this.ws = null;
+        }
+
+        // Clear terminal
+        this.term.clear();
+        this.term.write('\x1b[2J\x1b[H'); // Clear screen and move cursor home
+        this.term.write(`Connecting to ${device}...\r\n`);
+
+        try {
+          // Build WebSocket URL
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${wsProtocol}//${window.location.host}/console/ws/console/${device}`;
+
+          this.ws = new WebSocket(wsUrl);
+          this.ws.binaryType = 'arraybuffer';
+
+          this.ws.onopen = () => {
+            console.log('WebSocket connected');
+            document.getElementById('connectingOverlay').classList.add('hidden');
+            this.setStatus('connected');
+            this.reconnectAttempts = 0;
+
+            // Show reconnect button
+            document.getElementById('reconnectBtn').style.display = 'inline-block';
+
+            // Send initial resize
+            this.sendResize();
+
+            // Focus terminal
+            this.term.focus();
+          };
+
+          this.ws.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+              const decoder = new TextDecoder();
+              this.term.write(decoder.decode(event.data));
+            } else {
+              this.term.write(event.data);
+            }
+          };
+
+          this.ws.onclose = (event) => {
+            console.log('WebSocket closed:', event.code, event.reason);
+            this.setStatus('disconnected');
+
+            if (event.code !== 1000 && event.code !== 1001) {
+              // Abnormal close
+              if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.term.write('\r\n\x1b[33mConnection lost. Attempting to reconnect...\x1b[0m\r\n');
+                setTimeout(() => this.connect(device), 2000);
+              } else {
+                this.showError('Connection lost after multiple attempts');
+              }
+            } else {
+              this.term.write('\r\n\x1b[33mConnection closed.\x1b[0m\r\n');
+            }
+          };
+
+          this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            document.getElementById('connectingOverlay').classList.add('hidden');
+            this.showError('Failed to connect to console service');
+          };
+
+          // Handle terminal input
+          this.term.onData((data) => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+              this.ws.send(data);
+            }
+          });
+
+          // Update URL
+          const newUrl = `${window.location.pathname}?device=${encodeURIComponent(device)}`;
+          window.history.replaceState({}, '', newUrl);
+
+        } catch (error) {
+          console.error('Connection error:', error);
+          document.getElementById('connectingOverlay').classList.add('hidden');
+          this.showError(error.message || 'Failed to establish connection');
+        }
+      },
+
+      handleResize() {
+        if (this.fitAddon) {
+          this.fitAddon.fit();
+          this.updateTermSize();
+          this.sendResize();
+        }
+      },
+
+      updateTermSize() {
+        if (this.term) {
+          document.getElementById('termSize').textContent =
+            `${this.term.cols} x ${this.term.rows}`;
+        }
+      },
+
+      sendResize() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN && this.term) {
+          const resizeMsg = JSON.stringify({
+            type: 'resize',
+            cols: this.term.cols,
+            rows: this.term.rows
+          });
+          this.ws.send(resizeMsg);
+        }
+      },
+
+      setStatus(status) {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+
+        dot.classList.remove('connected', 'disconnected', 'connecting');
+
+        switch (status) {
+          case 'connected':
+            dot.classList.add('connected');
+            text.textContent = 'Connected';
+            break;
+          case 'disconnected':
+            dot.classList.add('disconnected');
+            text.textContent = 'Disconnected';
+            break;
+          case 'connecting':
+            dot.classList.add('connecting');
+            text.textContent = 'Connecting...';
+            break;
+        }
+      },
+
+      showError(message) {
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorOverlay').classList.remove('hidden');
+        this.setStatus('disconnected');
+      },
+
+      async showDeviceSelector() {
+        const overlay = document.getElementById('deviceSelectorOverlay');
+        const list = document.getElementById('deviceList');
+
+        overlay.classList.remove('hidden');
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Loading devices...</div>';
+
+        try {
+          const response = await fetch('/console/devices');
+          const data = await response.json();
+
+          if (data.devices && data.devices.length > 0) {
+            list.innerHTML = '';
+            data.devices.forEach(device => {
+              const item = document.createElement('div');
+              item.className = 'device-item';
+              item.innerHTML = `
+                <span class="name">${device.name}</span>
+                <span class="state ${device.state === 'running' ? 'running' : 'stopped'}">${device.state}</span>
+              `;
+
+              if (device.console_available) {
+                item.addEventListener('click', () => {
+                  overlay.classList.add('hidden');
+                  this.connect(device.name);
+                });
+              } else {
+                item.style.opacity = '0.5';
+                item.style.cursor = 'not-allowed';
+                item.title = 'VM is not running';
+              }
+
+              list.appendChild(item);
+            });
+          } else {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No VMs found</div>';
+          }
+        } catch (error) {
+          console.error('Failed to load devices:', error);
+          list.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">Failed to load devices</div>';
+        }
+      }
+    };
+
+    // Initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', () => {
+      ConsoleManager.init();
+    });
+  </script>
+</body>
+
+</html>

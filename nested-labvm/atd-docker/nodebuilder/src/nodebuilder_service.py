@@ -316,6 +316,584 @@ async def restore_user_nodes(request):
         return web.json_response({'error': str(e)}, status=500)
 
 
+@routes.post('/delete-node')
+async def delete_node(request):
+    """
+    Delete a user-added node completely.
+
+    Request body: { "name": "leaf5" }
+
+    This will:
+    1. Stop and undefine the VM
+    2. Delete the disk image
+    3. Delete OVS bridges
+    4. Detach interfaces from connected VMs
+    5. Remove from user_nodes.yaml
+    6. Clean up neighbor references in other user-added nodes
+       (prevents orphaned connections when deleting a node that
+       is connected to other user-added nodes)
+    """
+    from persistence import get_user_node, remove_user_node, remove_neighbor_references
+    from resource_manager import get_resource_manager
+    from config import USER_NODES_PATH
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+
+    # Security: Validate device name format (alphanumeric + underscore)
+    import re
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
+        return web.json_response({'error': 'Invalid device name format'}, status=400)
+
+    # Validate: must be a user-added node
+    user_node = get_user_node(name, USER_NODES_PATH)
+    if not user_node:
+        return web.json_response({
+            'error': f"Node '{name}' is not a user-added node or does not exist"
+        }, status=400)
+
+    # Get node info for cleanup
+    node_info = user_node.get(name, {})
+
+    try:
+        logger.info(f"Deleting user-added node: {name}")
+
+        # Delete completely using ResourceManager
+        resource_mgr = get_resource_manager()
+        result = resource_mgr.delete_node_completely(name, node_info)
+
+        # Remove from persistence
+        remove_user_node(name, USER_NODES_PATH)
+
+        # Clean up neighbor references in other user nodes
+        # (prevents orphaned references when a node connected to other user nodes is deleted)
+        orphaned_refs_removed = remove_neighbor_references(name, USER_NODES_PATH)
+        if orphaned_refs_removed > 0:
+            result['orphaned_references_removed'] = orphaned_refs_removed
+
+        logger.info(f"Successfully deleted node: {name}")
+
+        return web.json_response({
+            'status': 'deleted',
+            'node': name,
+            'details': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error deleting node {name}: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+
+@routes.post('/edit-node')
+async def edit_node(request):
+    """
+    Edit connections for a user-added node.
+
+    Request body: {
+        "name": "leaf5",
+        "add_connections": [
+            {"target_device": "spine3", "target_port": "Ethernet7"}
+        ],
+        "remove_connections": [
+            {"local_port": "Ethernet1", "target_device": "spine1", "target_port": "Ethernet5"}
+        ]
+    }
+
+    Note: IP/MAC cannot be changed as that would break ZTP.
+    """
+    from persistence import get_user_node, load_user_nodes, save_user_nodes
+    from connection_manager import get_connection_manager, Connection
+    from transactions import NodeEditTransaction
+    from validation import validate_connection_unique, validate_target_device_exists
+    from interface_manager import find_next_available_port
+    from config import USER_NODES_PATH, get_topo_build_path
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+    add_connections = data.get('add_connections', [])
+    remove_connections = data.get('remove_connections', [])
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+
+    # Security: Validate device name format
+    import re
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
+        return web.json_response({'error': 'Invalid device name format'}, status=400)
+
+    # Validate: must be a user-added node
+    user_node = get_user_node(name, USER_NODES_PATH)
+    if not user_node:
+        return web.json_response({
+            'error': f"Node '{name}' is not a user-added node or does not exist"
+        }, status=400)
+
+    # Validate inputs
+    if not add_connections and not remove_connections:
+        return web.json_response({'error': 'No changes specified'}, status=400)
+
+    topo_build_path = get_topo_build_path()
+
+    # Validate add_connections
+    for conn in add_connections:
+        target_device = conn.get('target_device')
+        if not target_device:
+            return web.json_response({'error': 'target_device is required for add_connections'}, status=400)
+
+        # Validate target device exists
+        valid, error = validate_target_device_exists(target_device, topo_build_path, USER_NODES_PATH)
+        if not valid:
+            return web.json_response({'error': error}, status=400)
+
+    # Validate remove_connections
+    for conn in remove_connections:
+        if not conn.get('local_port'):
+            return web.json_response({'error': 'local_port is required for remove_connections'}, status=400)
+
+    try:
+        logger.info(f"Editing connections for node: {name}")
+
+        conn_mgr = get_connection_manager()
+        node_info = user_node.get(name, {})
+
+        # Use transaction for atomic operation
+        with NodeEditTransaction(name) as txn:
+            # First: remove old connections
+            for conn_spec in remove_connections:
+                local_port = conn_spec.get('local_port')
+                target_device = conn_spec.get('target_device')
+                target_port = conn_spec.get('target_port')
+
+                conn = Connection(
+                    source_device=name,
+                    source_port=local_port,
+                    target_device=target_device,
+                    target_port=target_port
+                )
+                txn.add_remove_connection(conn_mgr, conn)
+
+            # Second: add new connections
+            added_connections = []
+            for conn_spec in add_connections:
+                target_device = conn_spec.get('target_device')
+                target_port = conn_spec.get('target_port') or find_next_available_port(target_device)
+
+                # Find next available local port
+                local_port = conn_spec.get('local_port') or find_next_available_port(name)
+
+                # Validate connection is unique
+                valid, error = validate_connection_unique(
+                    name, local_port, target_device, target_port,
+                    topo_build_path, USER_NODES_PATH
+                )
+                if not valid:
+                    return web.json_response({'error': error}, status=400)
+
+                conn = Connection(
+                    source_device=name,
+                    source_port=local_port,
+                    target_device=target_device,
+                    target_port=target_port
+                )
+                txn.add_create_connection(conn_mgr, conn)
+                added_connections.append({
+                    'local_port': local_port,
+                    'target_device': target_device,
+                    'target_port': target_port
+                })
+
+            # Execute all actions with rollback on failure
+            txn.execute()
+
+        # Update persistence
+        all_user_nodes = load_user_nodes(USER_NODES_PATH)
+        for node_entry in all_user_nodes.get('nodes', []):
+            for node_name, info in node_entry.items():
+                if node_name.lower() == name.lower():
+                    # Remove deleted connections from neighbors
+                    for conn_spec in remove_connections:
+                        local_port = conn_spec.get('local_port')
+                        info['neighbors'] = [
+                            n for n in info.get('neighbors', [])
+                            if n.get('port', '').lower() != local_port.lower()
+                        ]
+
+                    # Add new connections to neighbors
+                    for conn in added_connections:
+                        info.setdefault('neighbors', []).append({
+                            'port': conn['local_port'],
+                            'neighborDevice': conn['target_device'],
+                            'neighborPort': conn['target_port']
+                        })
+                    break
+
+        save_user_nodes(all_user_nodes, USER_NODES_PATH)
+
+        logger.info(f"Successfully edited node: {name}")
+
+        return web.json_response({
+            'status': 'updated',
+            'node': name,
+            'added': added_connections,
+            'removed': [c.get('local_port') for c in remove_connections]
+        })
+
+    except Exception as e:
+        logger.error(f"Error editing node {name}: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+
+@routes.get('/node-connections/{name}')
+async def get_node_connections(request):
+    """
+    Get current connections for a user-added node.
+
+    Returns list of connections for editing.
+    """
+    from persistence import get_user_node
+    from config import USER_NODES_PATH
+
+    name = request.match_info.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+
+    # Security: Validate device name format
+    import re
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
+        return web.json_response({'error': 'Invalid device name format'}, status=400)
+
+    user_node = get_user_node(name, USER_NODES_PATH)
+    if not user_node:
+        return web.json_response({
+            'error': f"Node '{name}' is not a user-added node or does not exist"
+        }, status=400)
+
+    node_info = user_node.get(name, {})
+    neighbors = node_info.get('neighbors', [])
+
+    connections = []
+    for neighbor in neighbors:
+        connections.append({
+            'local_port': neighbor.get('port', ''),
+            'target_device': neighbor.get('neighborDevice', ''),
+            'target_port': neighbor.get('neighborPort', '')
+        })
+
+    return web.json_response({
+        'name': name,
+        'ip': node_info.get('ip_addr', ''),
+        'mac': node_info.get('sys_mac', ''),
+        'connections': connections
+    })
+
+
+@routes.get('/cluster-templates')
+async def cluster_templates(request):
+    """
+    Get available cluster templates.
+
+    Returns list of templates with their configurations.
+    """
+    from cluster_templates import get_cluster_templates
+
+    try:
+        templates = get_cluster_templates()
+        return web.json_response({'templates': templates})
+    except Exception as e:
+        logger.error(f"Error getting cluster templates: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+
+@routes.post('/add-cluster')
+async def add_cluster(request):
+    """
+    Create a cluster of nodes from a template.
+
+    Request body: {
+        "template_id": "internet",
+        "name_prefix": "dc1",
+        "external_connections": [
+            {"from_node": "isp1", "target_device": "borderleaf1"},
+            {"from_node": "isp2", "target_device": "borderleaf2"}
+        ],
+        "ip_assignments": {
+            "isp1": "192.168.0.50",
+            "isp2": "192.168.0.51"
+        },
+        "impairments": {
+            "latency_ms": 25,
+            "loss_percent": 0.5
+        }
+    }
+
+    The cluster creation works in phases:
+    1. Create all VMs with only external connections (to existing topology)
+    2. After all VMs exist, create internal connections between cluster nodes
+    3. Optionally apply impairments to cluster bridges
+    """
+    from cluster_templates import get_template_by_id, validate_cluster_request
+    from validation import get_available_ips, get_mac_for_ip, validate_device_name, validate_target_device_exists
+    from vm_manager import create_veos_node
+    from persistence import save_user_node
+    from connection_manager import get_connection_manager, Connection
+    from interface_manager import create_ovs_bridge, attach_interface_to_vm, generate_bridge_name
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    template_id = data.get('template_id', '')
+    name_prefix = data.get('name_prefix', '')
+    external_connections = data.get('external_connections', [])
+    ip_assignments = data.get('ip_assignments', {})
+    impairments = data.get('impairments', {})
+
+    if not template_id:
+        return web.json_response({'error': 'template_id is required'}, status=400)
+
+    # Get template
+    template = get_template_by_id(template_id)
+    if not template:
+        return web.json_response({'error': f"Unknown template: {template_id}"}, status=400)
+
+    topo_build_path = get_topo_build_path()
+
+    # Get available IPs
+    available_ips = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+
+    # Validate request
+    valid, error = validate_cluster_request(
+        template_id,
+        external_connections,
+        len(available_ips)
+    )
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate external connection targets exist
+    for ext_conn in external_connections:
+        target_device = ext_conn.get('target_device')
+        if target_device:
+            valid, error = validate_target_device_exists(target_device, topo_build_path, USER_NODES_PATH)
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+    # Generate node names and validate uniqueness
+    node_names = {}
+    for node_template in template.nodes:
+        full_name = node_template.get_full_name(name_prefix)
+        valid, error = validate_device_name(full_name, topo_build_path, USER_NODES_PATH)
+        if not valid:
+            return web.json_response({'error': f"Node name '{full_name}': {error}"}, status=400)
+        node_names[node_template.name_suffix] = full_name
+
+    # Assign IPs (use provided or auto-assign from available)
+    assigned_ips = {}
+    available_ip_list = list(available_ips)
+    ip_index = 0
+
+    for node_template in template.nodes:
+        suffix = node_template.name_suffix
+        full_name = node_names[suffix]
+
+        if suffix in ip_assignments:
+            # Use provided IP
+            ip = ip_assignments[suffix]
+            # Validate it's available
+            if not any(entry['ip'] == ip for entry in available_ips):
+                return web.json_response({
+                    'error': f"IP {ip} is not available for {full_name}"
+                }, status=400)
+            assigned_ips[suffix] = ip
+        else:
+            # Auto-assign from available
+            if ip_index >= len(available_ip_list):
+                return web.json_response({'error': 'Not enough IPs available'}, status=400)
+            assigned_ips[suffix] = available_ip_list[ip_index]['ip']
+            ip_index += 1
+
+    try:
+        logger.info(f"Creating cluster from template: {template_id}")
+
+        created_nodes = []
+        internal_bridges = []  # Track bridges created for internal connections
+        conn_mgr = get_connection_manager()
+
+        # PHASE 1: Create all VMs with only external connections
+        # (internal connections are added after all VMs exist)
+        logger.info(f"Phase 1: Creating {len(template.nodes)} VMs")
+
+        for node_template in template.nodes:
+            suffix = node_template.name_suffix
+            full_name = node_names[suffix]
+            ip = assigned_ips[suffix]
+            mac = get_mac_for_ip(ip, DNSMASQ_PATH)
+
+            if not mac:
+                # Rollback already created nodes
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                for created in created_nodes:
+                    try:
+                        rm.delete_node_completely(created['name'], {})
+                    except Exception:
+                        pass
+                return web.json_response({
+                    'error': f"No MAC found for IP {ip}"
+                }, status=400)
+
+            # Only include external connections for this node
+            # (connections to existing topology devices)
+            node_external_connections = []
+            for ext_conn in external_connections:
+                if ext_conn.get('from_node') == suffix:
+                    node_external_connections.append({
+                        'target_device': ext_conn['target_device'],
+                        'target_port': ext_conn.get('target_port')
+                    })
+
+            try:
+                # Create VM with only external connections
+                result = create_veos_node(full_name, ip, mac, node_external_connections)
+                created_nodes.append({
+                    'name': full_name,
+                    'suffix': suffix,
+                    'ip': ip,
+                    'mac': mac,
+                    'connections': result.get('connections', [])
+                })
+                logger.info(f"  Created VM: {full_name}")
+            except Exception as e:
+                # Rollback all created nodes
+                logger.error(f"Failed to create {full_name}: {e}")
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                for created in created_nodes:
+                    try:
+                        rm.delete_node_completely(created['name'], {})
+                    except Exception:
+                        pass
+                raise
+
+        # PHASE 2: Create internal connections between cluster nodes
+        # Now that all VMs exist, we can connect them to each other
+        logger.info(f"Phase 2: Creating {len(template.internal_connections)} internal connections")
+
+        for int_conn in template.internal_connections:
+            from_suffix = int_conn.from_node
+            to_suffix = int_conn.to_node
+            from_name = node_names[from_suffix]
+            to_name = node_names[to_suffix]
+
+            # Generate bridge name for this internal connection
+            bridge_name = generate_bridge_name(from_name, 'int', to_name, 'int')
+
+            try:
+                # Create OVS bridge
+                create_ovs_bridge(bridge_name)
+
+                # Attach interface to both VMs
+                attach_interface_to_vm(from_name, bridge_name)
+                attach_interface_to_vm(to_name, bridge_name)
+
+                internal_bridges.append({
+                    'bridge': bridge_name,
+                    'from': from_name,
+                    'to': to_name
+                })
+
+                # Add to node connection records
+                for node in created_nodes:
+                    if node['suffix'] == from_suffix:
+                        node['connections'].append({
+                            'local_port': f"Ethernet{len(node['connections']) + 1}",
+                            'target_device': to_name,
+                            'bridge': bridge_name,
+                            'internal': True
+                        })
+                    elif node['suffix'] == to_suffix:
+                        node['connections'].append({
+                            'local_port': f"Ethernet{len(node['connections']) + 1}",
+                            'target_device': from_name,
+                            'bridge': bridge_name,
+                            'internal': True
+                        })
+
+                logger.info(f"  Connected: {from_name} <-> {to_name} (bridge: {bridge_name})")
+
+            except Exception as e:
+                logger.error(f"Failed to create internal connection {from_name} <-> {to_name}: {e}")
+                # Continue with other connections - partial cluster is still useful
+
+        # PHASE 3: Apply impairments to cluster bridges if specified
+        applied_impairments = []
+        if impairments:
+            logger.info(f"Phase 3: Applying impairments to {len(internal_bridges)} internal bridges")
+
+            # Note: Impairments are applied via captureservice API
+            # We'll return the bridge names so the frontend can apply impairments
+            for bridge_info in internal_bridges:
+                applied_impairments.append({
+                    'bridge': bridge_info['bridge'],
+                    'from': bridge_info['from'],
+                    'to': bridge_info['to'],
+                    'impairments': impairments
+                })
+
+        # Save all nodes to persistence
+        for node_info in created_nodes:
+            neighbors = []
+            for c in node_info['connections']:
+                neighbors.append({
+                    'neighborDevice': c.get('target_device', ''),
+                    'neighborPort': c.get('target_port', ''),
+                    'port': c.get('local_port', ''),
+                    'bridge': c.get('bridge', ''),
+                    'internal': c.get('internal', False)
+                })
+
+            node_data = {
+                node_info['name']: {
+                    'ip_addr': node_info['ip'],
+                    'sys_mac': node_info['mac'],
+                    'platform': 'veos',
+                    'user_added': True,
+                    'cluster': template_id,
+                    'neighbors': neighbors
+                }
+            }
+            save_user_node(node_data, USER_NODES_PATH)
+
+        logger.info(f"Successfully created cluster: {template_id} ({len(created_nodes)} nodes)")
+
+        return web.json_response({
+            'status': 'created',
+            'cluster': template_id,
+            'prefix': name_prefix,
+            'nodes': created_nodes,
+            'internal_bridges': internal_bridges,
+            'impairments_to_apply': applied_impairments
+        })
+
+    except Exception as e:
+        logger.error(f"Error creating cluster {template_id}: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+
 @routes.post('/save-config')
 async def save_config(request):
     """
@@ -338,13 +916,17 @@ async def save_config(request):
 
     try:
         import pyeapi
+        from config import get_device_credentials
+
+        # Get credentials from ACCESS_INFO.yaml
+        creds = get_device_credentials()
 
         # Connect to device using eAPI
         connection = pyeapi.connect(
             transport='https',
             host=ip,
-            username='arista',
-            password='arista',
+            username=creds['username'],
+            password=creds['password'],
             return_node=True
         )
 

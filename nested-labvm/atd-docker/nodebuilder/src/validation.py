@@ -274,3 +274,123 @@ def validate_device_name(
         return False, "This device name is already in use"
 
     return True, None
+
+
+def get_all_connections(topo_build_path: str, user_nodes_path: str) -> List[Tuple[str, str, str, str]]:
+    """
+    Get all existing connections from topology and user nodes.
+
+    Returns tuples of (source_device, source_port, target_device, target_port)
+    to enable duplicate detection.
+
+    Args:
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+
+    Returns:
+        List of connection tuples
+    """
+    connections = []
+    all_nodes = get_all_nodes(topo_build_path, user_nodes_path)
+
+    for node in all_nodes:
+        source_device = node['name']
+        for neighbor in node.get('neighbors', []):
+            source_port = neighbor.get('port', '')
+            target_device = neighbor.get('neighborDevice', '')
+            target_port = neighbor.get('neighborPort', '')
+
+            if source_port and target_device and target_port:
+                connections.append((
+                    source_device.lower(),
+                    source_port.lower(),
+                    target_device.lower(),
+                    target_port.lower()
+                ))
+
+    return connections
+
+
+def validate_connection_unique(
+    source_device: str,
+    source_port: str,
+    target_device: str,
+    target_port: str,
+    topo_build_path: str,
+    user_nodes_path: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that a connection doesn't already exist.
+
+    Checks for duplicate connections in both directions:
+    - A:port1 -> B:port2
+    - B:port2 -> A:port1
+
+    Also checks that neither port is already in use.
+
+    Args:
+        source_device: Source device name
+        source_port: Source port (e.g., "Ethernet1")
+        target_device: Target device name
+        target_port: Target port (e.g., "Ethernet3")
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    existing_connections = get_all_connections(topo_build_path, user_nodes_path)
+
+    # Normalize inputs for case-insensitive comparison
+    src_dev = source_device.lower()
+    src_port = source_port.lower()
+    tgt_dev = target_device.lower()
+    tgt_port = target_port.lower()
+
+    # Check if this exact connection exists
+    if (src_dev, src_port, tgt_dev, tgt_port) in existing_connections:
+        return False, f"Connection {source_device}:{source_port} -> {target_device}:{target_port} already exists"
+
+    # Check reverse direction
+    if (tgt_dev, tgt_port, src_dev, src_port) in existing_connections:
+        return False, f"Connection already exists in reverse direction"
+
+    # Check if source port is already in use
+    for conn in existing_connections:
+        if conn[0] == src_dev and conn[1] == src_port:
+            return False, f"{source_device}:{source_port} is already connected to {conn[2]}:{conn[3]}"
+        if conn[2] == src_dev and conn[3] == src_port:
+            return False, f"{source_device}:{source_port} is already connected to {conn[0]}:{conn[1]}"
+
+    # Check if target port is already in use
+    for conn in existing_connections:
+        if conn[0] == tgt_dev and conn[1] == tgt_port:
+            return False, f"{target_device}:{target_port} is already connected to {conn[2]}:{conn[3]}"
+        if conn[2] == tgt_dev and conn[3] == tgt_port:
+            return False, f"{target_device}:{target_port} is already connected to {conn[0]}:{conn[1]}"
+
+    return True, None
+
+
+def validate_target_device_exists(
+    target_device: str,
+    topo_build_path: str,
+    user_nodes_path: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that a target device exists.
+
+    Args:
+        target_device: Name of the target device
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+
+    Returns:
+        Tuple of (exists, error_message)
+    """
+    existing_names = get_existing_node_names(topo_build_path, user_nodes_path)
+
+    if target_device.lower() not in existing_names:
+        return False, f"Target device '{target_device}' does not exist"
+
+    return True, None

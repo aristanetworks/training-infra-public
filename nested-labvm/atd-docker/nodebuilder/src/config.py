@@ -53,3 +53,32 @@ VEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'
 
 # Management bridge
 MGMT_BRIDGE = 'vmgmt'
+
+
+def get_device_credentials() -> dict:
+    """
+    Get device login credentials from ACCESS_INFO.yaml.
+
+    Returns:
+        Dict with 'username' and 'password' keys
+
+    Falls back to defaults if ACCESS_INFO.yaml cannot be read.
+    """
+    try:
+        from ruamel.yaml import YAML
+        yaml = YAML()
+        with open(ACCESS_INFO_PATH, 'r') as f:
+            access_info = yaml.load(f)
+            login_info = access_info.get('login_info', {})
+            # Network devices typically use jump_host credentials
+            jump_host = login_info.get('jump_host', {})
+            return {
+                'username': jump_host.get('user', 'arista'),
+                'password': jump_host.get('pw', 'arista')
+            }
+    except Exception:
+        # Fallback to defaults if ACCESS_INFO unavailable
+        return {
+            'username': 'arista',
+            'password': 'arista'
+        }

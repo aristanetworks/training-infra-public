@@ -1094,6 +1094,25 @@ class TerminalPageHandler(BaseHandler):
         )
 
 
+class ConsolePageHandler(BaseHandler):
+    """Handler for the serial console page (virsh console access)."""
+
+    def get(self):
+        if not self.current_user:
+            if 'auth' in self.request.arguments:
+                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            else:
+                self.redirect('/login')
+            return
+
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        self.render(
+            BASE_PATH + 'console.html',
+            topo_title=TITLE,
+            ARISTA_PWD=host_yaml['login_info']['jump_host']['pw'],
+        )
+
+
 class TopologyAPIHandler(BaseHandler):
     """API endpoint to return topology data for interactive Cytoscape.js diagram."""
 
@@ -3147,6 +3166,7 @@ if __name__ == "__main__":
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
+        (r'/console', ConsolePageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
