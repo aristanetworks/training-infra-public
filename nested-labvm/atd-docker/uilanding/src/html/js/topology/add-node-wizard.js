@@ -33,6 +33,7 @@ class AddNodeWizard {
             name: '',
             ip: '',
             mac: '',
+            device_type: 'host',  // Default to host
             connections: []
         };
 
@@ -40,6 +41,7 @@ class AddNodeWizard {
         this.availableIps = [];
         this.targetDevices = [];
         this.existingNodes = [];
+        this.deviceTypes = {};  // Device type metadata from server
 
         // Validation state
         this.nameValid = false;
@@ -81,6 +83,7 @@ class AddNodeWizard {
             name: '',
             ip: '',
             mac: '',
+            device_type: 'host',
             connections: []
         };
         this.nameValid = false;
@@ -198,10 +201,14 @@ class AddNodeWizard {
 
         try {
             // Use shared API service for parallel fetch with caching
-            const data = await NodeBuilderAPI.loadWizardData();
+            const [data, deviceTypesResp] = await Promise.all([
+                NodeBuilderAPI.loadWizardData(),
+                fetch('/td-api/device-types').then(r => r.ok ? r.json() : {})
+            ]);
             this.availableIps = data.availableIps;
             this.targetDevices = data.targetDevices;
             this.existingNodes = data.existingNodes;
+            this.deviceTypes = deviceTypesResp || {};
 
         } catch (error) {
             console.error('[AddNodeWizard] Error loading wizard data:', error);
@@ -282,6 +289,9 @@ class AddNodeWizard {
      * Step 1: Device Name Entry
      */
     renderNameStep(content) {
+        // Build device type options from loaded data
+        const deviceTypeOptions = this.buildDeviceTypeOptions();
+
         content.innerHTML = `
             <div class="wizard-step wizard-step-name">
                 <h3>Enter Device Name</h3>
@@ -306,6 +316,14 @@ class AddNodeWizard {
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="device-type">Device Type</label>
+                    <select id="device-type" class="form-input">
+                        ${deviceTypeOptions}
+                    </select>
+                    <p class="field-hint">Device type determines diagram placement tier.</p>
+                </div>
+
                 <div class="existing-nodes-hint">
                     <p>Existing nodes: ${this.existingNodes.map(n => n.name || Object.keys(n)[0]).slice(0, 10).join(', ')}${this.existingNodes.length > 10 ? '...' : ''}</p>
                 </div>
@@ -313,7 +331,13 @@ class AddNodeWizard {
         `;
 
         const input = content.querySelector('#node-name');
+        const deviceTypeSelect = content.querySelector('#device-type');
         input.focus();
+
+        // Handle device type selection
+        deviceTypeSelect.addEventListener('change', (e) => {
+            this.nodeConfig.device_type = e.target.value;
+        });
 
         // Validate on input with debounce
         let debounceTimer;
@@ -329,6 +353,35 @@ class AddNodeWizard {
                 this.nextStep();
             }
         });
+    }
+
+    /**
+     * Build device type options for dropdown
+     */
+    buildDeviceTypeOptions() {
+        // Sort device types by tier for logical grouping
+        const typeEntries = Object.entries(this.deviceTypes || {});
+
+        if (typeEntries.length === 0) {
+            // Fallback if device types not loaded
+            return `
+                <option value="host" selected>Host (Tier 8)</option>
+                <option value="leaf">Leaf (Tier 6)</option>
+                <option value="spine">Spine (Tier 5)</option>
+                <option value="borderleaf">Borderleaf (Tier 3)</option>
+                <option value="other">Other (Tier 9)</option>
+            `;
+        }
+
+        // Sort by tier
+        typeEntries.sort((a, b) => (a[1].tier || 9) - (b[1].tier || 9));
+
+        return typeEntries.map(([typeId, info]) => {
+            const selected = typeId === this.nodeConfig.device_type ? 'selected' : '';
+            const label = info.label || typeId;
+            const tier = info.tier !== undefined ? ` (Tier ${info.tier})` : '';
+            return `<option value="${this.escapeHtml(typeId)}" ${selected}>${this.escapeHtml(label)}${tier}</option>`;
+        }).join('');
     }
 
     /**
@@ -596,6 +649,11 @@ class AddNodeWizard {
             `).join('')
             : '<tr><td colspan="3" class="no-data">No connections configured</td></tr>';
 
+        // Get device type display info
+        const deviceTypeInfo = this.deviceTypes[this.nodeConfig.device_type] || {};
+        const deviceTypeLabel = deviceTypeInfo.label || this.nodeConfig.device_type;
+        const deviceTypeTier = deviceTypeInfo.tier !== undefined ? ` (Tier ${deviceTypeInfo.tier})` : '';
+
         content.innerHTML = `
             <div class="wizard-step wizard-step-review">
                 <h3>Review Configuration</h3>
@@ -607,6 +665,10 @@ class AddNodeWizard {
                         <tr>
                             <th>Device Name</th>
                             <td>${this.escapeHtml(this.nodeConfig.name)}</td>
+                        </tr>
+                        <tr>
+                            <th>Device Type</th>
+                            <td>${this.escapeHtml(deviceTypeLabel)}${deviceTypeTier}</td>
                         </tr>
                         <tr>
                             <th>IP Address</th>
@@ -735,6 +797,7 @@ class AddNodeWizard {
             const result = await NodeBuilderAPI.addNode({
                 name: this.nodeConfig.name,
                 ip: this.nodeConfig.ip,
+                device_type: this.nodeConfig.device_type,
                 connections: this.nodeConfig.connections
             });
 

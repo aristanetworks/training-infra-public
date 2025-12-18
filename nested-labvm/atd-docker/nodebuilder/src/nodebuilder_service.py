@@ -38,6 +38,41 @@ logger = logging.getLogger('nodebuilder')
 routes = web.RouteTableDef()
 
 
+def sanitize_error(error: Exception) -> str:
+    """
+    Sanitize error messages for client responses.
+
+    Returns a safe error message without exposing internal details
+    like file paths, stack traces, or system information.
+    """
+    error_str = str(error)
+
+    # Known safe error patterns that can be shown to users
+    safe_patterns = [
+        'Device name is required',
+        'IP address is required',
+        'Invalid device name',
+        'already exists',
+        'not available',
+        'not found',
+        'is not a user-added node',
+        'No changes specified',
+        'Maximum',
+        'must be',
+        'Invalid JSON',
+        'Timeout',
+        'Failed to',
+    ]
+
+    # Check if error matches a known safe pattern
+    for pattern in safe_patterns:
+        if pattern.lower() in error_str.lower():
+            return error_str
+
+    # For unknown errors, return generic message
+    return 'An internal error occurred. Check server logs for details.'
+
+
 @routes.get('/health')
 async def health(request):
     """Health check endpoint"""
@@ -114,8 +149,8 @@ async def available_ips(request):
         ips = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
         return web.json_response({'available_ips': ips})
     except Exception as e:
-        logger.error(f"Error getting available IPs: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error getting available IPs: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.get('/existing-nodes')
@@ -129,8 +164,8 @@ async def existing_nodes(request):
         nodes = get_all_nodes(topo_build_path, USER_NODES_PATH)
         return web.json_response({'nodes': nodes})
     except Exception as e:
-        logger.error(f"Error getting existing nodes: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error getting existing nodes: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.get('/target-devices')
@@ -142,8 +177,8 @@ async def target_devices(request):
         devices = get_target_devices_with_ports()
         return web.json_response({'devices': devices})
     except Exception as e:
-        logger.error(f"Error getting target devices: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error getting target devices: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/validate-node')
@@ -195,6 +230,7 @@ async def add_node(request):
 
     name = data.get('name', '')
     ip = data.get('ip', '')
+    device_type = data.get('device_type', '')  # Optional device type for diagram positioning
     connections = data.get('connections', [])
 
     if not name:
@@ -245,21 +281,24 @@ async def add_node(request):
         result = create_veos_node(name, ip, mac, connections)
 
         # Save to persistence
-        node_data = {
-            name: {
-                'ip_addr': ip,
-                'sys_mac': mac,
-                'platform': 'veos',
-                'user_added': True,
-                'neighbors': [
-                    {
-                        'neighborDevice': c['target_device'],
-                        'neighborPort': c['target_port'],
-                        'port': c['local_port']
-                    } for c in result['connections']
-                ]
-            }
+        node_entry = {
+            'ip_addr': ip,
+            'sys_mac': mac,
+            'platform': 'veos',
+            'user_added': True,
+            'neighbors': [
+                {
+                    'neighborDevice': c['target_device'],
+                    'neighborPort': c['target_port'],
+                    'port': c['local_port']
+                } for c in result['connections']
+            ]
         }
+        # Add device_type if provided (for diagram positioning)
+        if device_type:
+            node_entry['device_type'] = device_type
+
+        node_data = {name: node_entry}
         save_user_node(node_data, USER_NODES_PATH)
 
         logger.info(f"Successfully created node: {name}")
@@ -275,8 +314,8 @@ async def add_node(request):
         })
 
     except Exception as e:
-        logger.error(f"Error creating node {name}: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error creating node {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.get('/user-nodes-status')
@@ -293,8 +332,8 @@ async def user_nodes_status(request):
         status = get_user_nodes_status()
         return web.json_response(status)
     except Exception as e:
-        logger.error(f"Error getting user nodes status: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error getting user nodes status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/restore-user-nodes')
@@ -312,8 +351,8 @@ async def restore_user_nodes(request):
         result = restore_all_user_nodes()
         return web.json_response(result)
     except Exception as e:
-        logger.error(f"Error restoring user nodes: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error restoring user nodes: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/delete-node')
@@ -387,8 +426,8 @@ async def delete_node(request):
         })
 
     except Exception as e:
-        logger.error(f"Error deleting node {name}: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error deleting node {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/edit-node')
@@ -550,8 +589,8 @@ async def edit_node(request):
         })
 
     except Exception as e:
-        logger.error(f"Error editing node {name}: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error editing node {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.get('/node-connections/{name}')
@@ -612,8 +651,8 @@ async def cluster_templates(request):
         templates = get_cluster_templates()
         return web.json_response({'templates': templates})
     except Exception as e:
-        logger.error(f"Error getting cluster templates: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error getting cluster templates: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/add-cluster')
@@ -922,8 +961,8 @@ async def add_cluster(request):
         })
 
     except Exception as e:
-        logger.error(f"Error creating cluster {template_id}: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error creating cluster {template_id}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/save-config')
@@ -975,8 +1014,8 @@ async def save_config(request):
         })
 
     except Exception as e:
-        logger.error(f"Error saving config on {device}: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+        logger.error(f"Error saving config on {device}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 @routes.post('/reboot-devices')
@@ -1025,7 +1064,8 @@ async def reboot_devices(request):
         except subprocess.TimeoutExpired:
             errors.append({'device': device, 'error': 'Timeout rebooting device'})
         except Exception as e:
-            errors.append({'device': device, 'error': str(e)})
+            logger.error(f"Error rebooting device {device}: {e}", exc_info=True)
+            errors.append({'device': device, 'error': 'Failed to reboot device'})
 
     return web.json_response({
         'status': 'completed',

@@ -139,6 +139,51 @@ def get_vm_interfaces(vm_name: str) -> List[Dict]:
         raise RuntimeError(f"Error querying interfaces for {vm_name}: {e}")
 
 
+def get_used_ports_from_live_vm(device_name: str) -> List[int]:
+    """
+    Get list of used port numbers by querying the live VM interfaces.
+
+    This catches interfaces that have been attached but not yet saved to config.
+
+    Args:
+        device_name: Name of the device (VM)
+
+    Returns:
+        List of used port numbers based on number of data interfaces
+    """
+    try:
+        # Query VM interfaces using virsh
+        result = subprocess.run(
+            ['virsh', 'domiflist', device_name],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return []
+
+        # Parse output - count data interfaces (connected to OVS bridges, not mgmt)
+        # Format: Interface  Type    Source    Model   MAC
+        lines = result.stdout.strip().split('\n')
+        interface_count = 0
+
+        for line in lines[2:]:  # Skip header lines
+            if line.strip():
+                parts = line.split()
+                if len(parts) >= 3:
+                    source = parts[2]
+                    # Count OVS bridges (data interfaces, not mgmt bridge)
+                    if source not in ['br0', 'br-mgmt'] and not source.startswith('virbr'):
+                        interface_count += 1
+
+        # Return list of port numbers (1 to interface_count)
+        return list(range(1, interface_count + 1))
+
+    except Exception:
+        return []
+
+
 def get_used_ports_from_topology(device_name: str) -> List[int]:
     """
     Get list of used port numbers for a device from topology.
@@ -170,6 +215,12 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
                 port_num = extract_port_number(port)
                 if port_num:
                     used_ports.add(port_num)
+
+    # Also check live VM interfaces to catch recently attached interfaces
+    # that haven't been saved to config yet
+    live_ports = get_used_ports_from_live_vm(device_name)
+    for port_num in live_ports:
+        used_ports.add(port_num)
 
     return sorted(list(used_ports))
 
@@ -366,10 +417,13 @@ def attach_interface_to_vm(
     mac: Optional[str] = None
 ) -> Dict:
     """
-    Attach a new network interface to a running VM using OVS bridge.
+    Attach a new network interface to a VM using OVS bridge.
 
     Uses virsh attach-device with an XML file that includes the
     OVS virtualport type, which is required for OVS bridges.
+
+    If the VM is running, applies immediately with --live --config.
+    If the VM is not running, uses --config only (takes effect on next boot).
 
     Args:
         vm_name: Name of the VM
@@ -380,6 +434,11 @@ def attach_interface_to_vm(
         Dict with status and details
     """
     import tempfile
+    from vm_manager import get_vm_state
+
+    # Check if VM is running
+    vm_state = get_vm_state(vm_name)
+    vm_is_running = vm_state == 'running'
 
     # Generate interface XML with OVS virtualport type
     mac_element = f"<mac address='{mac}'/>" if mac else ""
@@ -397,12 +456,10 @@ def attach_interface_to_vm(
             f.write(interface_xml)
             xml_path = f.name
 
-        # Attach using virsh attach-device
-        cmd = [
-            'virsh', 'attach-device', vm_name, xml_path,
-            '--config',  # Persist across reboots
-            '--live'     # Apply immediately
-        ]
+        # Build command based on VM state
+        cmd = ['virsh', 'attach-device', vm_name, xml_path, '--config']
+        if vm_is_running:
+            cmd.append('--live')  # Apply immediately if running
 
         result = subprocess.run(
             cmd,
@@ -415,9 +472,10 @@ def attach_interface_to_vm(
             raise RuntimeError(f"Failed to attach interface: {result.stderr}")
 
         return {
-            'status': 'attached',
+            'status': 'attached' if vm_is_running else 'configured',
             'vm': vm_name,
-            'bridge': bridge_name
+            'bridge': bridge_name,
+            'immediate': vm_is_running
         }
 
     except subprocess.TimeoutExpired:
@@ -437,6 +495,9 @@ def detach_interface_from_vm(
     """
     Detach a network interface from a VM by MAC address.
 
+    If the VM is running, applies immediately with --live --config.
+    If the VM is not running, uses --config only (takes effect on next boot).
+
     Args:
         vm_name: Name of the VM
         mac: MAC address of the interface to detach
@@ -444,13 +505,24 @@ def detach_interface_from_vm(
     Returns:
         Dict with status
     """
+    from vm_manager import get_vm_state
+
+    # Check if VM is running
+    vm_state = get_vm_state(vm_name)
+    vm_is_running = vm_state == 'running'
+
     try:
+        cmd = [
+            'virsh', 'detach-interface', vm_name,
+            '--type', 'bridge',
+            '--mac', mac,
+            '--config'
+        ]
+        if vm_is_running:
+            cmd.append('--live')
+
         result = subprocess.run(
-            ['virsh', 'detach-interface', vm_name,
-             '--type', 'bridge',
-             '--mac', mac,
-             '--config',
-             '--live'],
+            cmd,
             capture_output=True,
             text=True,
             timeout=60
@@ -459,7 +531,12 @@ def detach_interface_from_vm(
         if result.returncode != 0:
             raise RuntimeError(f"Failed to detach interface: {result.stderr}")
 
-        return {'status': 'detached', 'vm': vm_name, 'mac': mac}
+        return {
+            'status': 'detached' if vm_is_running else 'configured',
+            'vm': vm_name,
+            'mac': mac,
+            'immediate': vm_is_running
+        }
 
     except subprocess.TimeoutExpired:
         raise RuntimeError(f"Timeout detaching interface from {vm_name}")

@@ -645,6 +645,12 @@
       // Clear existing checkboxes
       filtersContainer.innerHTML = '';
 
+      // Helper to update label class for :has() fallback (older browsers)
+      function updateLabelClass(label, checked) {
+        label.classList.remove('filter-checked', 'filter-unchecked');
+        label.classList.add(checked ? 'filter-checked' : 'filter-unchecked');
+      }
+
       // Create checkbox for each device type that exists
       Object.keys(counts).forEach(deviceType => {
         if (counts[deviceType] > 0) {
@@ -654,7 +660,12 @@
           checkbox.checked = true;
           checkbox.dataset.filter = deviceType;
 
+          // Set initial class for :has() fallback
+          updateLabelClass(label, true);
+
           checkbox.addEventListener('change', function() {
+            // Update class for :has() fallback
+            updateLabelClass(label, checkbox.checked);
             if (topoManager) {
               topoManager.toggleDeviceType(deviceType);
             }
@@ -696,6 +707,11 @@
             topoManager.setLayout('preset');  // Reset to organized layout
             topoManager.resetFilters();
             document.querySelectorAll('#device-type-filters input[type="checkbox"]').forEach(cb => cb.checked = true);
+            // Update classes for :has() fallback
+            document.querySelectorAll('#device-type-filters label').forEach(label => {
+              label.classList.remove('filter-unchecked');
+              label.classList.add('filter-checked');
+            });
             document.getElementById('device-search').value = '';
           }
         });

@@ -173,6 +173,7 @@
     color: #fbb500;
 }
 
+/* Modern browsers with :has() support */
 #device-type-filters label:has(input:checked) {
     background: transparent;
     color: #fbb500;
@@ -180,6 +181,19 @@
 }
 
 #device-type-filters label:has(input:not(:checked)) {
+    background: transparent;
+    color: rgba(251, 181, 0, 0.4);
+    border-color: rgba(251, 181, 0, 0.3);
+}
+
+/* Fallback for browsers without :has() support - uses JS-added classes */
+#device-type-filters label.filter-checked {
+    background: transparent;
+    color: #fbb500;
+    border-color: #fbb500;
+}
+
+#device-type-filters label.filter-unchecked {
     background: transparent;
     color: rgba(251, 181, 0, 0.4);
     border-color: rgba(251, 181, 0, 0.3);
@@ -899,6 +913,13 @@
 
 .help-row span {
     color: #666;
+}
+
+.help-note {
+    font-size: 12px;
+    font-style: italic;
+    color: #888;
+    line-height: 1.4;
 }
 
 /* ==========================================

@@ -439,7 +439,7 @@ export class EventManager {
                         `);
 
                         // Attach reboot handlers
-                        const modalBody = modal.modal.querySelector('.atd-modal__body');
+                        const modalBody = modal.modal.querySelector('.atd-modal__content');
                         rebootManager.attachEventHandlers(modalBody);
 
                         // Update footer to just have Close button
@@ -583,7 +583,7 @@ export class EventManager {
             });
 
             // Get modal content container for event handling
-            const modalContent = modal.modal.querySelector('.atd-modal__body');
+            const modalContent = modal.modal.querySelector('.atd-modal__content');
 
             // Helper function to update the reboot section
             const updateRebootSection = () => {

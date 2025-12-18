@@ -1548,7 +1548,9 @@ class TopologyAPIHandler(BaseHandler):
                     pS(f"Warning: Invalid device info for {device_name} (not a dict)")
                     continue
 
-                device_type = self.classify_device_type(device_name)
+                # Use explicit device_type if provided (for user-added nodes),
+                # otherwise classify from device name
+                device_type = device_info.get('device_type') or self.classify_device_type(device_name)
                 ip_addr = device_info.get('ip_addr', 'N/A')
                 sys_mac = device_info.get('sys_mac', 'N/A')
                 neighbors = device_info.get('neighbors', [])
@@ -1747,8 +1749,9 @@ class DevicesAPIHandler(BaseHandler):
             groups = {}
 
             for device_name, device_info in nodes.items():
-                # Classify device and get its group name
-                device_type = DeviceTypeConfig.classify_device(device_name)
+                # Use explicit device_type if provided (for user-added nodes),
+                # otherwise classify from device name
+                device_type = device_info.get('device_type') or DeviceTypeConfig.classify_device(device_name)
                 group_name = DeviceTypeConfig.get_group_name(device_type)
 
                 if group_name not in groups:
@@ -2420,11 +2423,15 @@ class CaptureBridgesAPIHandler(BaseHandler):
             from tornado.httpclient import AsyncHTTPClient
             http_client = AsyncHTTPClient()
 
+            # Check for refresh parameter
+            refresh = self.get_argument('refresh', '0')
+            refresh_param = f"?refresh={refresh}" if refresh == '1' else ""
+
             # Try to fetch bridges from capture service
             bridges = []
             try:
                 response = await http_client.fetch(
-                    f"{self.CAPTURE_SERVICE_URL}/bridges",
+                    f"{self.CAPTURE_SERVICE_URL}/bridges{refresh_param}",
                     request_timeout=5
                 )
                 data = json.loads(response.body.decode('utf-8'))
@@ -2433,7 +2440,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
                 try:
                     response = await http_client.fetch(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges",
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
                         request_timeout=5
                     )
                     data = json.loads(response.body.decode('utf-8'))

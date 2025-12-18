@@ -1007,10 +1007,15 @@ class CaptureManager:
             except:
                 return False
 
-    def get_bridges(self) -> List[Dict]:
+    def invalidate_bridge_cache(self):
+        """Invalidate the bridge cache to force a refresh."""
+        self._bridge_cache = None
+        self._bridge_cache_time = 0
+
+    def get_bridges(self, refresh: bool = False) -> List[Dict]:
         """Get list of OVS bridges with edge mapping."""
         now = time.time()
-        if self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
+        if not refresh and self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
             return self._bridge_cache
 
         bridges = []
@@ -2169,7 +2174,10 @@ class HealthHandler(SecureHandler):
 class BridgesHandler(SecureHandler):
     """List available bridges."""
     def get(self):
-        bridges = get_manager().get_bridges()
+        # Support refresh=1 or refresh=true query param to bypass cache
+        refresh_param = self.get_argument('refresh', '').lower()
+        refresh = refresh_param in ('1', 'true')
+        bridges = get_manager().get_bridges(refresh=refresh)
         self.write({"bridges": bridges})
 
 

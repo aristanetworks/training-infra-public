@@ -40,6 +40,33 @@ export class CapturePanel {
         this.createPanel();
         this.attachEventListeners();
         this.loadBridges();
+
+        // Add body classes for CSS :has() fallback (older browsers)
+        this.updateBodySidebarClasses();
+    }
+
+    /**
+     * Update body classes for CSS :has() fallback
+     * Adds classes like has-left-sidebar, has-device-sidebar based on DOM
+     */
+    updateBodySidebarClasses() {
+        const body = document.body;
+
+        // Index page sidebar
+        if (document.querySelector('.left-sidebar')) {
+            body.classList.add('has-left-sidebar');
+        }
+
+        // Terminal page sidebar
+        const deviceSidebar = document.querySelector('.device-sidebar');
+        if (deviceSidebar) {
+            body.classList.add('has-device-sidebar');
+            if (deviceSidebar.classList.contains('collapsed')) {
+                body.classList.add('has-device-sidebar-collapsed');
+            } else {
+                body.classList.remove('has-device-sidebar-collapsed');
+            }
+        }
     }
 
     /**
@@ -197,10 +224,12 @@ export class CapturePanel {
 
     /**
      * Load available bridges from API
+     * @param {boolean} refresh - If true, bypass server cache to get latest bridges
      */
-    async loadBridges() {
+    async loadBridges(refresh = false) {
         try {
-            const response = await fetch('/td-api/capture/bridges');
+            const url = refresh ? '/td-api/capture/bridges?refresh=1' : '/td-api/capture/bridges';
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -329,9 +358,12 @@ export class CapturePanel {
      * Show the capture panel
      * @param {string|Object} bridgeNameOrEdgeData - Bridge name string or edge data object
      */
-    show(bridgeNameOrEdgeData = null) {
+    async show(bridgeNameOrEdgeData = null) {
         this.container.classList.add('visible');
         this.container.classList.remove('minimized');
+
+        // Refresh bridges to pick up any newly added nodes/links
+        await this.loadBridges(true);
 
         if (bridgeNameOrEdgeData) {
             let bridgeName = bridgeNameOrEdgeData;
@@ -486,6 +518,10 @@ export class CapturePanel {
                         setTimeout(() => {
                             this.startCapture();
                         }, this.reconnectDelay * this.reconnectAttempts);
+                    } else {
+                        // Max reconnection attempts reached - notify user
+                        console.error('[CapturePanel] Max reconnection attempts reached');
+                        this.showReconnectionFailedNotification();
                     }
                 }
             };
@@ -1037,6 +1073,41 @@ export class CapturePanel {
                 this.elements.packetCount.textContent = `${this.packets.length} packets`;
                 this.elements.packetCount.style.color = '';
             }, 5000);
+        }
+    }
+
+    /**
+     * Show notification when WebSocket reconnection fails
+     * Displays persistent error with retry button
+     */
+    showReconnectionFailedNotification() {
+        const statusText = this.elements.status.querySelector('span:nth-child(2)');
+        if (statusText) {
+            statusText.textContent = 'Connection Lost';
+            statusText.style.color = '#e30909';
+        }
+
+        // Show retry button in packet count area
+        this.elements.packetCount.innerHTML = `
+            <span style="color: #e30909;">Connection failed after ${this.maxReconnectAttempts} attempts.</span>
+            <button class="capture-retry-btn" style="margin-left: 8px; padding: 2px 8px; cursor: pointer; border: 1px solid #071c35; border-radius: 3px; background: #fff;">Retry</button>
+        `;
+
+        // Add retry button handler
+        const retryBtn = this.elements.packetCount.querySelector('.capture-retry-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => {
+                // Reset reconnection state and retry
+                this.reconnectAttempts = 0;
+                this.elements.packetCount.textContent = `${this.packets.length} packets`;
+                this.elements.packetCount.style.color = '';
+                if (statusText) {
+                    statusText.textContent = 'Idle';
+                    statusText.style.color = '';
+                }
+                // Retry capture
+                this.startCapture();
+            });
         }
     }
 

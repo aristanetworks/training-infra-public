@@ -43,6 +43,7 @@ export class TopologyManager {
         this.isInitialized = false;
         this.topologyData = null;
         this.originalPositions = {};  // Store original positions for reset
+        this.positionStorageKey = 'atd-topology-positions';  // localStorage key for saved positions
     }
 
     /**
@@ -213,6 +214,109 @@ export class TopologyManager {
 
         // Run layout
         this.cy.layout(getLayout(this.options.layout)).run();
+
+        // Apply saved positions if available (override server positions)
+        this.loadSavedPositions();
+
+        // Setup drag event handler to save positions when nodes are moved
+        this.cy.on('free', 'node', () => {
+            this.savePositions();
+        });
+    }
+
+    /**
+     * Save current node positions to localStorage
+     */
+    savePositions() {
+        if (!this.cy) return;
+
+        try {
+            const positions = {};
+            this.cy.nodes().forEach(node => {
+                const pos = node.position();
+                positions[node.id()] = { x: pos.x, y: pos.y };
+            });
+
+            localStorage.setItem(this.positionStorageKey, JSON.stringify(positions));
+            console.log('[TopologyManager] Saved positions for', Object.keys(positions).length, 'nodes');
+        } catch (error) {
+            console.warn('[TopologyManager] Failed to save positions:', error);
+        }
+    }
+
+    /**
+     * Load saved positions from localStorage and apply to nodes
+     */
+    loadSavedPositions() {
+        if (!this.cy) return;
+
+        try {
+            const saved = localStorage.getItem(this.positionStorageKey);
+            if (!saved) return;
+
+            const positions = JSON.parse(saved);
+            let appliedCount = 0;
+
+            this.cy.nodes().forEach(node => {
+                const savedPos = positions[node.id()];
+                if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
+                    node.position(savedPos);
+                    appliedCount++;
+                }
+            });
+
+            if (appliedCount > 0) {
+                console.log('[TopologyManager] Loaded saved positions for', appliedCount, 'nodes');
+                // Fit to view after applying positions
+                this.cy.fit(50);
+            }
+        } catch (error) {
+            console.warn('[TopologyManager] Failed to load saved positions:', error);
+        }
+    }
+
+    /**
+     * Clear saved positions and reset to server-calculated positions
+     */
+    clearSavedPositions() {
+        try {
+            localStorage.removeItem(this.positionStorageKey);
+            console.log('[TopologyManager] Cleared saved positions');
+        } catch (error) {
+            console.warn('[TopologyManager] Failed to clear saved positions:', error);
+        }
+    }
+
+    /**
+     * Reset layout to server-calculated positions and clear saved positions
+     */
+    resetToServerPositions() {
+        // Clear saved positions
+        this.clearSavedPositions();
+
+        // Animate to original server positions
+        if (Object.keys(this.originalPositions).length > 0) {
+            this.cy.nodes().forEach(node => {
+                const originalPos = this.originalPositions[node.id()];
+                if (originalPos) {
+                    node.animate({
+                        position: originalPos
+                    }, {
+                        duration: 400,
+                        easing: 'ease-out-cubic'
+                    });
+                }
+            });
+
+            // Fit after animation completes
+            setTimeout(() => {
+                this.cy.animate({
+                    fit: { padding: 50 }
+                }, {
+                    duration: 200
+                });
+            }, 400);
+        }
     }
 
     /**
@@ -295,6 +399,9 @@ export class TopologyManager {
 
         // For preset layout, restore original server-calculated positions with animation
         if (layoutName === 'preset' && Object.keys(this.originalPositions).length > 0) {
+            // Clear saved positions so next load uses server positions
+            this.clearSavedPositions();
+
             this.cy.nodes().forEach(node => {
                 const originalPos = this.originalPositions[node.id()];
                 if (originalPos) {
@@ -965,9 +1072,13 @@ export class TopologyManager {
                 </div>
                 <div class="help-section">
                     <h4>Nodes</h4>
-                    <div class="help-row"><kbd>Drag Node</kbd> <span>Move node(s)</span></div>
+                    <div class="help-row"><kbd>Drag Node</kbd> <span>Move node(s) (positions saved)</span></div>
                     <div class="help-row"><kbd>Right-click</kbd> <span>Context menu</span></div>
                     <div class="help-row"><kbd>Hover</kbd> <span>Show details</span></div>
+                </div>
+                <div class="help-section">
+                    <h4>Layout</h4>
+                    <div class="help-row"><span class="help-note">Node positions persist across reloads. Use Layout &rarr; Reset to restore default positions.</span></div>
                 </div>
             </div>
         `;
