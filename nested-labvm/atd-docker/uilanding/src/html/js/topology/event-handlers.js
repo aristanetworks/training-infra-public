@@ -341,94 +341,78 @@ export class EventManager {
 
     /**
      * Show confirmation dialog for deleting a user-added node
+     * Uses BaseModal for consistent theming with other dialogs.
      */
     confirmDeleteNode(nodeName, nodeIp) {
-        // Create modal overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.id = 'delete-node-modal';
+        // Create modal using BaseModal
+        const modal = new BaseModal({
+            id: 'delete-node-modal',
+            title: 'Delete Node',
+            theme: BaseModal.THEMES.DARK,
+            size: BaseModal.SIZES.SMALL
+        });
 
-        const modal = document.createElement('div');
-        modal.className = 'modal-dialog';
+        modal.show();
 
-        modal.innerHTML = `
-            <div class="modal-header">
-                <h3>Delete Node</h3>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to delete <strong>${nodeName}</strong>?</p>
-                <p class="warning-text">This will:</p>
-                <ul>
+        // Set content with warning
+        modal.setContent(`
+            <div class="delete-node-content">
+                <p>Are you sure you want to delete <strong>${modal.escapeHtml(nodeName)}</strong>?</p>
+                <p class="atd-modal__warning-text">This will:</p>
+                <ul class="atd-modal__warning-list">
                     <li>Stop and remove the VM</li>
                     <li>Delete the disk image</li>
                     <li>Remove all network connections</li>
                 </ul>
-                <p class="warning-text">This action cannot be undone.</p>
+                <p class="atd-modal__warning-text">This action cannot be undone.</p>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
-                <button class="btn btn-danger" id="confirm-delete-btn">Delete Node</button>
-            </div>
-        `;
+        `);
 
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        // Handle cancel
-        document.getElementById('cancel-delete-btn').addEventListener('click', () => {
-            overlay.remove();
+        // Add footer buttons
+        modal.clearFooter();
+        const cancelBtn = modal.addFooterButton({
+            text: 'Cancel',
+            type: 'secondary',
+            onClick: () => modal.hide()
         });
 
-        // Handle confirm
-        document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
-            const confirmBtn = document.getElementById('confirm-delete-btn');
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = 'Deleting...';
+        const deleteBtn = modal.addFooterButton({
+            text: 'Delete Node',
+            type: 'danger',
+            onClick: async () => {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+                cancelBtn.disabled = true;
 
-            try {
-                const response = await fetch('/td-api/nodes/delete-node', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: nodeName })
-                });
+                try {
+                    const response = await fetch('/td-api/nodes/delete-node', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: nodeName })
+                    });
 
-                const result = await response.json();
+                    const result = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to delete node');
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to delete node');
+                    }
+
+                    // Success - hide modal and refresh topology
+                    modal.hide();
+                    if (window.topologyManager) {
+                        await window.topologyManager.refreshTopology();
+                    }
+
+                    // Show success notification
+                    this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
+
+                } catch (error) {
+                    console.error('Error deleting node:', error);
+                    this.showNotification(`Failed to delete node: ${error.message}`, 'error');
+                    modal.hide();
                 }
-
-                // Success - refresh topology
-                overlay.remove();
-                if (window.topologyManager) {
-                    await window.topologyManager.refreshTopology();
-                }
-
-                // Show success notification
-                this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
-
-            } catch (error) {
-                console.error('Error deleting node:', error);
-                this.showNotification(`Failed to delete node: ${error.message}`, 'error');
-                overlay.remove();
             }
         });
-
-        // Close on overlay click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-            }
-        });
-
-        // Close on escape key
-        const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                overlay.remove();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
     }
 
     /**
@@ -458,8 +442,20 @@ export class EventManager {
 
     /**
      * Show dialog for editing connections on a user-added node
+     * Uses BaseModal for consistent theming with other dialogs.
      */
     async showEditConnectionsDialog(nodeName) {
+        // Create modal using BaseModal
+        const modal = new BaseModal({
+            id: 'edit-connections-modal',
+            title: `Edit Connections - ${nodeName}`,
+            theme: BaseModal.THEMES.DARK,
+            size: BaseModal.SIZES.MEDIUM
+        });
+
+        modal.show();
+        modal.showLoading('Loading connections...');
+
         // Fetch current connections and available targets
         try {
             const [connectionsResp, targetsResp] = await Promise.all([
@@ -477,25 +473,17 @@ export class EventManager {
             const connections = connectionsData.connections || [];
             const targetDevices = targetsData.devices || [];
 
-            // Create modal overlay
-            const overlay = document.createElement('div');
-            overlay.className = 'modal-overlay';
-            overlay.id = 'edit-connections-modal';
-
-            const modal = document.createElement('div');
-            modal.className = 'modal-dialog edit-connections-dialog';
-
             // Build connection list HTML
             let connectionsHtml = connections.map((conn, i) => `
                 <div class="connection-row" data-index="${i}">
                     <span class="connection-info">
-                        <strong>${conn.local_port}</strong> &rarr;
-                        ${conn.target_device}:${conn.target_port}
+                        <strong>${modal.escapeHtml(conn.local_port)}</strong> &rarr;
+                        ${modal.escapeHtml(conn.target_device)}:${modal.escapeHtml(conn.target_port)}
                     </span>
-                    <button class="btn btn-sm btn-danger remove-connection-btn"
-                            data-local-port="${conn.local_port}"
-                            data-target-device="${conn.target_device}"
-                            data-target-port="${conn.target_port}">
+                    <button class="atd-modal__btn atd-modal__btn--danger atd-modal__btn--small remove-connection-btn"
+                            data-local-port="${modal.escapeHtml(conn.local_port)}"
+                            data-target-device="${modal.escapeHtml(conn.target_device)}"
+                            data-target-port="${modal.escapeHtml(conn.target_port)}">
                         Remove
                     </button>
                 </div>
@@ -507,14 +495,12 @@ export class EventManager {
 
             // Build target device options
             const targetOptions = targetDevices.map(device =>
-                `<option value="${device.name}">${device.name}</option>`
+                `<option value="${modal.escapeHtml(device.name)}">${modal.escapeHtml(device.name)}</option>`
             ).join('');
 
-            modal.innerHTML = `
-                <div class="modal-header">
-                    <h3>Edit Connections - ${nodeName}</h3>
-                </div>
-                <div class="modal-body">
+            // Set modal content
+            modal.setContent(`
+                <div class="edit-connections-content">
                     <div class="edit-section">
                         <h4>Current Connections</h4>
                         <div class="connections-list">${connectionsHtml}</div>
@@ -522,38 +508,39 @@ export class EventManager {
                     <div class="edit-section">
                         <h4>Add Connection</h4>
                         <div class="add-connection-form">
-                            <select id="add-target-device" class="form-control">
+                            <select id="add-target-device" class="atd-modal__select">
                                 <option value="">Select target device...</option>
                                 ${targetOptions}
                             </select>
-                            <button class="btn btn-primary" id="add-connection-btn" disabled>
+                            <button class="atd-modal__btn atd-modal__btn--primary" id="add-connection-btn" disabled>
                                 Add Connection
                             </button>
                         </div>
                     </div>
-                    <div id="edit-status" class="edit-status hidden"></div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="close-edit-btn">Close</button>
-                </div>
-            `;
+            `);
 
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
+            // Set footer with close button
+            modal.clearFooter();
+            modal.addFooterButton({
+                text: 'Close',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
 
-            // Track changes
-            const pendingRemovals = [];
+            // Get modal content container for event handling
+            const modalContent = modal.modal.querySelector('.atd-modal__body');
 
             // Enable add button when target selected
-            const addTargetSelect = document.getElementById('add-target-device');
-            const addBtn = document.getElementById('add-connection-btn');
+            const addTargetSelect = modalContent.querySelector('#add-target-device');
+            const addBtn = modalContent.querySelector('#add-connection-btn');
 
             addTargetSelect.addEventListener('change', () => {
                 addBtn.disabled = !addTargetSelect.value;
             });
 
             // Handle remove connection
-            modal.querySelectorAll('.remove-connection-btn').forEach(btn => {
+            modalContent.querySelectorAll('.remove-connection-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const localPort = btn.dataset.localPort;
                     const targetDevice = btn.dataset.targetDevice;
@@ -583,8 +570,9 @@ export class EventManager {
                         btn.closest('.connection-row').remove();
 
                         // Check if no connections left
-                        if (modal.querySelectorAll('.connection-row').length === 0) {
-                            modal.querySelector('.connections-list').innerHTML =
+                        const connectionsList = modalContent.querySelector('.connections-list');
+                        if (modalContent.querySelectorAll('.connection-row').length === 0) {
+                            connectionsList.innerHTML =
                                 '<p class="no-connections">No connections configured</p>';
                         }
 
@@ -624,8 +612,8 @@ export class EventManager {
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error);
 
-                    // Refresh the dialog to show new connection
-                    overlay.remove();
+                    // Hide current modal and reopen to show new connection
+                    modal.hide();
                     this.showEditConnectionsDialog(nodeName);
 
                     this.showNotification(`Added connection to ${targetDevice}`, 'success');
@@ -642,30 +630,9 @@ export class EventManager {
                 }
             });
 
-            // Handle close
-            document.getElementById('close-edit-btn').addEventListener('click', () => {
-                overlay.remove();
-            });
-
-            // Close on overlay click
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    overlay.remove();
-                }
-            });
-
-            // Close on escape
-            const escHandler = (e) => {
-                if (e.key === 'Escape') {
-                    overlay.remove();
-                    document.removeEventListener('keydown', escHandler);
-                }
-            };
-            document.addEventListener('keydown', escHandler);
-
         } catch (error) {
             console.error('Error showing edit dialog:', error);
-            this.showNotification(`Failed to load connections: ${error.message}`, 'error');
+            modal.showError(`Failed to load connections: ${error.message}`);
         }
     }
 
