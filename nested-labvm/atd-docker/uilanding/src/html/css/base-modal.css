@@ -1,0 +1,447 @@
+/**
+ * Base Modal Styles
+ *
+ * Unified modal system for ATD topology dialogs.
+ * Provides consistent theming across all modal components.
+ */
+
+/* ===========================================
+   Modal Overlay
+   =========================================== */
+
+.atd-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+.atd-modal-overlay--visible {
+    opacity: 1;
+}
+
+/* Dark theme overlay */
+.atd-modal-overlay--dark {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Light theme overlay */
+.atd-modal-overlay--light {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* ===========================================
+   Modal Container
+   =========================================== */
+
+.atd-modal {
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: atdModalSlideIn 0.3s ease-out;
+}
+
+@keyframes atdModalSlideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Size variants */
+.atd-modal--small {
+    width: 90%;
+    max-width: 400px;
+}
+
+.atd-modal--medium {
+    width: 90%;
+    max-width: 600px;
+}
+
+.atd-modal--large {
+    width: 90%;
+    max-width: 700px;
+}
+
+.atd-modal--xlarge {
+    width: 90%;
+    max-width: 900px;
+}
+
+/* Dark theme modal */
+.atd-modal--dark {
+    background: #1e1e1e;
+    color: #fff;
+}
+
+/* Light theme modal */
+.atd-modal--light {
+    background: #ffffff;
+    color: #333;
+}
+
+/* ===========================================
+   Modal Header
+   =========================================== */
+
+.atd-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid;
+    flex-shrink: 0;
+}
+
+.atd-modal--dark .atd-modal__header {
+    border-color: #333;
+    background: linear-gradient(135deg, #252525 0%, #1a1a1a 100%);
+}
+
+.atd-modal--light .atd-modal__header {
+    border-color: #e0e0e0;
+    background: #f5f5f5;
+}
+
+.atd-modal__title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.atd-modal--dark .atd-modal__title {
+    color: #fff;
+}
+
+.atd-modal--light .atd-modal__title {
+    color: #333;
+}
+
+.atd-modal__close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.atd-modal--dark .atd-modal__close {
+    color: #888;
+}
+
+.atd-modal--dark .atd-modal__close:hover {
+    color: #fff;
+}
+
+.atd-modal--light .atd-modal__close {
+    color: #666;
+}
+
+.atd-modal--light .atd-modal__close:hover {
+    color: #333;
+}
+
+/* ===========================================
+   Modal Content
+   =========================================== */
+
+.atd-modal__content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    min-height: 150px;
+}
+
+.atd-modal--dark .atd-modal__content {
+    background: #1e1e1e;
+}
+
+.atd-modal--light .atd-modal__content {
+    background: #fff;
+}
+
+/* ===========================================
+   Modal Footer
+   =========================================== */
+
+.atd-modal__footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid;
+    flex-shrink: 0;
+}
+
+.atd-modal--dark .atd-modal__footer {
+    border-color: #333;
+    background: #252525;
+}
+
+.atd-modal--light .atd-modal__footer {
+    border-color: #e0e0e0;
+    background: #f5f5f5;
+}
+
+/* ===========================================
+   Modal Buttons
+   =========================================== */
+
+.atd-modal__btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.atd-modal__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary button */
+.atd-modal__btn--primary {
+    background: #0066cc;
+    color: #fff;
+}
+
+.atd-modal__btn--primary:hover:not(:disabled) {
+    background: #0055aa;
+}
+
+/* Secondary button */
+.atd-modal__btn--secondary {
+    color: #ccc;
+}
+
+.atd-modal--dark .atd-modal__btn--secondary {
+    background: #333;
+}
+
+.atd-modal--dark .atd-modal__btn--secondary:hover:not(:disabled) {
+    background: #444;
+}
+
+.atd-modal--light .atd-modal__btn--secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.atd-modal--light .atd-modal__btn--secondary:hover:not(:disabled) {
+    background: #d0d0d0;
+}
+
+/* Danger button */
+.atd-modal__btn--danger {
+    background: #dc3545;
+    color: #fff;
+}
+
+.atd-modal__btn--danger:hover:not(:disabled) {
+    background: #c82333;
+}
+
+/* Success button */
+.atd-modal__btn--success {
+    background: #28a745;
+    color: #fff;
+}
+
+.atd-modal__btn--success:hover:not(:disabled) {
+    background: #218838;
+}
+
+/* ===========================================
+   Modal States
+   =========================================== */
+
+/* Loading state */
+.atd-modal__loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    text-align: center;
+}
+
+.atd-modal__loading p {
+    margin-top: 16px;
+    font-size: 14px;
+}
+
+.atd-modal--dark .atd-modal__loading p {
+    color: #888;
+}
+
+.atd-modal--light .atd-modal__loading p {
+    color: #666;
+}
+
+.atd-modal__spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid;
+    border-radius: 50%;
+    animation: atdModalSpin 0.8s linear infinite;
+}
+
+.atd-modal--dark .atd-modal__spinner {
+    border-color: #333;
+    border-top-color: #0066cc;
+}
+
+.atd-modal--light .atd-modal__spinner {
+    border-color: #e0e0e0;
+    border-top-color: #0066cc;
+}
+
+@keyframes atdModalSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.atd-modal__error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    text-align: center;
+    padding: 20px;
+}
+
+.atd-modal__error-icon {
+    width: 64px;
+    height: 64px;
+    background: #dc3545;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+    margin-bottom: 16px;
+}
+
+.atd-modal__error h3 {
+    margin: 0 0 12px;
+    color: #dc3545;
+}
+
+.atd-modal__error p {
+    margin: 0 0 8px;
+}
+
+.atd-modal--dark .atd-modal__error p {
+    color: #aaa;
+}
+
+.atd-modal--light .atd-modal__error p {
+    color: #666;
+}
+
+.atd-modal__error-detail {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    background: #2a2020;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #dc3545;
+}
+
+/* Success state */
+.atd-modal__success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    text-align: center;
+}
+
+.atd-modal__success-icon {
+    width: 64px;
+    height: 64px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+    margin-bottom: 16px;
+}
+
+.atd-modal__success h3 {
+    margin: 0 0 12px;
+}
+
+.atd-modal--dark .atd-modal__success h3 {
+    color: #fff;
+}
+
+.atd-modal--light .atd-modal__success h3 {
+    color: #333;
+}
+
+.atd-modal__success p {
+    margin: 0 0 8px;
+}
+
+.atd-modal--dark .atd-modal__success p {
+    color: #aaa;
+}
+
+.atd-modal--light .atd-modal__success p {
+    color: #666;
+}
+
+/* ===========================================
+   Responsive
+   =========================================== */
+
+@media (max-width: 600px) {
+    .atd-modal {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .atd-modal__header {
+        padding: 16px;
+    }
+
+    .atd-modal__content {
+        padding: 16px;
+    }
+
+    .atd-modal__footer {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+    }
+
+    .atd-modal__btn {
+        flex: 1;
+        min-width: 100px;
+    }
+}

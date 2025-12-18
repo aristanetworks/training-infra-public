@@ -1121,6 +1121,8 @@ class TopologyAPIHandler(BaseHandler):
     _cache_time = 0
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
+    # Track user_nodes.yaml modification time for cache invalidation
+    _user_nodes_mtime = 0
 
     @staticmethod
     def classify_device_type(device_name):
@@ -1672,10 +1674,20 @@ class TopologyAPIHandler(BaseHandler):
         try:
             current_time = time.time()
 
-            # Thread-safe cache check
+            # Check if user_nodes.yaml was modified (invalidates cache)
+            user_nodes_path = '/etc/atd/user_nodes.yaml'
+            user_nodes_mtime = 0
+            if os.path.exists(user_nodes_path):
+                user_nodes_mtime = os.path.getmtime(user_nodes_path)
+
+            # Thread-safe cache check - also invalidate if user_nodes.yaml changed
             with TopologyAPIHandler._cache_lock:
-                if (TopologyAPIHandler._cache and
-                    current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL):
+                cache_valid = (
+                    TopologyAPIHandler._cache and
+                    current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL and
+                    user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime
+                )
+                if cache_valid:
                     self.write(json.dumps(TopologyAPIHandler._cache))
                     return
 
@@ -1697,10 +1709,11 @@ class TopologyAPIHandler(BaseHandler):
 
             topology_data = result['data']
 
-            # Thread-safe cache update
+            # Thread-safe cache update (include user_nodes mtime for invalidation)
             with TopologyAPIHandler._cache_lock:
                 TopologyAPIHandler._cache = topology_data
                 TopologyAPIHandler._cache_time = current_time
+                TopologyAPIHandler._user_nodes_mtime = user_nodes_mtime
 
             self.write(json.dumps(topology_data))
 

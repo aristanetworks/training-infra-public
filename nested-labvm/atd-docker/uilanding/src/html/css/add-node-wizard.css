@@ -722,6 +722,33 @@
     border-radius: 4px;
 }
 
+.success-details h4 {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 12px;
+}
+
+.created-nodes-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.created-nodes-list li {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #ccc;
+}
+
+.created-nodes-list li strong {
+    color: #4ec9b0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
 /* Error State */
 .wizard-error {
     display: flex;

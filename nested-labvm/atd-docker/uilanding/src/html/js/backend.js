@@ -322,8 +322,12 @@ function displayToolTip() {
 function hideToolTip() {
     document.getElementById('tooltiptext').style.visibility = "hidden";
 }
-document.getElementById('CvpStatus').style.color = "grey";
-document.getElementById('CvpStatus').style.pointerEvents = "none";
+// Only apply CVP status styling if element exists (not present on all pages)
+var cvpStatusEl = document.getElementById('CvpStatus');
+if (cvpStatusEl) {
+    cvpStatusEl.style.color = "grey";
+    cvpStatusEl.style.pointerEvents = "none";
+}
 
 
 

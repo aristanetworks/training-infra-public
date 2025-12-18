@@ -138,6 +138,12 @@ export class TopologyManager {
                 window.addNodeWizard.showRestoreNotificationIfNeeded();
             }
 
+            // Initialize AddClusterWizard for cluster addition (KVM labs only)
+            if (typeof window.AddClusterWizard !== 'undefined') {
+                window.addClusterWizard = new window.AddClusterWizard(this);
+                console.log('[TopologyManager] AddClusterWizard initialized');
+            }
+
             this.isInitialized = true;
             this.hideLoading();
 

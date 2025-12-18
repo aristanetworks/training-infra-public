@@ -11,9 +11,17 @@
  * 4. Review and confirm
  *
  * Only available for KVM/vEOS labs, disabled for container labs.
+ *
+ * Dependencies:
+ * - NodeBuilderAPI (shared API service)
+ * - DeviceRebootManager (shared reboot component)
  */
 
 class AddNodeWizard {
+    // Configuration constants
+    static MAX_NAME_LENGTH = 32;
+    static NAME_VALIDATION_DEBOUNCE_MS = 300;
+
     constructor(topologyManager) {
         this.topologyManager = topologyManager;
         this.overlay = null;
@@ -38,6 +46,12 @@ class AddNodeWizard {
         this.nameError = '';
 
         this.isSubmitting = false;
+
+        // Event handler references for cleanup
+        this.escapeHandler = null;
+
+        // Track validation request for race condition prevention
+        this.pendingValidationRequestId = 0;
     }
 
     /**
@@ -87,6 +101,12 @@ class AddNodeWizard {
      * Hide and cleanup the wizard
      */
     hide() {
+        // Clean up escape handler
+        if (this.escapeHandler) {
+            document.removeEventListener('keydown', this.escapeHandler);
+            this.escapeHandler = null;
+        }
+
         if (this.overlay) {
             this.overlay.remove();
             this.overlay = null;
@@ -156,14 +176,13 @@ class AddNodeWizard {
             }
         });
 
-        // Close on escape key
-        const escHandler = (e) => {
+        // Close on escape key - store reference for cleanup
+        this.escapeHandler = (e) => {
             if (e.key === 'Escape') {
                 this.hide();
-                document.removeEventListener('keydown', escHandler);
             }
         };
-        document.addEventListener('keydown', escHandler);
+        document.addEventListener('keydown', this.escapeHandler);
 
         document.body.appendChild(overlay);
         this.overlay = overlay;
@@ -171,44 +190,27 @@ class AddNodeWizard {
 
     /**
      * Load available IPs and target devices from API
+     * Uses NodeBuilderAPI shared service for consistent caching and error handling
      */
     async loadAvailableData() {
         const content = this.overlay.querySelector('.wizard-content');
         content.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>Loading available resources...</p></div>';
 
         try {
-            // Fetch available IPs
-            const ipsResponse = await fetch('/td-api/nodes/available-ips');
-            if (ipsResponse.ok) {
-                const ipsData = await ipsResponse.json();
-                this.availableIps = ipsData.available_ips || [];
-            } else {
-                throw new Error('Failed to fetch available IPs');
-            }
-
-            // Fetch target devices
-            const devicesResponse = await fetch('/td-api/nodes/target-devices');
-            if (devicesResponse.ok) {
-                const devicesData = await devicesResponse.json();
-                this.targetDevices = devicesData.devices || [];
-            } else {
-                throw new Error('Failed to fetch target devices');
-            }
-
-            // Fetch existing nodes for name validation context
-            const nodesResponse = await fetch('/td-api/nodes/existing-nodes');
-            if (nodesResponse.ok) {
-                const nodesData = await nodesResponse.json();
-                this.existingNodes = nodesData.nodes || [];
-            }
+            // Use shared API service for parallel fetch with caching
+            const data = await NodeBuilderAPI.loadWizardData();
+            this.availableIps = data.availableIps;
+            this.targetDevices = data.targetDevices;
+            this.existingNodes = data.existingNodes;
 
         } catch (error) {
-            console.error('Error loading wizard data:', error);
+            console.error('[AddNodeWizard] Error loading wizard data:', error);
             content.innerHTML = `
                 <div class="wizard-error">
-                    <p>Failed to load resources from nodebuilder service.</p>
-                    <p class="error-detail">${error.message}</p>
-                    <p>Make sure the nodebuilder service is running.</p>
+                    <div class="error-icon">&#10008;</div>
+                    <h3>Failed to Load Resources</h3>
+                    <p>${this.escapeHtml(error.message)}</p>
+                    <p class="error-hint">Make sure the nodebuilder service is running.</p>
                 </div>
             `;
             return;
@@ -218,7 +220,8 @@ class AddNodeWizard {
         if (this.availableIps.length === 0) {
             content.innerHTML = `
                 <div class="wizard-error">
-                    <p>No available IP addresses found.</p>
+                    <div class="error-icon">&#9888;</div>
+                    <h3>No Available IP Addresses</h3>
                     <p>All IPs from the DHCP pool are currently in use.</p>
                 </div>
             `;
@@ -291,9 +294,14 @@ class AddNodeWizard {
                            class="form-input"
                            placeholder="e.g., leaf5, spine3, borderleaf1"
                            value="${this.escapeHtml(this.nodeConfig.name)}"
-                           maxlength="32"
-                           autocomplete="off">
-                    <div class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}">
+                           maxlength="${AddNodeWizard.MAX_NAME_LENGTH}"
+                           autocomplete="off"
+                           aria-describedby="node-name-validation"
+                           aria-invalid="${this.nameError ? 'true' : 'false'}">
+                    <div id="node-name-validation"
+                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
+                         role="alert"
+                         aria-live="polite">
                         ${this.nameError || (this.nameValid ? 'Name is available' : '')}
                     </div>
                 </div>
@@ -312,7 +320,7 @@ class AddNodeWizard {
         input.addEventListener('input', (e) => {
             this.nodeConfig.name = e.target.value.trim();
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => this.validateName(), 300);
+            debounceTimer = setTimeout(() => this.validateName(), AddNodeWizard.NAME_VALIDATION_DEBOUNCE_MS);
         });
 
         // Validate on enter key
@@ -325,6 +333,7 @@ class AddNodeWizard {
 
     /**
      * Validate device name via API
+     * Uses NodeBuilderAPI for server-side validation
      */
     async validateName() {
         const name = this.nodeConfig.name;
@@ -349,24 +358,29 @@ class AddNodeWizard {
             return;
         }
 
-        if (name.length > 32) {
+        if (name.length > AddNodeWizard.MAX_NAME_LENGTH) {
             this.nameValid = false;
-            this.nameError = 'Name must be 32 characters or less';
+            this.nameError = `Name must be ${AddNodeWizard.MAX_NAME_LENGTH} characters or less`;
             validationMsg.className = 'validation-message error';
             validationMsg.textContent = this.nameError;
             this.updateNextButtonState();
             return;
         }
 
-        // Server-side validation
-        try {
-            const response = await fetch('/td-api/nodes/validate-node', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name })
-            });
+        // Server-side validation using shared API
+        // Store expected request ID to prevent race conditions
+        const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
+        this.pendingValidationRequestId = expectedRequestId;
 
-            const result = await response.json();
+        try {
+            const result = await NodeBuilderAPI.validateNode(name);
+
+            // Check if this response is for the latest request
+            // If not, ignore this stale response
+            if (result.requestId !== this.pendingValidationRequestId) {
+                console.log('[AddNodeWizard] Ignoring stale validation response');
+                return;
+            }
 
             if (result.valid) {
                 this.nameValid = true;
@@ -380,7 +394,7 @@ class AddNodeWizard {
                 validationMsg.textContent = this.nameError;
             }
         } catch (error) {
-            console.error('Error validating name:', error);
+            console.error('[AddNodeWizard] Error validating name:', error);
             // Allow proceeding on validation error - server will check again
             this.nameValid = true;
             this.nameError = '';
@@ -692,13 +706,13 @@ class AddNodeWizard {
 
     /**
      * Submit the node creation request
+     * Uses NodeBuilderAPI for node creation and DeviceRebootManager for reboot section
      */
     async submitNode() {
         if (this.isSubmitting) return;
 
         this.isSubmitting = true;
         const nextBtn = this.overlay.querySelector('.wizard-next-btn');
-        const originalText = nextBtn.textContent;
         nextBtn.textContent = 'Creating...';
         nextBtn.disabled = true;
 
@@ -717,31 +731,25 @@ class AddNodeWizard {
         try {
             this.logMessage(log, 'Sending request to nodebuilder service...');
 
-            const response = await fetch('/td-api/nodes/add-node', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: this.nodeConfig.name,
-                    ip: this.nodeConfig.ip,
-                    connections: this.nodeConfig.connections
-                })
+            // Use shared API service
+            const result = await NodeBuilderAPI.addNode({
+                name: this.nodeConfig.name,
+                ip: this.nodeConfig.ip,
+                connections: this.nodeConfig.connections
             });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to create node');
-            }
 
             this.logMessage(log, 'Node created successfully!', 'success');
             this.logMessage(log, `VM: ${result.node?.name || this.nodeConfig.name}`);
             this.logMessage(log, `IP: ${result.node?.ip || this.nodeConfig.ip}`);
 
             // Get unique target devices that need rebooting
-            const targetDevices = [...new Set(this.nodeConfig.connections.map(c => c.target_device))];
+            const rebootTargets = [...new Set(this.nodeConfig.connections.map(c => c.target_device))];
 
             // Store result for later use
             this.createdNode = result.node || { name: this.nodeConfig.name, ip: this.nodeConfig.ip };
+
+            // Use shared DeviceRebootManager for reboot section
+            const rebootManager = new DeviceRebootManager(this.targetDevices);
 
             // Show success state with reboot options
             content.innerHTML = `
@@ -755,116 +763,14 @@ class AddNodeWizard {
                         <p>MAC Address: <code>${this.escapeHtml(this.nodeConfig.mac)}</code></p>
                     </div>
 
-                    <div class="reboot-section">
-                        <h4>&#9888; Target Device Reboot Required</h4>
-                        <p>The following devices need to be rebooted to detect the new interfaces:</p>
-                        <div class="target-devices-list">
-                            ${targetDevices.map(device => {
-                                const deviceInfo = this.targetDevices?.find(d => d.name === device);
-                                const deviceIp = deviceInfo?.ip_addr || '';
-                                return `
-                                    <div class="target-device-row" data-device="${this.escapeHtml(device)}" data-ip="${this.escapeHtml(deviceIp)}">
-                                        <span class="device-name">${this.escapeHtml(device)}</span>
-                                        <span class="device-ip">${this.escapeHtml(deviceIp)}</span>
-                                        <button class="save-config-btn" title="Save running config to startup config">
-                                            Save Config
-                                        </button>
-                                        <span class="save-status"></span>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                        <div class="reboot-actions">
-                            <p class="reboot-warning">&#9888; Save running configs before rebooting to preserve any configuration changes.</p>
-                            <button class="reboot-all-btn">Reboot Target Devices</button>
-                            <span class="reboot-status"></span>
-                        </div>
-                    </div>
+                    ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}
                 </div>
             `;
 
-            // Set up save config button handlers
-            content.querySelectorAll('.save-config-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const row = e.target.closest('.target-device-row');
-                    const device = row.dataset.device;
-                    const ip = row.dataset.ip;
-                    const statusSpan = row.querySelector('.save-status');
-
-                    e.target.disabled = true;
-                    e.target.textContent = 'Saving...';
-                    statusSpan.textContent = '';
-                    statusSpan.className = 'save-status';
-
-                    try {
-                        const response = await fetch('/td-api/nodes/save-config', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ device, ip })
-                        });
-
-                        const result = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(result.error || 'Failed to save config');
-                        }
-
-                        e.target.textContent = 'Saved ✓';
-                        statusSpan.textContent = '✓';
-                        statusSpan.className = 'save-status success';
-                    } catch (error) {
-                        console.error('Error saving config:', error);
-                        e.target.textContent = 'Save Config';
-                        e.target.disabled = false;
-                        statusSpan.textContent = '✗ ' + error.message;
-                        statusSpan.className = 'save-status error';
-                    }
-                });
-            });
-
-            // Set up reboot button handler
-            const rebootBtn = content.querySelector('.reboot-all-btn');
-            const rebootStatus = content.querySelector('.reboot-status');
-
-            rebootBtn.addEventListener('click', async () => {
-                rebootBtn.disabled = true;
-                rebootBtn.textContent = 'Rebooting...';
-                rebootStatus.textContent = '';
-                rebootStatus.className = 'reboot-status';
-
-                try {
-                    const response = await fetch('/td-api/nodes/reboot-devices', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ devices: targetDevices })
-                    });
-
-                    const result = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(result.error || 'Failed to reboot devices');
-                    }
-
-                    const rebootedCount = result.rebooted?.length || 0;
-                    const errorCount = result.errors?.length || 0;
-
-                    if (errorCount > 0) {
-                        rebootBtn.textContent = 'Reboot Complete';
-                        rebootStatus.textContent = `✓ ${rebootedCount} rebooted, ${errorCount} failed`;
-                        rebootStatus.className = 'reboot-status warning';
-                    } else {
-                        rebootBtn.textContent = 'Rebooted ✓';
-                        rebootStatus.textContent = `✓ ${rebootedCount} device${rebootedCount !== 1 ? 's' : ''} rebooting`;
-                        rebootStatus.className = 'reboot-status success';
-                    }
-                } catch (error) {
-                    console.error('Error rebooting devices:', error);
-                    rebootBtn.textContent = 'Reboot Target Devices';
-                    rebootBtn.disabled = false;
-                    rebootStatus.textContent = '✗ ' + error.message;
-                    rebootStatus.className = 'reboot-status error';
-                }
-            });
+            // Attach reboot handlers if there are targets
+            if (rebootTargets.length > 0) {
+                rebootManager.attachEventHandlers(content);
+            }
 
             // Update button to close
             nextBtn.textContent = 'Close';
@@ -882,7 +788,7 @@ class AddNodeWizard {
             this.overlay.querySelector('.wizard-cancel-btn').style.display = 'none';
 
         } catch (error) {
-            console.error('Error creating node:', error);
+            console.error('[AddNodeWizard] Error creating node:', error);
 
             content.innerHTML = `
                 <div class="wizard-error">
@@ -929,6 +835,7 @@ class AddNodeWizard {
     /**
      * Check if there are user nodes that need restoration
      * Called on topology load to show restore notification if needed
+     * Uses NodeBuilderAPI shared service
      */
     async checkUserNodesStatus() {
         if (!this.isAvailable()) {
@@ -936,12 +843,7 @@ class AddNodeWizard {
         }
 
         try {
-            const response = await fetch('/td-api/nodes/user-nodes-status');
-            if (!response.ok) {
-                console.warn('[AddNodeWizard] Failed to check user nodes status');
-                return { has_user_nodes: false, needs_restore: false };
-            }
-            return await response.json();
+            return await NodeBuilderAPI.getUserNodesStatus();
         } catch (error) {
             console.error('[AddNodeWizard] Error checking user nodes:', error);
             return { has_user_nodes: false, needs_restore: false };
@@ -1096,6 +998,7 @@ class AddNodeWizard {
 
     /**
      * Execute the restore operation
+     * Uses NodeBuilderAPI for restore API call
      */
     async executeRestore(overlay) {
         const content = overlay.querySelector('.wizard-content');
@@ -1119,17 +1022,8 @@ class AddNodeWizard {
         try {
             this.logMessage(logElement, 'Sending restore request...', 'info');
 
-            const response = await fetch('/td-api/nodes/restore-user-nodes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: '{}'
-            });
-
-            const result = await response.json();
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
+            // Use shared API service
+            const result = await NodeBuilderAPI.restoreUserNodes();
 
             // Log results
             if (result.restored && result.restored.length > 0) {

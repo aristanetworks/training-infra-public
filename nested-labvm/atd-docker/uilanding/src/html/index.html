@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/home.css" />
   <link rel="stylesheet" href="css/topology.css" />
   <link rel="stylesheet" href="css/capture.css" />
+  <link rel="stylesheet" href="css/base-modal.css" />
   <link rel="stylesheet" href="css/add-node-wizard.css" />
 </head>
 
@@ -454,8 +455,14 @@
   <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 
-  <!-- Add Node Wizard for dynamic node addition (KVM labs only) -->
+  <!-- Shared components for topology wizards -->
+  <script src="js/topology/node-builder-api.js"></script>
+  <script src="js/topology/device-reboot-manager.js"></script>
+  <script src="js/topology/base-modal.js"></script>
+
+  <!-- Node management wizards for dynamic node/cluster addition (KVM labs only) -->
   <script src="js/topology/add-node-wizard.js"></script>
+  <script src="js/topology/add-cluster-wizard.js"></script>
 
   <!-- Interactive Topology Initialization -->
   <script type="module">
