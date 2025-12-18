@@ -1552,6 +1552,8 @@ class TopologyAPIHandler(BaseHandler):
                 ip_addr = device_info.get('ip_addr', 'N/A')
                 sys_mac = device_info.get('sys_mac', 'N/A')
                 neighbors = device_info.get('neighbors', [])
+                # Check if this is a user-added node (from user_nodes.yaml)
+                user_added = device_info.get('user_added', False)
 
                 # Validate neighbors is a list
                 if not isinstance(neighbors, list):
@@ -1630,7 +1632,8 @@ class TopologyAPIHandler(BaseHandler):
                         'sys_mac': sys_mac,
                         'device_type': device_type,
                         'status': 'unknown',
-                        'ports': ports
+                        'ports': ports,
+                        'user_added': user_added
                     },
                     'classes': f"device-type-{device_type} status-unknown"
                 })
