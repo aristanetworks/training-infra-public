@@ -2465,19 +2465,32 @@ class CaptureBridgesAPIHandler(BaseHandler):
         """Add topology edge information to bridges."""
         # Load topology data to map bridge names to device names
         topo_data = _get_topo_build_data()
-        if not topo_data:
-            return bridges
 
         # Build device name lookup from short codes
         # This maps sp1 -> spine1, le1 -> leaf1, etc.
         device_lookup = {}
-        if 'nodes' in topo_data:
+        if topo_data and 'nodes' in topo_data:
             for node_entry in topo_data['nodes']:
                 if isinstance(node_entry, dict):
                     for device_name in node_entry.keys():
                         # Generate short code (same logic as kvm-topo-builder)
                         short_code = self.get_short_code(device_name)
                         device_lookup[short_code] = device_name
+
+        # Also include user-added nodes from user_nodes.yaml
+        user_nodes_path = '/etc/atd/user_nodes.yaml'
+        try:
+            if os.path.exists(user_nodes_path):
+                with open(user_nodes_path, 'r') as f:
+                    user_data = YAML().load(f)
+                if user_data and 'nodes' in user_data and user_data['nodes']:
+                    for node_entry in user_data['nodes']:
+                        if isinstance(node_entry, dict):
+                            for device_name in node_entry.keys():
+                                short_code = self.get_short_code(device_name)
+                                device_lookup[short_code] = device_name
+        except Exception as e:
+            pS(f"Warning: Error loading user_nodes.yaml for bridge enrichment: {e}")
 
         # Enrich each bridge
         for bridge in bridges:
