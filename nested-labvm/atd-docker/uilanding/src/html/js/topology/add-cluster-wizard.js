@@ -581,6 +581,10 @@ class AddClusterWizard {
         createBtn.textContent = 'Creating...';
         createBtn.disabled = true;
 
+        // IMPORTANT: Collect form data BEFORE replacing the content
+        // (replacing content destroys the form elements)
+        const formData = this.collectFormData();
+
         const content = this.overlay.querySelector('.wizard-content');
         content.innerHTML = `
             <div class="wizard-creating">
@@ -591,7 +595,6 @@ class AddClusterWizard {
         `;
 
         try {
-            const formData = this.collectFormData();
             const result = await NodeBuilderAPI.addCluster(formData);
 
             // Apply impairments to internal bridges if any were specified
