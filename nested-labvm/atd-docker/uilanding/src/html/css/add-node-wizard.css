@@ -1081,6 +1081,44 @@
     margin: 0;
 }
 
+/* Delete Node Success State */
+.delete-node-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+    text-align: center;
+}
+
+.delete-node-success .success-icon {
+    width: 64px;
+    height: 64px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+}
+
+.delete-node-success h3 {
+    margin: 20px 0 12px;
+    color: #fff;
+}
+
+.delete-node-success p {
+    color: #aaa;
+    font-size: 14px;
+    margin: 0 0 8px;
+}
+
+/* Edit Connections Reboot Section */
+.edit-reboot-section {
+    margin-top: 16px;
+}
+
 /* ===========================================
    Reboot Section (after node creation)
    =========================================== */

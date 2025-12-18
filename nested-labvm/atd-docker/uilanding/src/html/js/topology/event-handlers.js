@@ -342,17 +342,40 @@ export class EventManager {
     /**
      * Show confirmation dialog for deleting a user-added node
      * Uses BaseModal for consistent theming with other dialogs.
+     * Shows reboot prompt for affected devices after successful deletion.
      */
-    confirmDeleteNode(nodeName, nodeIp) {
+    async confirmDeleteNode(nodeName, nodeIp) {
         // Create modal using BaseModal
         const modal = new BaseModal({
             id: 'delete-node-modal',
             title: 'Delete Node',
             theme: BaseModal.THEMES.DARK,
-            size: BaseModal.SIZES.SMALL
+            size: BaseModal.SIZES.MEDIUM
         });
 
         modal.show();
+        modal.showLoading('Loading node information...');
+
+        // Fetch node connections and target devices to know what needs rebooting
+        let affectedDevices = [];
+        let targetDevices = [];
+
+        try {
+            const [connectionsResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+
+            const connectionsData = await connectionsResp.json();
+            const targetsData = await targetsResp.json();
+
+            if (connectionsResp.ok && connectionsData.connections) {
+                affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+            }
+            targetDevices = targetsData.devices || [];
+        } catch (err) {
+            console.warn('Could not fetch node connections for reboot info:', err);
+        }
 
         // Set content with warning
         modal.setContent(`
@@ -397,14 +420,40 @@ export class EventManager {
                         throw new Error(result.error || 'Failed to delete node');
                     }
 
-                    // Success - hide modal and refresh topology
-                    modal.hide();
+                    // Refresh topology
                     if (window.topologyManager) {
                         await window.topologyManager.refreshTopology();
                     }
 
-                    // Show success notification
-                    this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
+                    // Show success with reboot options if there were affected devices
+                    if (affectedDevices.length > 0) {
+                        const rebootManager = new DeviceRebootManager(targetDevices);
+
+                        modal.setContent(`
+                            <div class="delete-node-success">
+                                <div class="success-icon">&#10004;</div>
+                                <h3>Node Deleted Successfully</h3>
+                                <p><strong>${modal.escapeHtml(nodeName)}</strong> has been removed.</p>
+                                ${rebootManager.renderRebootSection(affectedDevices)}
+                            </div>
+                        `);
+
+                        // Attach reboot handlers
+                        const modalBody = modal.modal.querySelector('.atd-modal__body');
+                        rebootManager.attachEventHandlers(modalBody);
+
+                        // Update footer to just have Close button
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            text: 'Close',
+                            type: 'secondary',
+                            onClick: () => modal.hide()
+                        });
+                    } else {
+                        // No affected devices, just close and notify
+                        modal.hide();
+                        this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
+                    }
 
                 } catch (error) {
                     console.error('Error deleting node:', error);
@@ -443,6 +492,7 @@ export class EventManager {
     /**
      * Show dialog for editing connections on a user-added node
      * Uses BaseModal for consistent theming with other dialogs.
+     * Includes reboot prompt for affected target devices.
      */
     async showEditConnectionsDialog(nodeName) {
         // Create modal using BaseModal
@@ -472,6 +522,9 @@ export class EventManager {
 
             const connections = connectionsData.connections || [];
             const targetDevices = targetsData.devices || [];
+
+            // Track devices that need rebooting after edits
+            const affectedDevices = new Set();
 
             // Build connection list HTML
             let connectionsHtml = connections.map((conn, i) => `
@@ -517,6 +570,7 @@ export class EventManager {
                             </button>
                         </div>
                     </div>
+                    <div class="edit-reboot-section"></div>
                 </div>
             `);
 
@@ -530,6 +584,19 @@ export class EventManager {
 
             // Get modal content container for event handling
             const modalContent = modal.modal.querySelector('.atd-modal__body');
+
+            // Helper function to update the reboot section
+            const updateRebootSection = () => {
+                const rebootContainer = modalContent.querySelector('.edit-reboot-section');
+                if (affectedDevices.size > 0) {
+                    const rebootManager = new DeviceRebootManager(targetDevices);
+                    const rebootTargets = [...affectedDevices];
+                    rebootContainer.innerHTML = rebootManager.renderRebootSection(rebootTargets);
+                    rebootManager.attachEventHandlers(rebootContainer);
+                } else {
+                    rebootContainer.innerHTML = '';
+                }
+            };
 
             // Enable add button when target selected
             const addTargetSelect = modalContent.querySelector('#add-target-device');
@@ -576,6 +643,10 @@ export class EventManager {
                                 '<p class="no-connections">No connections configured</p>';
                         }
 
+                        // Track affected device for reboot
+                        affectedDevices.add(targetDevice);
+                        updateRebootSection();
+
                         this.showNotification(`Removed connection ${localPort}`, 'success');
 
                         // Refresh topology
@@ -612,9 +683,77 @@ export class EventManager {
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error);
 
-                    // Hide current modal and reopen to show new connection
-                    modal.hide();
-                    this.showEditConnectionsDialog(nodeName);
+                    // Track affected device for reboot
+                    affectedDevices.add(targetDevice);
+
+                    // Get the added connection info from response
+                    const addedConn = result.added && result.added[0];
+                    const localPort = addedConn?.local_port || 'EthernetX';
+                    const targetPort = addedConn?.target_port || 'EthernetX';
+
+                    // Add new connection to the UI
+                    const connectionsList = modalContent.querySelector('.connections-list');
+                    const noConnMsg = connectionsList.querySelector('.no-connections');
+                    if (noConnMsg) noConnMsg.remove();
+
+                    const newRow = document.createElement('div');
+                    newRow.className = 'connection-row';
+                    newRow.innerHTML = `
+                        <span class="connection-info">
+                            <strong>${modal.escapeHtml(localPort)}</strong> &rarr;
+                            ${modal.escapeHtml(targetDevice)}:${modal.escapeHtml(targetPort)}
+                        </span>
+                        <button class="atd-modal__btn atd-modal__btn--danger atd-modal__btn--small remove-connection-btn"
+                                data-local-port="${modal.escapeHtml(localPort)}"
+                                data-target-device="${modal.escapeHtml(targetDevice)}"
+                                data-target-port="${modal.escapeHtml(targetPort)}">
+                            Remove
+                        </button>
+                    `;
+                    connectionsList.appendChild(newRow);
+
+                    // Attach remove handler to the new button
+                    const newRemoveBtn = newRow.querySelector('.remove-connection-btn');
+                    newRemoveBtn.addEventListener('click', async () => {
+                        newRemoveBtn.disabled = true;
+                        newRemoveBtn.textContent = 'Removing...';
+                        try {
+                            const removeResp = await fetch('/td-api/nodes/edit-node', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: nodeName,
+                                    remove_connections: [{
+                                        local_port: localPort,
+                                        target_device: targetDevice,
+                                        target_port: targetPort
+                                    }]
+                                })
+                            });
+                            const removeResult = await removeResp.json();
+                            if (!removeResp.ok) throw new Error(removeResult.error);
+                            newRow.remove();
+                            if (modalContent.querySelectorAll('.connection-row').length === 0) {
+                                connectionsList.innerHTML = '<p class="no-connections">No connections configured</p>';
+                            }
+                            affectedDevices.add(targetDevice);
+                            updateRebootSection();
+                            this.showNotification(`Removed connection ${localPort}`, 'success');
+                            if (window.topologyManager) await window.topologyManager.refreshTopology();
+                        } catch (err) {
+                            newRemoveBtn.disabled = false;
+                            newRemoveBtn.textContent = 'Remove';
+                            this.showNotification(`Failed to remove: ${err.message}`, 'error');
+                        }
+                    });
+
+                    // Reset add form
+                    addTargetSelect.value = '';
+                    addBtn.disabled = true;
+                    addBtn.textContent = 'Add Connection';
+
+                    // Update reboot section
+                    updateRebootSection();
 
                     this.showNotification(`Added connection to ${targetDevice}`, 'success');
 
