@@ -1204,3 +1204,109 @@
 .reboot-status.error {
     color: #dc3545;
 }
+
+/* ===========================================
+   Cluster Wizard Styles
+   =========================================== */
+
+/* Cluster wizard uses the same base styles as add-node-wizard */
+.cluster-wizard {
+    max-width: 600px;
+}
+
+/* Cluster connection rows */
+.cluster-connection-row {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.cluster-connection-row label {
+    display: block;
+    margin-bottom: 10px;
+    color: #ccc;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.cluster-connection-row .connection-node-name {
+    color: #4ec9b0;
+    font-weight: 600;
+}
+
+.cluster-connection-row .connection-required {
+    color: #dc3545;
+    margin-left: 4px;
+}
+
+.cluster-connection-row .form-select {
+    width: 100%;
+}
+
+.cluster-connection-row .form-select.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+/* Cluster impairment grid */
+.cluster-impairment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.cluster-impairment-input {
+    display: flex;
+    flex-direction: column;
+}
+
+.cluster-impairment-input label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.cluster-impairment-input .form-input {
+    text-align: center;
+}
+
+/* Cluster summary box */
+.cluster-summary-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.cluster-summary-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.cluster-summary-box p {
+    margin: 6px 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+.cluster-summary-box strong {
+    color: #4ec9b0;
+}
+
+.cluster-summary-box .error-text {
+    color: #dc3545;
+}
+
+/* Responsive adjustments for cluster wizard */
+@media (max-width: 600px) {
+    .cluster-impairment-grid {
+        grid-template-columns: 1fr;
+    }
+}

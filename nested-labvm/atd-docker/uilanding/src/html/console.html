@@ -593,7 +593,39 @@
 
         try {
           const response = await fetch('/console/devices');
+
+          // Check if console service is available
+          if (!response.ok) {
+            if (response.status === 404) {
+              list.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                  <div style="color: #dc3545; font-weight: 600; margin-bottom: 8px;">Console Service Not Deployed</div>
+                  <div style="color: #888; font-size: 13px;">The console service endpoint is not available. The nginx and consoleservice containers may need to be rebuilt and redeployed.</div>
+                </div>`;
+              return;
+            }
+            if (response.status === 502 || response.status === 503 || response.status === 504) {
+              list.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                  <div style="color: #dc3545; font-weight: 600; margin-bottom: 8px;">Console Service Not Available</div>
+                  <div style="color: #888; font-size: 13px;">The console service is not running. Please ensure the consoleservice container is started.</div>
+                </div>`;
+              return;
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+
           const data = await response.json();
+
+          // Check for error response from service
+          if (data.error) {
+            list.innerHTML = `
+              <div style="padding: 20px; text-align: center;">
+                <div style="color: #dc3545; font-weight: 600; margin-bottom: 8px;">Error Loading Devices</div>
+                <div style="color: #888; font-size: 13px;">${data.error}</div>
+              </div>`;
+            return;
+          }
 
           if (data.devices && data.devices.length > 0) {
             list.innerHTML = '';
@@ -619,11 +651,15 @@
               list.appendChild(item);
             });
           } else {
-            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No VMs found</div>';
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No VMs found. This could mean no KVM VMs are defined, or the console service cannot access libvirt.</div>';
           }
         } catch (error) {
           console.error('Failed to load devices:', error);
-          list.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">Failed to load devices</div>';
+          list.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+              <div style="color: #dc3545; font-weight: 600; margin-bottom: 8px;">Failed to Load Devices</div>
+              <div style="color: #888; font-size: 13px;">Could not connect to console service. Error: ${error.message}</div>
+            </div>`;
         }
       }
     };

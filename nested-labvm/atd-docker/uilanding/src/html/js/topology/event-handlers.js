@@ -681,6 +681,11 @@ export class EventManager {
                 fetch('/td-api/nodes/available-ips')
             ]);
 
+            // Check if service is available (any 5xx status indicates service issue)
+            if (templatesResp.status >= 500 || targetsResp.status >= 500 || ipsResp.status >= 500) {
+                throw new Error('Node builder service is not available. Please ensure the nodebuilder container is running.');
+            }
+
             const templatesData = await templatesResp.json();
             const targetsData = await targetsResp.json();
             const ipsData = await ipsResp.json();
@@ -693,13 +698,13 @@ export class EventManager {
             const targetDevices = targetsData.devices || [];
             const availableIps = ipsData.available_ips || [];
 
-            // Create modal overlay
+            // Create modal overlay - use same dark theme as add-node wizard
             const overlay = document.createElement('div');
-            overlay.className = 'modal-overlay';
+            overlay.className = 'add-node-wizard-overlay';
             overlay.id = 'add-cluster-modal';
 
             const modal = document.createElement('div');
-            modal.className = 'modal-dialog cluster-dialog';
+            modal.className = 'add-node-wizard cluster-wizard';
 
             // Build template options
             const templateOptions = templates.map(t => `
@@ -716,65 +721,67 @@ export class EventManager {
             ).join('');
 
             modal.innerHTML = `
-                <div class="modal-header">
-                    <h3>Add Node Cluster</h3>
+                <div class="wizard-header">
+                    <h2>Add Node Cluster</h2>
+                    <button class="wizard-close-btn" title="Close">&times;</button>
                 </div>
-                <div class="modal-body">
+                <div class="wizard-content">
                     <div class="form-group">
                         <label>Cluster Template</label>
-                        <select id="cluster-template" class="form-control">
+                        <select id="cluster-template" class="form-select">
                             <option value="">Select a template...</option>
                             ${templateOptions}
                         </select>
-                        <p id="template-description" class="help-text"></p>
+                        <p id="template-description" class="validation-message"></p>
                     </div>
 
                     <div class="form-group">
                         <label>Name Prefix (optional)</label>
-                        <input type="text" id="cluster-prefix" class="form-control"
+                        <input type="text" id="cluster-prefix" class="form-input"
                                placeholder="e.g., dc1 creates dc1_isp1, dc1_isp2">
-                        <p class="help-text">Prefix added to all node names in the cluster</p>
+                        <p class="validation-message">Prefix added to all node names in the cluster</p>
                     </div>
 
                     <div id="external-connections-section" class="form-group hidden">
                         <label>External Connections</label>
-                        <p class="help-text">Connect cluster nodes to existing topology devices</p>
+                        <p class="step-description">Connect cluster nodes to existing topology devices</p>
                         <div id="external-connections-list"></div>
                     </div>
 
                     <div id="impairments-section" class="form-group hidden">
                         <label>Link Impairments (Internal Links)</label>
-                        <p class="help-text">Apply network impairments to connections between cluster nodes</p>
-                        <div class="impairment-controls-grid">
-                            <div class="impairment-input-group">
+                        <p class="step-description">Apply network impairments to connections between cluster nodes</p>
+                        <div class="cluster-impairment-grid">
+                            <div class="cluster-impairment-input">
                                 <label>Latency (ms)</label>
-                                <input type="number" id="cluster-latency" class="form-control"
+                                <input type="number" id="cluster-latency" class="form-input"
                                        min="0" max="1000" step="1" placeholder="0">
                             </div>
-                            <div class="impairment-input-group">
+                            <div class="cluster-impairment-input">
                                 <label>Jitter (ms)</label>
-                                <input type="number" id="cluster-jitter" class="form-control"
+                                <input type="number" id="cluster-jitter" class="form-input"
                                        min="0" max="500" step="1" placeholder="0">
                             </div>
-                            <div class="impairment-input-group">
+                            <div class="cluster-impairment-input">
                                 <label>Packet Loss (%)</label>
-                                <input type="number" id="cluster-loss" class="form-control"
+                                <input type="number" id="cluster-loss" class="form-input"
                                        min="0" max="100" step="0.1" placeholder="0">
                             </div>
                         </div>
-                        <p id="default-impairments" class="help-text"></p>
+                        <p id="default-impairments" class="validation-message"></p>
                     </div>
 
-                    <div id="cluster-summary" class="cluster-summary hidden">
+                    <div id="cluster-summary" class="cluster-summary-box hidden">
                         <h4>Summary</h4>
                         <p>Available IPs: <strong>${availableIps.length}</strong></p>
                         <p id="nodes-to-create"></p>
                         <p id="internal-connections-info"></p>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancel-cluster-btn">Cancel</button>
-                    <button class="btn btn-primary" id="create-cluster-btn" disabled>
+                <div class="wizard-footer">
+                    <div class="wizard-footer-spacer"></div>
+                    <button class="wizard-btn wizard-btn-secondary" id="cancel-cluster-btn">Cancel</button>
+                    <button class="wizard-btn wizard-btn-primary" id="create-cluster-btn" disabled>
                         Create Cluster
                     </button>
                 </div>
@@ -811,12 +818,12 @@ export class EventManager {
                     // Show external connections
                     externalSection.classList.remove('hidden');
                     externalList.innerHTML = selectedTemplate.external_connections.map((ext, i) => `
-                        <div class="external-connection-row">
+                        <div class="cluster-connection-row">
                             <label>
-                                ${ext.from_node}: ${ext.description}
-                                ${ext.required ? '<span class="required">*</span>' : ''}
+                                <span class="connection-node-name">${ext.from_node}</span>: ${ext.description}
+                                ${ext.required ? '<span class="connection-required">*</span>' : ''}
                             </label>
-                            <select id="ext-conn-${i}" class="form-control ext-conn-select"
+                            <select id="ext-conn-${i}" class="form-select ext-conn-select"
                                     data-from-node="${ext.from_node}" ${ext.required ? 'required' : ''}>
                                 <option value="">Select target device...</option>
                                 ${targetOptions}
@@ -996,6 +1003,11 @@ export class EventManager {
 
             // Handle cancel
             document.getElementById('cancel-cluster-btn').addEventListener('click', () => {
+                overlay.remove();
+            });
+
+            // Handle close button (X in header)
+            modal.querySelector('.wizard-close-btn').addEventListener('click', () => {
                 overlay.remove();
             });
 
