@@ -644,7 +644,7 @@ async def add_cluster(request):
     3. Optionally apply impairments to cluster bridges
     """
     from cluster_templates import get_template_by_id, validate_cluster_request
-    from validation import get_available_ips, get_mac_for_ip, validate_device_name, validate_target_device_exists
+    from validation import get_available_ips, get_mac_for_ip, validate_device_name, validate_target_device_exists, generate_unique_cluster_prefix
     from vm_manager import create_veos_node
     from persistence import save_user_node
     from connection_manager import get_connection_manager, Connection
@@ -692,14 +692,35 @@ async def add_cluster(request):
             if not valid:
                 return web.json_response({'error': error}, status=400)
 
-    # Generate node names and validate uniqueness
+    # Generate unique prefix to avoid name conflicts
+    # If user's prefix results in conflicts, auto-increment (e.g., prefix_2, prefix_3)
+    try:
+        unique_prefix = generate_unique_cluster_prefix(
+            name_prefix,
+            template.nodes,
+            topo_build_path,
+            USER_NODES_PATH
+        )
+    except ValueError as e:
+        return web.json_response({'error': str(e)}, status=400)
+
+    # Log if prefix was modified
+    if unique_prefix != name_prefix:
+        logger.info(f"Auto-adjusted prefix from '{name_prefix}' to '{unique_prefix}' to avoid conflicts")
+
+    # Generate node names with the unique prefix
     node_names = {}
     for node_template in template.nodes:
-        full_name = node_template.get_full_name(name_prefix)
-        valid, error = validate_device_name(full_name, topo_build_path, USER_NODES_PATH)
-        if not valid:
-            return web.json_response({'error': f"Node name '{full_name}': {error}"}, status=400)
+        full_name = node_template.get_full_name(unique_prefix)
+        # Validate name format (not uniqueness - that's already handled above)
+        if not full_name or len(full_name) > 32:
+            return web.json_response({
+                'error': f"Invalid node name '{full_name}': must be 1-32 characters"
+            }, status=400)
         node_names[node_template.name_suffix] = full_name
+
+    # Update name_prefix to the unique version for response
+    name_prefix = unique_prefix
 
     # Assign IPs (use provided or auto-assign from available)
     assigned_ips = {}
@@ -799,8 +820,20 @@ async def add_cluster(request):
             from_name = node_names[from_suffix]
             to_name = node_names[to_suffix]
 
+            # Find both nodes to calculate their next port numbers BEFORE adding connections
+            from_node = next((n for n in created_nodes if n['suffix'] == from_suffix), None)
+            to_node = next((n for n in created_nodes if n['suffix'] == to_suffix), None)
+
+            if not from_node or not to_node:
+                logger.error(f"Could not find nodes for internal connection: {from_suffix} -> {to_suffix}")
+                continue
+
+            # Calculate port numbers for both ends
+            from_port = f"Ethernet{len(from_node['connections']) + 1}"
+            to_port = f"Ethernet{len(to_node['connections']) + 1}"
+
             # Generate bridge name for this internal connection
-            bridge_name = generate_bridge_name(from_name, 'int', to_name, 'int')
+            bridge_name = generate_bridge_name(from_name, from_port, to_name, to_port)
 
             try:
                 # Create OVS bridge
@@ -816,22 +849,21 @@ async def add_cluster(request):
                     'to': to_name
                 })
 
-                # Add to node connection records
-                for node in created_nodes:
-                    if node['suffix'] == from_suffix:
-                        node['connections'].append({
-                            'local_port': f"Ethernet{len(node['connections']) + 1}",
-                            'target_device': to_name,
-                            'bridge': bridge_name,
-                            'internal': True
-                        })
-                    elif node['suffix'] == to_suffix:
-                        node['connections'].append({
-                            'local_port': f"Ethernet{len(node['connections']) + 1}",
-                            'target_device': from_name,
-                            'bridge': bridge_name,
-                            'internal': True
-                        })
+                # Add connection records with correct port info for BOTH ends
+                from_node['connections'].append({
+                    'local_port': from_port,
+                    'target_device': to_name,
+                    'target_port': to_port,
+                    'bridge': bridge_name,
+                    'internal': True
+                })
+                to_node['connections'].append({
+                    'local_port': to_port,
+                    'target_device': from_name,
+                    'target_port': from_port,
+                    'bridge': bridge_name,
+                    'internal': True
+                })
 
                 logger.info(f"  Connected: {from_name} <-> {to_name} (bridge: {bridge_name})")
 

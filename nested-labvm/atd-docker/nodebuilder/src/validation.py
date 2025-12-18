@@ -394,3 +394,63 @@ def validate_target_device_exists(
         return False, f"Target device '{target_device}' does not exist"
 
     return True, None
+
+
+def generate_unique_cluster_prefix(
+    base_prefix: str,
+    template_nodes: list,
+    topo_build_path: str,
+    user_nodes_path: str,
+    max_attempts: int = 100
+) -> str:
+    """
+    Generate a unique prefix for cluster nodes to avoid name conflicts.
+
+    If the base prefix results in conflicts, appends _2, _3, etc. until
+    a unique set of names is found.
+
+    Args:
+        base_prefix: User-provided prefix (can be empty string)
+        template_nodes: List of node templates with name_suffix attribute
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        max_attempts: Maximum number of suffix attempts
+
+    Returns:
+        A prefix that results in unique node names for all template nodes
+
+    Raises:
+        ValueError: If no unique prefix found within max_attempts
+    """
+    existing_names = get_existing_node_names(topo_build_path, user_nodes_path)
+
+    def names_are_unique(prefix: str) -> bool:
+        """Check if all node names with this prefix are unique."""
+        for node in template_nodes:
+            if prefix:
+                full_name = f"{prefix}_{node.name_suffix}"
+            else:
+                full_name = node.name_suffix
+            if full_name.lower() in existing_names:
+                return False
+        return True
+
+    # Try the original prefix first
+    if names_are_unique(base_prefix):
+        return base_prefix
+
+    # Try incrementing suffixes: prefix_2, prefix_3, etc.
+    # If base_prefix is empty, use numeric prefix: 2, 3, etc.
+    for i in range(2, max_attempts + 2):
+        if base_prefix:
+            candidate = f"{base_prefix}_{i}"
+        else:
+            candidate = str(i)
+
+        if names_are_unique(candidate):
+            return candidate
+
+    raise ValueError(
+        f"Could not generate unique cluster names after {max_attempts} attempts. "
+        f"Consider using a different prefix."
+    )
