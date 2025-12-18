@@ -74,12 +74,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const configOutput = document.getElementById("configOutput");
 
   function showNotification(message) {
-    notification.textContent = message;
-    notification.style.display = "block";
+    if (notification) {
+      notification.textContent = message;
+      notification.style.display = "block";
+    }
   }
 
   function hideNotification() {
-    notification.style.display = "none";
+    if (notification) {
+      notification.style.display = "none";
+    }
   }
 
   function getSelectedOptions(selectId) {
@@ -89,12 +93,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function displayOutput() {
+    if (!rangeSlider || !output) return;
 
     const latency = document.querySelector(
       'input[name="latencyRadio"]:checked'
     ).value;
     const selected = getSelectedOptions("multiSelect");
-    const sliderValue = rangeSlider.value;
+    const sliderVal = rangeSlider.value;
     let outputHtml = "<h4>your request is in process</h4>";
     output.innerHTML = outputHtml;
     $.post({
@@ -102,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
       data: JSON.stringify({
         changeLatency: latency === 'enable' ? true : false,
         devices: selected,
-        score: sliderValue
+        score: sliderVal
       }),
       contentType: "application/json",
       dataType: "json"
@@ -134,6 +139,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function displayConfigOutput() {
+    if (!configOutput) return;
+
     const selectedDevices = getSelectedOptions("deviceSelect");
     let outputHtml = "<h4>your request is in process</h4>";
     configOutput.innerHTML = outputHtml;

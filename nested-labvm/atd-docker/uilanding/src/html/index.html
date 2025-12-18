@@ -566,6 +566,9 @@
         });
         await topoManager.init();
 
+        // Expose globally for wizards that need to reference it
+        window.topologyManager = topoManager;
+
         // Setup filter checkboxes
         setupFilters();
 
