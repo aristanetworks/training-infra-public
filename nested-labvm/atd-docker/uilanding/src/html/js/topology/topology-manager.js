@@ -197,11 +197,12 @@ export class TopologyManager {
         });
 
         // Create Cytoscape instance
+        // Use preset layout with no animation in constructor - we handle layout manually below
         this.cy = cytoscape({
             container: this.container,
             elements: elements,
             style: getCytoscapeStyles(),
-            layout: getLayout(this.options.layout),
+            layout: { name: 'preset' },  // Use preset positions from server data, no animation
             minZoom: 0.2,
             maxZoom: 3,
             wheelSensitivity: 0.3,
@@ -212,16 +213,39 @@ export class TopologyManager {
             userPanningEnabled: true
         });
 
-        // Run layout
-        this.cy.layout(getLayout(this.options.layout)).run();
+        // Check if we have saved positions before running layout
+        const hasSavedPositions = this.hasSavedPositions();
 
-        // Apply saved positions if available (override server positions)
-        this.loadSavedPositions();
+        if (hasSavedPositions) {
+            // Skip layout animation and directly apply saved positions
+            // This prevents the race condition where layout animation overwrites saved positions
+            this.loadSavedPositions();
+            console.log('[TopologyManager] Applied saved positions, skipped layout animation');
+        } else {
+            // Run layout with animation (no saved positions to apply)
+            const layout = this.cy.layout(getLayout(this.options.layout));
+            layout.run();
+        }
 
         // Setup drag event handler to save positions when nodes are moved
         this.cy.on('free', 'node', () => {
             this.savePositions();
         });
+    }
+
+    /**
+     * Check if there are saved positions in localStorage
+     * @returns {boolean} True if saved positions exist
+     */
+    hasSavedPositions() {
+        try {
+            const saved = localStorage.getItem(this.positionStorageKey);
+            if (!saved) return false;
+            const positions = JSON.parse(saved);
+            return Object.keys(positions).length > 0;
+        } catch (error) {
+            return false;
+        }
     }
 
     /**
