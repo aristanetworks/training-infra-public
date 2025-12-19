@@ -25,7 +25,9 @@ from config import (
     SERVICE_PORT,
     SERVICE_HOST,
     MAX_TOTAL_NODES,
-    MAX_CONNECTIONS_PER_NODE
+    MAX_CONNECTIONS_PER_NODE,
+    VALID_DEVICE_TYPES,
+    DEFAULT_DEVICE_TYPE
 )
 
 # Configure logging
@@ -230,15 +232,21 @@ async def add_node(request):
 
     name = data.get('name', '')
     ip = data.get('ip', '')
-    device_type = data.get('device_type', '')  # Optional device type for diagram positioning
+    device_type = data.get('device_type', DEFAULT_DEVICE_TYPE)  # Device type for diagram positioning
     connections = data.get('connections', [])
+
+    # Validate device_type against known types
+    if device_type and device_type not in VALID_DEVICE_TYPES:
+        return web.json_response({
+            'error': f"Invalid device_type '{device_type}'. Must be one of: {', '.join(sorted(VALID_DEVICE_TYPES))}"
+        }, status=400)
 
     if not name:
         return web.json_response({'error': 'Device name is required'}, status=400)
     if not ip:
         return web.json_response({'error': 'IP address is required'}, status=400)
-    if not connections:
-        return web.json_response({'error': 'At least one connection is required'}, status=400)
+    # Note: Connections are optional - nodes can be created without connections
+    # for testing purposes or later connection via edit-node
 
     # Security: Validate connections count
     if not isinstance(connections, list):
@@ -286,6 +294,7 @@ async def add_node(request):
             'sys_mac': mac,
             'platform': 'veos',
             'user_added': True,
+            'device_type': device_type or DEFAULT_DEVICE_TYPE,  # Always include device_type
             'neighbors': [
                 {
                     'neighborDevice': c['target_device'],
@@ -294,9 +303,6 @@ async def add_node(request):
                 } for c in result['connections']
             ]
         }
-        # Add device_type if provided (for diagram positioning)
-        if device_type:
-            node_entry['device_type'] = device_type
 
         node_data = {name: node_entry}
         save_user_node(node_data, USER_NODES_PATH)

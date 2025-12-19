@@ -131,7 +131,8 @@ class NodeBuilderAPI {
 
     /**
      * Validate a node name
-     * Returns requestId for race condition prevention - caller can compare with current expected requestId
+     * Returns requestId and validatedName for race condition prevention -
+     * caller should compare both with current expected values
      */
     static async validateNode(name) {
         // Increment request ID for tracking
@@ -147,7 +148,8 @@ class NodeBuilderAPI {
         return {
             valid: result.valid,
             errors: result.errors || [],
-            requestId: requestId
+            requestId: requestId,
+            validatedName: name  // Include the name that was validated for race condition check
         };
     }
 

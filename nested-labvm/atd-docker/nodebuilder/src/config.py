@@ -47,6 +47,15 @@ VEOS_RAM_MB = 2048
 MAX_TOTAL_NODES = 30  # Maximum total nodes (topology + user-added)
 MAX_CONNECTIONS_PER_NODE = 16  # Maximum connections per node (vEOS limit)
 
+# Valid device types for diagram positioning
+# These must match the device types in uilanding/src/device_types.py
+VALID_DEVICE_TYPES = frozenset([
+    'internet', 'isp', 'rr', 'core', 'dci', 'p',
+    'borderleaf', 'pe', 'ce', 'gw', 'router',
+    'spine', 'leaf', 'memleaf', 'host', 'customer', 'oob', 'other'
+])
+DEFAULT_DEVICE_TYPE = 'host'
+
 # libvirt paths
 LIBVIRT_IMAGES_PATH = '/var/lib/libvirt/images'
 VEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'

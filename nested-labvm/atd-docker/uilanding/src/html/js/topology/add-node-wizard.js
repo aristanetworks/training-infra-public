@@ -421,17 +421,19 @@ class AddNodeWizard {
         }
 
         // Server-side validation using shared API
-        // Store expected request ID to prevent race conditions
+        // Store expected request ID and name to prevent race conditions
         const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
         this.pendingValidationRequestId = expectedRequestId;
+        this.pendingValidationName = name;
 
         try {
             const result = await NodeBuilderAPI.validateNode(name);
 
-            // Check if this response is for the latest request
-            // If not, ignore this stale response
-            if (result.requestId !== this.pendingValidationRequestId) {
-                console.log('[AddNodeWizard] Ignoring stale validation response');
+            // Check if this response is for the latest request AND the correct name
+            // This prevents race conditions where user types quickly and responses arrive out of order
+            if (result.requestId !== this.pendingValidationRequestId ||
+                result.validatedName !== this.pendingValidationName) {
+                console.log('[AddNodeWizard] Ignoring stale validation response for:', result.validatedName);
                 return;
             }
 
@@ -555,6 +557,7 @@ class AddNodeWizard {
 
                 <div class="connection-hint">
                     <strong>Tip:</strong> Interfaces are automatically assigned contiguously starting from Ethernet1 on the new node.
+                    Connections are optional - you can add them later via the Edit Node feature.
                 </div>
 
                 <div class="device-grid">
