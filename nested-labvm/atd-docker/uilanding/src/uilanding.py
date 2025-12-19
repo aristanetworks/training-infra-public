@@ -598,7 +598,11 @@ def get_all_devices():
                             if ip == 'N/A':
                                 ip = ''
                             display_name = normalize_device_name(name)
-                            devices[display_name] = {'ip': ip, 'user_added': True}
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': info.get('device_type', 'other')
+                            }
                 pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
     except Exception as e:
         pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
@@ -1742,25 +1746,37 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Get devices from topo_build.yml (single source of truth)
+            # Get devices from topo_build.yml and user_nodes.yaml
             nodes = get_all_devices()
 
             # Group devices using shared DeviceTypeConfig
+            # User-added nodes go to a separate "User Nodes" group at the end
             groups = {}
+            user_nodes_group = []
 
             for device_name, device_info in nodes.items():
-                # Use explicit device_type if provided (for user-added nodes),
-                # otherwise classify from device name
-                device_type = device_info.get('device_type') or DeviceTypeConfig.classify_device(device_name)
-                group_name = DeviceTypeConfig.get_group_name(device_type)
+                is_user_added = device_info.get('user_added', False)
 
-                if group_name not in groups:
-                    groups[group_name] = []
-
-                groups[group_name].append({
+                # Build device entry with new flags
+                device_entry = {
                     'name': device_name,
                     'ip': device_info.get('ip', ''),
-                })
+                    'userAdded': is_user_added,
+                    # All devices support console except jump server (which isn't in this list)
+                    'supportsConsole': True,
+                }
+
+                if is_user_added:
+                    # User-added nodes go to dedicated group
+                    user_nodes_group.append(device_entry)
+                else:
+                    # Regular nodes grouped by device type
+                    device_type = device_info.get('device_type') or DeviceTypeConfig.classify_device(device_name)
+                    group_name = DeviceTypeConfig.get_group_name(device_type)
+
+                    if group_name not in groups:
+                        groups[group_name] = []
+                    groups[group_name].append(device_entry)
 
             # Sort devices within each group and format result
             # Order groups by tier (using first device type that maps to each group)
@@ -1784,14 +1800,46 @@ class DevicesAPIHandler(BaseHandler):
                         'devices': devices
                     })
 
+            # Add User Nodes group at the end if there are any
+            if user_nodes_group:
+                result.append({
+                    'group': 'User Nodes',
+                    'devices': sorted(user_nodes_group, key=lambda x: x['name'])
+                })
+
             self.write(json.dumps({
                 'topology': TITLE,
                 'groups': result
             }))
 
-        except Exception as e:
+        except FileNotFoundError as e:
+            pS(f"DevicesAPIHandler: Configuration file not found: {e}")
+            self.set_status(503)
+            self.write(json.dumps({
+                'error': 'Device configuration not available',
+                'detail': 'The topology configuration file could not be found. Please wait for the lab to finish initializing.',
+                'retry': True
+            }))
+
+        except (yaml.YAMLError, json.JSONDecodeError) as e:
+            pS(f"DevicesAPIHandler: Configuration parse error: {e}")
+            traceback.print_exc()
             self.set_status(500)
-            self.write(json.dumps({'error': str(e)}))
+            self.write(json.dumps({
+                'error': 'Configuration error',
+                'detail': 'The device configuration could not be parsed.',
+                'retry': False
+            }))
+
+        except Exception as e:
+            pS(f"DevicesAPIHandler: Unexpected error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({
+                'error': 'Internal server error',
+                'detail': str(e),
+                'retry': True
+            }))
 
 
 class DeviceTypesAPIHandler(BaseHandler):
