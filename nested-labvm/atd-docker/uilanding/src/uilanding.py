@@ -3202,7 +3202,7 @@ if __name__ == "__main__":
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
         (r'/terminal', TerminalPageHandler),
-        (r'/console', ConsolePageHandler),
+        (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
