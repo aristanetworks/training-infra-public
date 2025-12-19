@@ -121,7 +121,7 @@ def generate_cloud_init_iso(
     mgmt_ip: str,
     data_ip: Optional[str] = None,
     gateway: str = '192.168.0.1',
-    password: str = 'arista'
+    password: Optional[str] = None
 ) -> str:
     """
     Generate a cloud-init ISO for host provisioning.
@@ -137,11 +137,17 @@ def generate_cloud_init_iso(
         mgmt_ip: Management IP address (without CIDR) for eth0
         data_ip: Optional data interface IP with CIDR for eth1 (e.g., "10.1.1.100/24")
         gateway: Default gateway (on management network)
-        password: Password for arista user
+        password: Password for arista user (if None, read from ACCESS_INFO.yaml)
 
     Returns:
         Path to the generated ISO file
     """
+    # Get password from ACCESS_INFO.yaml if not provided
+    if password is None:
+        from config import get_device_credentials
+        creds = get_device_credentials()
+        password = creds.get('password', 'arista')
+
     # Generate password hash
     import crypt
     password_hash = crypt.crypt(password, crypt.mksalt(crypt.METHOD_SHA512))

@@ -24,7 +24,8 @@ from config import (
     MAX_FIREWALLS_PER_TOPOLOGY,
     MGMT_BRIDGE,
     CLOUD_INIT_TEMPLATES_PATH,
-    USER_FIREWALLS_PATH
+    USER_FIREWALLS_PATH,
+    get_device_credentials
 )
 from interface_manager import (
     create_ovs_bridge,
@@ -106,7 +107,8 @@ def generate_vyos_cloud_init(
     mgmt_ip: str,
     inside_ip: str,
     outside_ip: str,
-    gateway: str = '192.168.0.1'
+    gateway: str = '192.168.0.1',
+    password: Optional[str] = None
 ) -> str:
     """
     Generate a cloud-init ISO for VyOS provisioning.
@@ -119,10 +121,16 @@ def generate_vyos_cloud_init(
         inside_ip: Inside interface IP with CIDR (e.g., 10.1.1.1/24)
         outside_ip: Outside interface IP with CIDR (e.g., 10.2.2.1/24)
         gateway: Default gateway
+        password: User password (defaults to password from ACCESS_INFO.yaml)
 
     Returns:
         Path to the generated ISO file
     """
+    # Get password from ACCESS_INFO.yaml if not provided
+    if password is None:
+        creds = get_device_credentials()
+        password = creds.get('password', 'arista')
+
     # Create temp directory for cloud-init files
     temp_dir = tempfile.mkdtemp(prefix='cloudinit_vyos_')
 
@@ -149,7 +157,7 @@ vyos_config_commands:
   - set interfaces ethernet eth2 description 'Outside'
   - set service ssh port 22
   - set service ssh listen-address 0.0.0.0
-  - set system login user arista authentication plaintext-password arista
+  - set system login user arista authentication plaintext-password {password}
   - set system login user arista level admin
   - set protocols static route 0.0.0.0/0 next-hop {gateway}
 """
@@ -160,7 +168,8 @@ vyos_config_commands:
             mgmt_ip=mgmt_ip,
             inside_ip=inside_ip,
             outside_ip=outside_ip,
-            gateway=gateway
+            gateway=gateway,
+            password=password
         )
 
         # Write user-data

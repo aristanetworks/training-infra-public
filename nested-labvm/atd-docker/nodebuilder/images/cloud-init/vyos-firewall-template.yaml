@@ -1,6 +1,13 @@
 #cloud-config
 # Cloud-init template for VyOS 1.4 Community Firewall
-# Variables replaced at runtime: {hostname}, {mgmt_ip}, {inside_ip}, {outside_ip}
+#
+# Variables replaced at runtime:
+#   {hostname}    - VM hostname
+#   {mgmt_ip}     - Management IP (eth0)
+#   {inside_ip}   - Inside interface IP with CIDR (eth1)
+#   {outside_ip}  - Outside interface IP with CIDR (eth2)
+#   {gateway}     - Default gateway (192.168.0.1)
+#   {password}    - User password (from ACCESS_INFO.yaml)
 #
 # Interface mapping:
 #   eth0 - Management interface (vmgmt bridge)
@@ -31,7 +38,7 @@ vyos_config_commands:
   - set service ssh listen-address 0.0.0.0
 
   # Create arista user with admin privileges
-  - set system login user arista authentication plaintext-password arista
+  - set system login user arista authentication plaintext-password {password}
   - set system login user arista level admin
 
   # Set default gateway to management network
