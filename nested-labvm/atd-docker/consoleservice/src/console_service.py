@@ -70,12 +70,12 @@ class ConsoleSession:
         fcntl.ioctl(self.slave_fd, termios.TIOCSWINSZ, winsize)
 
         # Spawn virsh console process
+        # start_new_session=True creates new session (replaces preexec_fn=os.setsid)
         self.process = subprocess.Popen(
             ['virsh', 'console', self.device, '--force'],
             stdin=self.slave_fd,
             stdout=self.slave_fd,
             stderr=self.slave_fd,
-            preexec_fn=os.setsid,
             start_new_session=True
         )
 
