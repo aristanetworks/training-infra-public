@@ -459,7 +459,7 @@
         try {
           // Build WebSocket URL
           const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const wsUrl = `${wsProtocol}//${window.location.host}/console/ws/console/${device}`;
+          const wsUrl = `${wsProtocol}//${window.location.host}/console-api/ws/console/${device}`;
 
           this.ws = new WebSocket(wsUrl);
           this.ws.binaryType = 'arraybuffer';
@@ -592,7 +592,7 @@
         list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Loading devices...</div>';
 
         try {
-          const response = await fetch('/console/devices');
+          const response = await fetch('/console-api/devices');
 
           // Check if console service is available
           if (!response.ok) {
