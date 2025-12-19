@@ -790,7 +790,8 @@ const TerminalManager = {
 
     try {
       // Dynamically import the TopologyManager module
-      const { TopologyManager } = await import('./js/topology/topology-manager.js');
+      // Path is relative to current script location (js/ directory)
+      const { TopologyManager } = await import('./topology/topology-manager.js');
 
       // Clear the loading text before initializing
       const topoContainer = document.getElementById('terminal-topology');

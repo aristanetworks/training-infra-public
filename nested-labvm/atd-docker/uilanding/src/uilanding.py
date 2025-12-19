@@ -1758,12 +1758,13 @@ class DevicesAPIHandler(BaseHandler):
                 is_user_added = device_info.get('user_added', False)
 
                 # Build device entry with new flags
+                # Console only supported for KVM labs (virsh console), not cEOS
+                supports_console = EOS_TYPE != 'container-labs'
                 device_entry = {
                     'name': device_name,
                     'ip': device_info.get('ip', ''),
                     'userAdded': is_user_added,
-                    # All devices support console except jump server (which isn't in this list)
-                    'supportsConsole': True,
+                    'supportsConsole': supports_console,
                 }
 
                 if is_user_added:
@@ -1809,6 +1810,7 @@ class DevicesAPIHandler(BaseHandler):
 
             self.write(json.dumps({
                 'topology': TITLE,
+                'eosType': EOS_TYPE,
                 'groups': result
             }))
 
