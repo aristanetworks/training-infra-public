@@ -1,0 +1,41 @@
+#cloud-config
+# Cloud-init template for VyOS 1.4 Community Firewall
+# Variables replaced at runtime: {hostname}, {mgmt_ip}, {inside_ip}, {outside_ip}
+#
+# Interface mapping:
+#   eth0 - Management interface (vmgmt bridge)
+#   eth1 - Inside interface (connects to inside network)
+#   eth2 - Outside interface (connects to outside network)
+
+vyos_config_commands:
+  # System configuration
+  - set system host-name {hostname}
+  - set system time-zone UTC
+  - set system name-server 8.8.8.8
+  - set system name-server 192.168.0.1
+
+  # Management interface (eth0)
+  - set interfaces ethernet eth0 address {mgmt_ip}/24
+  - set interfaces ethernet eth0 description 'Management'
+
+  # Inside interface (eth1)
+  - set interfaces ethernet eth1 address {inside_ip}
+  - set interfaces ethernet eth1 description 'Inside'
+
+  # Outside interface (eth2)
+  - set interfaces ethernet eth2 address {outside_ip}
+  - set interfaces ethernet eth2 description 'Outside'
+
+  # Enable SSH service
+  - set service ssh port 22
+  - set service ssh listen-address 0.0.0.0
+
+  # Create arista user with admin privileges
+  - set system login user arista authentication plaintext-password arista
+  - set system login user arista level admin
+
+  # Set default gateway to management network
+  - set protocols static route 0.0.0.0/0 next-hop {gateway}
+
+# Note: No firewall rules configured by default
+# Students will configure stateful firewall rules as part of training exercises

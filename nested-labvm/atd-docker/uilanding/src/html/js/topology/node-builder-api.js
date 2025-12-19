@@ -372,6 +372,180 @@ class NodeBuilderAPI {
 
         return { templates, targetDevices, availableIps };
     }
+
+    // =========================================
+    // Linux Host API Methods
+    // =========================================
+
+    /**
+     * Get host status (count and availability)
+     */
+    static async getHostStatus() {
+        const response = await fetch('/td-api/nodes/host-status');
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to fetch host status');
+        }
+        return await response.json();
+    }
+
+    /**
+     * Create a new Linux host
+     */
+    static async addHost(config) {
+        const response = await fetch('/td-api/nodes/add-host', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to create host');
+        }
+
+        // Invalidate caches
+        this.invalidateCache('available-ips');
+        this.invalidateCache('target-devices');
+
+        return result;
+    }
+
+    /**
+     * Delete a Linux host
+     */
+    static async deleteHost(name) {
+        const response = await fetch('/td-api/nodes/delete-host', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete host');
+        }
+
+        // Invalidate caches
+        this.invalidateCache();
+
+        return result;
+    }
+
+    /**
+     * Get noVNC token for a host
+     */
+    static async getNoVncToken(hostname) {
+        const response = await fetch(`/td-api/nodes/novnc-token/${encodeURIComponent(hostname)}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to get VNC token');
+        }
+        return await response.json();
+    }
+
+    /**
+     * Load data for add host wizard
+     */
+    static async loadHostWizardData() {
+        const [hostStatus, availableIps, targetDevices] = await Promise.all([
+            this.getHostStatus(),
+            this.getAvailableIps(),
+            this.getTargetDevices()
+        ]);
+
+        return { hostStatus, availableIps, targetDevices };
+    }
+
+    // =========================================
+    // VyOS Firewall API Methods
+    // =========================================
+
+    /**
+     * Get firewall status (count and availability)
+     */
+    static async getFirewallStatus() {
+        const response = await fetch('/td-api/nodes/firewall-status');
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to fetch firewall status');
+        }
+        return await response.json();
+    }
+
+    /**
+     * Create a new VyOS firewall
+     */
+    static async addFirewall(config) {
+        const response = await fetch('/td-api/nodes/add-firewall', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to create firewall');
+        }
+
+        // Invalidate caches
+        this.invalidateCache('available-ips');
+        this.invalidateCache('target-devices');
+
+        return result;
+    }
+
+    /**
+     * Edit firewall interface IPs
+     */
+    static async editFirewall(config) {
+        const response = await fetch('/td-api/nodes/edit-firewall', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to edit firewall');
+        }
+
+        return result;
+    }
+
+    /**
+     * Delete a VyOS firewall
+     */
+    static async deleteFirewall(name) {
+        const response = await fetch('/td-api/nodes/delete-firewall', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete firewall');
+        }
+
+        // Invalidate caches
+        this.invalidateCache();
+
+        return result;
+    }
+
+    /**
+     * Load data for add firewall wizard
+     */
+    static async loadFirewallWizardData() {
+        const [firewallStatus, availableIps, targetDevices] = await Promise.all([
+            this.getFirewallStatus(),
+            this.getAvailableIps(),
+            this.getTargetDevices()
+        ]);
+
+        return { firewallStatus, availableIps, targetDevices };
+    }
 }
 
 // Export for use in other modules

@@ -60,6 +60,31 @@ DEFAULT_DEVICE_TYPE = 'host'
 LIBVIRT_IMAGES_PATH = '/var/lib/libvirt/images'
 VEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'
 
+# Linux Host configuration
+HOST_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/hosts/base/debian-lxde-base.qcow2'
+HOST_CPU = 1
+HOST_RAM_MB = 1024
+HOST_DISK_GB = 5
+MAX_HOSTS_PER_TOPOLOGY = 2
+HOST_VNC_BASE_PORT = 5900  # VNC ports: 5900, 5901
+
+# VyOS Firewall configuration
+FIREWALL_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/firewall/base/vyos-base.qcow2'
+FIREWALL_CPU = 1
+FIREWALL_RAM_MB = 1024
+FIREWALL_DISK_GB = 5
+MAX_FIREWALLS_PER_TOPOLOGY = 1
+
+# Persistence paths for new node types
+USER_HOSTS_PATH = os.getenv('USER_HOSTS_PATH', '/etc/atd/user_hosts.yaml')
+USER_FIREWALLS_PATH = os.getenv('USER_FIREWALLS_PATH', '/etc/atd/user_firewalls.yaml')
+
+# Cloud-init templates directory
+CLOUD_INIT_TEMPLATES_PATH = os.getenv(
+    'CLOUD_INIT_TEMPLATES_PATH',
+    '/opt/nodebuilder/images/cloud-init'
+)
+
 # Management bridge
 MGMT_BRIDGE = 'vmgmt'
 

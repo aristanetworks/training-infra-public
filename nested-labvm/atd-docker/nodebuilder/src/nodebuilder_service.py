@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Nodebuilder Service - Dynamic vEOS node addition for ATD labs
+Nodebuilder Service - Dynamic node addition for ATL labs
 
-This service provides a REST API for dynamically adding vEOS nodes
-to running KVM-based ATD labs. It runs on port 8090 with host network
+This service provides a REST API for dynamically adding VMs
+to running KVM-based ATL labs. It runs on port 8090 with host network
 mode for libvirt access.
 
 Endpoints:
@@ -15,6 +15,18 @@ Endpoints:
 - POST /validate-node       - Validate node config before creation
 - POST /add-node            - Create new vEOS VM
 - POST /restore-user-nodes  - Start all user-added VMs after reboot
+
+Linux Host Endpoints:
+- GET  /host-status         - Get host count and availability
+- POST /add-host            - Create new Linux host VM
+- POST /delete-host         - Delete a Linux host
+- GET  /novnc-token/{name}  - Get noVNC access token for a host
+
+Firewall Endpoints:
+- GET  /firewall-status     - Get firewall count and availability
+- POST /add-firewall        - Create new VyOS firewall VM
+- POST /edit-firewall       - Edit firewall interface IPs
+- POST /delete-firewall     - Delete a firewall
 """
 
 import logging
@@ -27,7 +39,11 @@ from config import (
     MAX_TOTAL_NODES,
     MAX_CONNECTIONS_PER_NODE,
     VALID_DEVICE_TYPES,
-    DEFAULT_DEVICE_TYPE
+    DEFAULT_DEVICE_TYPE,
+    MAX_HOSTS_PER_TOPOLOGY,
+    MAX_FIREWALLS_PER_TOPOLOGY,
+    USER_HOSTS_PATH,
+    USER_FIREWALLS_PATH
 )
 
 # Configure logging
@@ -1078,6 +1094,458 @@ async def reboot_devices(request):
         'rebooted': results,
         'errors': errors
     })
+
+
+# ============================================================================
+# Linux Host Endpoints
+# ============================================================================
+
+@routes.get('/host-status')
+async def host_status(request):
+    """
+    Get current Linux host count and availability.
+
+    Returns count of existing hosts and whether more can be added.
+    """
+    from persistence import list_user_hosts
+
+    try:
+        hosts = list_user_hosts(USER_HOSTS_PATH)
+        current_count = len(hosts)
+
+        return web.json_response({
+            'current_count': current_count,
+            'max_allowed': MAX_HOSTS_PER_TOPOLOGY,
+            'can_add_more': current_count < MAX_HOSTS_PER_TOPOLOGY,
+            'hosts': [
+                {'name': list(h.keys())[0], 'info': list(h.values())[0]}
+                for h in hosts
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Error getting host status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-host')
+async def add_host(request):
+    """
+    Create a new Linux desktop host VM.
+
+    Request body: {
+        "name": "desktop1",
+        "ip": "192.168.0.50",
+        "connection": {
+            "target_device": "leaf1",
+            "target_port": "Ethernet5"
+        },
+        "data_ip": "10.1.1.100/24"  // Optional: IP for data interface
+    }
+    """
+    from host_manager import create_host
+    from persistence import save_user_host
+    from validation import (
+        validate_host_name, validate_host_limit,
+        get_mac_for_ip, get_available_ips, validate_cidr_ip
+    )
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+    ip = data.get('ip', '')
+    connection = data.get('connection')
+    data_ip = data.get('data_ip')
+
+    if not name:
+        return web.json_response({'error': 'Host name is required'}, status=400)
+    if not ip:
+        return web.json_response({'error': 'Management IP is required'}, status=400)
+
+    topo_build_path = get_topo_build_path()
+
+    # Validate host limit
+    valid, error = validate_host_limit(USER_HOSTS_PATH, MAX_HOSTS_PER_TOPOLOGY)
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate name across all device types
+    valid, error = validate_host_name(
+        name, topo_build_path, USER_NODES_PATH,
+        USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    )
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate IP is available
+    available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+    if not any(entry['ip'] == ip for entry in available):
+        return web.json_response({
+            'error': f'IP {ip} is not available or already in use'
+        }, status=400)
+
+    # Validate data_ip format if provided
+    if data_ip:
+        valid, error = validate_cidr_ip(data_ip)
+        if not valid:
+            return web.json_response({'error': error}, status=400)
+
+    try:
+        logger.info(f"Creating Linux host: {name} (IP: {ip})")
+
+        # Create the host VM
+        result = create_host(name, ip, connection, data_ip)
+
+        # Save to persistence
+        host_entry = {
+            'mgmt_ip': ip,
+            'data_ip': data_ip,
+            'vnc_port': result.get('vnc_port'),
+            'connection': result.get('connection')
+        }
+        save_user_host({name: host_entry}, USER_HOSTS_PATH)
+
+        logger.info(f"Successfully created Linux host: {name}")
+
+        return web.json_response({
+            'status': 'created',
+            'host': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error creating host {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-host')
+async def delete_host_endpoint(request):
+    """
+    Delete a Linux host VM.
+
+    Request body: { "name": "desktop1" }
+    """
+    from host_manager import delete_host
+    from persistence import get_user_host, remove_user_host
+    from novnc_manager import revoke_tokens_for_host
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Host name is required'}, status=400)
+
+    # Validate: must be a user-added host
+    host = get_user_host(name, USER_HOSTS_PATH)
+    if not host:
+        return web.json_response({
+            'error': f"Host '{name}' not found"
+        }, status=400)
+
+    try:
+        logger.info(f"Deleting Linux host: {name}")
+
+        # Delete the VM
+        result = delete_host(name)
+
+        # Remove from persistence
+        remove_user_host(name, USER_HOSTS_PATH)
+
+        # Revoke any noVNC tokens
+        revoke_tokens_for_host(name)
+
+        logger.info(f"Successfully deleted Linux host: {name}")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error deleting host {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/novnc-token/{name}')
+async def get_novnc_token(request):
+    """
+    Get a noVNC access token for a Linux host.
+
+    Returns a token and WebSocket URL for browser-based VNC access.
+    """
+    from novnc_manager import create_vnc_token
+    from persistence import get_user_host
+
+    name = request.match_info.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Host name is required'}, status=400)
+
+    # Validate: must be a user-added host
+    host = get_user_host(name, USER_HOSTS_PATH)
+    if not host:
+        return web.json_response({
+            'error': f"Host '{name}' not found"
+        }, status=400)
+
+    try:
+        token_info = create_vnc_token(name)
+        if not token_info:
+            return web.json_response({
+                'error': f"VNC not available for host '{name}'"
+            }, status=400)
+
+        return web.json_response(token_info)
+
+    except Exception as e:
+        logger.error(f"Error getting VNC token for {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# Firewall Endpoints
+# ============================================================================
+
+@routes.get('/firewall-status')
+async def firewall_status(request):
+    """
+    Get current VyOS firewall count and availability.
+
+    Returns count of existing firewalls and whether more can be added.
+    """
+    from persistence import list_user_firewalls
+
+    try:
+        firewalls = list_user_firewalls(USER_FIREWALLS_PATH)
+        current_count = len(firewalls)
+
+        return web.json_response({
+            'current_count': current_count,
+            'max_allowed': MAX_FIREWALLS_PER_TOPOLOGY,
+            'can_add_more': current_count < MAX_FIREWALLS_PER_TOPOLOGY,
+            'firewalls': [
+                {'name': list(fw.keys())[0], 'info': list(fw.values())[0]}
+                for fw in firewalls
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Error getting firewall status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-firewall')
+async def add_firewall(request):
+    """
+    Create a new VyOS firewall VM.
+
+    Request body: {
+        "name": "fw1",
+        "mgmt_ip": "192.168.0.51",
+        "inside_interface": {
+            "ip": "10.1.1.1/24",
+            "target_device": "leaf1",
+            "target_port": "Ethernet6"
+        },
+        "outside_interface": {
+            "ip": "10.2.2.1/24",
+            "target_device": "spine1",
+            "target_port": "Ethernet7"
+        }
+    }
+    """
+    from firewall_manager import create_firewall
+    from persistence import save_user_firewall
+    from validation import (
+        validate_firewall_name, validate_firewall_limit,
+        validate_cidr_ip, get_available_ips
+    )
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+    mgmt_ip = data.get('mgmt_ip', '')
+    inside_interface = data.get('inside_interface', {})
+    outside_interface = data.get('outside_interface', {})
+
+    if not name:
+        return web.json_response({'error': 'Firewall name is required'}, status=400)
+    if not mgmt_ip:
+        return web.json_response({'error': 'Management IP is required'}, status=400)
+    if not inside_interface.get('ip'):
+        return web.json_response({'error': 'Inside interface IP is required'}, status=400)
+    if not outside_interface.get('ip'):
+        return web.json_response({'error': 'Outside interface IP is required'}, status=400)
+
+    topo_build_path = get_topo_build_path()
+
+    # Validate firewall limit
+    valid, error = validate_firewall_limit(USER_FIREWALLS_PATH, MAX_FIREWALLS_PER_TOPOLOGY)
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate name across all device types
+    valid, error = validate_firewall_name(
+        name, topo_build_path, USER_NODES_PATH,
+        USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    )
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate management IP is available
+    available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+    if not any(entry['ip'] == mgmt_ip for entry in available):
+        return web.json_response({
+            'error': f'Management IP {mgmt_ip} is not available or already in use'
+        }, status=400)
+
+    # Validate interface IPs (CIDR format)
+    for iface_name, iface in [('inside', inside_interface), ('outside', outside_interface)]:
+        valid, error = validate_cidr_ip(iface.get('ip', ''))
+        if not valid:
+            return web.json_response({
+                'error': f'{iface_name.capitalize()} interface: {error}'
+            }, status=400)
+
+    try:
+        logger.info(f"Creating VyOS firewall: {name} (Mgmt IP: {mgmt_ip})")
+
+        # Create the firewall VM
+        result = create_firewall(name, mgmt_ip, inside_interface, outside_interface)
+
+        # Save to persistence
+        firewall_entry = {
+            'mgmt_ip': mgmt_ip,
+            'inside_interface': result.get('inside_interface'),
+            'outside_interface': result.get('outside_interface')
+        }
+        save_user_firewall({name: firewall_entry}, USER_FIREWALLS_PATH)
+
+        logger.info(f"Successfully created VyOS firewall: {name}")
+
+        return web.json_response({
+            'status': 'created',
+            'firewall': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error creating firewall {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/edit-firewall')
+async def edit_firewall_endpoint(request):
+    """
+    Edit firewall interface IPs.
+
+    Request body: {
+        "name": "fw1",
+        "inside_interface": {"ip": "10.1.1.2/24"},
+        "outside_interface": {"ip": "10.2.2.2/24"}
+    }
+
+    Note: This requires a firewall reboot to apply changes.
+    """
+    from firewall_manager import edit_firewall
+    from persistence import get_user_firewall
+    from validation import validate_cidr_ip
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+    inside_interface = data.get('inside_interface')
+    outside_interface = data.get('outside_interface')
+
+    if not name:
+        return web.json_response({'error': 'Firewall name is required'}, status=400)
+
+    if not inside_interface and not outside_interface:
+        return web.json_response({'error': 'No changes specified'}, status=400)
+
+    # Validate: must be a user-added firewall
+    firewall = get_user_firewall(name, USER_FIREWALLS_PATH)
+    if not firewall:
+        return web.json_response({
+            'error': f"Firewall '{name}' not found"
+        }, status=400)
+
+    # Validate IP formats if provided
+    if inside_interface and inside_interface.get('ip'):
+        valid, error = validate_cidr_ip(inside_interface['ip'])
+        if not valid:
+            return web.json_response({'error': f'Inside interface: {error}'}, status=400)
+
+    if outside_interface and outside_interface.get('ip'):
+        valid, error = validate_cidr_ip(outside_interface['ip'])
+        if not valid:
+            return web.json_response({'error': f'Outside interface: {error}'}, status=400)
+
+    try:
+        logger.info(f"Editing VyOS firewall: {name}")
+
+        result = edit_firewall(name, inside_interface, outside_interface)
+
+        logger.info(f"Successfully edited VyOS firewall: {name}")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error editing firewall {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-firewall')
+async def delete_firewall_endpoint(request):
+    """
+    Delete a VyOS firewall VM.
+
+    Request body: { "name": "fw1" }
+    """
+    from firewall_manager import delete_firewall
+    from persistence import get_user_firewall, remove_user_firewall
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Firewall name is required'}, status=400)
+
+    # Validate: must be a user-added firewall
+    firewall = get_user_firewall(name, USER_FIREWALLS_PATH)
+    if not firewall:
+        return web.json_response({
+            'error': f"Firewall '{name}' not found"
+        }, status=400)
+
+    try:
+        logger.info(f"Deleting VyOS firewall: {name}")
+
+        # Delete the VM
+        result = delete_firewall(name)
+
+        # Remove from persistence
+        remove_user_firewall(name, USER_FIREWALLS_PATH)
+
+        logger.info(f"Successfully deleted VyOS firewall: {name}")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error deleting firewall {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 def create_app():

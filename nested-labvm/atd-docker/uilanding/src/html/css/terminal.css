@@ -251,6 +251,16 @@ body.terminal-page {
   border-left-color: var(--neon-green);
 }
 
+.device-item.novnc-connected {
+  background: rgba(217, 217, 217, 0.1);
+  border-left-color: #9b59b6;  /* Purple for desktop/VNC */
+}
+
+.device-item.multi-connected {
+  background: rgba(217, 217, 217, 0.15);
+  border-left-color: var(--secondary-color);  /* Yellow for multiple connections */
+}
+
 /* Status dots container for stacked dots (macOS-style) */
 .device-item .status-dots {
   position: relative;
@@ -367,6 +377,14 @@ body.terminal-page {
 
 .device-context-menu .menu-item.console-action:hover {
   background: rgba(76, 92, 174, 0.15);
+}
+
+.device-context-menu .menu-item.novnc-action {
+  color: #9b59b6;  /* Purple for desktop/VNC */
+}
+
+.device-context-menu .menu-item.novnc-action:hover {
+  background: rgba(155, 89, 182, 0.15);
 }
 
 .device-context-menu .menu-item .menu-icon {
@@ -524,6 +542,10 @@ body.terminal-page {
 
 .tab .tab-status-dot.console {
   background: var(--console-blue);
+}
+
+.tab .tab-status-dot.novnc {
+  background: #9b59b6;  /* Purple for desktop/VNC */
 }
 
 /* ============================================

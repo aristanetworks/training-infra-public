@@ -189,10 +189,16 @@ const TerminalManager = {
     }
 
     // Check if tab already exists for this ip AND type
-    // Allow one SSH and one Console tab per device
+    // Allow one SSH, one Console, and one noVNC tab per device
     const existingTab = this.tabs.find(t => t.ip === ip && t.type === type);
     if (existingTab) {
       this.activateTab(existingTab.id);
+      return;
+    }
+
+    // For noVNC, we need to get a token first
+    if (type === 'novnc') {
+      this.openNoVncTerminal(name, ip, effectiveVmName);
       return;
     }
 
@@ -211,9 +217,16 @@ const TerminalManager = {
     tabEl.setAttribute('role', 'tab');
     tabEl.setAttribute('aria-selected', 'false');
 
-    // Tab display: status dot (colored by type) + name (+ icon for console)
-    const displayName = type === 'console' ? `${name} &#9000;` : name;
-    const dotClass = type === 'console' ? 'console' : 'ssh';
+    // Tab display: status dot (colored by type) + name (+ icon for console/novnc)
+    let displayName = name;
+    let dotClass = 'ssh';
+    if (type === 'console') {
+      displayName = `${name} &#9000;`;
+      dotClass = 'console';
+    } else if (type === 'novnc') {
+      displayName = `${name} &#128421;`;  // Desktop icon
+      dotClass = 'novnc';
+    }
     tabEl.innerHTML = `
       <span class="tab-status-dot ${dotClass}" aria-hidden="true"></span>
       <span class="tab-name">${displayName}</span>
@@ -257,6 +270,81 @@ const TerminalManager = {
 
     // Update overflow menu
     this.updateTabOverflow();
+  },
+
+  /**
+   * Open a noVNC desktop terminal for Linux hosts
+   * Fetches a token from the API and opens the noVNC viewer
+   */
+  async openNoVncTerminal(name, ip, vmName) {
+    try {
+      // Get noVNC token from API
+      const response = await fetch(`/td-api/nodes/novnc-token/${encodeURIComponent(vmName)}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to get VNC token');
+      }
+
+      const tokenData = await response.json();
+
+      // Create new tab
+      const tabId = 'tab-' + Date.now();
+      const tab = { id: tabId, name, ip, type: 'novnc', vmName };
+      this.tabs.push(tab);
+
+      // Create tab element
+      const tabsScrollArea = document.getElementById('tabsScrollArea');
+      const tabEl = document.createElement('div');
+      tabEl.className = 'tab';
+      tabEl.id = tabId;
+      tabEl.dataset.type = 'novnc';
+      tabEl.setAttribute('role', 'tab');
+      tabEl.setAttribute('aria-selected', 'false');
+
+      tabEl.innerHTML = `
+        <span class="tab-status-dot novnc" aria-hidden="true"></span>
+        <span class="tab-name">${name} &#128421;</span>
+        <span class="close-btn" title="Close" aria-label="Close ${name} tab">&times;</span>
+      `;
+
+      tabEl.querySelector('.tab-name').addEventListener('click', () => this.activateTab(tabId));
+      tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeTab(tabId);
+      });
+
+      tabsScrollArea.appendChild(tabEl);
+
+      // Create iframe with noVNC URL
+      const terminalFrames = document.getElementById('terminalFrames');
+      const iframe = document.createElement('iframe');
+      iframe.className = 'terminal-frame';
+      iframe.id = 'frame-' + tabId;
+      iframe.setAttribute('title', `Desktop: ${name} (noVNC)`);
+
+      // Build noVNC URL with token
+      // The noVNC client connects to websockify which authenticates with the token
+      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&token=${encodeURIComponent(tokenData.token)}`;
+      iframe.src = vncUrl;
+
+      terminalFrames.appendChild(iframe);
+
+      // Mark device as connected
+      this.updateDeviceStatus(ip, 'novnc', true);
+
+      // Activate the new tab
+      this.activateTab(tabId);
+
+      // Hide empty state
+      document.getElementById('emptyState').style.display = 'none';
+
+      // Update overflow menu
+      this.updateTabOverflow();
+
+    } catch (error) {
+      console.error('[TerminalManager] Failed to open noVNC terminal:', error);
+      alert(`Failed to open desktop: ${error.message}`);
+    }
   },
 
   activateTab(tabId) {
@@ -344,17 +432,23 @@ const TerminalManager = {
       const hasConsole = type === 'console'
         ? connected
         : this.hasConnectionType(ip, 'console');
+      const hasNoVnc = type === 'novnc'
+        ? connected
+        : this.hasConnectionType(ip, 'novnc');
 
       // Remove all connection classes
-      deviceEl.classList.remove('ssh-connected', 'console-connected', 'both-connected');
+      deviceEl.classList.remove('ssh-connected', 'console-connected', 'novnc-connected', 'both-connected', 'multi-connected');
 
       // Add appropriate class based on connection state
-      if (hasSSH && hasConsole) {
-        deviceEl.classList.add('both-connected');
+      const connectionCount = [hasSSH, hasConsole, hasNoVnc].filter(Boolean).length;
+      if (connectionCount >= 2) {
+        deviceEl.classList.add('multi-connected');
       } else if (hasSSH) {
         deviceEl.classList.add('ssh-connected');
       } else if (hasConsole) {
         deviceEl.classList.add('console-connected');
+      } else if (hasNoVnc) {
+        deviceEl.classList.add('novnc-connected');
       }
     }
 
@@ -389,6 +483,16 @@ const TerminalManager = {
         <div class="menu-item console-action" data-action="console" role="menuitem">
           <span class="menu-icon" aria-hidden="true">&#9000;</span>
           Open Serial Console
+        </div>
+      `;
+    }
+
+    // Add noVNC desktop option if supported (Linux hosts)
+    if (device.supportsNoVnc) {
+      menuHTML += `
+        <div class="menu-item novnc-action" data-action="novnc" role="menuitem">
+          <span class="menu-icon" aria-hidden="true">&#128421;</span>
+          Open Desktop (noVNC)
         </div>
       `;
     }
@@ -453,6 +557,10 @@ const TerminalManager = {
       case 'console':
         // Use vmName (original name) for virsh console
         this.openTerminal(device.name, device.ip, 'console', device.vmName);
+        break;
+      case 'novnc':
+        // Open noVNC desktop for Linux hosts
+        this.openTerminal(device.name, device.ip, 'novnc', device.vmName);
         break;
       case 'highlight':
         this.highlightOnDiagram(device.name);
@@ -640,7 +748,12 @@ const TerminalManager = {
         dotSpan.setAttribute('aria-hidden', 'true');
 
         const nameSpan = document.createElement('span');
-        const displayName = tab.type === 'console' ? `${tab.name} &#9000;` : tab.name;
+        let displayName = tab.name;
+        if (tab.type === 'console') {
+          displayName = `${tab.name} &#9000;`;
+        } else if (tab.type === 'novnc') {
+          displayName = `${tab.name} &#128421;`;
+        }
         nameSpan.innerHTML = displayName;
 
         const ipSpan = document.createElement('span');
@@ -761,6 +874,12 @@ const TerminalManager = {
     // Clear previous iframe if exists
     this.clearSplitPane(pane);
 
+    // For noVNC in split mode, we need to get a token first
+    if (type === 'novnc') {
+      this.openNoVncInSplitPane(pane, name, ip, effectiveVmName, contentEl, deviceEl, paneData);
+      return;
+    }
+
     // Create new iframe with appropriate URL
     const iframe = document.createElement('iframe');
     if (type === 'console') {
@@ -791,6 +910,54 @@ const TerminalManager = {
 
     // Focus the iframe
     setTimeout(() => iframe.focus(), 50);
+  },
+
+  /**
+   * Open noVNC in split pane (needs async token fetch)
+   */
+  async openNoVncInSplitPane(pane, name, ip, vmName, contentEl, deviceEl, paneData) {
+    try {
+      // Show loading state
+      contentEl.innerHTML = '<div class="split-pane-loading">Loading desktop...</div>';
+
+      // Get noVNC token from API
+      const response = await fetch(`/td-api/nodes/novnc-token/${encodeURIComponent(vmName)}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to get VNC token');
+      }
+
+      const tokenData = await response.json();
+
+      // Create iframe with noVNC URL
+      const iframe = document.createElement('iframe');
+      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&token=${encodeURIComponent(tokenData.token)}`;
+      iframe.src = vncUrl;
+      iframe.title = `Desktop: ${name}`;
+
+      contentEl.innerHTML = '';
+      contentEl.appendChild(iframe);
+
+      // Update state
+      paneData.device = { name, ip, type: 'novnc', vmName };
+      paneData.iframe = iframe;
+
+      // Display name with desktop icon
+      deviceEl.innerHTML = `${name} &#128421;`;
+
+      // Alternate pane for next click
+      this.nextSplitPane = pane === 'left' ? 'right' : 'left';
+
+      // Update the visual indicator
+      this.updateSplitPaneIndicator();
+
+      // Focus the iframe
+      setTimeout(() => iframe.focus(), 50);
+
+    } catch (error) {
+      console.error('[TerminalManager] Failed to open noVNC in split pane:', error);
+      contentEl.innerHTML = `<div class="split-pane-error">Failed to open desktop: ${error.message}</div>`;
+    }
   },
 
   // Topology Manager for side panel

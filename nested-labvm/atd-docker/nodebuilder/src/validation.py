@@ -454,3 +454,190 @@ def generate_unique_cluster_prefix(
         f"Could not generate unique cluster names after {max_attempts} attempts. "
         f"Consider using a different prefix."
     )
+
+
+# ============================================================================
+# Host and Firewall Validation
+# ============================================================================
+
+def validate_host_limit(user_hosts_path: str, max_hosts: int = 2) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that the host limit has not been reached.
+
+    Args:
+        user_hosts_path: Path to user_hosts.yaml
+        max_hosts: Maximum allowed hosts per topology
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    from persistence import list_user_hosts
+
+    current_hosts = list_user_hosts(user_hosts_path)
+    if len(current_hosts) >= max_hosts:
+        return False, f"Maximum of {max_hosts} Linux hosts per topology reached"
+
+    return True, None
+
+
+def validate_firewall_limit(user_firewalls_path: str, max_firewalls: int = 1) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that the firewall limit has not been reached.
+
+    Args:
+        user_firewalls_path: Path to user_firewalls.yaml
+        max_firewalls: Maximum allowed firewalls per topology
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    from persistence import list_user_firewalls
+
+    current_firewalls = list_user_firewalls(user_firewalls_path)
+    if len(current_firewalls) >= max_firewalls:
+        return False, f"Maximum of {max_firewalls} firewall per topology reached"
+
+    return True, None
+
+
+def validate_host_name(
+    name: str,
+    topo_build_path: str,
+    user_nodes_path: str,
+    user_hosts_path: str,
+    user_firewalls_path: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate a host name for uniqueness across all device types.
+
+    Args:
+        name: Device name to validate
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml
+        user_firewalls_path: Path to user_firewalls.yaml
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    from persistence import list_user_hosts, list_user_firewalls
+
+    # First validate using existing device name validation
+    valid, error = validate_device_name(name, topo_build_path, user_nodes_path)
+    if not valid:
+        return valid, error
+
+    # Also check against hosts
+    for host in list_user_hosts(user_hosts_path):
+        for host_name in host.keys():
+            if host_name.lower() == name.lower():
+                return False, "This name is already in use by a Linux host"
+
+    # Also check against firewalls
+    for fw in list_user_firewalls(user_firewalls_path):
+        for fw_name in fw.keys():
+            if fw_name.lower() == name.lower():
+                return False, "This name is already in use by a firewall"
+
+    return True, None
+
+
+def validate_firewall_name(
+    name: str,
+    topo_build_path: str,
+    user_nodes_path: str,
+    user_hosts_path: str,
+    user_firewalls_path: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate a firewall name for uniqueness across all device types.
+
+    Args:
+        name: Device name to validate
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml
+        user_firewalls_path: Path to user_firewalls.yaml
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Same validation as host name - they share namespace
+    return validate_host_name(
+        name, topo_build_path, user_nodes_path,
+        user_hosts_path, user_firewalls_path
+    )
+
+
+def validate_cidr_ip(ip_with_cidr: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate an IP address in CIDR notation.
+
+    Args:
+        ip_with_cidr: IP address with CIDR (e.g., "10.1.1.1/24")
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    import re
+
+    if not ip_with_cidr:
+        return False, "IP address is required"
+
+    # Pattern for IP/CIDR
+    cidr_pattern = r'^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+    if not re.match(cidr_pattern, ip_with_cidr):
+        return False, f"Invalid CIDR format: {ip_with_cidr}. Expected format: x.x.x.x/xx"
+
+    # Validate IP octets
+    parts = ip_with_cidr.split('/')
+    ip = parts[0]
+    prefix = int(parts[1])
+
+    octets = ip.split('.')
+    for octet in octets:
+        val = int(octet)
+        if val < 0 or val > 255:
+            return False, f"Invalid IP octet: {octet}"
+
+    # Validate prefix length
+    if prefix < 1 or prefix > 32:
+        return False, f"Invalid prefix length: {prefix}. Must be 1-32"
+
+    return True, None
+
+
+def get_all_device_names(
+    topo_build_path: str,
+    user_nodes_path: str,
+    user_hosts_path: str,
+    user_firewalls_path: str
+) -> Set[str]:
+    """
+    Get all device names across all types (topology, nodes, hosts, firewalls).
+
+    Args:
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml
+        user_firewalls_path: Path to user_firewalls.yaml
+
+    Returns:
+        Set of all device names (lowercase)
+    """
+    from persistence import list_user_hosts, list_user_firewalls
+
+    # Get existing node names
+    names = get_existing_node_names(topo_build_path, user_nodes_path)
+
+    # Add host names
+    for host in list_user_hosts(user_hosts_path):
+        for host_name in host.keys():
+            names.add(host_name.lower())
+
+    # Add firewall names
+    for fw in list_user_firewalls(user_firewalls_path):
+        for fw_name in fw.keys():
+            names.add(fw_name.lower())
+
+    return names

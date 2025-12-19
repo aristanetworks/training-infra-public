@@ -145,6 +145,18 @@ export class TopologyManager {
                 console.log('[TopologyManager] AddClusterWizard initialized');
             }
 
+            // Initialize AddHostWizard for Linux host addition (KVM labs only)
+            if (typeof window.AddHostWizard !== 'undefined') {
+                window.addHostWizard = new window.AddHostWizard(this);
+                console.log('[TopologyManager] AddHostWizard initialized');
+            }
+
+            // Initialize AddFirewallWizard for VyOS firewall addition (KVM labs only)
+            if (typeof window.AddFirewallWizard !== 'undefined') {
+                window.addFirewallWizard = new window.AddFirewallWizard(this);
+                console.log('[TopologyManager] AddFirewallWizard initialized');
+            }
+
             this.isInitialized = true;
             this.hideLoading();
 

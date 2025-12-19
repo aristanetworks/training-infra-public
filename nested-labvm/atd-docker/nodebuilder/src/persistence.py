@@ -1,10 +1,12 @@
 """
 Persistence layer for Nodebuilder Service
 
-Handles reading and writing user-added nodes to /etc/atd/user_nodes.yaml
+Handles reading and writing user-added resources:
+- user_nodes.yaml: vEOS nodes added by users
+- user_hosts.yaml: Linux desktop hosts added by users
+- user_firewalls.yaml: VyOS firewalls added by users
 
-The user_nodes.yaml file stores nodes that users have dynamically added
-to running labs. This file is separate from topo_build.yml and is merged
+These files are separate from topo_build.yml and are merged
 at read time by the topology API.
 """
 
@@ -300,3 +302,273 @@ def remove_neighbor_references(
         )
 
     return removed_count
+
+
+# ============================================================================
+# User Hosts Persistence (Linux Desktop VMs)
+# ============================================================================
+
+DEFAULT_USER_HOSTS_PATH = '/etc/atd/user_hosts.yaml'
+
+
+def get_empty_user_hosts() -> Dict:
+    """Get the structure for an empty user_hosts.yaml file."""
+    return {
+        'version': 1,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'hosts': []
+    }
+
+
+def load_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> Dict:
+    """
+    Load user-added Linux hosts from persistence file.
+
+    Args:
+        path: Path to user_hosts.yaml
+
+    Returns:
+        Dict with user hosts data
+    """
+    yaml = YAML()
+    yaml.preserve_quotes = True
+
+    try:
+        if not os.path.exists(path):
+            return get_empty_user_hosts()
+
+        with open(path, 'r') as f:
+            data = yaml.load(f)
+
+        if data is None:
+            return get_empty_user_hosts()
+
+        if 'hosts' not in data:
+            data['hosts'] = []
+        if 'version' not in data:
+            data['version'] = 1
+
+        return data
+
+    except Exception as e:
+        logger.error(f"Error loading user hosts from {path}: {e}")
+        return get_empty_user_hosts()
+
+
+def save_user_hosts(data: Dict, path: str = DEFAULT_USER_HOSTS_PATH) -> bool:
+    """Save user hosts data to persistence file."""
+    if not _validate_path(path):
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.preserve_quotes = True
+
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    temp_path = f"{path}.tmp"
+
+    try:
+        with open(temp_path, 'w') as f:
+            yaml.dump(data, f)
+        os.rename(temp_path, path)
+        logger.info(f"Saved user hosts to {path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user hosts to {path}: {e}")
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
+
+
+def save_user_host(host_data: Dict, path: str = DEFAULT_USER_HOSTS_PATH) -> bool:
+    """Add a single user host to the persistence file."""
+    data = load_user_hosts(path)
+
+    for name, info in host_data.items():
+        info['added_at'] = datetime.now(timezone.utc).isoformat()
+        info['user_added'] = True
+        info['device_type'] = 'host'
+
+    data['hosts'].append(host_data)
+    return save_user_hosts(data, path)
+
+
+def remove_user_host(name: str, path: str = DEFAULT_USER_HOSTS_PATH) -> bool:
+    """Remove a user-added host from the persistence file."""
+    data = load_user_hosts(path)
+    original_count = len(data['hosts'])
+
+    data['hosts'] = [
+        host for host in data['hosts']
+        if name.lower() not in [k.lower() for k in host.keys()]
+    ]
+
+    if len(data['hosts']) == original_count:
+        logger.warning(f"Host {name} not found in user hosts")
+        return False
+
+    save_user_hosts(data, path)
+    logger.info(f"Removed host {name} from user hosts")
+    return True
+
+
+def get_user_host(name: str, path: str = DEFAULT_USER_HOSTS_PATH) -> Optional[Dict]:
+    """Get a specific user-added host by name."""
+    data = load_user_hosts(path)
+
+    for host in data['hosts']:
+        for host_name, host_info in host.items():
+            if host_name.lower() == name.lower():
+                return {host_name: host_info}
+
+    return None
+
+
+def list_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> List[Dict]:
+    """List all user-added hosts."""
+    data = load_user_hosts(path)
+    return data.get('hosts', [])
+
+
+# ============================================================================
+# User Firewalls Persistence (VyOS VMs)
+# ============================================================================
+
+DEFAULT_USER_FIREWALLS_PATH = '/etc/atd/user_firewalls.yaml'
+
+
+def get_empty_user_firewalls() -> Dict:
+    """Get the structure for an empty user_firewalls.yaml file."""
+    return {
+        'version': 1,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'firewalls': []
+    }
+
+
+def load_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> Dict:
+    """
+    Load user-added VyOS firewalls from persistence file.
+
+    Args:
+        path: Path to user_firewalls.yaml
+
+    Returns:
+        Dict with user firewalls data
+    """
+    yaml = YAML()
+    yaml.preserve_quotes = True
+
+    try:
+        if not os.path.exists(path):
+            return get_empty_user_firewalls()
+
+        with open(path, 'r') as f:
+            data = yaml.load(f)
+
+        if data is None:
+            return get_empty_user_firewalls()
+
+        if 'firewalls' not in data:
+            data['firewalls'] = []
+        if 'version' not in data:
+            data['version'] = 1
+
+        return data
+
+    except Exception as e:
+        logger.error(f"Error loading user firewalls from {path}: {e}")
+        return get_empty_user_firewalls()
+
+
+def save_user_firewalls(data: Dict, path: str = DEFAULT_USER_FIREWALLS_PATH) -> bool:
+    """Save user firewalls data to persistence file."""
+    if not _validate_path(path):
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.preserve_quotes = True
+
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    temp_path = f"{path}.tmp"
+
+    try:
+        with open(temp_path, 'w') as f:
+            yaml.dump(data, f)
+        os.rename(temp_path, path)
+        logger.info(f"Saved user firewalls to {path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user firewalls to {path}: {e}")
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
+
+
+def save_user_firewall(firewall_data: Dict, path: str = DEFAULT_USER_FIREWALLS_PATH) -> bool:
+    """Add a single user firewall to the persistence file."""
+    data = load_user_firewalls(path)
+
+    for name, info in firewall_data.items():
+        info['added_at'] = datetime.now(timezone.utc).isoformat()
+        info['user_added'] = True
+        info['device_type'] = 'firewall'
+
+    data['firewalls'].append(firewall_data)
+    return save_user_firewalls(data, path)
+
+
+def remove_user_firewall(name: str, path: str = DEFAULT_USER_FIREWALLS_PATH) -> bool:
+    """Remove a user-added firewall from the persistence file."""
+    data = load_user_firewalls(path)
+    original_count = len(data['firewalls'])
+
+    data['firewalls'] = [
+        fw for fw in data['firewalls']
+        if name.lower() not in [k.lower() for k in fw.keys()]
+    ]
+
+    if len(data['firewalls']) == original_count:
+        logger.warning(f"Firewall {name} not found in user firewalls")
+        return False
+
+    save_user_firewalls(data, path)
+    logger.info(f"Removed firewall {name} from user firewalls")
+    return True
+
+
+def get_user_firewall(name: str, path: str = DEFAULT_USER_FIREWALLS_PATH) -> Optional[Dict]:
+    """Get a specific user-added firewall by name."""
+    data = load_user_firewalls(path)
+
+    for fw in data['firewalls']:
+        for fw_name, fw_info in fw.items():
+            if fw_name.lower() == name.lower():
+                return {fw_name: fw_info}
+
+    return None
+
+
+def list_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> List[Dict]:
+    """List all user-added firewalls."""
+    data = load_user_firewalls(path)
+    return data.get('firewalls', [])

@@ -838,6 +838,30 @@ export class EventManager {
                 disabled: this.isCeosLab
             },
             {
+                label: this.isCeosLab ? 'Add Linux Host (KVM only)' : 'Add Linux Host',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addHostWizard) {
+                        window.addHostWizard.show();
+                    } else {
+                        console.error('AddHostWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: this.isCeosLab ? 'Add VyOS Firewall (KVM only)' : 'Add VyOS Firewall',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addFirewallWizard) {
+                        window.addFirewallWizard.show();
+                    } else {
+                        console.error('AddFirewallWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
                 type: 'separator'
             },
             {
