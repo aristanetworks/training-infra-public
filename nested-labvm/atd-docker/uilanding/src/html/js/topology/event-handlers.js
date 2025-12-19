@@ -179,8 +179,8 @@ export class EventManager {
                 label: 'Open Console (Serial)',
                 action: () => {
                     // Open console page in new tab with device name
-                    // Note: /console.html is the UI, /console/ is the API proxy
-                    window.open(`/console.html?device=${encodeURIComponent(data.label)}`, '_blank');
+                    // /console is the UI (uilanding), /console/ with trailing slash is API proxy
+                    window.open(`/console?device=${encodeURIComponent(data.label)}`, '_blank');
                     this.hideContextMenu();
                 },
                 // Only show for KVM labs (virsh console not available for cEOS)
