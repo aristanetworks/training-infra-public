@@ -173,6 +173,9 @@ services:
       - nginx_log:/var/log/nginx:rw
       - /etc/atd:/etc/atd:ro
       - /opt/nginx/certs:/opt/nginx/certs:ro
+    # Enable host.docker.internal on Linux for accessing host-network services
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - atd_nginx
   monitor:
