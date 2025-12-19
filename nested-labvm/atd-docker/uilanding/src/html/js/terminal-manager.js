@@ -1012,11 +1012,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const deviceName = urlParams.get('device');
   const deviceIp = urlParams.get('ip');
+  const connectionType = urlParams.get('type') || 'ssh';
+  const vmName = urlParams.get('vmName');
 
-  if (deviceName && deviceIp) {
+  if (deviceName && (deviceIp || connectionType === 'console')) {
     // Open the device terminal after a short delay to ensure devices are loaded
     setTimeout(() => {
-      TerminalManager.openTerminal(deviceName, deviceIp);
+      TerminalManager.openTerminal(deviceName, deviceIp || '', connectionType, vmName);
       // Clear URL params to prevent reopening on refresh
       window.history.replaceState({}, '', '/terminal');
     }, 500);
@@ -1028,8 +1030,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (event.origin !== window.location.origin) return;
 
     const data = event.data;
-    if (data && data.type === 'openDevice' && data.device && data.ip) {
-      TerminalManager.openTerminal(data.device, data.ip);
+    if (data && data.type === 'openDevice' && data.device) {
+      const type = data.connectionType || 'ssh';
+      const vmName = data.vmName || data.device;
+      TerminalManager.openTerminal(data.device, data.ip || '', type, vmName);
     }
   });
 });

@@ -112,30 +112,38 @@ export class EventManager {
     }
 
     /**
-     * Open SSH session in terminal page
+     * Open SSH or console session in terminal page
      * Uses postMessage to communicate with existing terminal window,
      * or calls custom handler if provided (for embedding in terminal page)
+     * @param {string} deviceName - Device display name
+     * @param {string} ip - Device IP address
+     * @param {string} type - Connection type: 'ssh' (default) or 'console'
+     * @param {string} vmName - Original VM name for console (optional, defaults to deviceName)
      */
-    openTerminal(deviceName, ip) {
-        if (!ip || ip === 'N/A') return;
+    openTerminal(deviceName, ip, type = 'ssh', vmName = null) {
+        // For SSH, IP is required; for console, device name is required
+        if (type === 'ssh' && (!ip || ip === 'N/A')) return;
+        if (type === 'console' && !deviceName) return;
+
+        const effectiveVmName = vmName || deviceName;
 
         // Use custom handler if provided (e.g., when embedded in terminal page)
         if (this.customTerminalHandler) {
-            console.log('[EventManager] Using custom terminal handler for', deviceName, ip);
-            this.customTerminalHandler(deviceName, ip);
+            console.log('[EventManager] Using custom terminal handler for', deviceName, ip, type);
+            this.customTerminalHandler(deviceName, ip, type, effectiveVmName);
             return;
         }
 
-        console.log('[EventManager] Using default terminal handler for', deviceName, ip);
+        console.log('[EventManager] Using default terminal handler for', deviceName, ip, type);
 
         // Check if we're already on the terminal page - if so, use TerminalManager directly
         if (window.location.pathname === '/terminal' && typeof TerminalManager !== 'undefined') {
             console.log('[EventManager] On terminal page, using TerminalManager directly');
-            TerminalManager.openTerminal(deviceName, ip);
+            TerminalManager.openTerminal(deviceName, ip, type, effectiveVmName);
             return;
         }
 
-        const deviceData = { type: 'openDevice', device: deviceName, ip: ip };
+        const deviceData = { type: 'openDevice', device: deviceName, ip: ip, connectionType: type, vmName: effectiveVmName };
 
         // Check if we have an existing terminal window that's still open
         if (this.terminalWindow && !this.terminalWindow.closed) {
@@ -144,7 +152,7 @@ export class EventManager {
             this.terminalWindow.focus();
         } else {
             // Open new terminal window with device parameters
-            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip)}`;
+            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip || '')}&type=${type}&vmName=${encodeURIComponent(effectiveVmName)}`;
             this.terminalWindow = window.open(terminalUrl, 'terminal-page');
         }
     }
@@ -178,9 +186,8 @@ export class EventManager {
             {
                 label: 'Open Console (Serial)',
                 action: () => {
-                    // Open console page in new tab with device name
-                    // /console is the UI (uilanding), /console/ with trailing slash is API proxy
-                    window.open(`/console?device=${encodeURIComponent(data.label)}`, '_blank');
+                    // Open console in terminal page (same as SSH but with type='console')
+                    this.openTerminal(data.label, data.ip, 'console', data.label);
                     this.hideContextMenu();
                 },
                 // Only show for KVM labs (virsh console not available for cEOS)
