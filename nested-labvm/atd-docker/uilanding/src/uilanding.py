@@ -582,7 +582,8 @@ def get_all_devices():
                         ip = ''
                     # Normalize device name to consistent capitalization
                     display_name = normalize_device_name(name)
-                    devices[display_name] = {'ip': ip, 'user_added': False}
+                    # Store original name for virsh console (VM names match topo_build.yml)
+                    devices[display_name] = {'ip': ip, 'user_added': False, 'vm_name': name}
 
     # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
     # user_nodes_path already defined above for mtime check
@@ -601,7 +602,8 @@ def get_all_devices():
                             devices[display_name] = {
                                 'ip': ip,
                                 'user_added': True,
-                                'device_type': info.get('device_type', 'other')
+                                'device_type': info.get('device_type', 'other'),
+                                'vm_name': name  # Original name for virsh console
                             }
                 pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
     except Exception as e:
@@ -1760,8 +1762,11 @@ class DevicesAPIHandler(BaseHandler):
                 # Build device entry with new flags
                 # Console only supported for KVM labs (virsh console), not cEOS
                 supports_console = EOS_TYPE != 'container-labs'
+                # Include original VM name for virsh console connections
+                vm_name = device_info.get('vm_name', device_name)
                 device_entry = {
                     'name': device_name,
+                    'vmName': vm_name,  # Original name for virsh console
                     'ip': device_info.get('ip', ''),
                     'userAdded': is_user_added,
                     'supportsConsole': supports_console,

@@ -107,6 +107,7 @@ const TerminalManager = {
         deviceEl.setAttribute('role', 'listitem');
         deviceEl.dataset.ip = device.ip;
         deviceEl.dataset.name = device.name;
+        deviceEl.dataset.vmName = device.vmName || device.name;  // Original VM name for virsh
         deviceEl.dataset.supportsConsole = device.supportsConsole ? 'true' : 'false';
         deviceEl.tabIndex = 0;
 
@@ -141,7 +142,9 @@ const TerminalManager = {
           if (consoleIcon) {
             consoleIcon.addEventListener('click', (e) => {
               e.stopPropagation();
-              this.openTerminal(device.name, device.ip, 'console');
+              // Use vmName for console (original name for virsh)
+              const vmName = device.vmName || device.name;
+              this.openTerminal(device.name, device.ip, 'console', vmName);
             });
           }
         }
@@ -175,10 +178,13 @@ const TerminalManager = {
     });
   },
 
-  openTerminal(name, ip, type = 'ssh') {
+  openTerminal(name, ip, type = 'ssh', vmName = null) {
+    // vmName is the original name for virsh console (defaults to name if not provided)
+    const effectiveVmName = vmName || name;
+
     // If in split mode, open in split pane instead
     if (this.splitMode) {
-      this.openInSplitPane(name, ip, type);
+      this.openInSplitPane(name, ip, type, effectiveVmName);
       return;
     }
 
@@ -192,7 +198,7 @@ const TerminalManager = {
 
     // Create new tab
     const tabId = 'tab-' + Date.now();
-    const tab = { id: tabId, name, ip, type };
+    const tab = { id: tabId, name, ip, type, vmName: effectiveVmName };
     this.tabs.push(tab);
 
     // Create tab element
@@ -231,7 +237,8 @@ const TerminalManager = {
 
     if (type === 'console') {
       // Console uses the console page with device parameter
-      iframe.src = `/console?device=${encodeURIComponent(name)}`;
+      // Use vmName (original name) for virsh console, not the normalized display name
+      iframe.src = `/console?device=${encodeURIComponent(effectiveVmName)}`;
     } else {
       // SSH connection
       iframe.src = `/ssh/host/${ip}`;
@@ -444,7 +451,8 @@ const TerminalManager = {
         this.openTerminal(device.name, device.ip, 'ssh');
         break;
       case 'console':
-        this.openTerminal(device.name, device.ip, 'console');
+        // Use vmName (original name) for virsh console
+        this.openTerminal(device.name, device.ip, 'console', device.vmName);
         break;
       case 'highlight':
         this.highlightOnDiagram(device.name);
@@ -741,7 +749,10 @@ const TerminalManager = {
     paneData.device = null;
   },
 
-  openInSplitPane(name, ip, type = 'ssh') {
+  openInSplitPane(name, ip, type = 'ssh', vmName = null) {
+    // vmName is the original name for virsh console (defaults to name if not provided)
+    const effectiveVmName = vmName || name;
+
     const pane = this.nextSplitPane;
     const contentEl = document.getElementById(pane === 'left' ? 'leftContent' : 'rightContent');
     const deviceEl = document.getElementById(pane === 'left' ? 'leftDevice' : 'rightDevice');
@@ -753,7 +764,8 @@ const TerminalManager = {
     // Create new iframe with appropriate URL
     const iframe = document.createElement('iframe');
     if (type === 'console') {
-      iframe.src = `/console?device=${encodeURIComponent(name)}`;
+      // Use vmName (original name) for virsh console
+      iframe.src = `/console?device=${encodeURIComponent(effectiveVmName)}`;
       iframe.title = `Console to ${name}`;
     } else {
       iframe.src = `/ssh/host/${ip}`;
@@ -764,7 +776,7 @@ const TerminalManager = {
     contentEl.appendChild(iframe);
 
     // Update state
-    paneData.device = { name, ip, type };
+    paneData.device = { name, ip, type, vmName: effectiveVmName };
     paneData.iframe = iframe;
 
     // Display name with type indicator for console
