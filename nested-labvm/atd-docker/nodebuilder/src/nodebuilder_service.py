@@ -1199,12 +1199,23 @@ async def add_host(request):
         # Create the host VM
         result = create_host(name, ip, connection, data_ip)
 
-        # Save to persistence
+        # Build neighbors list for topology diagram connections
+        neighbors = []
+        conn = result.get('connection')
+        if conn and conn.get('target_device'):
+            neighbors.append({
+                'neighborDevice': conn['target_device'],
+                'neighborPort': conn.get('target_port', ''),
+                'port': 'eth1'
+            })
+
+        # Save to persistence with neighbors for diagram connections
         host_entry = {
             'mgmt_ip': ip,
             'data_ip': data_ip,
             'vnc_port': result.get('vnc_port'),
-            'connection': result.get('connection')
+            'connection': conn,
+            'neighbors': neighbors
         }
         save_user_host({name: host_entry}, USER_HOSTS_PATH)
 
@@ -1419,11 +1430,31 @@ async def add_firewall(request):
         # Create the firewall VM
         result = create_firewall(name, mgmt_ip, inside_interface, outside_interface)
 
-        # Save to persistence
+        # Build neighbors list for topology diagram connections
+        neighbors = []
+        inside_iface = result.get('inside_interface')
+        outside_iface = result.get('outside_interface')
+
+        if inside_iface and inside_iface.get('target_device'):
+            neighbors.append({
+                'neighborDevice': inside_iface['target_device'],
+                'neighborPort': inside_iface.get('target_port', ''),
+                'port': 'eth1'
+            })
+
+        if outside_iface and outside_iface.get('target_device'):
+            neighbors.append({
+                'neighborDevice': outside_iface['target_device'],
+                'neighborPort': outside_iface.get('target_port', ''),
+                'port': 'eth2'
+            })
+
+        # Save to persistence with neighbors for diagram connections
         firewall_entry = {
             'mgmt_ip': mgmt_ip,
-            'inside_interface': result.get('inside_interface'),
-            'outside_interface': result.get('outside_interface')
+            'inside_interface': inside_iface,
+            'outside_interface': outside_iface,
+            'neighbors': neighbors
         }
         save_user_firewall({name: firewall_entry}, USER_FIREWALLS_PATH)
 

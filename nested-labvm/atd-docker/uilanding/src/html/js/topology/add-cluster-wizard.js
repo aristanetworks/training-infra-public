@@ -403,7 +403,7 @@ class AddClusterWizard {
     }
 
     /**
-     * Render template preview showing nodes and connections
+     * Render template preview showing nodes and connections with visual diagram
      */
     renderTemplatePreview(container) {
         if (!this.selectedTemplate) {
@@ -414,75 +414,185 @@ class AddClusterWizard {
         const template = this.selectedTemplate;
         const prefix = this.namePrefix;
 
-        // Build nodes list HTML
-        const nodesHtml = template.nodes.map(node => {
-            const displayName = prefix ? `${prefix}_${node.name_suffix}` : node.name_suffix;
-            const deviceType = node.device_type || 'veos';
-            return `
-                <li>
-                    <span class="node-icon">&#9679;</span>
-                    <span class="node-name">${this.escapeHtml(displayName)}</span>
-                    <span class="node-type">${this.escapeHtml(deviceType)}</span>
-                </li>
-            `;
-        }).join('');
+        // Build visual topology diagram
+        const diagramHtml = this.buildTopologyDiagram(template, prefix);
 
-        // Build internal connections HTML
-        let connectionsHtml = '';
+        // Build connections legend
+        let connectionsLegend = '';
         if (template.internal_connections && template.internal_connections.length > 0) {
             const connLines = template.internal_connections.map(conn => {
                 const fromName = prefix ? `${prefix}_${conn.from}` : conn.from;
                 const toName = prefix ? `${prefix}_${conn.to}` : conn.to;
-                return `
-                    <div class="connection-line">
-                        <span class="conn-from">${this.escapeHtml(fromName)}</span>
-                        <span class="conn-arrow">&harr;</span>
-                        <span class="conn-to">${this.escapeHtml(toName)}</span>
-                    </div>
-                `;
-            }).join('');
+                return `<span class="conn-badge">${this.escapeHtml(fromName)} ↔ ${this.escapeHtml(toName)}</span>`;
+            }).join(' ');
 
-            connectionsHtml = `
-                <div class="template-connections">
-                    <h5>Internal Connections</h5>
+            connectionsLegend = `
+                <div class="connections-legend">
+                    <span class="legend-label">Internal Links:</span>
                     ${connLines}
                 </div>
             `;
         }
 
-        // Build external connections HTML
-        let externalHtml = '';
+        // Build external connections info
+        let externalInfo = '';
         if (template.external_connections && template.external_connections.length > 0) {
-            const extLines = template.external_connections.map(ext => {
+            const extBadges = template.external_connections.map(ext => {
                 const fromName = prefix ? `${prefix}_${ext.from_node}` : ext.from_node;
-                const requiredBadge = ext.required ? '<span style="color: #dc3545;">*</span>' : '';
-                return `
-                    <div class="connection-line">
-                        <span class="conn-from">${this.escapeHtml(fromName)}</span>
-                        <span class="conn-arrow">&rarr;</span>
-                        <span style="color: #888;">(to existing device)${requiredBadge}</span>
-                    </div>
-                `;
-            }).join('');
+                const requiredClass = ext.required ? 'required' : 'optional';
+                return `<span class="conn-badge ${requiredClass}">${this.escapeHtml(fromName)} → Existing</span>`;
+            }).join(' ');
 
-            externalHtml = `
-                <div class="template-connections">
-                    <h5>External Connections</h5>
-                    ${extLines}
+            externalInfo = `
+                <div class="connections-legend external">
+                    <span class="legend-label">External Links:</span>
+                    ${extBadges}
                 </div>
             `;
         }
 
         container.innerHTML = `
             <div class="preview-content">
-                <p><strong>${template.node_count}</strong> nodes will be created</p>
-                <ul class="template-nodes-list">
-                    ${nodesHtml}
-                </ul>
-                ${connectionsHtml}
-                ${externalHtml}
+                <div class="cluster-topology-diagram">
+                    ${diagramHtml}
+                </div>
+                ${connectionsLegend}
+                ${externalInfo}
             </div>
         `;
+    }
+
+    /**
+     * Build a visual topology diagram for the cluster
+     */
+    buildTopologyDiagram(template, prefix) {
+        const nodes = template.nodes || [];
+        const internalConns = template.internal_connections || [];
+
+        // Group nodes by type for layout
+        const nodesByType = {};
+        nodes.forEach(node => {
+            const type = node.device_type || 'veos';
+            if (!nodesByType[type]) nodesByType[type] = [];
+            nodesByType[type].push(node);
+        });
+
+        // Determine layout based on node count
+        if (nodes.length <= 2) {
+            // Simple horizontal layout for 2 nodes
+            return this.buildHorizontalDiagram(nodes, internalConns, prefix);
+        } else if (nodes.length <= 4) {
+            // Grid layout for 3-4 nodes
+            return this.buildGridDiagram(nodes, internalConns, prefix);
+        } else {
+            // List layout for larger clusters
+            return this.buildListDiagram(nodes, internalConns, prefix);
+        }
+    }
+
+    /**
+     * Build horizontal diagram for 2 nodes
+     */
+    buildHorizontalDiagram(nodes, connections, prefix) {
+        const boxes = nodes.map((node, idx) => {
+            const displayName = prefix ? `${prefix}_${node.name_suffix}` : node.name_suffix;
+            const colorClass = this.getNodeColorClass(node.device_type, idx);
+            return `
+                <div class="diagram-box ${colorClass}">
+                    <span class="diagram-label">${this.escapeHtml(displayName)}</span>
+                    <span class="diagram-type">${this.escapeHtml(node.device_type || 'veos')}</span>
+                </div>
+            `;
+        });
+
+        // Add arrow between nodes if connected
+        if (connections.length > 0 && nodes.length === 2) {
+            return `
+                <div class="cluster-diagram horizontal">
+                    ${boxes[0]}
+                    <div class="diagram-arrow-container">
+                        <div class="diagram-arrow-line"></div>
+                        <div class="diagram-arrow-text">↔</div>
+                    </div>
+                    ${boxes[1]}
+                </div>
+            `;
+        }
+
+        return `<div class="cluster-diagram horizontal">${boxes.join('')}</div>`;
+    }
+
+    /**
+     * Build grid diagram for 3-4 nodes
+     */
+    buildGridDiagram(nodes, connections, prefix) {
+        const boxes = nodes.map((node, idx) => {
+            const displayName = prefix ? `${prefix}_${node.name_suffix}` : node.name_suffix;
+            const colorClass = this.getNodeColorClass(node.device_type, idx);
+            return `
+                <div class="diagram-box ${colorClass}" data-node="${node.name_suffix}">
+                    <span class="diagram-label">${this.escapeHtml(displayName)}</span>
+                    <span class="diagram-type">${this.escapeHtml(node.device_type || 'veos')}</span>
+                </div>
+            `;
+        });
+
+        return `
+            <div class="cluster-diagram grid">
+                ${boxes.join('')}
+            </div>
+            <div class="diagram-connection-count">
+                <span class="conn-count">${connections.length}</span> internal connection${connections.length !== 1 ? 's' : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Build list diagram for larger clusters
+     */
+    buildListDiagram(nodes, connections, prefix) {
+        const boxes = nodes.map((node, idx) => {
+            const displayName = prefix ? `${prefix}_${node.name_suffix}` : node.name_suffix;
+            const colorClass = this.getNodeColorClass(node.device_type, idx);
+            return `
+                <div class="diagram-box-small ${colorClass}">
+                    <span class="diagram-label">${this.escapeHtml(displayName)}</span>
+                </div>
+            `;
+        });
+
+        return `
+            <div class="cluster-diagram list">
+                ${boxes.join('')}
+            </div>
+            <div class="diagram-connection-count">
+                <span class="conn-count">${connections.length}</span> internal connection${connections.length !== 1 ? 's' : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Get color class for node based on type
+     */
+    getNodeColorClass(deviceType, index) {
+        const typeColors = {
+            'spine': 'node-spine',
+            'leaf': 'node-leaf',
+            'borderleaf': 'node-borderleaf',
+            'host': 'node-host',
+            'isp': 'node-isp',
+            'core': 'node-core',
+            'pe': 'node-pe',
+            'p': 'node-p'
+        };
+
+        if (deviceType && typeColors[deviceType.toLowerCase()]) {
+            return typeColors[deviceType.toLowerCase()];
+        }
+
+        // Alternate colors for unknown types
+        const fallbackColors = ['node-primary', 'node-secondary', 'node-tertiary', 'node-quaternary'];
+        return fallbackColors[index % fallbackColors.length];
     }
 
     /**
