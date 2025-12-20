@@ -29,11 +29,14 @@ IMAGE_SIZE="5G"
 RAM="2048"
 VCPUS="2"
 DEBIAN_VERSION="bookworm"
-OUTPUT_DIR="${1:-/var/lib/libvirt/images/hosts/base}"
+OUTPUT_DIR="/var/lib/libvirt/images/hosts/base"
+# Network bridge for installation - vmgmt is the ATD management bridge
+# Falls back to virbr0 (default libvirt bridge) if vmgmt not found
+NETWORK_BRIDGE="${NETWORK_BRIDGE:-vmgmt}"
 
-# URLs
-DEBIAN_NETINST_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.8.0-amd64-netinst.iso"
-DEBIAN_ISO_NAME="debian-12-netinst.iso"
+# URLs - Use network install tree for virt-install --location
+# The netinst ISO doesn't work with --location, must use install tree URL
+DEBIAN_INSTALL_URL="https://deb.debian.org/debian/dists/bookworm/main/installer-amd64/"
 
 # Colors for output
 RED='\033[0;31m'
@@ -75,31 +78,30 @@ check_prerequisites() {
         exit 1
     fi
 
-    log_info "All prerequisites met"
-}
-
-# Download Debian ISO if not present
-download_iso() {
-    local iso_path="${OUTPUT_DIR}/${DEBIAN_ISO_NAME}"
-
-    if [ -f "$iso_path" ]; then
-        log_info "Debian ISO already exists: $iso_path"
-        return 0
-    fi
-
-    log_info "Downloading Debian ${DEBIAN_VERSION} netinst ISO..."
-    mkdir -p "$OUTPUT_DIR"
-
-    if command -v wget >/dev/null 2>&1; then
-        wget -O "$iso_path" "$DEBIAN_NETINST_URL"
-    elif command -v curl >/dev/null 2>&1; then
-        curl -L -o "$iso_path" "$DEBIAN_NETINST_URL"
-    else
-        log_error "Neither wget nor curl available"
+    # Check if network bridge exists
+    if ! ip link show "$NETWORK_BRIDGE" >/dev/null 2>&1; then
+        log_error "Network bridge '$NETWORK_BRIDGE' not found"
+        log_error "Available bridges:"
+        ip link show type bridge 2>/dev/null | grep -E "^[0-9]+:" | awk '{print "  " $2}' | tr -d ':'
+        log_error "Set NETWORK_BRIDGE environment variable to use a different bridge"
         exit 1
     fi
 
-    log_info "ISO downloaded: $iso_path"
+    log_info "Using network bridge: $NETWORK_BRIDGE"
+    log_info "All prerequisites met"
+}
+
+# Verify network connectivity to Debian mirror
+check_network() {
+    log_info "Checking network connectivity to Debian mirror..."
+
+    if ! curl -s --head --connect-timeout 10 "$DEBIAN_INSTALL_URL" >/dev/null 2>&1; then
+        log_error "Cannot reach Debian mirror at $DEBIAN_INSTALL_URL"
+        log_error "Network access is required for installation"
+        exit 1
+    fi
+
+    log_info "Network connectivity verified"
 }
 
 # Create preseed file for automated installation
@@ -241,7 +243,6 @@ POST_EOF
 # Build the base image using virt-install
 build_image() {
     local disk_path="${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
-    local iso_path="${OUTPUT_DIR}/${DEBIAN_ISO_NAME}"
     local preseed_path="${OUTPUT_DIR}/preseed.cfg"
 
     # Remove existing image if present
@@ -260,7 +261,8 @@ build_image() {
     log_info "Creating disk image: $disk_path"
     qemu-img create -f qcow2 "$disk_path" "$IMAGE_SIZE"
 
-    log_info "Starting automated installation (this will take 15-30 minutes)..."
+    log_info "Starting automated network installation (this will take 15-30 minutes)..."
+    log_info "Using install tree: $DEBIAN_INSTALL_URL"
 
     virt-install \
         --name "$IMAGE_NAME" \
@@ -268,10 +270,10 @@ build_image() {
         --vcpus "$VCPUS" \
         --disk path="$disk_path",format=qcow2 \
         --os-variant debian12 \
-        --network bridge=virbr0,model=virtio \
+        --network bridge="$NETWORK_BRIDGE",model=virtio \
         --graphics none \
         --console pty,target_type=serial \
-        --location "$iso_path" \
+        --location "$DEBIAN_INSTALL_URL" \
         --initrd-inject="$preseed_path" \
         --extra-args "auto=true priority=critical console=ttyS0,115200n8 serial" \
         --noautoconsole \
@@ -310,10 +312,10 @@ main() {
     log_info "Output directory: $OUTPUT_DIR"
 
     check_prerequisites
+    check_network
 
     mkdir -p "$OUTPUT_DIR"
 
-    download_iso
     create_preseed
     create_post_install
     build_image

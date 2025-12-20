@@ -447,16 +447,22 @@ _TOPO_BUILD_CACHE = None
 _ALL_DEVICES_CACHE = None
 # Track user_nodes.yaml modification time for cache invalidation
 _USER_NODES_MTIME = 0
+# Track user_hosts.yaml modification time for cache invalidation
+_USER_HOSTS_MTIME = 0
+# Track user_firewalls.yaml modification time for cache invalidation
+_USER_FIREWALLS_MTIME = 0
 
 
 def invalidate_devices_cache():
     """
     Invalidate the devices cache.
-    Called when user nodes are added/removed to ensure fresh data.
+    Called when user nodes/hosts/firewalls are added/removed to ensure fresh data.
     """
-    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME
     _ALL_DEVICES_CACHE = None
     _USER_NODES_MTIME = 0
+    _USER_HOSTS_MTIME = 0
+    _USER_FIREWALLS_MTIME = 0
     pS("Devices cache invalidated")
 
 
@@ -546,23 +552,43 @@ def normalize_device_name(name):
 
 def get_all_devices():
     """
-    Get all devices from topo_build.yml and user_nodes.yaml.
-    Returns a dict of {device_name: {'ip': ip_address, 'user_added': bool}}.
+    Get all devices from topo_build.yml, user_nodes.yaml, user_hosts.yaml, and user_firewalls.yaml.
+    Returns a dict of {device_name: {'ip': ip_address, 'user_added': bool, 'device_category': str}}.
     Uses caching to avoid repeated lookups.
     Device names are normalized to consistent capitalization.
-    Cache is auto-invalidated when user_nodes.yaml changes.
+    Cache is auto-invalidated when any user file changes.
     """
-    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME
 
-    # Check if user_nodes.yaml has been modified since last cache
+    # Check if any user file has been modified since last cache
     user_nodes_path = '/etc/atd/user_nodes.yaml'
+    user_hosts_path = '/etc/atd/user_hosts.yaml'
+    user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+
     try:
         if os.path.exists(user_nodes_path):
             current_mtime = os.path.getmtime(user_nodes_path)
             if current_mtime > _USER_NODES_MTIME:
-                # File changed, invalidate cache
                 _ALL_DEVICES_CACHE = None
                 _USER_NODES_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_hosts_path):
+            current_mtime = os.path.getmtime(user_hosts_path)
+            if current_mtime > _USER_HOSTS_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_HOSTS_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_firewalls_path):
+            current_mtime = os.path.getmtime(user_firewalls_path)
+            if current_mtime > _USER_FIREWALLS_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_FIREWALLS_MTIME = current_mtime
     except OSError:
         pass
 
@@ -583,10 +609,9 @@ def get_all_devices():
                     # Normalize device name to consistent capitalization
                     display_name = normalize_device_name(name)
                     # Store original name for virsh console (VM names match topo_build.yml)
-                    devices[display_name] = {'ip': ip, 'user_added': False, 'vm_name': name}
+                    devices[display_name] = {'ip': ip, 'user_added': False, 'vm_name': name, 'device_category': 'node'}
 
     # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
-    # user_nodes_path already defined above for mtime check
     try:
         if os.path.exists(user_nodes_path):
             with open(user_nodes_path, 'r') as f:
@@ -603,15 +628,64 @@ def get_all_devices():
                                 'ip': ip,
                                 'user_added': True,
                                 'device_type': info.get('device_type', 'other'),
-                                'vm_name': name  # Original name for virsh console
+                                'vm_name': name,
+                                'device_category': 'node'
                             }
                 pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
     except Exception as e:
         pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
-        # Continue without user nodes - don't fail the whole device list
+
+    # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
+    try:
+        if os.path.exists(user_hosts_path):
+            with open(user_hosts_path, 'r') as f:
+                hosts_data = YAML().load(f)
+            if hosts_data and 'hosts' in hosts_data and hosts_data['hosts']:
+                for host_entry in hosts_data['hosts']:
+                    if isinstance(host_entry, dict):
+                        for name, info in host_entry.items():
+                            ip = info.get('ip_addr', info.get('mgmt_ip', ''))
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': 'linux_host',
+                                'vm_name': name,
+                                'device_category': 'host',
+                                'supports_novnc': True  # Linux hosts have noVNC desktop access
+                            }
+                pS(f"Merged {len(hosts_data['hosts'])} user-added hosts into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_hosts.yaml for devices: {e}")
+
+    # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
+    try:
+        if os.path.exists(user_firewalls_path):
+            with open(user_firewalls_path, 'r') as f:
+                firewalls_data = YAML().load(f)
+            if firewalls_data and 'firewalls' in firewalls_data and firewalls_data['firewalls']:
+                for fw_entry in firewalls_data['firewalls']:
+                    if isinstance(fw_entry, dict):
+                        for name, info in fw_entry.items():
+                            ip = info.get('ip_addr', info.get('mgmt_ip', ''))
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': 'firewall',
+                                'vm_name': name,
+                                'device_category': 'firewall'
+                            }
+                pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_firewalls.yaml for devices: {e}")
 
     _ALL_DEVICES_CACHE = devices
-    pS(f"Cached {len(devices)} devices from topo_build.yml + user_nodes.yaml")
+    pS(f"Cached {len(devices)} devices from topo_build.yml + user files")
     return devices
 
 
@@ -1127,8 +1201,10 @@ class TopologyAPIHandler(BaseHandler):
     _cache_time = 0
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
-    # Track user_nodes.yaml modification time for cache invalidation
+    # Track user files modification time for cache invalidation
     _user_nodes_mtime = 0
+    _user_hosts_mtime = 0
+    _user_firewalls_mtime = 0
 
     @staticmethod
     def classify_device_type(device_name):
@@ -1505,6 +1581,60 @@ class TopologyAPIHandler(BaseHandler):
             pS(f"Warning: Error loading user_nodes.yaml: {e}")
             # Continue without user nodes - don't fail the whole topology load
 
+        # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
+        user_hosts_path = '/etc/atd/user_hosts.yaml'
+        try:
+            if os.path.exists(user_hosts_path):
+                with open(user_hosts_path, 'r') as f:
+                    hosts_data = YAML().load(f)
+                if hosts_data and 'hosts' in hosts_data and hosts_data['hosts']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert hosts to node format for topology
+                    for host_entry in hosts_data['hosts']:
+                        if isinstance(host_entry, dict):
+                            for name, info in host_entry.items():
+                                # Create node entry with linux_host device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', info.get('ip_addr', 'N/A')),
+                                    'device_type': 'linux_host',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(hosts_data['hosts'])} user-added hosts from {user_hosts_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_hosts.yaml: {e}")
+
+        # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
+        user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+        try:
+            if os.path.exists(user_firewalls_path):
+                with open(user_firewalls_path, 'r') as f:
+                    firewalls_data = YAML().load(f)
+                if firewalls_data and 'firewalls' in firewalls_data and firewalls_data['firewalls']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert firewalls to node format for topology
+                    for fw_entry in firewalls_data['firewalls']:
+                        if isinstance(fw_entry, dict):
+                            for name, info in fw_entry.items():
+                                # Create node entry with firewall device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', info.get('ip_addr', 'N/A')),
+                                    'device_type': 'firewall',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls from {user_firewalls_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_firewalls.yaml: {e}")
+
         # Validate topo_data structure
         if topo_data is None:
             return {'error': 'Topology file is empty', 'error_type': 'empty_file'}
@@ -1685,18 +1815,23 @@ class TopologyAPIHandler(BaseHandler):
         try:
             current_time = time.time()
 
-            # Check if user_nodes.yaml was modified (invalidates cache)
+            # Check if any user file was modified (invalidates cache)
             user_nodes_path = '/etc/atd/user_nodes.yaml'
-            user_nodes_mtime = 0
-            if os.path.exists(user_nodes_path):
-                user_nodes_mtime = os.path.getmtime(user_nodes_path)
+            user_hosts_path = '/etc/atd/user_hosts.yaml'
+            user_firewalls_path = '/etc/atd/user_firewalls.yaml'
 
-            # Thread-safe cache check - also invalidate if user_nodes.yaml changed
+            user_nodes_mtime = os.path.getmtime(user_nodes_path) if os.path.exists(user_nodes_path) else 0
+            user_hosts_mtime = os.path.getmtime(user_hosts_path) if os.path.exists(user_hosts_path) else 0
+            user_firewalls_mtime = os.path.getmtime(user_firewalls_path) if os.path.exists(user_firewalls_path) else 0
+
+            # Thread-safe cache check - invalidate if any user file changed
             with TopologyAPIHandler._cache_lock:
                 cache_valid = (
                     TopologyAPIHandler._cache and
                     current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL and
-                    user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime
+                    user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime and
+                    user_hosts_mtime <= TopologyAPIHandler._user_hosts_mtime and
+                    user_firewalls_mtime <= TopologyAPIHandler._user_firewalls_mtime
                 )
                 if cache_valid:
                     self.write(json.dumps(TopologyAPIHandler._cache))
@@ -1720,11 +1855,13 @@ class TopologyAPIHandler(BaseHandler):
 
             topology_data = result['data']
 
-            # Thread-safe cache update (include user_nodes mtime for invalidation)
+            # Thread-safe cache update (include user file mtimes for invalidation)
             with TopologyAPIHandler._cache_lock:
                 TopologyAPIHandler._cache = topology_data
                 TopologyAPIHandler._cache_time = current_time
                 TopologyAPIHandler._user_nodes_mtime = user_nodes_mtime
+                TopologyAPIHandler._user_hosts_mtime = user_hosts_mtime
+                TopologyAPIHandler._user_firewalls_mtime = user_firewalls_mtime
 
             self.write(json.dumps(topology_data))
 
@@ -1748,33 +1885,45 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Get devices from topo_build.yml and user_nodes.yaml
+            # Get devices from topo_build.yml, user_nodes.yaml, user_hosts.yaml, user_firewalls.yaml
             nodes = get_all_devices()
 
             # Group devices using shared DeviceTypeConfig
-            # User-added nodes go to a separate "User Nodes" group at the end
+            # User-added items go to separate groups by category at the end
             groups = {}
             user_nodes_group = []
+            user_hosts_group = []
+            user_firewalls_group = []
 
             for device_name, device_info in nodes.items():
                 is_user_added = device_info.get('user_added', False)
+                device_category = device_info.get('device_category', 'node')
 
                 # Build device entry with new flags
                 # Console only supported for KVM labs (virsh console), not cEOS
                 supports_console = EOS_TYPE != 'container-labs'
                 # Include original VM name for virsh console connections
                 vm_name = device_info.get('vm_name', device_name)
+                # Linux hosts support noVNC desktop access
+                supports_novnc = device_info.get('supports_novnc', False)
+
                 device_entry = {
                     'name': device_name,
                     'vmName': vm_name,  # Original name for virsh console
                     'ip': device_info.get('ip', ''),
                     'userAdded': is_user_added,
                     'supportsConsole': supports_console,
+                    'supportsNoVnc': supports_novnc,
                 }
 
                 if is_user_added:
-                    # User-added nodes go to dedicated group
-                    user_nodes_group.append(device_entry)
+                    # User-added devices go to category-specific groups
+                    if device_category == 'host':
+                        user_hosts_group.append(device_entry)
+                    elif device_category == 'firewall':
+                        user_firewalls_group.append(device_entry)
+                    else:
+                        user_nodes_group.append(device_entry)
                 else:
                     # Regular nodes grouped by device type
                     device_type = device_info.get('device_type') or DeviceTypeConfig.classify_device(device_name)
@@ -1806,11 +1955,25 @@ class DevicesAPIHandler(BaseHandler):
                         'devices': devices
                     })
 
-            # Add User Nodes group at the end if there are any
+            # Add User Nodes group if there are any
             if user_nodes_group:
                 result.append({
                     'group': 'User Nodes',
                     'devices': sorted(user_nodes_group, key=lambda x: x['name'])
+                })
+
+            # Add User Hosts group if there are any (Linux desktop VMs)
+            if user_hosts_group:
+                result.append({
+                    'group': 'Linux Hosts',
+                    'devices': sorted(user_hosts_group, key=lambda x: x['name'])
+                })
+
+            # Add User Firewalls group if there are any (VyOS firewalls)
+            if user_firewalls_group:
+                result.append({
+                    'group': 'Firewalls',
+                    'devices': sorted(user_firewalls_group, key=lambda x: x['name'])
                 })
 
             self.write(json.dumps({

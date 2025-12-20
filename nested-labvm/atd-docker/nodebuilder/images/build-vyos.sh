@@ -28,12 +28,16 @@ IMAGE_NAME="vyos-base"
 # VyOS 1.4 (sagitta) rolling release - stable community builds
 # Using the generic (non-cloud) image which works with NoCloud datasource
 VYOS_VERSION="1.4-rolling"
-OUTPUT_DIR="${1:-/var/lib/libvirt/images/firewall/base}"
+OUTPUT_DIR="/var/lib/libvirt/images/firewall/base"
+# Network bridge for installation - vmgmt is the ATD management bridge
+# Only used for --install method, not for --download
+NETWORK_BRIDGE="${NETWORK_BRIDGE:-vmgmt}"
 
 # VyOS download URLs
-# Official VyOS rolling builds from GitHub releases
-# Note: VyOS changed distribution model - we use their official cloud image
-VYOS_IMAGE_URL="https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/1.4-rolling-202410140020/vyos-1.4-rolling-202410140020-generic-amd64.iso"
+# Official VyOS nightly builds from GitHub releases
+# Note: VyOS only provides ISOs for free - qcow2 requires subscription
+# Updated URL from: https://github.com/vyos/vyos-nightly-build/releases
+VYOS_IMAGE_URL="https://github.com/vyos/vyos-nightly-build/releases/download/2025.11.01-0021-rolling/vyos-2025.11.01-0021-rolling-generic-amd64.iso"
 VYOS_ISO_NAME="vyos-rolling.iso"
 
 # Colors for output
@@ -83,6 +87,18 @@ check_prerequisites() {
     fi
 
     log_info "All prerequisites met"
+}
+
+# Check network bridge (only needed for install method)
+check_network_bridge() {
+    if ! ip link show "$NETWORK_BRIDGE" >/dev/null 2>&1; then
+        log_error "Network bridge '$NETWORK_BRIDGE' not found"
+        log_error "Available bridges:"
+        ip link show type bridge 2>/dev/null | grep -E "^[0-9]+:" | awk '{print "  " $2}' | tr -d ':'
+        log_error "Set NETWORK_BRIDGE environment variable to use a different bridge"
+        exit 1
+    fi
+    log_info "Using network bridge: $NETWORK_BRIDGE"
 }
 
 # Download VyOS ISO
@@ -208,7 +224,7 @@ install_vyos() {
         --disk "$disk_opts" \
         --disk "$cdrom_opts" \
         --os-variant generic \
-        --network bridge=virbr0,model=virtio \
+        --network bridge="$NETWORK_BRIDGE",model=virtio \
         --graphics none \
         --console pty,target_type=serial \
         --boot cdrom \
@@ -243,81 +259,38 @@ post_process_image() {
     log_info "Final image size: $size"
 }
 
-# Create alternative: download pre-built VyOS cloud image
-download_prebuilt() {
-    local disk_path="${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
-
-    log_info "Attempting to download pre-built VyOS cloud image..."
-
-    # VyOS provides cloud images in their releases
-    # Check for qcow2 in recent rolling releases
-    local CLOUD_IMAGE_URL="https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/1.4-rolling-202410140020/vyos-1.4-rolling-202410140020-qemu-amd64.qcow2"
-
-    mkdir -p "$OUTPUT_DIR"
-
-    if [ -f "$disk_path" ]; then
-        log_warn "Image already exists: $disk_path"
-        log_warn "Remove it first if you want to re-download"
-        return 0
-    fi
-
-    log_info "Downloading VyOS qcow2 image..."
-    log_info "URL: $CLOUD_IMAGE_URL"
-
-    if command -v wget >/dev/null 2>&1; then
-        if wget --progress=bar:force -O "$disk_path" "$CLOUD_IMAGE_URL" 2>/dev/null; then
-            log_info "Pre-built image downloaded successfully"
-            return 0
-        fi
-    else
-        if curl -L --progress-bar -o "$disk_path" "$CLOUD_IMAGE_URL" 2>/dev/null; then
-            log_info "Pre-built image downloaded successfully"
-            return 0
-        fi
-    fi
-
-    log_warn "Pre-built image download failed"
-    log_warn "Falling back to ISO installation method"
-    rm -f "$disk_path" 2>/dev/null
-    return 1
-}
+# Note: VyOS no longer provides free qcow2 downloads
+# Pre-built qcow2 images require a VyOS subscription
+# See: https://vyos.net/get/ for subscription options
+# This script uses the ISO installation method instead
 
 # Print usage
 usage() {
-    echo "Usage: $0 [OPTIONS] [output_path]"
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Builds a VyOS base image from the official ISO."
+    echo "Note: VyOS no longer provides free qcow2 downloads."
     echo ""
     echo "Options:"
-    echo "  --download   Try to download pre-built qcow2 image (fastest)"
-    echo "  --install    Install from ISO (manual steps required)"
     echo "  --help       Show this help"
     echo ""
-    echo "Default: --download (tries pre-built first, falls back to ISO)"
+    echo "The script will:"
+    echo "  1. Download the VyOS ISO"
+    echo "  2. Start a VM for installation"
+    echo "  3. You complete manual install steps"
+    echo "  4. Image is ready for nodebuilder"
 }
 
 # Main execution
 main() {
-    local method="auto"
-
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --download)
-                method="download"
-                shift
-                ;;
-            --install)
-                method="install"
-                shift
-                ;;
             --help|-h)
                 usage
                 exit 0
                 ;;
             *)
-                if [[ -z "$OUTPUT_DIR_SET" ]]; then
-                    OUTPUT_DIR="$1"
-                    OUTPUT_DIR_SET=1
-                fi
                 shift
                 ;;
         esac
@@ -327,32 +300,15 @@ main() {
     log_info "Output directory: $OUTPUT_DIR"
 
     check_prerequisites
+    check_network_bridge
 
     mkdir -p "$OUTPUT_DIR"
 
-    case $method in
-        download)
-            download_prebuilt
-            ;;
-        install)
-            download_vyos_iso
-            create_seed_config || true
-            install_vyos
-            post_process_image
-            ;;
-        auto)
-            # Try download first, fall back to install
-            if download_prebuilt; then
-                log_info "Using pre-built image"
-            else
-                log_info "Falling back to ISO installation"
-                download_vyos_iso
-                create_seed_config || true
-                install_vyos
-                post_process_image
-            fi
-            ;;
-    esac
+    # Download ISO and install
+    download_vyos_iso
+    create_seed_config || true
+    install_vyos
+    post_process_image
 
     local disk_path="${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
 

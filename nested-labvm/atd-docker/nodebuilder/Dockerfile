@@ -5,11 +5,12 @@ LABEL description="Nodebuilder Service - Dynamic vEOS node addition for ATD labs
 
 WORKDIR /app
 
-# Install libvirt client, OVS tools, and iproute2 for virsh/ovs/ip commands
+# Install libvirt client, OVS tools, iproute2, and genisoimage for cloud-init ISOs
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvirt-clients \
     openvswitch-switch \
     iproute2 \
+    genisoimage \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

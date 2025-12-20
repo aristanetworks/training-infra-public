@@ -206,6 +206,14 @@ class AddClusterWizard {
                     <p id="template-description" class="validation-message"></p>
                 </div>
 
+                <!-- Template Preview Section -->
+                <div id="template-preview-section" class="cluster-template-preview hidden">
+                    <h4>Template Preview</h4>
+                    <div id="template-preview-content" class="preview-placeholder">
+                        Select a template to see the preview
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="cluster-prefix">Name Prefix (optional)</label>
                     <input type="text" id="cluster-prefix" class="form-input"
@@ -287,6 +295,8 @@ class AddClusterWizard {
      */
     updateFormForTemplate() {
         const descriptionEl = this.overlay.querySelector('#template-description');
+        const previewSection = this.overlay.querySelector('#template-preview-section');
+        const previewContent = this.overlay.querySelector('#template-preview-content');
         const externalSection = this.overlay.querySelector('#external-connections-section');
         const externalList = this.overlay.querySelector('#external-connections-list');
         const impairmentsSection = this.overlay.querySelector('#impairments-section');
@@ -298,6 +308,7 @@ class AddClusterWizard {
 
         if (!this.selectedTemplate) {
             descriptionEl.textContent = '';
+            previewSection.classList.add('hidden');
             externalSection.classList.add('hidden');
             impairmentsSection.classList.add('hidden');
             summarySection.classList.add('hidden');
@@ -306,6 +317,10 @@ class AddClusterWizard {
 
         // Show description
         descriptionEl.textContent = this.selectedTemplate.description;
+
+        // Show template preview
+        previewSection.classList.remove('hidden');
+        this.renderTemplatePreview(previewContent);
 
         // Build target device options
         const targetOptions = this.targetDevices.map(d =>
@@ -379,6 +394,95 @@ class AddClusterWizard {
         ).join(', ');
 
         nodesToCreateEl.innerHTML = `Will create: <strong>${this.escapeHtml(nodeNames)}</strong>`;
+
+        // Also update the template preview to reflect new prefix
+        const previewContent = this.overlay.querySelector('#template-preview-content');
+        if (previewContent) {
+            this.renderTemplatePreview(previewContent);
+        }
+    }
+
+    /**
+     * Render template preview showing nodes and connections
+     */
+    renderTemplatePreview(container) {
+        if (!this.selectedTemplate) {
+            container.innerHTML = '<div class="preview-placeholder">Select a template to see the preview</div>';
+            return;
+        }
+
+        const template = this.selectedTemplate;
+        const prefix = this.namePrefix;
+
+        // Build nodes list HTML
+        const nodesHtml = template.nodes.map(node => {
+            const displayName = prefix ? `${prefix}_${node.name_suffix}` : node.name_suffix;
+            const deviceType = node.device_type || 'veos';
+            return `
+                <li>
+                    <span class="node-icon">&#9679;</span>
+                    <span class="node-name">${this.escapeHtml(displayName)}</span>
+                    <span class="node-type">${this.escapeHtml(deviceType)}</span>
+                </li>
+            `;
+        }).join('');
+
+        // Build internal connections HTML
+        let connectionsHtml = '';
+        if (template.internal_connections && template.internal_connections.length > 0) {
+            const connLines = template.internal_connections.map(conn => {
+                const fromName = prefix ? `${prefix}_${conn.from}` : conn.from;
+                const toName = prefix ? `${prefix}_${conn.to}` : conn.to;
+                return `
+                    <div class="connection-line">
+                        <span class="conn-from">${this.escapeHtml(fromName)}</span>
+                        <span class="conn-arrow">&harr;</span>
+                        <span class="conn-to">${this.escapeHtml(toName)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            connectionsHtml = `
+                <div class="template-connections">
+                    <h5>Internal Connections</h5>
+                    ${connLines}
+                </div>
+            `;
+        }
+
+        // Build external connections HTML
+        let externalHtml = '';
+        if (template.external_connections && template.external_connections.length > 0) {
+            const extLines = template.external_connections.map(ext => {
+                const fromName = prefix ? `${prefix}_${ext.from_node}` : ext.from_node;
+                const requiredBadge = ext.required ? '<span style="color: #dc3545;">*</span>' : '';
+                return `
+                    <div class="connection-line">
+                        <span class="conn-from">${this.escapeHtml(fromName)}</span>
+                        <span class="conn-arrow">&rarr;</span>
+                        <span style="color: #888;">(to existing device)${requiredBadge}</span>
+                    </div>
+                `;
+            }).join('');
+
+            externalHtml = `
+                <div class="template-connections">
+                    <h5>External Connections</h5>
+                    ${extLines}
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="preview-content">
+                <p><strong>${template.node_count}</strong> nodes will be created</p>
+                <ul class="template-nodes-list">
+                    ${nodesHtml}
+                </ul>
+                ${connectionsHtml}
+                ${externalHtml}
+            </div>
+        `;
     }
 
     /**
