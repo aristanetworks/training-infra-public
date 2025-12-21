@@ -1,0 +1,130 @@
+#cloud-config
+# Ubuntu Desktop Host Cloud-Init Template
+#
+# Variables replaced at runtime:
+#   {hostname}  - VM hostname
+#   {username}  - Login username (default: arista)
+#   {password}  - Login password
+#   {mgmt_ip}   - Management IP address
+#   {gateway}   - Default gateway
+#   {data_ip}   - Data interface IP (optional)
+#
+# Interface mapping:
+#   eth0 - Management interface (vmgmt bridge)
+#   eth1 - Data interface (optional, connects to topology switch)
+
+# Set hostname
+hostname: {hostname}
+fqdn: {hostname}.atl.local
+manage_etc_hosts: true
+
+# Create user with sudo access
+users:
+  - name: {username}
+    groups: [sudo, adm, audio, video, plugdev, netdev]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+
+# Set password
+chpasswd:
+  expire: false
+  list:
+    - {username}:{password}
+
+# Install desktop packages on first boot
+package_update: true
+package_upgrade: false
+packages:
+  - lxde-core
+  - lxde
+  - lightdm
+  - x11vnc
+  - firefox
+  - net-tools
+  - iputils-ping
+  - traceroute
+  - mtr
+  - tcpdump
+  - iperf3
+  - curl
+  - wget
+  - vim
+  - nano
+  - dnsutils
+
+# Write configuration files
+write_files:
+  # x11vnc systemd service for VNC access
+  - path: /etc/systemd/system/x11vnc.service
+    content: |
+      [Unit]
+      Description=x11vnc VNC Server for noVNC
+      After=lightdm.service
+      Requires=lightdm.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/x11vnc -display :0 -auth guess -forever -loop -noxdamage -repeat -rfbport 5900 -shared -nopw
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+
+  # LightDM autologin configuration
+  - path: /etc/lightdm/lightdm.conf.d/50-autologin.conf
+    content: |
+      [Seat:*]
+      autologin-user={username}
+      autologin-user-timeout=0
+    permissions: '0644'
+
+  # Netplan configuration for static IP on management interface
+  - path: /etc/netplan/50-cloud-init.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            addresses:
+              - {mgmt_ip}/24
+            routes:
+              - to: default
+                via: {gateway}
+            nameservers:
+              addresses:
+                - 8.8.8.8
+                - {gateway}
+    permissions: '0644'
+
+# Run commands after packages are installed
+runcmd:
+  # Apply network configuration
+  - netplan apply
+  # Enable services
+  - systemctl daemon-reload
+  - systemctl enable x11vnc
+  - systemctl enable lightdm
+  - systemctl set-default graphical.target
+  # Disable screen blanking for desktop
+  - mkdir -p /home/{username}/.config/lxsession/LXDE
+  - |
+    cat > /home/{username}/.config/lxsession/LXDE/autostart << 'AUTOSTART'
+    @lxpanel --profile LXDE
+    @pcmanfm --desktop --profile LXDE
+    @xset s off
+    @xset -dpms
+    @xset s noblank
+    AUTOSTART
+  - chown -R {username}:{username} /home/{username}/.config
+  # Signal completion
+  - touch /var/lib/cloud/instance/desktop-setup-complete
+
+# Reboot after setup to start desktop environment properly
+power_state:
+  mode: reboot
+  message: "Rebooting to start desktop environment"
+  timeout: 60
+  condition: true

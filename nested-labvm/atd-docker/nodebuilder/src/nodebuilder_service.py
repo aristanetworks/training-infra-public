@@ -31,6 +31,7 @@ Firewall Endpoints:
 
 import logging
 import os
+import subprocess
 from aiohttp import web
 
 from config import (
@@ -43,7 +44,10 @@ from config import (
     MAX_HOSTS_PER_TOPOLOGY,
     MAX_FIREWALLS_PER_TOPOLOGY,
     USER_HOSTS_PATH,
-    USER_FIREWALLS_PATH
+    USER_FIREWALLS_PATH,
+    HOST_DATA_PORT,
+    FIREWALL_INSIDE_PORT,
+    FIREWALL_OUTSIDE_PORT
 )
 
 # Configure logging
@@ -1202,12 +1206,15 @@ async def add_host(request):
         # Build neighbors list for topology diagram connections
         neighbors = []
         conn = result.get('connection')
-        if conn and conn.get('target_device'):
-            neighbors.append({
-                'neighborDevice': conn['target_device'],
-                'neighborPort': conn.get('target_port', ''),
-                'port': 'eth1'
-            })
+        if conn:
+            if conn.get('target_device'):
+                neighbors.append({
+                    'neighborDevice': conn['target_device'],
+                    'neighborPort': conn.get('target_port', ''),
+                    'port': HOST_DATA_PORT
+                })
+            else:
+                logger.warning(f"Host {name} connection missing target_device")
 
         # Save to persistence with neighbors for diagram connections
         host_entry = {
@@ -1226,8 +1233,17 @@ async def add_host(request):
             'host': result
         })
 
+    except ValueError as e:
+        logger.warning(f"Validation error creating host {name}: {e}")
+        return web.json_response({'error': str(e)}, status=400)
+    except FileNotFoundError as e:
+        logger.error(f"Required file not found for host {name}: {e}")
+        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed for host {name}: {e}")
+        return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
     except Exception as e:
-        logger.error(f"Error creating host {name}: {e}", exc_info=True)
+        logger.error(f"Unexpected error creating host {name}: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
@@ -1435,19 +1451,25 @@ async def add_firewall(request):
         inside_iface = result.get('inside_interface')
         outside_iface = result.get('outside_interface')
 
-        if inside_iface and inside_iface.get('target_device'):
-            neighbors.append({
-                'neighborDevice': inside_iface['target_device'],
-                'neighborPort': inside_iface.get('target_port', ''),
-                'port': 'eth1'
-            })
+        if inside_iface:
+            if inside_iface.get('target_device'):
+                neighbors.append({
+                    'neighborDevice': inside_iface['target_device'],
+                    'neighborPort': inside_iface.get('target_port', ''),
+                    'port': FIREWALL_INSIDE_PORT
+                })
+            else:
+                logger.warning(f"Firewall {name} inside interface missing target_device")
 
-        if outside_iface and outside_iface.get('target_device'):
-            neighbors.append({
-                'neighborDevice': outside_iface['target_device'],
-                'neighborPort': outside_iface.get('target_port', ''),
-                'port': 'eth2'
-            })
+        if outside_iface:
+            if outside_iface.get('target_device'):
+                neighbors.append({
+                    'neighborDevice': outside_iface['target_device'],
+                    'neighborPort': outside_iface.get('target_port', ''),
+                    'port': FIREWALL_OUTSIDE_PORT
+                })
+            else:
+                logger.warning(f"Firewall {name} outside interface missing target_device")
 
         # Save to persistence with neighbors for diagram connections
         firewall_entry = {
@@ -1465,8 +1487,17 @@ async def add_firewall(request):
             'firewall': result
         })
 
+    except ValueError as e:
+        logger.warning(f"Validation error creating firewall {name}: {e}")
+        return web.json_response({'error': str(e)}, status=400)
+    except FileNotFoundError as e:
+        logger.error(f"Required file not found for firewall {name}: {e}")
+        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed for firewall {name}: {e}")
+        return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
     except Exception as e:
-        logger.error(f"Error creating firewall {name}: {e}", exc_info=True)
+        logger.error(f"Unexpected error creating firewall {name}: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 

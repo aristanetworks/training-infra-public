@@ -18,7 +18,7 @@ from typing import Dict, Optional
 
 from config import (
     LIBVIRT_IMAGES_PATH,
-    FIREWALL_BASE_IMAGE_PATH,
+    get_firewall_base_image_path,
     FIREWALL_CPU,
     FIREWALL_RAM_MB,
     MAX_FIREWALLS_PER_TOPOLOGY,
@@ -328,6 +328,8 @@ def copy_firewall_base_image(vm_name: str) -> str:
     """
     Copy the base VyOS image for a new VM.
 
+    Downloads from GCP if not found locally.
+
     Args:
         vm_name: Name of the new VM
 
@@ -341,15 +343,18 @@ def copy_firewall_base_image(vm_name: str) -> str:
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
-    # Check if base image exists
-    if not os.path.exists(FIREWALL_BASE_IMAGE_PATH):
+    # Get base image path (downloads from GCP if not found locally)
+    base_image_path = get_firewall_base_image_path()
+
+    # Check if base image exists (after potential download attempt)
+    if not os.path.exists(base_image_path):
         raise RuntimeError(
-            f"Base VyOS image not found at {FIREWALL_BASE_IMAGE_PATH}. "
-            "Run build-vyos.sh to create it."
+            f"Base VyOS image not found at {base_image_path}. "
+            "Run build-vyos.sh to create it, or ensure GCP bucket is accessible."
         )
 
     # Copy the image
-    shutil.copy2(FIREWALL_BASE_IMAGE_PATH, dest_path)
+    shutil.copy2(base_image_path, dest_path)
     logger.info(f"Copied base VyOS image to {dest_path}")
 
     return dest_path

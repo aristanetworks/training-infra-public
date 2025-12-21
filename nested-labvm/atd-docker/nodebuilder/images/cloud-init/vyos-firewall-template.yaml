@@ -21,6 +21,9 @@ vyos_config_commands:
   - set system name-server 8.8.8.8
   - set system name-server 192.168.0.1
 
+  # Serial console configuration for virsh console access
+  - set system console device ttyS0 speed 115200
+
   # Management interface (eth0)
   - set interfaces ethernet eth0 address {mgmt_ip}/24
   - set interfaces ethernet eth0 description 'Management'

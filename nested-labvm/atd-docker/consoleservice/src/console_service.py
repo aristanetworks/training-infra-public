@@ -69,6 +69,12 @@ class ConsoleSession:
         winsize = struct.pack('HHHH', 24, 80, 0, 0)
         fcntl.ioctl(self.slave_fd, termios.TIOCSWINSZ, winsize)
 
+        # Set up environment for proper terminal handling
+        env = os.environ.copy()
+        env['TERM'] = 'xterm-256color'
+        env['LANG'] = 'en_US.UTF-8'
+        env['LC_ALL'] = 'en_US.UTF-8'
+
         # Spawn virsh console process
         # start_new_session=True creates new session (replaces preexec_fn=os.setsid)
         self.process = subprocess.Popen(
@@ -76,7 +82,8 @@ class ConsoleSession:
             stdin=self.slave_fd,
             stdout=self.slave_fd,
             stderr=self.slave_fd,
-            start_new_session=True
+            start_new_session=True,
+            env=env
         )
 
         # Set master to non-blocking

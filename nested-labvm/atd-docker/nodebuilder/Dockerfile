@@ -18,6 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 
+# Cloud-init templates for Linux hosts and VyOS firewalls
+# These are included in the image as defaults, but can be overridden
+# by mounting /opt/nodebuilder/images/cloud-init from the host
+COPY images/cloud-init/ /opt/nodebuilder/images/cloud-init/
+
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8090

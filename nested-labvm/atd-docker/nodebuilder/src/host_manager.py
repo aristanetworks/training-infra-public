@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 
 from config import (
     LIBVIRT_IMAGES_PATH,
-    HOST_BASE_IMAGE_PATH,
+    get_host_base_image_path,
     HOST_CPU,
     HOST_RAM_MB,
     HOST_VNC_BASE_PORT,
@@ -127,6 +127,8 @@ def generate_cloud_init_iso(
     Generate a cloud-init ISO for host provisioning.
 
     Creates a NoCloud datasource ISO with user-data and meta-data.
+    Uses ubuntu-desktop-template.yaml which installs LXDE desktop,
+    x11vnc for VNC access, and configures autologin.
 
     The host has two interfaces:
     - eth0: Management interface (vmgmt bridge, gets mgmt_ip)
@@ -142,60 +144,148 @@ def generate_cloud_init_iso(
     Returns:
         Path to the generated ISO file
     """
-    # Get password from ACCESS_INFO.yaml if not provided
+    # Get credentials from ACCESS_INFO.yaml if not provided
+    from config import get_device_credentials
+    creds = get_device_credentials()
+    username = creds.get('username', 'arista')
     if password is None:
-        from config import get_device_credentials
-        creds = get_device_credentials()
         password = creds.get('password', 'arista')
-
-    # Generate password hash
-    import crypt
-    password_hash = crypt.crypt(password, crypt.mksalt(crypt.METHOD_SHA512))
 
     # Create temp directory for cloud-init files
     temp_dir = tempfile.mkdtemp(prefix='cloudinit_')
 
     try:
-        # Build network config for eth1 if data_ip provided
-        eth1_config = ""
-        if data_ip:
-            eth1_config = f"""    eth1:
-      addresses:
-        - {data_ip}"""
+        # Try to load the Ubuntu desktop template
+        template_path = os.path.join(CLOUD_INIT_TEMPLATES_PATH, 'ubuntu-desktop-template.yaml')
 
-        # Fallback inline template (handles both interfaces)
-        user_data = f"""#cloud-config
+        if os.path.exists(template_path):
+            with open(template_path, 'r') as f:
+                user_data = f.read()
+
+            # Replace placeholders in template
+            user_data = user_data.replace('{hostname}', hostname)
+            user_data = user_data.replace('{username}', username)
+            user_data = user_data.replace('{password}', password)
+            user_data = user_data.replace('{mgmt_ip}', mgmt_ip)
+            user_data = user_data.replace('{gateway}', gateway)
+
+            # Handle optional data_ip - the template doesn't use it,
+            # but we could extend netplan config if needed
+            if data_ip:
+                user_data = user_data.replace('{data_ip}', data_ip)
+
+            logger.info(f"Using Ubuntu desktop template from {template_path}")
+        else:
+            # Fallback inline template if template file not found
+            logger.warning(f"Template not found at {template_path}, using inline fallback")
+
+            # Build network config for eth1 if data_ip provided
+            eth1_config = ""
+            if data_ip:
+                eth1_config = f"""          eth1:
+            addresses:
+              - {data_ip}"""
+
+            user_data = f"""#cloud-config
 hostname: {hostname}
 fqdn: {hostname}.atl.local
 manage_etc_hosts: true
 
 users:
-  - name: arista
-    sudo: ALL=(ALL) NOPASSWD:ALL
+  - name: {username}
+    groups: [sudo, adm, audio, video, plugdev, netdev]
     shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
-    passwd: {password_hash}
 
-network:
-  version: 2
-  ethernets:
-    eth0:
-      addresses:
-        - {mgmt_ip}/24
-      routes:
-        - to: default
-          via: {gateway}
-      nameservers:
-        addresses:
-          - 8.8.8.8
-          - 192.168.0.1
+chpasswd:
+  expire: false
+  list:
+    - {username}:{password}
+
+package_update: true
+package_upgrade: false
+packages:
+  - lxde-core
+  - lxde
+  - lightdm
+  - x11vnc
+  - firefox
+  - net-tools
+  - iputils-ping
+  - traceroute
+  - tcpdump
+  - iperf3
+  - curl
+  - wget
+  - vim
+
+write_files:
+  - path: /etc/systemd/system/x11vnc.service
+    content: |
+      [Unit]
+      Description=x11vnc VNC Server for noVNC
+      After=lightdm.service
+      Requires=lightdm.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/x11vnc -display :0 -auth guess -forever -loop -noxdamage -repeat -rfbport 5900 -shared -nopw
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+
+  - path: /etc/lightdm/lightdm.conf.d/50-autologin.conf
+    content: |
+      [Seat:*]
+      autologin-user={username}
+      autologin-user-timeout=0
+    permissions: '0644'
+
+  - path: /etc/netplan/50-cloud-init.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            addresses:
+              - {mgmt_ip}/24
+            routes:
+              - to: default
+                via: {gateway}
+            nameservers:
+              addresses:
+                - 8.8.8.8
+                - {gateway}
 {eth1_config}
+    permissions: '0644'
 
 runcmd:
-  - systemctl enable lightdm
-  - systemctl start lightdm
+  - netplan apply
+  - systemctl daemon-reload
   - systemctl enable x11vnc
-  - systemctl start x11vnc
+  - systemctl enable lightdm
+  - systemctl set-default graphical.target
+  - mkdir -p /home/{username}/.config/lxsession/LXDE
+  - |
+    cat > /home/{username}/.config/lxsession/LXDE/autostart << 'AUTOSTART'
+    @lxpanel --profile LXDE
+    @pcmanfm --desktop --profile LXDE
+    @xset s off
+    @xset -dpms
+    @xset s noblank
+    AUTOSTART
+  - chown -R {username}:{username} /home/{username}/.config
+  - touch /var/lib/cloud/instance/desktop-setup-complete
+
+power_state:
+  mode: reboot
+  message: "Rebooting to start desktop environment"
+  timeout: 60
+  condition: true
 """
 
         # Write user-data
@@ -356,6 +446,9 @@ def copy_host_base_image(vm_name: str) -> str:
     """
     Copy the base Linux host image for a new VM.
 
+    Supports both Ubuntu and Debian base images - uses whichever is available.
+    Ubuntu is preferred as it's easier to set up from cloud images.
+
     Args:
         vm_name: Name of the new VM
 
@@ -369,16 +462,20 @@ def copy_host_base_image(vm_name: str) -> str:
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
+    # Get base image path (checks for Ubuntu first, then Debian)
+    base_image_path = get_host_base_image_path()
+
     # Check if base image exists
-    if not os.path.exists(HOST_BASE_IMAGE_PATH):
+    if not os.path.exists(base_image_path):
         raise RuntimeError(
-            f"Base host image not found at {HOST_BASE_IMAGE_PATH}. "
-            "Run build-debian-lxde.sh to create it."
+            f"Base host image not found. Run one of:\n"
+            "  - build-ubuntu-desktop.sh (recommended - uses cloud images)\n"
+            "  - build-debian-lxde.sh (requires manual install)"
         )
 
     # Copy the image
-    shutil.copy2(HOST_BASE_IMAGE_PATH, dest_path)
-    logger.info(f"Copied base image to {dest_path}")
+    shutil.copy2(base_image_path, dest_path)
+    logger.info(f"Copied base image from {base_image_path} to {dest_path}")
 
     return dest_path
 

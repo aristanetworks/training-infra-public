@@ -297,6 +297,8 @@ services:
       - /var/run/openvswitch:/var/run/openvswitch:rw
       # dnsmasq config for IP/MAC lookup (NetworkManager managed)
       - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
+      # Note: Cloud-init templates are built into the Docker image
+      # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:
     container_name: atd-consoleservice
     image: us.gcr.io/atd-testdrivetraining-dev/atddocker_consoleservice:1.0.0

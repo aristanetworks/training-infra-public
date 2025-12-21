@@ -61,12 +61,129 @@ LIBVIRT_IMAGES_PATH = '/var/lib/libvirt/images'
 VEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'
 
 # Linux Host configuration
-HOST_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/hosts/base/debian-lxde-base.qcow2'
+# Supports both Debian and Ubuntu base images - uses whichever is available
+HOST_BASE_IMAGE_DEBIAN = f'{LIBVIRT_IMAGES_PATH}/hosts/base/debian-lxde-base.qcow2'
+HOST_BASE_IMAGE_UBUNTU = f'{LIBVIRT_IMAGES_PATH}/hosts/base/ubuntu-desktop-base.qcow2'
 HOST_CPU = 1
 HOST_RAM_MB = 1024
-HOST_DISK_GB = 5
+HOST_DISK_GB = 10  # Ubuntu needs more space for desktop packages
 MAX_HOSTS_PER_TOPOLOGY = 2
 HOST_VNC_BASE_PORT = 5900  # VNC ports: 5900, 5901
+
+
+def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
+    """
+    Download a base image from GCP bucket if it doesn't exist locally.
+
+    Uses gsutil for authenticated access or curl for public buckets.
+
+    Args:
+        gcp_path: Path within the GCP bucket (e.g., 'hosts/ubuntu-desktop-base.qcow2')
+        local_path: Local destination path
+
+    Returns:
+        True if download succeeded or file already exists, False on error
+    """
+    import subprocess
+    import logging
+
+    logger = logging.getLogger('nodebuilder')
+
+    # Already exists locally
+    if os.path.exists(local_path):
+        return True
+
+    # Ensure parent directory exists
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+
+    # Build full GCP URL
+    gcp_url = f"{GCP_BASE_IMAGE_BUCKET}/{gcp_path}"
+
+    logger.info(f"Downloading base image from {gcp_url}")
+    logger.info(f"Destination: {local_path}")
+    logger.info("This may take several minutes for large images...")
+
+    # Try gsutil first (handles auth automatically)
+    try:
+        result = subprocess.run(
+            ['gsutil', 'cp', gcp_url, local_path],
+            capture_output=True,
+            text=True,
+            timeout=BASE_IMAGE_DOWNLOAD_TIMEOUT
+        )
+        if result.returncode == 0:
+            logger.info(f"Successfully downloaded {local_path}")
+            return True
+        else:
+            logger.warning(f"gsutil failed: {result.stderr}")
+    except FileNotFoundError:
+        logger.info("gsutil not found, trying curl...")
+    except subprocess.TimeoutExpired:
+        logger.error("Download timed out")
+        # Clean up partial download
+        if os.path.exists(local_path):
+            os.remove(local_path)
+        return False
+
+    # Fallback to curl for public bucket URLs
+    # Convert gs:// to https:// storage URL
+    https_url = gcp_url.replace('gs://', 'https://storage.googleapis.com/')
+
+    try:
+        result = subprocess.run(
+            ['curl', '-L', '--progress-bar', '-o', local_path, https_url],
+            capture_output=False,  # Show progress bar
+            timeout=BASE_IMAGE_DOWNLOAD_TIMEOUT
+        )
+        if result.returncode == 0 and os.path.exists(local_path):
+            # Verify file isn't empty or error page
+            if os.path.getsize(local_path) > 1000000:  # > 1MB
+                logger.info(f"Successfully downloaded {local_path}")
+                return True
+            else:
+                logger.error("Downloaded file too small - may be an error page")
+                os.remove(local_path)
+                return False
+        else:
+            logger.error(f"curl download failed")
+            return False
+    except FileNotFoundError:
+        logger.error("Neither gsutil nor curl available")
+        return False
+    except subprocess.TimeoutExpired:
+        logger.error("Download timed out")
+        if os.path.exists(local_path):
+            os.remove(local_path)
+        return False
+
+
+def get_host_base_image_path(auto_download: bool = True) -> str:
+    """
+    Get the path to the Linux host base image.
+    Checks for Ubuntu first (easier to set up), then Debian.
+    Optionally downloads from GCP if not found locally.
+
+    Args:
+        auto_download: If True, attempt to download from GCP if not found
+
+    Returns:
+        Path to the base image (may not exist if download failed)
+    """
+    import os
+    # Prefer Ubuntu (easier cloud image setup)
+    if os.path.exists(HOST_BASE_IMAGE_UBUNTU):
+        return HOST_BASE_IMAGE_UBUNTU
+    # Fall back to Debian
+    if os.path.exists(HOST_BASE_IMAGE_DEBIAN):
+        return HOST_BASE_IMAGE_DEBIAN
+
+    # Try to download Ubuntu image from GCP
+    if auto_download:
+        if download_base_image_from_gcp(GCP_HOST_IMAGE_PATH, HOST_BASE_IMAGE_UBUNTU):
+            return HOST_BASE_IMAGE_UBUNTU
+
+    # Return Ubuntu path for error messages (preferred option)
+    return HOST_BASE_IMAGE_UBUNTU
 
 # VyOS Firewall configuration
 FIREWALL_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/firewall/base/vyos-base.qcow2'
@@ -74,6 +191,35 @@ FIREWALL_CPU = 1
 FIREWALL_RAM_MB = 1024
 FIREWALL_DISK_GB = 5
 MAX_FIREWALLS_PER_TOPOLOGY = 1
+
+
+def get_firewall_base_image_path(auto_download: bool = True) -> str:
+    """
+    Get the path to the VyOS firewall base image.
+    Downloads from GCP if not found locally.
+
+    Args:
+        auto_download: If True, attempt to download from GCP if not found
+
+    Returns:
+        Path to the base image (may not exist if download failed)
+    """
+    if os.path.exists(FIREWALL_BASE_IMAGE_PATH):
+        return FIREWALL_BASE_IMAGE_PATH
+
+    # Try to download from GCP
+    # Note: GCP_FIREWALL_IMAGE_PATH is defined later in the file
+    # This function is called at runtime, so it will be available
+    if auto_download:
+        try:
+            if download_base_image_from_gcp(GCP_FIREWALL_IMAGE_PATH, FIREWALL_BASE_IMAGE_PATH):
+                return FIREWALL_BASE_IMAGE_PATH
+        except NameError:
+            # GCP constants not yet defined (shouldn't happen at runtime)
+            pass
+
+    return FIREWALL_BASE_IMAGE_PATH
+
 
 # Persistence paths for new node types
 USER_HOSTS_PATH = os.getenv('USER_HOSTS_PATH', '/etc/atd/user_hosts.yaml')
@@ -87,6 +233,24 @@ CLOUD_INIT_TEMPLATES_PATH = os.getenv(
 
 # Management bridge
 MGMT_BRIDGE = 'vmgmt'
+
+# Interface port naming for topology diagram neighbors
+# These are the interface names used on VMs for data connections
+HOST_DATA_PORT = 'eth1'           # Linux host data interface
+FIREWALL_INSIDE_PORT = 'eth1'     # VyOS firewall inside interface
+FIREWALL_OUTSIDE_PORT = 'eth2'    # VyOS firewall outside interface
+
+# GCP bucket for base images (downloaded on first use)
+# These URLs support anonymous access for ATL labs
+GCP_BASE_IMAGE_BUCKET = os.getenv(
+    'GCP_BASE_IMAGE_BUCKET',
+    'gs://atd-base-images'
+)
+GCP_HOST_IMAGE_PATH = 'hosts/ubuntu-desktop-base.qcow2'
+GCP_FIREWALL_IMAGE_PATH = 'firewall/vyos-base.qcow2'
+
+# Download timeout for base images (large files need time)
+BASE_IMAGE_DOWNLOAD_TIMEOUT = 600  # 10 minutes
 
 
 def get_device_credentials() -> dict:

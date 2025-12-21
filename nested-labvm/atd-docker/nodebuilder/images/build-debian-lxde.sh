@@ -30,8 +30,12 @@ RAM="2048"
 VCPUS="2"
 DEBIAN_VERSION="bookworm"
 OUTPUT_DIR="/var/lib/libvirt/images/hosts/base"
-# Network bridge for installation - vmgmt is the ATD management bridge
-# Falls back to virbr0 (default libvirt bridge) if vmgmt not found
+# Network for installation
+# Use virbr0 (default libvirt NAT) for installation to avoid CVP DHCP ZTP options
+# The vmgmt DHCP server provides EOS ZTP options that confuse the Debian installer
+# After installation, the VM will be configured for vmgmt via cloud-init
+INSTALL_NETWORK="${INSTALL_NETWORK:-default}"
+# Network bridge for final operation (used by nodebuilder when cloning)
 NETWORK_BRIDGE="${NETWORK_BRIDGE:-vmgmt}"
 
 # URLs - Use network install tree for virt-install --location
@@ -78,16 +82,21 @@ check_prerequisites() {
         exit 1
     fi
 
-    # Check if network bridge exists
-    if ! ip link show "$NETWORK_BRIDGE" >/dev/null 2>&1; then
-        log_error "Network bridge '$NETWORK_BRIDGE' not found"
-        log_error "Available bridges:"
-        ip link show type bridge 2>/dev/null | grep -E "^[0-9]+:" | awk '{print "  " $2}' | tr -d ':'
-        log_error "Set NETWORK_BRIDGE environment variable to use a different bridge"
-        exit 1
+    # Check if libvirt network exists and is active
+    if ! virsh net-info "$INSTALL_NETWORK" >/dev/null 2>&1; then
+        log_warn "Libvirt network '$INSTALL_NETWORK' not found"
+        log_info "Trying to start default network..."
+        virsh net-start default 2>/dev/null || true
+        if ! virsh net-info "$INSTALL_NETWORK" >/dev/null 2>&1; then
+            log_error "Cannot use libvirt network '$INSTALL_NETWORK'"
+            log_error "Available networks:"
+            virsh net-list --all 2>/dev/null | tail -n +3
+            log_error "Set INSTALL_NETWORK environment variable or create the 'default' network"
+            exit 1
+        fi
     fi
 
-    log_info "Using network bridge: $NETWORK_BRIDGE"
+    log_info "Using libvirt network: $INSTALL_NETWORK (avoids CVP DHCP ZTP options)"
     log_info "All prerequisites met"
 }
 
@@ -113,14 +122,19 @@ create_preseed() {
     cat > "$preseed_path" << 'PRESEED_EOF'
 # Debian 12 Preseed for ATL Linux Host Base Image
 
-# Locale and keyboard
+# Locale and keyboard - set early to avoid prompts
 d-i debian-installer/locale string en_US.UTF-8
+d-i debian-installer/language string en
+d-i debian-installer/country string US
+d-i localechooser/supported-locales multiselect en_US.UTF-8
 d-i keyboard-configuration/xkb-keymap select us
+d-i console-setup/ask_detect boolean false
 
 # Network (DHCP during install, cloud-init configures later)
 d-i netcfg/choose_interface select auto
 d-i netcfg/get_hostname string debian-host
 d-i netcfg/get_domain string atl.local
+d-i netcfg/hostname string debian-host
 
 # Mirror
 d-i mirror/country string manual
@@ -134,7 +148,12 @@ d-i time/zone string UTC
 d-i clock-setup/ntp boolean true
 
 # Partitioning - single partition, use entire disk
+d-i partman-auto/disk string /dev/vda
 d-i partman-auto/method string regular
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
 d-i partman-auto/choose_recipe select atomic
 d-i partman-partitioning/confirm_write_new_label boolean true
 d-i partman/choose_partition select finish
@@ -147,30 +166,36 @@ d-i passwd/root-login boolean false
 # Create arista user
 d-i passwd/user-fullname string Arista User
 d-i passwd/username string arista
-# Password: arista (hashed)
+# Password: arista (hashed with SHA-512)
 d-i passwd/user-password-crypted string $6$rounds=4096$WnWOj6g4$XHr6QxQl5KYz0RJbHYrHwNBJ8VVFBq4qS1VbHVxG5/kVKgXUMq3EVqMnGo5.xyy7TpOKJz5xzVHhJQJjQJhGv0
 
 # Package selection
-tasksel tasksel/first multiselect standard, ssh-server
-d-i pkgsel/include string \
-    lxde lightdm \
-    x11vnc \
-    cloud-init cloud-utils \
-    iperf3 tcpdump mtr traceroute \
-    firefox-esr \
-    net-tools iputils-ping dnsutils curl wget \
-    sudo openssh-server \
-    vim nano less
+d-i tasksel/first multiselect standard, ssh-server
+d-i pkgsel/include string lxde lightdm x11vnc cloud-init cloud-utils iperf3 tcpdump mtr traceroute firefox-esr net-tools iputils-ping dnsutils curl wget sudo openssh-server vim nano less
+d-i pkgsel/upgrade select full-upgrade
 
 # Disable popularity contest
-popularity-contest popularity-contest/participate boolean false
+d-i popularity-contest/participate boolean false
 
 # Boot loader
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/bootdev string /dev/vda
+d-i grub-installer/with_other_os boolean false
 
-# Finish and reboot
+# Skip some final questions
+d-i finish-install/keep-consoles boolean true
 d-i finish-install/reboot_in_progress note
+d-i cdrom-detect/eject boolean true
+
+# Late command to enable cloud-init and configure system
+# Keep it simple - just enable cloud-init and set up sudoers
+# Additional config (x11vnc, autologin) will be done via cloud-init or post-boot
+d-i preseed/late_command string \
+    in-target systemctl enable cloud-init cloud-init-local cloud-config cloud-final; \
+    echo 'arista ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/arista; \
+    chmod 440 /target/etc/sudoers.d/arista; \
+    mkdir -p /target/etc/cloud/cloud.cfg.d; \
+    echo 'datasource_list: [ NoCloud, None ]' > /target/etc/cloud/cloud.cfg.d/99-atl-datasource.cfg
 PRESEED_EOF
 
     log_info "Preseed created: $preseed_path"
@@ -264,19 +289,23 @@ build_image() {
     log_info "Starting automated network installation (this will take 15-30 minutes)..."
     log_info "Using install tree: $DEBIAN_INSTALL_URL"
 
+    # Run with console attached so we can see install progress/errors
+    # Use --wait -1 to wait for completion
+    log_info "Starting virt-install (console output will be shown)..."
+    log_info "Press Ctrl+] to detach from console if needed"
+
     virt-install \
         --name "$IMAGE_NAME" \
         --ram "$RAM" \
         --vcpus "$VCPUS" \
         --disk path="$disk_path",format=qcow2 \
         --os-variant debian12 \
-        --network bridge="$NETWORK_BRIDGE",model=virtio \
+        --network network="$INSTALL_NETWORK",model=virtio \
         --graphics none \
         --console pty,target_type=serial \
         --location "$DEBIAN_INSTALL_URL" \
         --initrd-inject="$preseed_path" \
-        --extra-args "auto=true priority=critical console=ttyS0,115200n8 serial" \
-        --noautoconsole \
+        --extra-args "auto=true priority=critical preseed/file=/preseed.cfg locale=en_US console=ttyS0,115200n8" \
         --wait -1
 
     log_info "Installation complete"

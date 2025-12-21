@@ -1682,7 +1682,10 @@
     border-radius: 8px;
     padding: 16px;
     margin-top: 20px;
-    min-height: 200px;
+    min-height: 150px;
+    max-height: 350px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .cluster-template-preview h4 {
@@ -1804,11 +1807,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 20px;
-    background: #1a1a1a;
-    border-radius: 8px;
-    margin-top: 12px;
+    gap: 12px;
+    padding: 12px;
+    background: transparent;
+    border-radius: 6px;
+    margin-top: 8px;
 }
 
 .cluster-diagram.horizontal {
@@ -1830,33 +1833,27 @@
 
 /* Diagram boxes */
 .cluster-diagram .diagram-box {
-    padding: 14px 20px;
-    border-radius: 8px;
+    padding: 10px 16px;
+    border-radius: 6px;
     text-align: center;
-    min-width: 100px;
+    min-width: 80px;
     border: 2px solid;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.cluster-diagram .diagram-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .cluster-diagram .diagram-box .diagram-label {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #fff;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .cluster-diagram .diagram-box .diagram-type {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 /* Small boxes for list layout */
@@ -1944,7 +1941,7 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    width: 60px;
+    width: 40px;
 }
 
 .diagram-arrow-line {
@@ -2010,12 +2007,12 @@
 /* Connection badge for preview */
 .conn-badge {
     display: inline-block;
-    background: #252525;
+    background: #333;
     border: 1px solid #444;
-    border-radius: 4px;
-    padding: 4px 10px;
-    margin: 2px 4px;
-    font-size: 12px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin: 2px;
+    font-size: 11px;
     color: #ccc;
     font-family: 'Monaco', 'Menlo', monospace;
 }
@@ -2028,20 +2025,20 @@
 
 /* Connections legend in preview */
 .connections-legend {
-    margin-top: 16px;
-    padding: 12px;
-    background: #1e1e1e;
-    border-radius: 6px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #252525;
+    border-radius: 4px;
 }
 
 .connections-legend .legend-label {
-    display: block;
-    font-size: 12px;
+    display: inline-block;
+    font-size: 11px;
     color: #888;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    margin-right: 8px;
 }
 
 .connections-legend.external .legend-label {
