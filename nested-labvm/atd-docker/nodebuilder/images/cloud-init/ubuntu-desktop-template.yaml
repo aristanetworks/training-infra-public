@@ -9,9 +9,9 @@
 #   {gateway}   - Default gateway
 #   {data_ip}   - Data interface IP (optional)
 #
-# Interface mapping:
-#   eth0 - Management interface (vmgmt bridge)
-#   eth1 - Data interface (optional, connects to topology switch)
+# Interface mapping (Ubuntu uses predictable names):
+#   ens3 - Management interface (vmgmt bridge) - first virtio NIC
+#   ens4 - Data interface (optional, connects to topology switch) - second virtio NIC
 
 # Set hostname
 hostname: {hostname}
@@ -82,12 +82,13 @@ write_files:
     permissions: '0644'
 
   # Netplan configuration for static IP on management interface
+  # Ubuntu uses predictable names: ens3 for first virtio NIC, ens4 for second
   - path: /etc/netplan/50-cloud-init.yaml
     content: |
       network:
         version: 2
         ethernets:
-          eth0:
+          ens3:
             addresses:
               - {mgmt_ip}/24
             routes:
@@ -97,6 +98,9 @@ write_files:
               addresses:
                 - 8.8.8.8
                 - {gateway}
+          ens4:
+            dhcp4: false
+            optional: true
     permissions: '0644'
 
 # Run commands after packages are installed

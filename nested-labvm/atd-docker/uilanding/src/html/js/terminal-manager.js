@@ -109,9 +109,10 @@ const TerminalManager = {
         deviceEl.dataset.name = device.name;
         deviceEl.dataset.vmName = device.vmName || device.name;  // Original VM name for virsh
         deviceEl.dataset.supportsConsole = device.supportsConsole ? 'true' : 'false';
+        deviceEl.dataset.supportsNoVnc = device.supportsNoVnc ? 'true' : 'false';
         deviceEl.tabIndex = 0;
 
-        // Build HTML with stacked status dots and console icon
+        // Build HTML with stacked status dots and action icons
         let html = `
           <span class="status-dots" aria-hidden="true">
             <span class="status-dot ssh"></span>
@@ -121,6 +122,11 @@ const TerminalManager = {
           <span class="device-ip">${device.ip}</span>
         `;
 
+        // Add desktop icon for Linux hosts (noVNC)
+        if (device.supportsNoVnc) {
+          html += `<span class="desktop-icon" title="Open Desktop (noVNC)" aria-label="Open desktop for ${device.name}">&#128421;</span>`;
+        }
+
         // Add console icon if device supports console
         if (device.supportsConsole) {
           html += `<span class="console-icon" title="Open Serial Console" aria-label="Open serial console for ${device.name}">&#9000;</span>`;
@@ -128,13 +134,36 @@ const TerminalManager = {
 
         deviceEl.innerHTML = html;
 
-        // Left-click on device name area opens SSH
+        // Left-click on device name area
+        // For Linux hosts (supportsNoVnc), open desktop by default
+        // For other devices, open SSH
         const openTerminalHandler = (e) => {
-          // Don't trigger if clicking on console icon
-          if (e.target.classList.contains('console-icon')) return;
-          this.openTerminal(device.name, device.ip, 'ssh');
+          // Don't trigger if clicking on action icons
+          if (e.target.classList.contains('console-icon') ||
+              e.target.classList.contains('desktop-icon')) return;
+
+          if (device.supportsNoVnc) {
+            // Linux hosts: open desktop by default
+            const vmName = device.vmName || device.name;
+            this.openTerminal(device.name, device.ip, 'novnc', vmName);
+          } else {
+            // Other devices: open SSH
+            this.openTerminal(device.name, device.ip, 'ssh');
+          }
         };
         deviceEl.addEventListener('click', openTerminalHandler);
+
+        // Click on desktop icon opens noVNC
+        if (device.supportsNoVnc) {
+          const desktopIcon = deviceEl.querySelector('.desktop-icon');
+          if (desktopIcon) {
+            desktopIcon.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const vmName = device.vmName || device.name;
+              this.openTerminal(device.name, device.ip, 'novnc', vmName);
+            });
+          }
+        }
 
         // Click on console icon opens console
         if (device.supportsConsole) {
@@ -155,11 +184,16 @@ const TerminalManager = {
           this.showContextMenu(e, device);
         });
 
-        // Keyboard handler
+        // Keyboard handler - same logic as click
         deviceEl.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            this.openTerminal(device.name, device.ip, 'ssh');
+            if (device.supportsNoVnc) {
+              const vmName = device.vmName || device.name;
+              this.openTerminal(device.name, device.ip, 'novnc', vmName);
+            } else {
+              this.openTerminal(device.name, device.ip, 'ssh');
+            }
           }
         });
 
@@ -324,7 +358,8 @@ const TerminalManager = {
 
       // Build noVNC URL with token
       // The noVNC client connects to websockify which authenticates with the token
-      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&token=${encodeURIComponent(tokenData.token)}`;
+      // path=websockify tells noVNC to connect to /websockify/ endpoint for the WebSocket
+      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&path=websockify/?token=${encodeURIComponent(tokenData.token)}`;
       iframe.src = vncUrl;
 
       terminalFrames.appendChild(iframe);
@@ -931,7 +966,8 @@ const TerminalManager = {
 
       // Create iframe with noVNC URL
       const iframe = document.createElement('iframe');
-      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&token=${encodeURIComponent(tokenData.token)}`;
+      // path=websockify tells noVNC to connect to /websockify/ endpoint for the WebSocket
+      const vncUrl = tokenData.novnc_url || `/novnc/vnc.html?autoconnect=true&resize=scale&path=websockify/?token=${encodeURIComponent(tokenData.token)}`;
       iframe.src = vncUrl;
       iframe.title = `Desktop: ${name}`;
 

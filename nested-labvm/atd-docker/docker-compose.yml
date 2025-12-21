@@ -297,6 +297,8 @@ services:
       - /var/run/openvswitch:/var/run/openvswitch:rw
       # dnsmasq config for IP/MAC lookup (NetworkManager managed)
       - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
+      # noVNC token directory shared with novnc container for WebSocket auth
+      - /tmp/novnc:/tmp/novnc:rw
       # Note: Cloud-init templates are built into the Docker image
       # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:
@@ -314,6 +316,19 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
       # ATD config (read-only)
       - /etc/atd:/etc/atd:ro
+  # noVNC/websockify service - WebSocket proxy for VNC access to Linux hosts
+  # Uses token-based authentication to map tokens to VM management IPs
+  # Host network mode required to reach VM management IPs (192.168.0.x)
+  novnc:
+    container_name: atd-novnc
+    build: ./novnc
+    restart: on-failure
+    # Host network mode to reach VMs on vmgmt bridge (192.168.0.x)
+    network_mode: host
+    volumes:
+      # Token file for websockify authentication (format: "token: host:port")
+      # Tokens are written by nodebuilder's novnc_manager.py
+      - /tmp/novnc:/tmp/novnc:ro
 networks:
   atd_nginx:
 volumes:

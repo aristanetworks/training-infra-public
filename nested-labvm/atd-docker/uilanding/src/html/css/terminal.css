@@ -302,7 +302,8 @@ body.terminal-page {
 }
 
 /* Console icon button */
-.device-item .console-icon {
+.device-item .console-icon,
+.device-item .desktop-icon {
   width: 20px;
   height: 20px;
   display: flex;
@@ -322,9 +323,19 @@ body.terminal-page {
   background: rgba(76, 92, 174, 0.2);
 }
 
+.device-item .desktop-icon:hover {
+  color: var(--neon-green);
+  background: rgba(120, 216, 44, 0.2);
+}
+
 .device-item.console-connected .console-icon,
 .device-item.both-connected .console-icon {
   color: var(--console-blue);
+}
+
+.device-item.novnc-connected .desktop-icon,
+.device-item.multi-connected .desktop-icon {
+  color: var(--neon-green);
 }
 
 .device-item .device-name {

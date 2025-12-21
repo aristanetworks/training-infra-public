@@ -3,12 +3,6 @@
  *
  * Manages WebSocket connections to virsh console for VM serial access.
  * Uses xterm.js for terminal rendering.
- *
- * This module is loaded by console.html and provides:
- * - Terminal initialization with proper font handling
- * - WebSocket connection to console-api service
- * - Automatic reconnection with exponential backoff
- * - Terminal resize handling
  */
 
 const ConsoleManager = {
@@ -19,42 +13,45 @@ const ConsoleManager = {
   reconnectAttempts: 0,
   maxReconnectAttempts: 3,
 
-  // Terminal configuration
-  terminalConfig: {
-    cursorBlink: true,
-    cursorStyle: 'block',
-    fontFamily: "'JetBrains Mono', Menlo, Monaco, 'Cascadia Code', Consolas, monospace",
-    fontSize: 14,
-    lineHeight: 1.1,
-    theme: {
-      background: '#000000',
-      foreground: '#ffffff',
-      cursor: '#ffffff',
-      cursorAccent: '#000000',
-      selectionBackground: '#3a3d41',
-    },
-    allowProposedApi: true
-  },
-
   /**
    * Initialize the console manager.
    * Sets up xterm.js terminal and event handlers.
    */
   init() {
-    // Initialize xterm.js
-    this.term = new Terminal(this.terminalConfig);
+    // Initialize xterm.js with minimal config - let it use defaults
+    this.term = new Terminal({
+      cursorBlink: true,
+      theme: {
+        background: '#000000',
+        foreground: '#ffffff'
+      }
+    });
 
+    // Add fit addon for resizing
     this.fitAddon = new FitAddon.FitAddon();
-    const webLinksAddon = new WebLinksAddon.WebLinksAddon();
-
     this.term.loadAddon(this.fitAddon);
-    this.term.loadAddon(webLinksAddon);
 
-    this.term.open(document.getElementById('terminal'));
-    this.fitAddon.fit();
+    // Open terminal in container
+    const termElement = document.getElementById('terminal');
+    this.term.open(termElement);
 
-    // Handle terminal resize
-    window.addEventListener('resize', () => this.handleResize());
+    // Fit terminal to container after a short delay to ensure proper measurement
+    setTimeout(() => {
+      this.fitAddon.fit();
+      console.log('Terminal initialized:', {
+        cols: this.term.cols,
+        rows: this.term.rows,
+        devicePixelRatio: window.devicePixelRatio
+      });
+    }, 100);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (this.fitAddon) {
+        this.fitAddon.fit();
+        this.sendResize();
+      }
+    });
 
     // Setup retry button handler
     const retryBtn = document.getElementById('retryBtn');
@@ -74,7 +71,6 @@ const ConsoleManager = {
     if (device) {
       this.connect(device);
     } else {
-      // No device specified - show redirect to terminal page
       document.getElementById('connectingOverlay').classList.add('hidden');
       document.getElementById('noDeviceOverlay').classList.remove('hidden');
     }
@@ -102,7 +98,7 @@ const ConsoleManager = {
 
     // Clear terminal
     this.term.clear();
-    this.term.write('\x1b[2J\x1b[H'); // Clear screen and move cursor home
+    this.term.write('\x1b[2J\x1b[H');
     this.term.write(`Connecting to ${device}...\r\n`);
 
     try {
@@ -117,11 +113,7 @@ const ConsoleManager = {
         console.log('WebSocket connected');
         document.getElementById('connectingOverlay').classList.add('hidden');
         this.reconnectAttempts = 0;
-
-        // Send initial resize
         this.sendResize();
-
-        // Focus terminal
         this.term.focus();
       };
 
@@ -138,7 +130,6 @@ const ConsoleManager = {
         console.log('WebSocket closed:', event.code, event.reason);
 
         if (event.code !== 1000 && event.code !== 1001) {
-          // Abnormal close - attempt reconnect with exponential backoff
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             const delay = this.getReconnectDelay();
             this.term.write(`\r\n\x1b[33mConnection lost. Reconnecting in ${delay/1000}s...\x1b[0m\r\n`);
@@ -176,18 +167,7 @@ const ConsoleManager = {
    * @returns {number} Delay in milliseconds
    */
   getReconnectDelay() {
-    // Exponential backoff: 1s, 2s, 4s, max 10s
     return Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
-  },
-
-  /**
-   * Handle terminal resize events.
-   */
-  handleResize() {
-    if (this.fitAddon) {
-      this.fitAddon.fit();
-      this.sendResize();
-    }
   },
 
   /**
@@ -214,22 +194,7 @@ const ConsoleManager = {
   }
 };
 
-/**
- * Wait for fonts to load before initializing terminal.
- * This ensures xterm.js calculates character cell width correctly.
- * Includes timeout fallback in case font loading hangs.
- */
-async function waitForFonts() {
-  const FONT_LOAD_TIMEOUT = 3000; // 3 seconds max wait
-
-  if (document.fonts && document.fonts.ready) {
-    const fontLoadTimeout = new Promise(resolve => setTimeout(resolve, FONT_LOAD_TIMEOUT));
-    await Promise.race([document.fonts.ready, fontLoadTimeout]);
-  }
-}
-
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', async () => {
-  await waitForFonts();
+document.addEventListener('DOMContentLoaded', () => {
   ConsoleManager.init();
 });

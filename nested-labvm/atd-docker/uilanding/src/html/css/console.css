@@ -6,16 +6,16 @@
  */
 
 /* ============================================
-   Base Reset
+   Base Reset - Avoid affecting xterm internals
    ============================================ */
-* {
+html, body, div, h1, h2, h3, p, button, a {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  font-family: var(--proxima);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #000;
   color: #eee;
   height: 100vh;
@@ -42,6 +42,27 @@ body {
 #terminal {
   width: 100%;
   height: 100%;
+}
+
+/* xterm.js overrides to ensure proper character rendering */
+.xterm {
+  font-feature-settings: normal !important;
+  font-variant-ligatures: none !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+.xterm-screen {
+  letter-spacing: normal !important;
+}
+
+.xterm-rows {
+  letter-spacing: normal !important;
+}
+
+/* Ensure canvas is not scaled */
+.xterm canvas {
+  image-rendering: auto;
 }
 
 /* ============================================

@@ -5,28 +5,64 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Console - {{ topo_title }}</title>
-  <!-- Base styles -->
-  <link rel="stylesheet" href="/css/variables.css" />
-  <link rel="stylesheet" href="/css/typography.css" />
-  <link rel="stylesheet" href="/css/console.css" />
-  <!-- JetBrains Mono webfont for consistent terminal rendering -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <!-- xterm.js -->
+  <!-- Minimal CSS - avoid anything that could affect xterm measurements -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+    }
+    #terminal {
+      width: 100%;
+      height: 100vh;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    .overlay.hidden { display: none; }
+    .overlay-content { text-align: center; padding: 40px; }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #0066cc;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-btn {
+      padding: 8px 16px;
+      border: 1px solid #444;
+      background: #0066cc;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 4px;
+      text-decoration: none;
+    }
+  </style>
+  <!-- xterm.js - minimal setup -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
 </head>
 
 <body>
-  <div class="console-container">
-    <!-- Terminal - full screen for iframe embedding -->
-    <div class="terminal-wrapper">
-      <div id="terminal"></div>
-    </div>
-  </div>
+  <!-- Terminal - directly in body, no wrappers that could affect measurements -->
+  <div id="terminal"></div>
 
   <!-- Connecting overlay -->
   <div class="overlay" id="connectingOverlay">

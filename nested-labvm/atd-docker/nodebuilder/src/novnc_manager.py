@@ -30,7 +30,8 @@ from persistence import load_user_hosts
 logger = logging.getLogger('nodebuilder')
 
 # Token configuration
-TOKEN_FILE_PATH = os.getenv('NOVNC_TOKEN_FILE', '/tmp/novnc_tokens')
+# Token file is in a directory that's mounted from host for sharing with novnc container
+TOKEN_FILE_PATH = os.getenv('NOVNC_TOKEN_FILE', '/tmp/novnc/tokens')
 TOKEN_EXPIRY_SECONDS = 3600  # Tokens valid for 1 hour
 NOVNC_PROXY_PORT = 6080  # WebSocket proxy port
 
