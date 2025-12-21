@@ -103,19 +103,6 @@ def get_host_count() -> int:
     return len(hosts_data.get('hosts', []))
 
 
-def get_next_vnc_port() -> int:
-    """
-    Get the next available VNC port for a new host.
-
-    VNC ports are assigned sequentially starting from HOST_VNC_BASE_PORT.
-
-    Returns:
-        Next available VNC port number
-    """
-    host_count = get_host_count()
-    return HOST_VNC_BASE_PORT + host_count
-
-
 def generate_cloud_init_iso(
     hostname: str,
     mgmt_ip: str,
@@ -330,7 +317,6 @@ local-hostname: {hostname}
 
 def generate_host_xml(
     name: str,
-    vnc_port: int,
     connection: Optional[Dict] = None
 ) -> str:
     """
@@ -338,7 +324,6 @@ def generate_host_xml(
 
     Args:
         name: VM name
-        vnc_port: VNC port for noVNC access
         connection: Optional connection dict with 'bridge' and 'local_port'
 
     Returns:
@@ -419,16 +404,17 @@ def generate_host_xml(
                 'function': '0x0'
             })
 
-    # Add VNC graphics for noVNC access
+    # Add VNC graphics for console debugging (libvirt QEMU console)
+    # Note: noVNC desktop access uses x11vnc inside VM via management IP
+    # autoport=yes lets libvirt pick an available port to avoid conflicts
     graphics = ET.SubElement(devices, 'graphics', attrib={
         'type': 'vnc',
-        'port': str(vnc_port),
-        'autoport': 'no',
-        'listen': '0.0.0.0'
+        'autoport': 'yes',
+        'listen': '127.0.0.1'  # Only localhost for security (console debugging only)
     })
     ET.SubElement(graphics, 'listen', attrib={
         'type': 'address',
-        'address': '0.0.0.0'
+        'address': '127.0.0.1'
     })
 
     # Add video device for VNC
@@ -512,9 +498,9 @@ def create_host(
             f"Maximum of {MAX_HOSTS_PER_TOPOLOGY} hosts per topology reached"
         )
 
-    # Get VNC port
-    vnc_port = get_next_vnc_port()
-    logger.info(f"Assigned VNC port: {vnc_port}")
+    # x11vnc inside VM always uses port 5900
+    # noVNC connects to mgmt_ip:5900 for desktop access
+    x11vnc_port = 5900
 
     created_resources = []
 
@@ -556,7 +542,7 @@ def create_host(
 
         # Step 4: Generate VM XML
         logger.info(f"Generating VM XML for {name}")
-        xml_content = generate_host_xml(name, vnc_port, processed_connection)
+        xml_content = generate_host_xml(name, processed_connection)
 
         # Write XML to temp file
         xml_path = f'/tmp/{name}.xml'
@@ -605,7 +591,7 @@ def create_host(
             'name': name,
             'mgmt_ip': mgmt_ip,
             'data_ip': data_ip,
-            'vnc_port': vnc_port,
+            'vnc_port': x11vnc_port,  # x11vnc inside VM on port 5900
             'connection': processed_connection
         }
 

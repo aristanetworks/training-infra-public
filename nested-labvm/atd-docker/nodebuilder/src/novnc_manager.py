@@ -4,23 +4,28 @@ noVNC Manager for Nodebuilder Service
 Handles noVNC token management for browser-based VNC access to Linux hosts.
 
 The noVNC proxy (websockify) uses token-based authentication to map
-browser WebSocket connections to VNC ports on the host.
+browser WebSocket connections to VNC servers inside VMs.
+
+Architecture:
+- Linux hosts run x11vnc inside the VM on port 5900
+- x11vnc shares the LXDE desktop session over VNC
+- websockify proxies WebSocket connections to VM's management IP:5900
 
 Token flow:
 1. Frontend requests token for a host
 2. This module generates a secure token and writes to token file
 3. Frontend connects to noVNC proxy with token
-4. Proxy looks up VNC port from token file and proxies connection
+4. Proxy looks up target (mgmt_ip:5900) from token file and proxies connection
 """
 
 import logging
 import os
 import secrets
-import subprocess
 import time
 from typing import Dict, Optional
 
-from config import HOST_VNC_BASE_PORT, USER_HOSTS_PATH
+from config import USER_HOSTS_PATH
+from persistence import load_user_hosts
 
 logger = logging.getLogger('nodebuilder')
 
@@ -28,6 +33,9 @@ logger = logging.getLogger('nodebuilder')
 TOKEN_FILE_PATH = os.getenv('NOVNC_TOKEN_FILE', '/tmp/novnc_tokens')
 TOKEN_EXPIRY_SECONDS = 3600  # Tokens valid for 1 hour
 NOVNC_PROXY_PORT = 6080  # WebSocket proxy port
+
+# x11vnc port inside VMs (standard VNC port)
+X11VNC_PORT = 5900
 
 # In-memory token store with expiry times
 _token_store: Dict[str, Dict] = {}
@@ -43,39 +51,41 @@ def generate_token() -> str:
     return secrets.token_hex(16)
 
 
-def get_vnc_port_for_host(hostname: str) -> Optional[int]:
+def get_host_vnc_target(hostname: str) -> Optional[Dict]:
     """
-    Get the VNC port for a Linux host.
+    Get the VNC connection target for a Linux host.
+
+    Returns the host's management IP and VNC port (5900) for x11vnc.
+    This connects to the actual desktop session inside the VM.
 
     Args:
         hostname: Name of the host
 
     Returns:
-        VNC port number, or None if host not found
+        Dict with 'ip' and 'port', or None if host not found
     """
     try:
-        # Query virsh for VNC display
-        result = subprocess.run(
-            ['virsh', 'vncdisplay', hostname],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        # Load user hosts to get management IP
+        hosts_data = load_user_hosts(USER_HOSTS_PATH)
 
-        if result.returncode != 0:
-            logger.warning(f"Could not get VNC display for {hostname}: {result.stderr}")
-            return None
+        for host_entry in hosts_data.get('hosts', []):
+            for host_name, info in host_entry.items():
+                if host_name.lower() == hostname.lower():
+                    mgmt_ip = info.get('mgmt_ip')
+                    if mgmt_ip:
+                        return {
+                            'ip': mgmt_ip,
+                            'port': X11VNC_PORT
+                        }
+                    else:
+                        logger.warning(f"Host {hostname} has no mgmt_ip configured")
+                        return None
 
-        # Parse display number (e.g., ":0" -> port 5900)
-        display = result.stdout.strip()
-        if display.startswith(':'):
-            display_num = int(display[1:])
-            return 5900 + display_num
-
+        logger.warning(f"Host {hostname} not found in user_hosts.yaml")
         return None
 
     except Exception as e:
-        logger.error(f"Error getting VNC port for {hostname}: {e}")
+        logger.error(f"Error getting VNC target for {hostname}: {e}")
         return None
 
 
@@ -90,12 +100,12 @@ def create_vnc_token(hostname: str) -> Optional[Dict]:
         hostname: Name of the host to create token for
 
     Returns:
-        Dict with token, vnc_port, and websocket_url, or None on error
+        Dict with token, vnc_target, and websocket_url, or None on error
     """
-    # Get VNC port
-    vnc_port = get_vnc_port_for_host(hostname)
-    if not vnc_port:
-        logger.error(f"Cannot create token: VNC not available for {hostname}")
+    # Get VNC target (management IP and port)
+    vnc_target = get_host_vnc_target(hostname)
+    if not vnc_target:
+        logger.error(f"Cannot create token: VNC target not available for {hostname}")
         return None
 
     # Generate token
@@ -105,7 +115,8 @@ def create_vnc_token(hostname: str) -> Optional[Dict]:
     # Store in memory
     _token_store[token] = {
         'hostname': hostname,
-        'vnc_port': vnc_port,
+        'vnc_ip': vnc_target['ip'],
+        'vnc_port': vnc_target['port'],
         'expiry': expiry
     }
 
@@ -117,11 +128,12 @@ def create_vnc_token(hostname: str) -> Optional[Dict]:
         del _token_store[token]
         return None
 
-    logger.info(f"Created noVNC token for {hostname} (port {vnc_port})")
+    logger.info(f"Created noVNC token for {hostname} ({vnc_target['ip']}:{vnc_target['port']})")
 
     return {
         'token': token,
-        'vnc_port': vnc_port,
+        'vnc_ip': vnc_target['ip'],
+        'vnc_port': vnc_target['port'],
         'websocket_url': f'/novnc/vnc.html?autoconnect=true&path=websockify/?token={token}',
         'expires_in': TOKEN_EXPIRY_SECONDS
     }
@@ -239,8 +251,10 @@ def _write_token_file():
     # Write active tokens
     with open(TOKEN_FILE_PATH, 'w') as f:
         for token, info in _token_store.items():
-            # websockify connects to localhost VNC
-            f.write(f"{token}: 127.0.0.1:{info['vnc_port']}\n")
+            # websockify connects to x11vnc inside the VM via management IP
+            vnc_ip = info.get('vnc_ip', '127.0.0.1')
+            vnc_port = info.get('vnc_port', X11VNC_PORT)
+            f.write(f"{token}: {vnc_ip}:{vnc_port}\n")
 
     logger.debug(f"Wrote {len(_token_store)} token(s) to {TOKEN_FILE_PATH}")
 

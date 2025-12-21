@@ -68,7 +68,9 @@ HOST_CPU = 1
 HOST_RAM_MB = 1024
 HOST_DISK_GB = 10  # Ubuntu needs more space for desktop packages
 MAX_HOSTS_PER_TOPOLOGY = 2
-HOST_VNC_BASE_PORT = 5900  # VNC ports: 5900, 5901
+# VNC ports for Linux hosts - start at 5920 to avoid conflicts with
+# existing topology VMs which typically use ports 5900-5915
+HOST_VNC_BASE_PORT = 5920  # VNC ports: 5920, 5921
 
 
 def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
