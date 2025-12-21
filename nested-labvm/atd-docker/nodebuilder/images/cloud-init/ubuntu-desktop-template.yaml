@@ -18,6 +18,25 @@ hostname: {hostname}
 fqdn: {hostname}.atl.local
 manage_etc_hosts: true
 
+# Network configuration - runs early before package installation
+# This ensures DNS is available when apt tries to fetch packages
+network:
+  version: 2
+  ethernets:
+    ens3:
+      addresses:
+        - {mgmt_ip}/24
+      routes:
+        - to: default
+          via: {gateway}
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - {gateway}
+    ens4:
+      dhcp4: false
+      optional: true
+
 # Create user with sudo access
 users:
   - name: {username}
@@ -81,32 +100,8 @@ write_files:
       autologin-user-timeout=0
     permissions: '0644'
 
-  # Netplan configuration for static IP on management interface
-  # Ubuntu uses predictable names: ens3 for first virtio NIC, ens4 for second
-  - path: /etc/netplan/50-cloud-init.yaml
-    content: |
-      network:
-        version: 2
-        ethernets:
-          ens3:
-            addresses:
-              - {mgmt_ip}/24
-            routes:
-              - to: default
-                via: {gateway}
-            nameservers:
-              addresses:
-                - 8.8.8.8
-                - {gateway}
-          ens4:
-            dhcp4: false
-            optional: true
-    permissions: '0644'
-
 # Run commands after packages are installed
 runcmd:
-  # Apply network configuration
-  - netplan apply
   # Enable services
   - systemctl daemon-reload
   - systemctl enable x11vnc
