@@ -357,8 +357,10 @@ export class EventManager {
      */
     async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
         // Determine display name and endpoint based on device type
+        // Note: 'linux_host' is the device_type for user-added Linux hosts
         const typeLabels = {
             'host': 'Linux Host',
+            'linux_host': 'Linux Host',
             'firewall': 'Firewall',
             'node': 'Node'
         };
@@ -428,8 +430,10 @@ export class EventManager {
 
                 try {
                     // Use correct endpoint based on device type
+                    // Note: 'linux_host' is the device_type for user-added Linux hosts
                     const endpoints = {
                         'host': '/td-api/nodes/delete-host',
+                        'linux_host': '/td-api/nodes/delete-host',
                         'firewall': '/td-api/nodes/delete-firewall',
                         'node': '/td-api/nodes/delete-node'
                     };

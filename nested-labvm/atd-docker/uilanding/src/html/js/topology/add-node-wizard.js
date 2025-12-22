@@ -933,9 +933,12 @@ class AddNodeWizard {
      * Show restore notification banner if user nodes need restoration
      */
     async showRestoreNotificationIfNeeded() {
+        console.log('[AddNodeWizard] Checking user nodes status for restore notification...');
         const status = await this.checkUserNodesStatus();
+        console.log('[AddNodeWizard] User nodes status:', status);
 
         if (!status.has_user_nodes) {
+            console.log('[AddNodeWizard] No user nodes found, hiding notification');
             this.hideRestoreNotification();
             return;
         }
@@ -1013,8 +1016,10 @@ class AddNodeWizard {
      * Show the restore dialog with node list and restore button
      */
     async showRestoreDialog() {
+        console.log('[AddNodeWizard] showRestoreDialog called');
         // Get current status
         const status = await this.checkUserNodesStatus();
+        console.log('[AddNodeWizard] Restore dialog status:', status);
 
         if (!status.has_user_nodes) {
             alert('No user-added nodes found.');
