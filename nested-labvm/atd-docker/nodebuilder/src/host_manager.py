@@ -167,8 +167,8 @@ def generate_cloud_init_iso(
             logger.warning(f"Template not found at {template_path}, using inline fallback")
 
             user_data = f"""#cloud-config
-# NOTE: Network configuration is in a separate network-config file
-# which cloud-init processes early, before package installation.
+# Fallback template - assumes base image has packages pre-installed
+# Network configuration is in separate network-config file
 hostname: {hostname}
 fqdn: {hostname}.atl.local
 manage_etc_hosts: true
@@ -182,25 +182,10 @@ users:
 
 chpasswd:
   expire: false
-  list:
-    - {username}:{password}
-
-package_update: true
-package_upgrade: false
-packages:
-  - lxde-core
-  - lxde
-  - lightdm
-  - x11vnc
-  - firefox
-  - net-tools
-  - iputils-ping
-  - traceroute
-  - tcpdump
-  - iperf3
-  - curl
-  - wget
-  - vim
+  users:
+    - name: {username}
+      password: {password}
+      type: text
 
 write_files:
   - path: /etc/systemd/system/x11vnc.service
@@ -243,12 +228,7 @@ runcmd:
     AUTOSTART
   - chown -R {username}:{username} /home/{username}/.config
   - touch /var/lib/cloud/instance/desktop-setup-complete
-
-power_state:
-  mode: reboot
-  message: "Rebooting to start desktop environment"
-  timeout: 60
-  condition: true
+  - systemctl start lightdm
 """
 
         # Write user-data
