@@ -2990,11 +2990,13 @@ export class EventManager {
             // Get current status to show what will be deleted
             const status = await NodeBuilderAPI.getUserNodesStatus();
 
-            // Count items
-            const nodeCount = status.nodes?.length || 0;
-            const hostCount = status.hosts?.length || 0;
-            const firewallCount = status.firewalls?.length || 0;
-            const totalCount = nodeCount + hostCount + firewallCount;
+            // API returns flat nodes array with type field - filter by type
+            const allNodes = status.nodes || [];
+            const veosList = allNodes.filter(n => n.type === 'node');
+            const hostsList = allNodes.filter(n => n.type === 'host');
+            const firewallsList = allNodes.filter(n => n.type === 'firewall');
+
+            const totalCount = allNodes.length;
 
             if (totalCount === 0) {
                 modal.setContent(`
@@ -3005,7 +3007,7 @@ export class EventManager {
                 `);
                 modal.clearFooter();
                 modal.addFooterButton({
-                    label: 'Close',
+                    text: 'Close',
                     type: 'secondary',
                     onClick: () => modal.hide()
                 });
@@ -3014,17 +3016,17 @@ export class EventManager {
 
             // Build list of what will be deleted
             let itemsList = '<ul class="reset-items-list">';
-            if (nodeCount > 0) {
-                const nodeNames = status.nodes.map(n => Object.keys(n)[0]).join(', ');
-                itemsList += `<li><strong>${nodeCount} vEOS node${nodeCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(nodeNames)}</li>`;
+            if (veosList.length > 0) {
+                const nodeNames = veosList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${veosList.length} vEOS node${veosList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(nodeNames)}</li>`;
             }
-            if (hostCount > 0) {
-                const hostNames = status.hosts.map(h => Object.keys(h)[0]).join(', ');
-                itemsList += `<li><strong>${hostCount} Linux host${hostCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(hostNames)}</li>`;
+            if (hostsList.length > 0) {
+                const hostNames = hostsList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${hostsList.length} Linux host${hostsList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(hostNames)}</li>`;
             }
-            if (firewallCount > 0) {
-                const fwNames = status.firewalls.map(f => Object.keys(f)[0]).join(', ');
-                itemsList += `<li><strong>${firewallCount} VyOS firewall${firewallCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(fwNames)}</li>`;
+            if (firewallsList.length > 0) {
+                const fwNames = firewallsList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${firewallsList.length} VyOS firewall${firewallsList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(fwNames)}</li>`;
             }
             itemsList += '</ul>';
 
@@ -3053,13 +3055,13 @@ export class EventManager {
 
             modal.clearFooter();
             modal.addFooterButton({
-                label: 'Cancel',
+                text: 'Cancel',
                 type: 'secondary',
                 onClick: () => modal.hide()
             });
 
             const resetBtn = modal.addFooterButton({
-                label: 'Reset All',
+                text: 'Reset All',
                 type: 'danger',
                 onClick: async () => {
                     resetBtn.disabled = true;
@@ -3095,7 +3097,7 @@ export class EventManager {
 
                         modal.clearFooter();
                         modal.addFooterButton({
-                            label: 'Close',
+                            text: 'Close',
                             type: 'primary',
                             onClick: () => {
                                 modal.hide();

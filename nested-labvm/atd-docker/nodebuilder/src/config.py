@@ -243,16 +243,73 @@ FIREWALL_INSIDE_PORT = 'eth1'     # VyOS firewall inside interface
 FIREWALL_OUTSIDE_PORT = 'eth2'    # VyOS firewall outside interface
 
 # GCP bucket for base images (downloaded on first use)
-# These URLs support anonymous access for ATL labs
-GCP_BASE_IMAGE_BUCKET = os.getenv(
-    'GCP_BASE_IMAGE_BUCKET',
-    'gs://atd-base-images'
-)
+# Bucket is determined by ATL project: dev or prod
+def get_gcp_project() -> str:
+    """
+    Get the GCP project from ACCESS_INFO.yaml.
+
+    Returns:
+        'dev' or 'prod' based on the project field
+    """
+    try:
+        from ruamel.yaml import YAML
+        yaml = YAML()
+        with open(ACCESS_INFO_PATH, 'r') as f:
+            access_info = yaml.load(f)
+            project = access_info.get('project', '')
+            # atd-testdrivetraining-dev -> dev
+            # atd-testdrivetraining-prod -> prod
+            if 'prod' in project.lower():
+                return 'prod'
+            return 'dev'
+    except Exception:
+        return 'dev'  # Default to dev for safety
+
+
+def get_gcp_base_image_bucket() -> str:
+    """
+    Get the GCP bucket URL for base images based on environment.
+
+    Bucket names:
+    - Dev (atd-testdrivetraining-dev): gs://cloud-init-files-atl-labs
+    - Prod (atd-testdrivetraining-prod): gs://cloud-init-files-atl-labs-prod
+
+    Returns:
+        GCP bucket URL
+    """
+    # Allow override via environment variable
+    env_bucket = os.getenv('GCP_BASE_IMAGE_BUCKET')
+    if env_bucket:
+        return env_bucket
+
+    # Determine bucket from project
+    env = get_gcp_project()
+    if env == 'prod':
+        return 'gs://cloud-init-files-atl-labs-prod'
+    return 'gs://cloud-init-files-atl-labs'
+
+
+# Cached bucket URL (computed on first access)
+GCP_BASE_IMAGE_BUCKET = get_gcp_base_image_bucket()
 GCP_HOST_IMAGE_PATH = 'hosts/ubuntu-desktop-base.qcow2'
 GCP_FIREWALL_IMAGE_PATH = 'firewall/vyos-base.qcow2'
 
 # Download timeout for base images (large files need time)
 BASE_IMAGE_DOWNLOAD_TIMEOUT = 600  # 10 minutes
+
+
+def log_gcp_config():
+    """
+    Log the GCP configuration for debugging.
+    Called at service startup.
+    """
+    import logging
+    logger = logging.getLogger('nodebuilder')
+    project = get_gcp_project()
+    bucket = GCP_BASE_IMAGE_BUCKET
+    logger.info(f"GCP Configuration: project={project}, bucket={bucket}")
+    logger.info(f"  Host image: {bucket}/{GCP_HOST_IMAGE_PATH}")
+    logger.info(f"  Firewall image: {bucket}/{GCP_FIREWALL_IMAGE_PATH}")
 
 
 def get_device_credentials() -> dict:

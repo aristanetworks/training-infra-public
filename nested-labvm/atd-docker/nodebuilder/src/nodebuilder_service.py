@@ -1657,7 +1657,13 @@ def create_app():
 
 def main():
     """Main entry point"""
+    from config import log_gcp_config
+
     logger.info(f"Starting Nodebuilder Service on {SERVICE_HOST}:{SERVICE_PORT}")
+
+    # Log GCP bucket configuration for debugging
+    log_gcp_config()
+
     app = create_app()
     # Bind to configured host (0.0.0.0 for Docker bridge access)
     web.run_app(app, host=SERVICE_HOST, port=SERVICE_PORT)
