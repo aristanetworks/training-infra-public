@@ -14,6 +14,16 @@
 #   eth1 - Inside interface (connects to inside network)
 #   eth2 - Outside interface (connects to outside network)
 
+# Standard cloud-init: Set vyos user password as fallback
+# This ensures console login works even if vyos_config_commands fails
+chpasswd:
+  expire: false
+  users:
+    - name: vyos
+      password: {password}
+      type: text
+
+# VyOS-specific configuration commands
 vyos_config_commands:
   # System configuration
   - set system host-name {hostname}
