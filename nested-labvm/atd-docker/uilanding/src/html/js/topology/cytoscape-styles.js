@@ -330,6 +330,16 @@ export function getCytoscapeStyles() {
                 'underlay-shape': 'ellipse'
             }
         },
+        {
+            // Unconfigured: device is reachable but auth failed (needs configuration)
+            selector: '.status-unconfigured',
+            style: {
+                'underlay-color': '#4c5cae',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse'
+            }
+        },
 
         // ==========================================
         // Edge Styles

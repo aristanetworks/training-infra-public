@@ -1024,7 +1024,7 @@ class AddNodeWizard {
         // Create overlay
         const overlay = document.createElement('div');
         overlay.id = 'restore-nodes-overlay';
-        overlay.className = 'add-node-overlay';
+        overlay.className = 'add-node-wizard-overlay';
         overlay.innerHTML = `
             <div class="add-node-wizard restore-nodes-dialog">
                 <div class="wizard-header">
@@ -1047,8 +1047,8 @@ class AddNodeWizard {
                     </div>
                 </div>
                 <div class="wizard-footer">
-                    <button class="wizard-cancel-btn">Cancel</button>
-                    <button class="wizard-next-btn restore-btn" ${!status.needs_restore ? 'disabled' : ''}>
+                    <button class="wizard-btn wizard-btn-secondary wizard-cancel-btn">Cancel</button>
+                    <button class="wizard-btn wizard-btn-primary wizard-next-btn restore-btn" ${!status.needs_restore ? 'disabled' : ''}>
                         ${status.needs_restore ? 'Restore All Nodes' : 'All Nodes Running'}
                     </button>
                 </div>

@@ -2367,11 +2367,21 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
         except Exception as e:
+            error_str = str(e)
+            # Check for authentication failures - device is up but not configured
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)',
+                    'last_check': datetime.now().isoformat()
+                }
             return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'error',
-                'error': str(e),
+                'error': error_str,
                 'last_check': datetime.now().isoformat()
             }
 
