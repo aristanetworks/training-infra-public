@@ -631,7 +631,8 @@ def delete_host(name: str) -> Dict:
         'disk_deleted': False,
         'cidata_deleted': False,
         'bridge_deleted': False,
-        'target_interface_detached': False
+        'target_interface_detached': False,
+        'devices_needing_reboot': []
     }
 
     # Step 1: Get host info from persistence BEFORE deleting (need bridge info)
@@ -649,6 +650,7 @@ def delete_host(name: str) -> Dict:
             break
 
     # Step 2: Detach interface from target device
+    # Note: EOS doesn't support hot-unplug, so target device needs reboot
     if target_device and bridge_name:
         try:
             interfaces = get_vm_interfaces(target_device)
@@ -659,6 +661,9 @@ def delete_host(name: str) -> Dict:
                         logger.info(f"Detaching interface {mac} from {target_device}")
                         detach_interface_from_vm(target_device, mac)
                         results['target_interface_detached'] = True
+                        # EOS VMs don't support hot-unplug, need reboot
+                        if target_device not in results['devices_needing_reboot']:
+                            results['devices_needing_reboot'].append(target_device)
                     break
         except Exception as e:
             logger.warning(f"Failed to detach interface from target: {e}")

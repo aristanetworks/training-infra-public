@@ -3481,6 +3481,9 @@ class NodeBuilderProxyHandler(BaseHandler):
         http_client = AsyncHTTPClient()
         url = f"/{path}" if path else ""
 
+        # Longer timeout for operations that may take a while
+        timeout = 180 if 'reset-all' in path or 'cleanup' in path else 60
+
         try:
             # Try primary URL first (Docker Desktop)
             try:
@@ -3489,7 +3492,7 @@ class NodeBuilderProxyHandler(BaseHandler):
                     method=method,
                     body=body if method == 'POST' else None,
                     headers={"Content-Type": "application/json"} if body else {},
-                    request_timeout=60
+                    request_timeout=timeout
                 )
                 response = await http_client.fetch(request)
                 self.write(response.body)
@@ -3502,7 +3505,7 @@ class NodeBuilderProxyHandler(BaseHandler):
                         method=method,
                         body=body if method == 'POST' else None,
                         headers={"Content-Type": "application/json"} if body else {},
-                        request_timeout=60
+                        request_timeout=timeout
                     )
                     response = await http_client.fetch(request)
                     self.write(response.body)

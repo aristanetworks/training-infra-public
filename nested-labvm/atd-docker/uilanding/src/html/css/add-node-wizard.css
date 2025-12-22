@@ -2187,17 +2187,26 @@
 .reset-confirm-checkbox label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     cursor: pointer;
     color: #fff;
     font-weight: 500;
+    line-height: 1.4;
 }
 
 .reset-confirm-checkbox input[type="checkbox"] {
     width: 20px;
     height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    flex-shrink: 0;
     cursor: pointer;
     accent-color: #e74c3c;
+    margin: 0;
+}
+
+.reset-confirm-checkbox span {
+    flex: 1;
 }
 
 .reset-info {

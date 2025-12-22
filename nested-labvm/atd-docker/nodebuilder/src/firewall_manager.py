@@ -578,7 +578,8 @@ def delete_firewall(name: str) -> Dict:
         'inside_bridge_deleted': False,
         'outside_bridge_deleted': False,
         'inside_target_detached': False,
-        'outside_target_detached': False
+        'outside_target_detached': False,
+        'devices_needing_reboot': []
     }
 
     # Step 1: Get firewall info from persistence BEFORE deleting (need bridge info)
@@ -594,13 +595,19 @@ def delete_firewall(name: str) -> Dict:
             break
 
     # Helper function to clean up a connection
+    # Note: EOS doesn't support hot-unplug, so target devices need reboot
     def cleanup_connection(conn: Dict, conn_name: str) -> tuple:
-        """Clean up bridge and target interface for a connection."""
+        """Clean up bridge and target interface for a connection.
+
+        Returns:
+            Tuple of (detached, bridge_deleted, target_device_if_detached)
+        """
         detached = False
         bridge_deleted = False
+        detached_target = None
 
         if not conn:
-            return detached, bridge_deleted
+            return detached, bridge_deleted, detached_target
 
         bridge_name = conn.get('bridge')
         target_device = conn.get('target_device')
@@ -616,6 +623,7 @@ def delete_firewall(name: str) -> Dict:
                             logger.info(f"Detaching {conn_name} interface {mac} from {target_device}")
                             detach_interface_from_vm(target_device, mac)
                             detached = True
+                            detached_target = target_device
                         break
             except Exception as e:
                 logger.warning(f"Failed to detach {conn_name} interface from target: {e}")
@@ -629,15 +637,21 @@ def delete_firewall(name: str) -> Dict:
             except Exception as e:
                 logger.warning(f"Failed to delete {conn_name} bridge {bridge_name}: {e}")
 
-        return detached, bridge_deleted
+        return detached, bridge_deleted, detached_target
 
     # Step 2: Clean up inside connection
-    results['inside_target_detached'], results['inside_bridge_deleted'] = \
-        cleanup_connection(inside_conn, 'inside')
+    inside_detached, inside_bridge, inside_target = cleanup_connection(inside_conn, 'inside')
+    results['inside_target_detached'] = inside_detached
+    results['inside_bridge_deleted'] = inside_bridge
+    if inside_target and inside_target not in results['devices_needing_reboot']:
+        results['devices_needing_reboot'].append(inside_target)
 
     # Step 3: Clean up outside connection
-    results['outside_target_detached'], results['outside_bridge_deleted'] = \
-        cleanup_connection(outside_conn, 'outside')
+    outside_detached, outside_bridge, outside_target = cleanup_connection(outside_conn, 'outside')
+    results['outside_target_detached'] = outside_detached
+    results['outside_bridge_deleted'] = outside_bridge
+    if outside_target and outside_target not in results['devices_needing_reboot']:
+        results['devices_needing_reboot'].append(outside_target)
 
     # Step 4: Destroy running VM
     try:

@@ -507,10 +507,11 @@ class ResourceManager:
                     })
 
         # Phase 4: Clean up any orphaned OVS bridges (user-created)
+        # Uses enhanced cleanup with port-count detection
         self.logger.info("Phase 4: Cleaning up orphaned OVS bridges")
         try:
-            orphaned = self._cleanup_orphaned_bridges()
-            results['bridges_cleaned'] = orphaned
+            cleanup_result = self.cleanup_all_orphaned_bridges()
+            results['bridges_cleaned'] = cleanup_result.get('deleted', [])
         except Exception as e:
             self.logger.error(f"Failed to cleanup orphaned bridges: {e}")
             results['errors'].append({
