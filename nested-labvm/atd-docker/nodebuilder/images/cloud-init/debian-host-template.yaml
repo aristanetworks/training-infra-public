@@ -58,16 +58,43 @@ packages:
   - iputils-ping
   - dnsutils
 
+# Write x11vnc systemd service file (may not exist in base image)
+write_files:
+  - path: /etc/systemd/system/x11vnc.service
+    content: |
+      [Unit]
+      Description=x11vnc VNC Server for noVNC
+      After=lightdm.service
+      Requires=lightdm.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/x11vnc -display :0 -auth guess -forever -loop -noxdamage -repeat -rfbport 5900 -shared
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+  - path: /etc/lightdm/lightdm.conf.d/50-autologin.conf
+    content: |
+      [Seat:*]
+      autologin-user=arista
+      autologin-user-timeout=0
+    permissions: '0644'
+
 # Commands to run on first boot
 runcmd:
+  # Ensure lightdm config directory exists
+  - mkdir -p /etc/lightdm/lightdm.conf.d
+  # Reload systemd to pick up new service file
+  - systemctl daemon-reload
   # Ensure display manager starts
   - systemctl enable lightdm
   - systemctl start lightdm
   # Start VNC server for noVNC access (x11vnc running on display :0)
   - systemctl enable x11vnc
   - systemctl start x11vnc
-  # Set arista as auto-login user for LXDE
-  - sed -i 's/#autologin-user=/autologin-user=arista/' /etc/lightdm/lightdm.conf || true
 
 # Final message
 final_message: "ATL Linux Host {hostname} is ready. Boot time: $UPTIME seconds."

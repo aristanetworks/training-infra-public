@@ -64,12 +64,14 @@ write_files:
       WantedBy=multi-user.target
     permissions: '0644'
 
-  # LightDM autologin configuration
+  # LightDM autologin configuration with LXDE session
   - path: /etc/lightdm/lightdm.conf.d/50-autologin.conf
     content: |
       [Seat:*]
       autologin-user={username}
       autologin-user-timeout=0
+      autologin-session=LXDE
+      user-session=LXDE
     permissions: '0644'
 
 # Run commands to configure the desktop environment
