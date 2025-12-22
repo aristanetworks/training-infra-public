@@ -50,6 +50,9 @@ vyos_config_commands:
   - set service ssh port 22
   - set service ssh listen-address 0.0.0.0
 
+  # Set vyos user password (default user)
+  - set system login user vyos authentication plaintext-password {password}
+
   # Create arista user with admin privileges
   - set system login user arista authentication plaintext-password {password}
   - set system login user arista level admin
