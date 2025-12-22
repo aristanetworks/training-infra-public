@@ -552,22 +552,94 @@ def delete_firewall(name: str) -> Dict:
     """
     Delete a VyOS firewall VM completely.
 
+    Cleans up:
+    - VM (destroy and undefine)
+    - Disk image
+    - Cloud-init ISO
+    - Inside OVS bridge and target interface
+    - Outside OVS bridge and target interface
+
     Args:
         name: Name of the firewall to delete
 
     Returns:
         Dict with deletion status
     """
+    from persistence import get_user_firewall
+    from interface_manager import get_vm_interfaces, detach_interface_from_vm
+
     logger.info(f"Deleting VyOS firewall: {name}")
 
     results = {
         'vm_destroyed': False,
         'vm_undefined': False,
         'disk_deleted': False,
-        'cidata_deleted': False
+        'cidata_deleted': False,
+        'inside_bridge_deleted': False,
+        'outside_bridge_deleted': False,
+        'inside_target_detached': False,
+        'outside_target_detached': False
     }
 
-    # Destroy running VM
+    # Step 1: Get firewall info from persistence BEFORE deleting (need bridge info)
+    fw_entry = get_user_firewall(name, USER_FIREWALLS_PATH)
+    inside_conn = None
+    outside_conn = None
+
+    if fw_entry:
+        for fw_name, fw_info in fw_entry.items():
+            inside_conn = fw_info.get('inside_interface', {})
+            outside_conn = fw_info.get('outside_interface', {})
+            logger.info(f"Found firewall connections: inside={inside_conn}, outside={outside_conn}")
+            break
+
+    # Helper function to clean up a connection
+    def cleanup_connection(conn: Dict, conn_name: str) -> tuple:
+        """Clean up bridge and target interface for a connection."""
+        detached = False
+        bridge_deleted = False
+
+        if not conn:
+            return detached, bridge_deleted
+
+        bridge_name = conn.get('bridge')
+        target_device = conn.get('target_device')
+
+        # Detach interface from target device
+        if target_device and bridge_name:
+            try:
+                interfaces = get_vm_interfaces(target_device)
+                for intf in interfaces:
+                    if intf.get('source') == bridge_name:
+                        mac = intf.get('mac')
+                        if mac:
+                            logger.info(f"Detaching {conn_name} interface {mac} from {target_device}")
+                            detach_interface_from_vm(target_device, mac)
+                            detached = True
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to detach {conn_name} interface from target: {e}")
+
+        # Delete OVS bridge
+        if bridge_name:
+            try:
+                logger.info(f"Deleting {conn_name} OVS bridge: {bridge_name}")
+                delete_ovs_bridge(bridge_name)
+                bridge_deleted = True
+            except Exception as e:
+                logger.warning(f"Failed to delete {conn_name} bridge {bridge_name}: {e}")
+
+        return detached, bridge_deleted
+
+    # Step 2: Clean up inside connection
+    results['inside_target_detached'], results['inside_bridge_deleted'] = \
+        cleanup_connection(inside_conn, 'inside')
+
+    # Step 3: Clean up outside connection
+    results['outside_target_detached'], results['outside_bridge_deleted'] = \
+        cleanup_connection(outside_conn, 'outside')
+
+    # Step 4: Destroy running VM
     try:
         subprocess.run(['virsh', 'destroy', name],
                        capture_output=True, timeout=30)
@@ -575,7 +647,7 @@ def delete_firewall(name: str) -> Dict:
     except Exception:
         pass
 
-    # Undefine VM
+    # Step 5: Undefine VM
     try:
         result = subprocess.run(['virsh', 'undefine', name],
                                 capture_output=True, text=True, timeout=30)
@@ -583,7 +655,7 @@ def delete_firewall(name: str) -> Dict:
     except Exception as e:
         logger.warning(f"Failed to undefine VM: {e}")
 
-    # Delete disk image
+    # Step 6: Delete disk image
     disk_path = f'{LIBVIRT_IMAGES_PATH}/firewall/{name}.qcow2'
     if os.path.exists(disk_path):
         try:
@@ -592,7 +664,7 @@ def delete_firewall(name: str) -> Dict:
         except Exception as e:
             logger.warning(f"Failed to delete disk: {e}")
 
-    # Delete cloud-init ISO
+    # Step 7: Delete cloud-init ISO
     cidata_path = f'{LIBVIRT_IMAGES_PATH}/firewall/{name}-cidata.iso'
     if os.path.exists(cidata_path):
         try:

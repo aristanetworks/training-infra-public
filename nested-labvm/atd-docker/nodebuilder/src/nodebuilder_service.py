@@ -1684,6 +1684,96 @@ async def delete_firewall_endpoint(request):
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
+@routes.post('/cleanup-orphaned-bridges')
+async def cleanup_orphaned_bridges(request):
+    """
+    Detect and clean up orphaned OVS bridges.
+
+    An orphaned bridge is one that:
+    - Matches user-created bridge naming patterns
+    - Has 0-1 ports attached (meaning one or both VMs were deleted)
+
+    This endpoint safely scans and removes only orphaned bridges,
+    not system bridges or healthy connections.
+
+    Returns:
+        JSON with cleanup statistics and list of deleted bridges
+    """
+    from resource_manager import get_resource_manager
+
+    try:
+        logger.info("Starting orphaned bridge cleanup")
+        resource_mgr = get_resource_manager()
+        result = resource_mgr.cleanup_all_orphaned_bridges()
+
+        logger.info(f"Orphaned bridge cleanup completed: {len(result.get('deleted', []))} bridges removed")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error cleaning orphaned bridges: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/bridge-status')
+async def bridge_status(request):
+    """
+    Get status of all OVS bridges for diagnostics.
+
+    Returns list of bridges with port counts to help identify orphans.
+    """
+    import subprocess
+
+    try:
+        # Get all bridges
+        result = subprocess.run(
+            ['ovs-vsctl', 'list-br'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return web.json_response({'error': 'Failed to list bridges'}, status=500)
+
+        bridges = [b.strip() for b in result.stdout.strip().split('\n') if b.strip()]
+
+        system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+        bridge_info = []
+
+        for bridge in bridges:
+            # Get port count
+            ports_result = subprocess.run(
+                ['ovs-vsctl', 'list-ports', bridge],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            ports = []
+            if ports_result.returncode == 0:
+                ports = [p.strip() for p in ports_result.stdout.split('\n') if p.strip()]
+
+            is_system = bridge in system_bridges
+
+            bridge_info.append({
+                'name': bridge,
+                'port_count': len(ports),
+                'ports': ports,
+                'is_system': is_system,
+                'status': 'healthy' if len(ports) >= 2 or is_system else 'orphaned'
+            })
+
+        return web.json_response({
+            'total_bridges': len(bridges),
+            'bridges': bridge_info
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting bridge status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
 def create_app():
     """Create and configure the application"""
     app = web.Application()

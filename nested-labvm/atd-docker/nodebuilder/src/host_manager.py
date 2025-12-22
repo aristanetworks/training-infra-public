@@ -607,12 +607,22 @@ def delete_host(name: str) -> Dict:
     """
     Delete a Linux host VM completely.
 
+    Cleans up:
+    - VM (destroy and undefine)
+    - Disk image
+    - Cloud-init ISO
+    - OVS bridge to target device
+    - Interface on target device
+
     Args:
         name: Name of the host to delete
 
     Returns:
         Dict with deletion status
     """
+    from persistence import get_user_host
+    from interface_manager import get_vm_interfaces, detach_interface_from_vm
+
     logger.info(f"Deleting Linux host: {name}")
 
     results = {
@@ -620,10 +630,49 @@ def delete_host(name: str) -> Dict:
         'vm_undefined': False,
         'disk_deleted': False,
         'cidata_deleted': False,
-        'bridge_deleted': False
+        'bridge_deleted': False,
+        'target_interface_detached': False
     }
 
-    # Destroy running VM
+    # Step 1: Get host info from persistence BEFORE deleting (need bridge info)
+    host_entry = get_user_host(name, USER_HOSTS_PATH)
+    bridge_name = None
+    target_device = None
+
+    if host_entry:
+        for host_name, host_info in host_entry.items():
+            connection = host_info.get('connection', {})
+            if connection:
+                bridge_name = connection.get('bridge')
+                target_device = connection.get('target_device')
+                logger.info(f"Found connection info: bridge={bridge_name}, target={target_device}")
+            break
+
+    # Step 2: Detach interface from target device
+    if target_device and bridge_name:
+        try:
+            interfaces = get_vm_interfaces(target_device)
+            for intf in interfaces:
+                if intf.get('source') == bridge_name:
+                    mac = intf.get('mac')
+                    if mac:
+                        logger.info(f"Detaching interface {mac} from {target_device}")
+                        detach_interface_from_vm(target_device, mac)
+                        results['target_interface_detached'] = True
+                    break
+        except Exception as e:
+            logger.warning(f"Failed to detach interface from target: {e}")
+
+    # Step 3: Delete OVS bridge
+    if bridge_name:
+        try:
+            logger.info(f"Deleting OVS bridge: {bridge_name}")
+            delete_ovs_bridge(bridge_name)
+            results['bridge_deleted'] = True
+        except Exception as e:
+            logger.warning(f"Failed to delete bridge {bridge_name}: {e}")
+
+    # Step 4: Destroy running VM
     try:
         subprocess.run(['virsh', 'destroy', name],
                        capture_output=True, timeout=30)
@@ -631,7 +680,7 @@ def delete_host(name: str) -> Dict:
     except Exception:
         pass
 
-    # Undefine VM
+    # Step 5: Undefine VM
     try:
         result = subprocess.run(['virsh', 'undefine', name],
                                 capture_output=True, text=True, timeout=30)
@@ -639,7 +688,7 @@ def delete_host(name: str) -> Dict:
     except Exception as e:
         logger.warning(f"Failed to undefine VM: {e}")
 
-    # Delete disk image
+    # Step 6: Delete disk image
     disk_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{name}.qcow2'
     if os.path.exists(disk_path):
         try:
@@ -648,7 +697,7 @@ def delete_host(name: str) -> Dict:
         except Exception as e:
             logger.warning(f"Failed to delete disk: {e}")
 
-    # Delete cloud-init ISO
+    # Step 7: Delete cloud-init ISO
     cidata_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{name}-cidata.iso'
     if os.path.exists(cidata_path):
         try:

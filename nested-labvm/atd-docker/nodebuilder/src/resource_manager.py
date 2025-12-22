@@ -609,7 +609,7 @@ class ResourceManager:
             bridges = result.stdout.strip().split('\n')
 
             # Known system bridges that should NOT be deleted
-            system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext'}
+            system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
 
             for bridge in bridges:
                 bridge = bridge.strip()
@@ -654,10 +654,140 @@ class ResourceManager:
         import re
 
         # User bridge pattern: 2-3 letter prefix + number + hyphen + 2-3 letter prefix + number
-        # Examples: sp11-le13, le12-ho11, fw11-le15
-        user_bridge_pattern = r'^[a-z]{2,3}\d+-[a-z]{2,3}\d+$'
+        # Examples: sp11-le13, le12-ho11, fw11-le15, fw1et1-sp112
+        # Also match firewall patterns: fw1et1-sp112, fw1et2-bo110
+        user_bridge_patterns = [
+            r'^[a-z]{2,3}\d+-[a-z]{2,3}\d+$',  # Standard: sp11-le13
+            r'^[a-z]{2,3}\d+et\d+-[a-z]{2,3}\d+$',  # With et: fw1et1-sp112
+            r'^[a-z]{2,3}\d+-[a-z]{2,3}x\d+$',  # With x: sp27-bo14 -> sp2x7
+            r'^[a-z]{2,3}x\d+-[a-z]{2,3}\d+$',  # Reversed x
+        ]
 
-        return bool(re.match(user_bridge_pattern, bridge_name))
+        for pattern in user_bridge_patterns:
+            if re.match(pattern, bridge_name):
+                return True
+        return False
+
+    def _get_bridge_port_count(self, bridge_name: str) -> int:
+        """
+        Get the number of ports attached to a bridge.
+
+        Args:
+            bridge_name: Name of the OVS bridge
+
+        Returns:
+            Number of ports attached, or -1 on error
+        """
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ['ovs-vsctl', 'list-ports', bridge_name],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                return -1
+
+            ports = [p.strip() for p in result.stdout.split('\n') if p.strip()]
+            return len(ports)
+
+        except Exception:
+            return -1
+
+    def cleanup_all_orphaned_bridges(self) -> Dict:
+        """
+        Comprehensive orphaned bridge cleanup.
+
+        Finds and deletes bridges that are:
+        1. User-created (matching naming patterns)
+        2. Truly orphaned (0-1 ports attached, meaning one or both VMs deleted)
+
+        Returns:
+            Dict with cleanup results including found/deleted counts
+        """
+        import subprocess
+
+        results = {
+            'scanned': 0,
+            'orphaned_found': [],
+            'deleted': [],
+            'failed': [],
+            'skipped_system': 0,
+            'skipped_healthy': 0
+        }
+
+        try:
+            # Get all OVS bridges
+            result = subprocess.run(
+                ['ovs-vsctl', 'list-br'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                self.logger.warning(f"Failed to list OVS bridges: {result.stderr}")
+                return results
+
+            bridges = result.stdout.strip().split('\n')
+
+            # Known system bridges that should NOT be deleted
+            system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+
+            for bridge in bridges:
+                bridge = bridge.strip()
+                if not bridge:
+                    continue
+
+                results['scanned'] += 1
+
+                # Skip system bridges
+                if bridge in system_bridges:
+                    results['skipped_system'] += 1
+                    continue
+
+                # Check if it matches user-created patterns
+                if not self._is_user_created_bridge(bridge):
+                    results['skipped_healthy'] += 1
+                    continue
+
+                # Check port count - healthy bridges should have 2 ports
+                port_count = self._get_bridge_port_count(bridge)
+
+                if port_count < 2:
+                    # This bridge is orphaned (0-1 ports means one/both VMs deleted)
+                    results['orphaned_found'].append({
+                        'bridge': bridge,
+                        'port_count': port_count
+                    })
+
+                    try:
+                        delete_ovs_bridge(bridge)
+                        results['deleted'].append(bridge)
+                        self.logger.info(f"Deleted orphaned bridge: {bridge} (had {port_count} ports)")
+                    except Exception as e:
+                        results['failed'].append({
+                            'bridge': bridge,
+                            'error': str(e)
+                        })
+                        self.logger.warning(f"Failed to delete bridge {bridge}: {e}")
+                else:
+                    # Bridge has 2+ ports, appears healthy
+                    results['skipped_healthy'] += 1
+
+        except Exception as e:
+            self.logger.error(f"Error during comprehensive bridge cleanup: {e}")
+            results['error'] = str(e)
+
+        self.logger.info(
+            f"Bridge cleanup complete: scanned={results['scanned']}, "
+            f"orphaned={len(results['orphaned_found'])}, deleted={len(results['deleted'])}"
+        )
+
+        return results
 
 
 # Module-level singleton instance
