@@ -696,10 +696,11 @@ def restore_all_user_nodes() -> Dict:
             'errors': []
         }
 
-    # Phase 1: Create ALL OVS bridges for ALL devices first
-    # This ensures bridges exist before any VM tries to use them
-    logger.info("Phase 1: Creating OVS bridges for all user devices")
+    # Phase 1: Create ALL OVS bridges and attach to target devices
+    # This ensures bridges exist and target devices have interfaces before VMs start
+    logger.info("Phase 1: Creating OVS bridges and attaching to target devices")
     bridges_created = []
+    interfaces_attached = []
 
     for device in all_devices:
         device_name = device['name']
@@ -724,8 +725,12 @@ def restore_all_user_nodes() -> Dict:
                         if result['status'] == 'created':
                             logger.info(f"Created OVS bridge: {bridge_name}")
                             bridges_created.append(bridge_name)
+                        # Always try to attach to target (may already be attached)
+                        attach_interface_to_vm(target_device, bridge_name)
+                        interfaces_attached.append(f"{target_device}:{bridge_name}")
+                        logger.info(f"Attached interface to {target_device} on {bridge_name}")
                     except Exception as e:
-                        logger.warning(f"Failed to create bridge {bridge_name}: {e}")
+                        logger.warning(f"Failed to create/attach bridge {bridge_name}: {e}")
 
         # Linux hosts use 'connection' format
         elif device_type == 'host':
@@ -743,8 +748,12 @@ def restore_all_user_nodes() -> Dict:
                         if result['status'] == 'created':
                             logger.info(f"Created OVS bridge: {bridge_name}")
                             bridges_created.append(bridge_name)
+                        # Always try to attach to target (may already be attached)
+                        attach_interface_to_vm(target_device, bridge_name)
+                        interfaces_attached.append(f"{target_device}:{bridge_name}")
+                        logger.info(f"Attached interface to {target_device} on {bridge_name}")
                     except Exception as e:
-                        logger.warning(f"Failed to create bridge {bridge_name}: {e}")
+                        logger.warning(f"Failed to create/attach bridge {bridge_name}: {e}")
 
         # VyOS firewalls use 'inside_interface' and 'outside_interface' format
         elif device_type == 'firewall':
@@ -763,10 +772,14 @@ def restore_all_user_nodes() -> Dict:
                         if result['status'] == 'created':
                             logger.info(f"Created OVS bridge: {bridge_name}")
                             bridges_created.append(bridge_name)
+                        # Always try to attach to target (may already be attached)
+                        attach_interface_to_vm(target_device, bridge_name)
+                        interfaces_attached.append(f"{target_device}:{bridge_name}")
+                        logger.info(f"Attached interface to {target_device} on {bridge_name}")
                     except Exception as e:
-                        logger.warning(f"Failed to create bridge {bridge_name}: {e}")
+                        logger.warning(f"Failed to create/attach bridge {bridge_name}: {e}")
 
-    logger.info(f"Phase 1 complete: {len(bridges_created)} bridges created")
+    logger.info(f"Phase 1 complete: {len(bridges_created)} bridges created, {len(interfaces_attached)} interfaces attached")
 
     # Phase 2: Start all VMs in creation order
     logger.info("Phase 2: Starting user VMs in creation order")

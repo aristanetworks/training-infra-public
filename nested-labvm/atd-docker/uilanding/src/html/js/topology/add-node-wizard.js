@@ -1123,15 +1123,30 @@ class AddNodeWizard {
                 });
             }
 
-            // Update UI to show success
+            // Update UI to show success - distinguish started vs already running
+            const startedCount = result.restored?.filter(n => n.status === 'started').length || 0;
+            const alreadyRunningCount = result.restored?.filter(n => n.status === 'already_running').length || 0;
+            const errorCount = result.errors?.length || 0;
+
+            let statusMessage = '';
+            if (startedCount > 0) {
+                statusMessage += `${startedCount} node(s) started. `;
+            }
+            if (alreadyRunningCount > 0) {
+                statusMessage += `${alreadyRunningCount} already running. `;
+            }
+            if (errorCount > 0) {
+                statusMessage += `${errorCount} error(s).`;
+            }
+            if (!statusMessage) {
+                statusMessage = 'All nodes are up to date.';
+            }
+
             content.innerHTML = `
                 <div class="restore-success">
                     <div class="success-icon">&#10003;</div>
                     <h3>Restore Complete</h3>
-                    <p>
-                        ${result.restored?.length || 0} node(s) restored successfully.
-                        ${result.errors?.length > 0 ? `${result.errors.length} error(s).` : ''}
-                    </p>
+                    <p>${statusMessage}</p>
                 </div>
             `;
 

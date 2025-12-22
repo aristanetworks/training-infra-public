@@ -655,12 +655,12 @@ async def edit_node(request):
 @routes.get('/node-connections/{name}')
 async def get_node_connections(request):
     """
-    Get current connections for a user-added node.
+    Get current connections for a user-added device (node, host, or firewall).
 
-    Returns list of connections for editing.
+    Returns list of connections for deletion reboot prompt.
     """
-    from persistence import get_user_node
-    from config import USER_NODES_PATH
+    from persistence import get_user_node, get_user_host, get_user_firewall
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
 
     name = request.match_info.get('name', '')
 
@@ -672,27 +672,68 @@ async def get_node_connections(request):
     if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
         return web.json_response({'error': 'Invalid device name format'}, status=400)
 
-    user_node = get_user_node(name, USER_NODES_PATH)
-    if not user_node:
-        return web.json_response({
-            'error': f"Node '{name}' is not a user-added node or does not exist"
-        }, status=400)
-
-    node_info = user_node.get(name, {})
-    neighbors = node_info.get('neighbors', [])
-
     connections = []
-    for neighbor in neighbors:
-        connections.append({
-            'local_port': neighbor.get('port', ''),
-            'target_device': neighbor.get('neighborDevice', ''),
-            'target_port': neighbor.get('neighborPort', '')
-        })
+    device_ip = ''
+    device_type = 'node'
+
+    # Check vEOS nodes first
+    user_node = get_user_node(name, USER_NODES_PATH)
+    if user_node:
+        node_info = user_node.get(name, {})
+        device_ip = node_info.get('ip_addr', '')
+        neighbors = node_info.get('neighbors', [])
+        for neighbor in neighbors:
+            connections.append({
+                'local_port': neighbor.get('port', ''),
+                'target_device': neighbor.get('neighborDevice', ''),
+                'target_port': neighbor.get('neighborPort', '')
+            })
+    else:
+        # Check Linux hosts
+        user_host = get_user_host(name, USER_HOSTS_PATH)
+        if user_host:
+            host_info = user_host.get(name, {})
+            device_ip = host_info.get('mgmt_ip', '')
+            device_type = 'host'
+            connection = host_info.get('connection', {})
+            if connection and connection.get('target_device'):
+                connections.append({
+                    'local_port': 'eth1',
+                    'target_device': connection.get('target_device', ''),
+                    'target_port': connection.get('target_port', '')
+                })
+        else:
+            # Check VyOS firewalls
+            user_fw = get_user_firewall(name, USER_FIREWALLS_PATH)
+            if user_fw:
+                fw_info = user_fw.get(name, {})
+                device_ip = fw_info.get('mgmt_ip', '')
+                device_type = 'firewall'
+                # Add inside interface connection
+                inside = fw_info.get('inside_interface', {})
+                if inside and inside.get('target_device'):
+                    connections.append({
+                        'local_port': 'eth1',
+                        'target_device': inside.get('target_device', ''),
+                        'target_port': inside.get('target_port', '')
+                    })
+                # Add outside interface connection
+                outside = fw_info.get('outside_interface', {})
+                if outside and outside.get('target_device'):
+                    connections.append({
+                        'local_port': 'eth2',
+                        'target_device': outside.get('target_device', ''),
+                        'target_port': outside.get('target_port', '')
+                    })
+            else:
+                return web.json_response({
+                    'error': f"Device '{name}' not found in user nodes, hosts, or firewalls"
+                }, status=400)
 
     return web.json_response({
         'name': name,
-        'ip': node_info.get('ip_addr', ''),
-        'mac': node_info.get('sys_mac', ''),
+        'ip': device_ip,
+        'type': device_type,
         'connections': connections
     })
 

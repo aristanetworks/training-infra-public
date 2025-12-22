@@ -2337,11 +2337,26 @@ export class EventManager {
     async fetchAndDisplayEdgeStats(edge, tooltip) {
         const data = edge.data();
 
+        // Check device types - skip eAPI stats for non-EOS devices (firewalls, Linux hosts)
+        const nonEosTypes = ['firewall', 'linux_host', 'host'];
+        const sourceNode = this.cy.$id(data.source);
+        const targetNode = this.cy.$id(data.target);
+        const sourceType = sourceNode.data('device_type');
+        const targetType = targetNode.data('device_type');
+
         try {
+            // Only fetch stats for EOS devices - skip firewalls and Linux hosts
+            const sourceStatsPromise = nonEosTypes.includes(sourceType)
+                ? Promise.resolve(null)
+                : this.fetchInterfaceStats(data.source, data.source_port);
+            const targetStatsPromise = nonEosTypes.includes(targetType)
+                ? Promise.resolve(null)
+                : this.fetchInterfaceStats(data.target, data.target_port);
+
             // Fetch stats for both interfaces in parallel
             const [sourceStats, targetStats] = await Promise.all([
-                this.fetchInterfaceStats(data.source, data.source_port),
-                this.fetchInterfaceStats(data.target, data.target_port)
+                sourceStatsPromise,
+                targetStatsPromise
             ]);
 
             // Check if tooltip is still visible (user might have moved away)
