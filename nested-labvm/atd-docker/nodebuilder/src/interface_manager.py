@@ -14,7 +14,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from validation import get_all_nodes
-from config import get_topo_build_path, USER_NODES_PATH
+from config import get_topo_build_path, USER_NODES_PATH, MGMT_BRIDGE
 
 
 def parse_device_name(dev_name: str) -> Dict:
@@ -173,8 +173,10 @@ def get_used_ports_from_live_vm(device_name: str) -> List[int]:
                 parts = line.split()
                 if len(parts) >= 3:
                     source = parts[2]
-                    # Count OVS bridges (data interfaces, not mgmt bridge)
-                    if source not in ['br0', 'br-mgmt'] and not source.startswith('virbr'):
+                    # Count OVS bridges (data interfaces, not management bridges)
+                    # Management bridges: vmgmt (ATD), br0, br-mgmt, virbr* (libvirt default)
+                    mgmt_bridges = {'br0', 'br-mgmt', MGMT_BRIDGE, 'oob_mgmt'}
+                    if source not in mgmt_bridges and not source.startswith('virbr'):
                         interface_count += 1
 
         # Return list of port numbers (1 to interface_count)
