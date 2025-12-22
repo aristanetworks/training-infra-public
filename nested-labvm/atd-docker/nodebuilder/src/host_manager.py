@@ -166,14 +166,9 @@ def generate_cloud_init_iso(
             # Fallback inline template if template file not found
             logger.warning(f"Template not found at {template_path}, using inline fallback")
 
-            # Build network config for eth1 if data_ip provided
-            eth1_config = ""
-            if data_ip:
-                eth1_config = f"""          eth1:
-            addresses:
-              - {data_ip}"""
-
             user_data = f"""#cloud-config
+# NOTE: Network configuration is in a separate network-config file
+# which cloud-init processes early, before package installation.
 hostname: {hostname}
 fqdn: {hostname}.atl.local
 manage_etc_hosts: true
@@ -232,26 +227,7 @@ write_files:
       autologin-user-timeout=0
     permissions: '0644'
 
-  - path: /etc/netplan/50-cloud-init.yaml
-    content: |
-      network:
-        version: 2
-        ethernets:
-          eth0:
-            addresses:
-              - {mgmt_ip}/24
-            routes:
-              - to: default
-                via: {gateway}
-            nameservers:
-              addresses:
-                - 8.8.8.8
-                - {gateway}
-{eth1_config}
-    permissions: '0644'
-
 runcmd:
-  - netplan apply
   - systemctl daemon-reload
   - systemctl enable x11vnc
   - systemctl enable lightdm
@@ -285,6 +261,29 @@ local-hostname: {hostname}
 """
         with open(os.path.join(temp_dir, 'meta-data'), 'w') as f:
             f.write(meta_data)
+
+        # Write network-config (version 2 netplan format)
+        # This is processed by cloud-init early, before package installation
+        # Ubuntu uses predictable interface names: ens3, ens4 for virtio NICs
+        network_config = f"""version: 2
+ethernets:
+  ens3:
+    addresses:
+      - {mgmt_ip}/24
+    routes:
+      - to: default
+        via: {gateway}
+    nameservers:
+      addresses:
+        - 8.8.8.8
+        - {gateway}
+  ens4:
+    dhcp4: false
+    optional: true
+"""
+        with open(os.path.join(temp_dir, 'network-config'), 'w') as f:
+            f.write(network_config)
+        logger.info(f"Generated network-config for {hostname} with IP {mgmt_ip}")
 
         # Generate ISO
         iso_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{hostname}-cidata.iso'
