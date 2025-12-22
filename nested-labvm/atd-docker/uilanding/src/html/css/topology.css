@@ -409,6 +409,7 @@
 .tooltip-value.status-error { color: #ff8c00; font-weight: 600; }
 .tooltip-value.status-init { color: #fbb500; }
 .tooltip-value.status-unknown { color: #808080; }
+.tooltip-value.status-unconfigured { color: #4c5cae; font-weight: 600; }
 
 /* Status indicator dot */
 .status-indicator {
@@ -425,6 +426,7 @@
 .status-indicator.status-error { background-color: #ff8c00; }
 .status-indicator.status-init { background-color: #fbb500; }
 .status-indicator.status-unknown { background-color: #808080; }
+.status-indicator.status-unconfigured { background-color: #4c5cae; }
 
 .tooltip-ports {
     margin-top: 10px;
@@ -625,6 +627,7 @@
 .status-dot.down { background-color: #e30909; }
 .status-dot.init { background-color: #fbb500; }
 .status-dot.unknown { background-color: #808080; }
+.status-dot.unconfigured { background-color: #4c5cae; }
 
 /* ==========================================
    Context Menu

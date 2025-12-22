@@ -2067,10 +2067,21 @@ class InterfaceStatsAPIHandler(BaseHandler):
             stats = self.get_interface_stats(device, interface)
             self.write(json.dumps(stats))
         except Exception as e:
-            pS(f"InterfaceStatsAPIHandler error: {e}")
-            traceback.print_exc()
-            self.set_status(500)
-            self.write(json.dumps({'error': str(e)}))
+            error_str = str(e)
+            # Check for authentication failures - device is up but not configured
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                pS(f"InterfaceStatsAPIHandler: Auth failed for {device} (unconfigured)")
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)'
+                }))
+            else:
+                pS(f"InterfaceStatsAPIHandler error: {e}")
+                traceback.print_exc()
+                self.set_status(500)
+                self.write(json.dumps({'error': error_str}))
 
     def get_interface_stats(self, device_name, interface_name):
         """Query EOS device for interface counters via eAPI."""

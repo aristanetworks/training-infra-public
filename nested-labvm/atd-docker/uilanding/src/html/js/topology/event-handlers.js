@@ -2468,11 +2468,14 @@ export class EventManager {
 
         const buildInterfaceSection = (title, stats) => {
             if (!stats || !stats.stats) {
+                // Check if device is unconfigured (auth failure)
+                const isUnconfigured = stats && stats.status === 'unconfigured';
+                const message = isUnconfigured ? 'Device unconfigured' : 'Stats unavailable';
                 return `
                     <div class="tooltip-section">
                         <span class="section-title">${title}</span>
                         <div class="tooltip-row">
-                            <span class="tooltip-value">Stats unavailable</span>
+                            <span class="tooltip-value${isUnconfigured ? ' status-unconfigured' : ''}">${message}</span>
                         </div>
                     </div>
                 `;
