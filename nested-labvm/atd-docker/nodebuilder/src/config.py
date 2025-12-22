@@ -64,8 +64,8 @@ VEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'
 # Supports both Debian and Ubuntu base images - uses whichever is available
 HOST_BASE_IMAGE_DEBIAN = f'{LIBVIRT_IMAGES_PATH}/hosts/base/debian-lxde-base.qcow2'
 HOST_BASE_IMAGE_UBUNTU = f'{LIBVIRT_IMAGES_PATH}/hosts/base/ubuntu-desktop-base.qcow2'
-HOST_CPU = 1
-HOST_RAM_MB = 1024
+HOST_CPU = 2
+HOST_RAM_MB = 1536
 HOST_DISK_GB = 10  # Ubuntu needs more space for desktop packages
 MAX_HOSTS_PER_TOPOLOGY = 2
 # VNC ports for Linux hosts - start at 5920 to avoid conflicts with
