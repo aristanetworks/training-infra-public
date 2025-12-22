@@ -473,6 +473,44 @@ def attach_interface_to_vm(
         if result.returncode != 0:
             raise RuntimeError(f"Failed to attach interface: {result.stderr}")
 
+        # For running VMs, we need to manually add the interface to OVS
+        # virsh attach-device --live doesn't reliably add to OVS bridges
+        if vm_is_running:
+            # Find the newly created vnet interface by checking domiflist
+            domiflist_result = subprocess.run(
+                ['virsh', 'domiflist', vm_name],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if domiflist_result.returncode == 0:
+                # Parse domiflist output to find interface connected to our bridge
+                for line in domiflist_result.stdout.strip().split('\n'):
+                    parts = line.split()
+                    if len(parts) >= 3 and parts[2] == bridge_name:
+                        vnet_interface = parts[0]
+                        # Check if this interface is already in OVS
+                        check_port = subprocess.run(
+                            ['ovs-vsctl', 'port-to-br', vnet_interface],
+                            capture_output=True,
+                            text=True
+                        )
+                        if check_port.returncode != 0:
+                            # Interface not in OVS, add it manually
+                            logger.info(f"Adding {vnet_interface} to OVS bridge {bridge_name}")
+                            add_result = subprocess.run(
+                                ['ovs-vsctl', 'add-port', bridge_name, vnet_interface],
+                                capture_output=True,
+                                text=True,
+                                timeout=30
+                            )
+                            if add_result.returncode != 0:
+                                logger.warning(f"Failed to add {vnet_interface} to OVS: {add_result.stderr}")
+                            else:
+                                logger.info(f"Successfully added {vnet_interface} to {bridge_name}")
+                        break
+
         return {
             'status': 'attached' if vm_is_running else 'configured',
             'vm': vm_name,
