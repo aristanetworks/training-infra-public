@@ -1665,12 +1665,16 @@ class TopologyAPIHandler(BaseHandler):
         edges = []
         edge_set = set()  # Track edges to avoid duplicates
 
-        # First pass: collect all valid node names
+        # First pass: collect all valid node names and build normalization mapping
+        # Maps raw_name (from YAML) -> normalized_name (for display and API consistency)
         valid_node_names = set()
+        name_mapping = {}  # raw_name -> normalized_name
         for node_entry in topo_data['nodes']:
             if isinstance(node_entry, dict):
-                for device_name in node_entry.keys():
-                    valid_node_names.add(device_name)
+                for raw_name in node_entry.keys():
+                    normalized = normalize_device_name(raw_name)
+                    valid_node_names.add(raw_name)
+                    name_mapping[raw_name] = normalized
 
         # Second pass: build nodes and edges
         for node_entry in topo_data['nodes']:
@@ -1680,15 +1684,18 @@ class TopologyAPIHandler(BaseHandler):
                 continue
 
             # Each entry is a dict with device name as key
-            for device_name, device_info in node_entry.items():
+            for raw_device_name, device_info in node_entry.items():
+                # Get normalized display name for API consistency
+                display_name = name_mapping.get(raw_device_name, raw_device_name)
+
                 # Validate device_info is a dict
                 if not isinstance(device_info, dict):
-                    pS(f"Warning: Invalid device info for {device_name} (not a dict)")
+                    pS(f"Warning: Invalid device info for {raw_device_name} (not a dict)")
                     continue
 
                 # Use explicit device_type if provided (for user-added nodes),
                 # otherwise classify from device name
-                device_type = device_info.get('device_type') or self.classify_device_type(device_name)
+                device_type = device_info.get('device_type') or self.classify_device_type(raw_device_name)
                 ip_addr = device_info.get('ip_addr', 'N/A')
                 sys_mac = device_info.get('sys_mac', 'N/A')
                 neighbors = device_info.get('neighbors', [])
@@ -1697,7 +1704,7 @@ class TopologyAPIHandler(BaseHandler):
 
                 # Validate neighbors is a list
                 if not isinstance(neighbors, list):
-                    pS(f"Warning: Invalid neighbors format for {device_name}")
+                    pS(f"Warning: Invalid neighbors format for {raw_device_name}")
                     neighbors = []
 
                 # Build port info for tooltip
@@ -1706,24 +1713,27 @@ class TopologyAPIHandler(BaseHandler):
                     if not isinstance(neighbor, dict):
                         continue
 
-                    neighbor_device = neighbor.get('neighborDevice', '')
+                    neighbor_device_raw = neighbor.get('neighborDevice', '')
+                    # Get normalized neighbor name for display
+                    neighbor_device_display = name_mapping.get(neighbor_device_raw, neighbor_device_raw)
 
                     ports.append({
                         'port': neighbor.get('port', ''),
-                        'neighbor': neighbor_device,
+                        'neighbor': neighbor_device_display,  # Use normalized name for display
                         'neighbor_port': neighbor.get('neighborPort', '')
                     })
 
                     # Create edge only if both nodes exist (prevents Cytoscape.js errors)
-                    if neighbor_device and neighbor_device in valid_node_names:
+                    if neighbor_device_raw and neighbor_device_raw in valid_node_names:
                         # Get port values with None-safety
                         device_port = neighbor.get('port') or ''
                         neighbor_port = neighbor.get('neighborPort') or ''
 
                         # Create edge key that includes ports to support multiple links
                         # between the same device pair (e.g., MLAG, port-channel, redundancy)
+                        # Use normalized names for edge keys
                         port_pair = tuple(sorted([device_port, neighbor_port]))
-                        edge_key = (tuple(sorted([device_name, neighbor_device])), port_pair)
+                        edge_key = (tuple(sorted([display_name, neighbor_device_display])), port_pair)
 
                         if edge_key not in edge_set:
                             edge_set.add(edge_key)
@@ -1732,20 +1742,20 @@ class TopologyAPIHandler(BaseHandler):
                             # consistent port assignment regardless of processing order.
                             # edge_key[0][0] is the alphabetically first device name.
                             sorted_devices = edge_key[0]
-                            if device_name == sorted_devices[0]:
+                            if display_name == sorted_devices[0]:
                                 # Current device is alphabetically first, so it's the source.
                                 # Ports stay as-is: device_port -> source, neighbor_port -> target
-                                source_node = device_name
-                                target_node = neighbor_device
+                                source_node = display_name
+                                target_node = neighbor_device_display
                                 source_port = device_port
                                 target_port = neighbor_port
                             else:
                                 # Neighbor device is alphabetically first, so it becomes source.
-                                # Since we're processing from device_name's perspective, swap ports:
+                                # Since we're processing from device's perspective, swap ports:
                                 # neighbor_port belongs to the alphabetically-first (source) node
                                 # device_port belongs to the alphabetically-second (target) node
-                                source_node = neighbor_device
-                                target_node = device_name
+                                source_node = neighbor_device_display
+                                target_node = display_name
                                 source_port = neighbor_port
                                 target_port = device_port
 
@@ -1760,20 +1770,22 @@ class TopologyAPIHandler(BaseHandler):
                                     'target_port': target_port
                                 }
                             })
-                    elif neighbor_device:
-                        pS(f"Warning: Skipping edge {device_name}->{neighbor_device}: target node not in topology")
+                    elif neighbor_device_raw:
+                        pS(f"Warning: Skipping edge {display_name}->{neighbor_device_display}: target node not in topology")
 
-                # Create node
+                # Create node with normalized display name as ID
+                # Keep vm_name for virsh console access (uses original name from YAML)
                 nodes.append({
                     'data': {
-                        'id': device_name,
-                        'label': device_name,
+                        'id': display_name,
+                        'label': display_name,
                         'ip': ip_addr,
                         'sys_mac': sys_mac,
                         'device_type': device_type,
                         'status': 'unknown',
                         'ports': ports,
-                        'user_added': user_added
+                        'user_added': user_added,
+                        'vm_name': raw_device_name  # Original name for virsh console
                     },
                     'classes': f"device-type-{device_type} status-unknown"
                 })
@@ -2288,9 +2300,13 @@ class DeviceStatusAPIHandler(BaseHandler):
         return result
 
     def _check_device_via_ping(self, device_name, device_ip, device_category):
-        """Check if a host or firewall is reachable via ping."""
+        """Check if a host or firewall is reachable via ping or TCP check."""
         import subprocess
+        import socket
 
+        device_type_label = 'Linux Host' if device_category == 'host' else 'VyOS Firewall'
+
+        # Try ping first
         try:
             # Quick ping with 1 second timeout
             result = subprocess.run(
@@ -2300,7 +2316,6 @@ class DeviceStatusAPIHandler(BaseHandler):
             )
 
             if result.returncode == 0:
-                device_type_label = 'Linux Host' if device_category == 'host' else 'VyOS Firewall'
                 return {
                     'device': device_name,
                     'ip': device_ip,
@@ -2324,12 +2339,45 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'error': 'Ping timeout',
                 'last_check': datetime.now().isoformat()
             }
+        except FileNotFoundError:
+            # ping command not available, fallback to TCP check on port 22 (SSH)
+            pS(f"[DeviceStatus] Ping not available, trying TCP check for {device_name}")
+            pass
         except Exception as e:
+            # Log the error but try TCP fallback
+            pS(f"[DeviceStatus] Ping failed for {device_name}: {e}, trying TCP check")
+            pass
+
+        # Fallback: TCP check on SSH port (22)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex((device_ip, 22))
+            sock.close()
+
+            if result == 0:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'up',
+                    'version': device_type_label,
+                    'last_check': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'down',
+                    'error': f'TCP port 22 not responding (code {result})',
+                    'last_check': datetime.now().isoformat()
+                }
+        except Exception as e:
+            pS(f"[DeviceStatus] TCP check also failed for {device_name}: {e}")
             return {
                 'device': device_name,
                 'ip': device_ip,
-                'status': 'error',
-                'error': str(e),
+                'status': 'down',
+                'error': f'Unreachable: {str(e)}',
                 'last_check': datetime.now().isoformat()
             }
 

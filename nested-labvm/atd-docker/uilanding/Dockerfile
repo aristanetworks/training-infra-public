@@ -4,7 +4,8 @@ FROM python:3.9
 # Note: tcpdump/openvswitch removed - packet capture runs in dedicated captureservice container
 RUN apt-get update && apt-get install -y \
     openssh-client \
-    sshpass
+    sshpass \
+    iputils-ping
 
 RUN pip install --upgrade pip
 
