@@ -287,16 +287,21 @@ async def console_websocket(request):
                         logger.error(f"PTY write error: {e}")
                         break
                 elif msg.type == WSMsgType.TEXT:
-                    # Handle control messages (e.g., resize)
+                    # Handle control messages (e.g., resize) or plain text input
                     try:
                         import json
                         data = json.loads(msg.data)
-                        if data.get('type') == 'resize':
-                            session.resize(data.get('rows', 24), data.get('cols', 80))
-                        elif data.get('type') == 'input':
-                            os.write(master_fd, data.get('data', '').encode())
+                        # Only treat as control message if it's a dict with 'type' key
+                        if isinstance(data, dict) and 'type' in data:
+                            if data['type'] == 'resize':
+                                session.resize(data.get('rows', 24), data.get('cols', 80))
+                            elif data['type'] == 'input':
+                                os.write(master_fd, data.get('data', '').encode())
+                        else:
+                            # Valid JSON but not a control message - treat as input
+                            os.write(master_fd, msg.data.encode())
                     except json.JSONDecodeError:
-                        # Plain text input
+                        # Plain text input (not valid JSON)
                         os.write(master_fd, msg.data.encode())
                 elif msg.type == WSMsgType.ERROR:
                     logger.error(f"WebSocket error: {ws.exception()}")
