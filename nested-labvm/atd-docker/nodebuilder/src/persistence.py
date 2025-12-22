@@ -344,7 +344,7 @@ def load_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> Dict:
         if data is None:
             return get_empty_user_hosts()
 
-        if 'hosts' not in data:
+        if 'hosts' not in data or data['hosts'] is None:
             data['hosts'] = []
         if 'version' not in data:
             data['version'] = 1
@@ -436,7 +436,8 @@ def get_user_host(name: str, path: str = DEFAULT_USER_HOSTS_PATH) -> Optional[Di
 def list_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> List[Dict]:
     """List all user-added hosts."""
     data = load_user_hosts(path)
-    return data.get('hosts', [])
+    # Handle case where hosts key exists but value is None
+    return data.get('hosts') or []
 
 
 # ============================================================================
@@ -479,7 +480,7 @@ def load_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> Dict:
         if data is None:
             return get_empty_user_firewalls()
 
-        if 'firewalls' not in data:
+        if 'firewalls' not in data or data['firewalls'] is None:
             data['firewalls'] = []
         if 'version' not in data:
             data['version'] = 1
@@ -571,4 +572,5 @@ def get_user_firewall(name: str, path: str = DEFAULT_USER_FIREWALLS_PATH) -> Opt
 def list_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> List[Dict]:
     """List all user-added firewalls."""
     data = load_user_firewalls(path)
-    return data.get('firewalls', [])
+    # Handle case where firewalls key exists but value is None
+    return data.get('firewalls') or []
