@@ -15,6 +15,7 @@ Endpoints:
 - POST /validate-node       - Validate node config before creation
 - POST /add-node            - Create new vEOS VM
 - POST /restore-user-nodes  - Start all user-added VMs after reboot
+- POST /reset-all-user-nodes - Remove all user-added nodes and restore original topology
 
 Linux Host Endpoints:
 - GET  /host-status         - Get host count and availability
@@ -378,6 +379,38 @@ async def restore_user_nodes(request):
         return web.json_response(result)
     except Exception as e:
         logger.error(f"Error restoring user nodes: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/reset-all-user-nodes')
+async def reset_all_user_nodes(request):
+    """
+    Reset to original topology by removing all user-added nodes.
+
+    This removes all user-added VMs (vEOS nodes, Linux hosts, VyOS firewalls),
+    deletes their OVS bridges, and clears persistence files.
+
+    Returns detailed results of each phase of the reset process.
+    """
+    from resource_manager import get_resource_manager
+
+    try:
+        logger.info("Initiating full reset of user-added nodes")
+        resource_mgr = get_resource_manager()
+        result = resource_mgr.reset_all_user_nodes()
+
+        # Log summary
+        summary = result.get('summary', {})
+        logger.info(
+            f"Reset complete: {summary.get('nodes', 0)} nodes, "
+            f"{summary.get('hosts', 0)} hosts, "
+            f"{summary.get('firewalls', 0)} firewalls, "
+            f"{summary.get('bridges', 0)} bridges cleaned"
+        )
+
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error resetting user nodes: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 

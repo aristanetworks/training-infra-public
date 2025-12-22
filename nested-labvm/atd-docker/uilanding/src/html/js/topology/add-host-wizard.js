@@ -14,6 +14,7 @@
  *
  * Dependencies:
  * - NodeBuilderAPI (shared API service)
+ * - DeviceRebootManager (shared reboot component)
  */
 
 class AddHostWizard {
@@ -717,7 +718,18 @@ class AddHostWizard {
             this.logMessage(log, `VM: ${result.host?.name || this.hostConfig.name}`);
             this.logMessage(log, `IP: ${result.host?.mgmt_ip || this.hostConfig.ip}`);
 
-            // Show success state
+            // Get target device that needs rebooting (if connection was configured)
+            const rebootTargets = this.hostConfig.connection?.target_device
+                ? [this.hostConfig.connection.target_device]
+                : [];
+
+            // Store result for later use
+            this.createdHost = result.host || { name: this.hostConfig.name, ip: this.hostConfig.ip };
+
+            // Use shared DeviceRebootManager for reboot section
+            const rebootManager = new DeviceRebootManager(this.targetDevices);
+
+            // Show success state with reboot options
             content.innerHTML = `
                 <div class="wizard-success">
                     <div class="success-icon">&#10004;</div>
@@ -728,8 +740,15 @@ class AddHostWizard {
                         <p>Management IP: <code>${this.escapeHtml(this.hostConfig.ip)}</code></p>
                         <p>Access: Terminals menu > ${this.escapeHtml(this.hostConfig.name)}</p>
                     </div>
+
+                    ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}
                 </div>
             `;
+
+            // Attach reboot handlers if there are targets
+            if (rebootTargets.length > 0) {
+                rebootManager.attachEventHandlers(content);
+            }
 
             // Update button to close
             nextBtn.textContent = 'Close';

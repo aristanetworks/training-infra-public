@@ -524,48 +524,43 @@ class AddNodeWizard {
 
     /**
      * Step 3: Connection Configuration
+     * Uses dropdown selection to allow adding multiple connections,
+     * including multiple connections to the same device.
      */
     renderConnectionsStep(content) {
-        const deviceCards = this.targetDevices.map(device => {
-            const isSelected = this.nodeConfig.connections.some(c => c.target_device === device.name);
-            const usedPortsDisplay = device.used_ports?.length > 0
-                ? `Used: ${device.used_ports.slice(0, 3).join(', ')}${device.used_ports.length > 3 ? '...' : ''}`
-                : 'No ports in use';
-
-            return `
-                <div class="device-card ${isSelected ? 'selected' : ''}"
-                     data-device="${this.escapeHtml(device.name)}">
-                    <div class="device-card-header">
-                        <input type="checkbox"
-                               class="device-checkbox"
-                               id="conn-${this.escapeHtml(device.name)}"
-                               ${isSelected ? 'checked' : ''}>
-                        <label for="conn-${this.escapeHtml(device.name)}">${this.escapeHtml(device.name)}</label>
-                    </div>
-                    <div class="device-card-info">
-                        <span class="next-port">Next: ${this.escapeHtml(device.next_available_port)}</span>
-                        <span class="used-ports">${usedPortsDisplay}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Build device options for dropdown
+        const deviceOptions = this.targetDevices.map(device =>
+            `<option value="${this.escapeHtml(device.name)}"
+                     data-next-port="${this.escapeHtml(device.next_available_port)}">
+                ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
+            </option>`
+        ).join('');
 
         content.innerHTML = `
             <div class="wizard-step wizard-step-connections">
                 <h3>Configure Connections</h3>
-                <p class="step-description">Select which existing devices to connect to. Each connection will use the next available port on both devices.</p>
+                <p class="step-description">Add connections to existing devices. You can add multiple connections, including multiple to the same device.</p>
 
                 <div class="connection-hint">
-                    <strong>Tip:</strong> Interfaces are automatically assigned contiguously starting from Ethernet1 on the new node.
-                    Connections are optional - you can add them later via the Edit Node feature.
+                    <strong>Tip:</strong> Interfaces are automatically assigned contiguously starting from Ethernet1.
+                    Connections are optional - you can add them later via the Edit Connections feature.
                 </div>
 
-                <div class="device-grid">
-                    ${deviceCards || '<p class="no-devices">No devices available for connection</p>'}
+                <div class="form-group">
+                    <label for="target-device">Add Connection To</label>
+                    <div class="add-connection-row">
+                        <select id="target-device" class="form-select">
+                            <option value="">Select a device...</option>
+                            ${deviceOptions}
+                        </select>
+                        <button type="button" class="wizard-btn wizard-btn-primary add-connection-btn" disabled>
+                            Add
+                        </button>
+                    </div>
                 </div>
 
                 <div class="connection-summary">
-                    <h4>Selected Connections</h4>
+                    <h4>Connections (${this.nodeConfig.connections.length})</h4>
                     <div class="connection-list">
                         ${this.renderConnectionSummary()}
                     </div>
@@ -573,69 +568,87 @@ class AddNodeWizard {
             </div>
         `;
 
-        // Add click handlers to device cards
-        content.querySelectorAll('.device-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                // Don't trigger if clicking the checkbox directly
-                if (e.target.type === 'checkbox') return;
+        const deviceSelect = content.querySelector('#target-device');
+        const addBtn = content.querySelector('.add-connection-btn');
 
-                const checkbox = card.querySelector('.device-checkbox');
-                checkbox.checked = !checkbox.checked;
-                this.handleConnectionToggle(card, checkbox.checked);
-            });
-
-            card.querySelector('.device-checkbox').addEventListener('change', (e) => {
-                this.handleConnectionToggle(card, e.target.checked);
-            });
+        // Enable/disable add button based on selection
+        deviceSelect.addEventListener('change', () => {
+            addBtn.disabled = !deviceSelect.value;
         });
+
+        // Handle add connection
+        addBtn.addEventListener('click', () => {
+            const selectedOption = deviceSelect.selectedOptions[0];
+            if (!selectedOption || !selectedOption.value) return;
+
+            const deviceName = selectedOption.value;
+            const nextPort = selectedOption.dataset.nextPort || 'Ethernet1';
+
+            // Add connection (allow duplicates for multi-port)
+            this.nodeConfig.connections.push({
+                target_device: deviceName,
+                target_port: nextPort
+            });
+
+            // Update summary
+            this.updateConnectionsSummary(content);
+
+            // Reset dropdown
+            deviceSelect.value = '';
+            addBtn.disabled = true;
+        });
+
+        // Attach remove handlers for existing connections
+        this.attachRemoveHandlers(content);
     }
 
     /**
-     * Handle connection checkbox toggle
+     * Update the connections summary display
      */
-    handleConnectionToggle(card, isSelected) {
-        const deviceName = card.dataset.device;
-        const device = this.targetDevices.find(d => d.name === deviceName);
-
-        if (isSelected) {
-            card.classList.add('selected');
-            // Add connection if not already present
-            if (!this.nodeConfig.connections.some(c => c.target_device === deviceName)) {
-                this.nodeConfig.connections.push({
-                    target_device: deviceName,
-                    target_port: device?.next_available_port || 'Ethernet1'
-                });
-            }
-        } else {
-            card.classList.remove('selected');
-            // Remove connection
-            this.nodeConfig.connections = this.nodeConfig.connections.filter(
-                c => c.target_device !== deviceName
-            );
-        }
-
-        // Update connection summary
-        const summaryList = this.overlay.querySelector('.connection-list');
-        summaryList.innerHTML = this.renderConnectionSummary();
+    updateConnectionsSummary(content) {
+        const summaryContainer = content.querySelector('.connection-summary');
+        summaryContainer.innerHTML = `
+            <h4>Connections (${this.nodeConfig.connections.length})</h4>
+            <div class="connection-list">
+                ${this.renderConnectionSummary()}
+            </div>
+        `;
+        this.attachRemoveHandlers(content);
 
         this.updateNextButtonState();
     }
 
     /**
-     * Render connection summary list
+     * Render connection summary list with remove buttons
      */
     renderConnectionSummary() {
         if (this.nodeConfig.connections.length === 0) {
-            return '<p class="no-connections">No connections selected</p>';
+            return '<p class="no-connections">No connections added yet</p>';
         }
 
         return this.nodeConfig.connections.map((conn, index) => `
-            <div class="connection-item">
+            <div class="connection-item" data-index="${index}">
                 <span class="local-port">Ethernet${index + 1}</span>
                 <span class="connection-arrow">&harr;</span>
                 <span class="remote-info">${this.escapeHtml(conn.target_device)} (${this.escapeHtml(conn.target_port)})</span>
+                <button type="button" class="remove-connection-btn" data-index="${index}" title="Remove connection">&times;</button>
             </div>
         `).join('');
+    }
+
+    /**
+     * Attach remove handlers to connection items
+     */
+    attachRemoveHandlers(content) {
+        content.querySelectorAll('.remove-connection-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(btn.dataset.index, 10);
+                if (index >= 0 && index < this.nodeConfig.connections.length) {
+                    this.nodeConfig.connections.splice(index, 1);
+                    this.updateConnectionsSummary(content);
+                }
+            });
+        });
     }
 
     /**

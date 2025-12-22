@@ -217,6 +217,8 @@ const DEFAULT_DEVICE_TYPE_INFO = {
     'leaf': { label: 'Leafs', color: '#20b2aa' },
     'borderleaf': { label: 'Borderleafs', color: '#fbb500' },
     'host': { label: 'Hosts', color: '#dae0fe' },
+    'linux_host': { label: 'Linux Hosts', color: '#9b59b6' },
+    'firewall': { label: 'Firewalls', color: '#e67e22' },
     'core': { label: 'Core', color: '#071c35' },
     'pe': { label: 'PE Routers', color: '#4c5cae' },
     'p': { label: 'P Routers', color: '#6b7cc9' },

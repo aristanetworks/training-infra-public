@@ -15,6 +15,7 @@
  *
  * Dependencies:
  * - NodeBuilderAPI (shared API service)
+ * - DeviceRebootManager (shared reboot component)
  */
 
 class AddFirewallWizard {
@@ -886,7 +887,19 @@ class AddFirewallWizard {
             this.logMessage(log, `VM: ${result.firewall?.name || this.firewallConfig.name}`);
             this.logMessage(log, `Mgmt IP: ${result.firewall?.mgmt_ip || this.firewallConfig.mgmt_ip}`);
 
-            // Show success state
+            // Get unique target devices that need rebooting (inside and outside interfaces)
+            const rebootTargets = [...new Set([
+                this.firewallConfig.inside_interface?.target_device,
+                this.firewallConfig.outside_interface?.target_device
+            ].filter(Boolean))];
+
+            // Store result for later use
+            this.createdFirewall = result.firewall || { name: this.firewallConfig.name, mgmt_ip: this.firewallConfig.mgmt_ip };
+
+            // Use shared DeviceRebootManager for reboot section
+            const rebootManager = new DeviceRebootManager(this.targetDevices);
+
+            // Show success state with reboot options
             content.innerHTML = `
                 <div class="wizard-success">
                     <div class="success-icon">&#10004;</div>
@@ -898,8 +911,15 @@ class AddFirewallWizard {
                         <p>Inside: <code>${this.escapeHtml(this.firewallConfig.inside_interface.ip)}</code></p>
                         <p>Outside: <code>${this.escapeHtml(this.firewallConfig.outside_interface.ip)}</code></p>
                     </div>
+
+                    ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}
                 </div>
             `;
+
+            // Attach reboot handlers if there are targets
+            if (rebootTargets.length > 0) {
+                rebootManager.attachEventHandlers(content);
+            }
 
             // Update button to close
             nextBtn.textContent = 'Close';

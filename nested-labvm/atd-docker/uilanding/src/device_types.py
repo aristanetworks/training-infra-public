@@ -3,6 +3,22 @@ Device Type Configuration Module
 
 Single source of truth for device type metadata used by both
 topology rendering and device grouping across the ATL platform.
+
+Device Type Categories:
+-----------------------
+- 'provider': External network devices (internet, ISP)
+- 'core': Core/backbone network devices (P routers, DCI, core)
+- 'edge': Edge/aggregation devices (PE, CE, borderleaf, gateways, firewalls)
+- 'fabric': Data center fabric devices (spines, leafs)
+- 'endpoint': End-user devices (hosts, customers)
+
+Classification Approaches:
+--------------------------
+1. Pattern-based: Device type is inferred from name patterns (e.g., 'leaf1' -> 'leaf')
+2. Explicit: Device type is set directly via 'device_type' field (e.g., user-added nodes)
+
+User-defined device types (linux_host, firewall) use explicit classification - they are
+not detected by pattern matching but must have their device_type set when created.
 """
 
 
@@ -10,11 +26,29 @@ class DeviceTypeConfig:
     """
     Centralized device type classification and metadata.
     Used by TopologyAPIHandler, DevicesAPIHandler, and frontend.
+
+    Device types can be classified by:
+    - Pattern matching: Based on device name patterns (automatic)
+    - Explicit assignment: Set device_type directly (for user-added nodes)
+
+    User-defined types like 'linux_host' and 'firewall' have patterns: []
+    because they rely on explicit device_type assignment, not name matching.
     """
+
+    # Device categories for layout and grouping logic
+    # Used to avoid hardcoding device type lists across the codebase
+    CATEGORIES = {
+        'provider': ['internet', 'isp'],
+        'core': ['core', 'dci', 'p', 'rr'],
+        'edge': ['borderleaf', 'pe', 'ce', 'gw', 'router', 'firewall'],
+        'fabric': ['spine', 'leaf', 'memleaf'],
+        'endpoint': ['host', 'linux_host', 'customer', 'oob', 'other'],
+    }
 
     # Device types with full metadata
     # priority: lower = checked first (for overlapping patterns like borderleaf/leaf)
     # tier: vertical position in topology (0=top, 9=bottom)
+    # category: logical grouping for layout algorithms
     DEVICE_TYPES = {
         'internet': {
             'tier': 0,
@@ -23,6 +57,7 @@ class DeviceTypeConfig:
             'group_name': 'ISP',
             'color': '#e30909',
             'shape': 'star',
+            'category': 'provider',
             'patterns': ['internet'],
         },
         'isp': {
@@ -32,6 +67,7 @@ class DeviceTypeConfig:
             'group_name': 'ISP',
             'color': '#e30909',
             'shape': 'star',
+            'category': 'provider',
             'patterns': ['isp'],
         },
         'rr': {
@@ -41,6 +77,7 @@ class DeviceTypeConfig:
             'group_name': 'Route Reflectors',
             'color': '#008b8b',
             'shape': 'star',
+            'category': 'core',
             'patterns': [],  # Custom matcher
         },
         'core': {
@@ -50,6 +87,7 @@ class DeviceTypeConfig:
             'group_name': 'Core',
             'color': '#071c35',
             'shape': 'triangle',
+            'category': 'core',
             'patterns': ['core'],
         },
         'dci': {
@@ -59,6 +97,7 @@ class DeviceTypeConfig:
             'group_name': 'Core',
             'color': '#051431',
             'shape': 'octagon',
+            'category': 'core',
             'patterns': ['dci'],
         },
         'p': {
@@ -68,6 +107,7 @@ class DeviceTypeConfig:
             'group_name': 'P Routers',
             'color': '#6b7cc9',
             'shape': 'diamond',
+            'category': 'core',
             'patterns': [],  # Custom matcher
         },
         'borderleaf': {
@@ -77,6 +117,7 @@ class DeviceTypeConfig:
             'group_name': 'Borderleaf',
             'color': '#fbb500',
             'shape': 'hexagon',
+            'category': 'edge',
             'patterns': ['borderleaf'],
             'startswith_patterns': ['BL'],
         },
@@ -87,6 +128,7 @@ class DeviceTypeConfig:
             'group_name': 'PE Routers',
             'color': '#4c5cae',
             'shape': 'diamond',
+            'category': 'edge',
             'patterns': [],
             'startswith_patterns': ['PE'],
         },
@@ -97,6 +139,7 @@ class DeviceTypeConfig:
             'group_name': 'CE Routers',
             'color': '#4c5cae',
             'shape': 'round-rectangle',
+            'category': 'edge',
             'patterns': [],
             'startswith_patterns': ['CE'],
         },
@@ -107,6 +150,7 @@ class DeviceTypeConfig:
             'group_name': 'WAN Gateways',
             'color': '#d4a400',
             'shape': 'pentagon',
+            'category': 'edge',
             'patterns': [],  # Custom matcher
         },
         'router': {
@@ -116,6 +160,7 @@ class DeviceTypeConfig:
             'group_name': 'Router',
             'color': '#8b4513',
             'shape': 'diamond',
+            'category': 'edge',
             'patterns': ['router'],
         },
         'spine': {
@@ -125,6 +170,7 @@ class DeviceTypeConfig:
             'group_name': 'Spine',
             'color': '#4c5cae',
             'shape': 'diamond',
+            'category': 'fabric',
             'patterns': ['spine'],
         },
         'leaf': {
@@ -134,6 +180,7 @@ class DeviceTypeConfig:
             'group_name': 'Leaf',
             'color': '#20b2aa',
             'shape': 'round-rectangle',
+            'category': 'fabric',
             'patterns': ['leaf'],
         },
         'memleaf': {
@@ -143,6 +190,7 @@ class DeviceTypeConfig:
             'group_name': 'Memleaf',
             'color': '#32cd32',
             'shape': 'round-rectangle',
+            'category': 'fabric',
             'patterns': ['memleaf'],
         },
         'host': {
@@ -152,7 +200,30 @@ class DeviceTypeConfig:
             'group_name': 'Host',
             'color': '#dae0fe',
             'shape': 'ellipse',
+            'category': 'endpoint',
             'patterns': ['host'],
+        },
+        'linux_host': {
+            'tier': 8,
+            'priority': 83,
+            'label': 'Linux Hosts',
+            'group_name': 'Host',
+            'color': '#9b59b6',
+            'shape': 'ellipse',
+            'category': 'endpoint',
+            'patterns': [],  # User-defined: set via device_type, not pattern matching
+            'user_defined': True,
+        },
+        'firewall': {
+            'tier': 4,
+            'priority': 41,
+            'label': 'Firewalls',
+            'group_name': 'Firewall',
+            'color': '#e67e22',
+            'shape': 'octagon',
+            'category': 'edge',
+            'patterns': [],  # User-defined: set via device_type, not pattern matching
+            'user_defined': True,
         },
         'customer': {
             'tier': 8,
@@ -161,6 +232,7 @@ class DeviceTypeConfig:
             'group_name': 'Customer',
             'color': '#20b2aa',
             'shape': 'round-rectangle',
+            'category': 'endpoint',
             'patterns': [],  # Custom matcher
         },
         'oob': {
@@ -170,6 +242,7 @@ class DeviceTypeConfig:
             'group_name': 'Other',
             'color': '#808080',
             'shape': 'round-rectangle',
+            'category': 'endpoint',
             'patterns': ['oob'],
         },
         'other': {
@@ -179,6 +252,7 @@ class DeviceTypeConfig:
             'group_name': 'Other',
             'color': '#666666',
             'shape': 'rectangle',
+            'category': 'endpoint',
             'patterns': [],
         }
     }
@@ -293,6 +367,60 @@ class DeviceTypeConfig:
     def get_metadata(cls, device_type):
         """Get all metadata for a device type."""
         return cls.DEVICE_TYPES.get(device_type, cls.DEVICE_TYPES['other']).copy()
+
+    @classmethod
+    def get_category(cls, device_type):
+        """Get category for a device type."""
+        return cls.DEVICE_TYPES.get(device_type, {}).get('category', 'endpoint')
+
+    @classmethod
+    def is_user_defined(cls, device_type):
+        """Check if a device type is user-defined (not pattern-matched)."""
+        return cls.DEVICE_TYPES.get(device_type, {}).get('user_defined', False)
+
+    @classmethod
+    def get_types_in_category(cls, category):
+        """
+        Get all device types in a given category.
+
+        Args:
+            category: One of 'provider', 'core', 'edge', 'fabric', 'endpoint'
+
+        Returns:
+            List of device type strings in that category
+        """
+        return cls.CATEGORIES.get(category, [])
+
+    @classmethod
+    def is_category(cls, device_type, category):
+        """
+        Check if a device type belongs to a specific category.
+
+        Args:
+            device_type: The device type string (e.g., 'leaf', 'firewall')
+            category: The category to check (e.g., 'endpoint', 'edge')
+
+        Returns:
+            True if device_type is in the specified category
+        """
+        return device_type in cls.CATEGORIES.get(category, [])
+
+    @classmethod
+    def is_wan_customer_device(cls, device_type):
+        """
+        Check if a device type should be placed in customer columns in WAN layout.
+
+        This includes endpoint devices and CE routers - devices that appear
+        at the edges of a WAN topology diagram.
+
+        Returns:
+            True if device should be in left/right customer columns in WAN layout
+        """
+        # CE routers are edge devices but appear in customer columns in WAN layout
+        if device_type == 'ce':
+            return True
+        # All endpoint devices go to customer columns
+        return cls.is_category(device_type, 'endpoint')
 
     @classmethod
     def get_all_group_names(cls):

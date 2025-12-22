@@ -546,6 +546,32 @@ class NodeBuilderAPI {
 
         return { firewallStatus, availableIps, targetDevices };
     }
+
+    // =========================================
+    // Reset Operations
+    // =========================================
+
+    /**
+     * Reset all user-added nodes (vEOS, hosts, firewalls)
+     * This removes all user customizations and restores the original topology.
+     */
+    static async resetAllUserNodes() {
+        const response = await fetch('/td-api/nodes/reset-all-user-nodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to reset user nodes');
+        }
+
+        // Invalidate all caches
+        this.invalidateCache();
+
+        return result;
+    }
 }
 
 // Export for use in other modules

@@ -113,10 +113,12 @@ const TerminalManager = {
         deviceEl.tabIndex = 0;
 
         // Build HTML with stacked status dots and action icons
+        // Show dots for available connection types: SSH (all), Console (if supported), noVNC (if supported)
         let html = `
           <span class="status-dots" aria-hidden="true">
-            <span class="status-dot ssh"></span>
-            <span class="status-dot console"></span>
+            <span class="status-dot ssh" title="SSH"></span>
+            ${device.supportsConsole ? '<span class="status-dot console" title="Console"></span>' : ''}
+            ${device.supportsNoVnc ? '<span class="status-dot novnc" title="Desktop"></span>' : ''}
           </span>
           <span class="device-name">${device.name}</span>
           <span class="device-ip">${device.ip}</span>

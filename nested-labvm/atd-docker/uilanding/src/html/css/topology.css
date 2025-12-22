@@ -361,6 +361,8 @@
 .tooltip-type.device-type-leaf { background-color: #20b2aa; color: #ffffff; }
 .tooltip-type.device-type-borderleaf { background-color: #fbb500; color: #071c35; }
 .tooltip-type.device-type-host { background-color: #dae0fe; color: #071c35; }
+.tooltip-type.device-type-linux_host { background-color: #9b59b6; color: #ffffff; }
+.tooltip-type.device-type-firewall { background-color: #e67e22; color: #ffffff; }
 .tooltip-type.device-type-pe { background-color: #4c5cae; }
 .tooltip-type.device-type-p { background-color: #6b7cc9; }
 .tooltip-type.device-type-ce { background-color: #4c5cae; }

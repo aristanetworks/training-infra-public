@@ -251,6 +251,34 @@ export function getCytoscapeStyles() {
             }
         },
 
+        // --- Linux Host icon (user-added Linux VMs) ---
+        {
+            selector: '.device-type-linux_host',
+            style: {
+                'background-image': 'images/hosts.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
+            }
+        },
+
+        // --- Firewall icon (user-added VyOS firewalls) ---
+        {
+            selector: '.device-type-firewall',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
         // ==========================================
         // Status Styles - Visual indicators for device reachability
         // Uses underlay to show status behind PNG icons

@@ -10,6 +10,7 @@
    ============================================ */
 :root {
   --console-blue: #4c5cae;
+  --novnc-purple: #9b59b6;
 }
 
 /* ============================================
@@ -264,7 +265,7 @@ body.terminal-page {
 /* Status dots container for stacked dots (macOS-style) */
 .device-item .status-dots {
   position: relative;
-  width: 16px;
+  width: 20px;
   height: 8px;
   margin-right: 8px;
   flex-shrink: 0;
@@ -291,6 +292,12 @@ body.terminal-page {
   z-index: 2;
 }
 
+.device-item .status-dots .status-dot.novnc {
+  left: 10px;
+  background: transparent;
+  z-index: 3;
+}
+
 .device-item.ssh-connected .status-dots .status-dot.ssh,
 .device-item.both-connected .status-dots .status-dot.ssh {
   background: var(--neon-green);
@@ -299,6 +306,10 @@ body.terminal-page {
 .device-item.console-connected .status-dots .status-dot.console,
 .device-item.both-connected .status-dots .status-dot.console {
   background: var(--console-blue);
+}
+
+.device-item.novnc-connected .status-dots .status-dot.novnc {
+  background: var(--novnc-purple, #9b59b6);
 }
 
 /* Console icon button */

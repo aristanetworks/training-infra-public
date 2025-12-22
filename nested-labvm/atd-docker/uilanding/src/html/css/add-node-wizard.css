@@ -428,6 +428,21 @@
     min-height: 60px;
 }
 
+.add-connection-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.add-connection-row .form-select {
+    flex: 1;
+}
+
+.add-connection-row .add-connection-btn {
+    flex-shrink: 0;
+    padding: 10px 20px;
+}
+
 .connection-item {
     display: flex;
     align-items: center;
@@ -451,6 +466,23 @@
 
 .remote-info {
     color: #ddd;
+    flex: 1;
+}
+
+.remove-connection-btn {
+    background: transparent;
+    border: none;
+    color: #e30909;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.remove-connection-btn:hover {
+    background: rgba(227, 9, 9, 0.2);
 }
 
 .no-connections {
@@ -465,6 +497,9 @@
 /* Review Step (Step 4) */
 .review-section {
     margin-bottom: 24px;
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 16px;
 }
 
 .review-section h4 {
@@ -480,6 +515,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    background: #252525;
 }
 
 .review-table th,
@@ -2075,4 +2111,168 @@
 
 .connections-legend .legend-color.external {
     background: #fbb500;
+}
+
+/* ===========================================
+   Reset All User Nodes Modal Styles
+   =========================================== */
+
+.reset-warning {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.reset-warning-icon {
+    font-size: 48px;
+    color: #e67e22;
+    margin-bottom: 10px;
+}
+
+.reset-warning h3 {
+    color: #e74c3c;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+}
+
+.reset-items-list {
+    text-align: left;
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 8px;
+    padding: 15px 15px 15px 35px;
+    margin: 0 0 20px 0;
+}
+
+.reset-items-list li {
+    margin-bottom: 8px;
+    color: #ddd;
+}
+
+.reset-items-list li:last-child {
+    margin-bottom: 0;
+}
+
+.reset-consequences {
+    text-align: left;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.reset-consequences p {
+    margin: 0 0 10px 0;
+    color: #ccc;
+}
+
+.reset-consequences ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.reset-consequences li {
+    color: #aaa;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.reset-confirm-checkbox {
+    background: rgba(231, 76, 60, 0.15);
+    border: 2px solid rgba(231, 76, 60, 0.4);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.reset-confirm-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 500;
+}
+
+.reset-confirm-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #e74c3c;
+}
+
+.reset-info {
+    text-align: center;
+    padding: 20px;
+}
+
+.reset-info p {
+    color: #ccc;
+    margin: 0 0 10px 0;
+}
+
+.reset-note {
+    color: #888;
+    font-size: 13px;
+}
+
+.reset-success {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.reset-success-icon {
+    font-size: 48px;
+    color: #27ae60;
+    margin-bottom: 10px;
+}
+
+.reset-success h3 {
+    color: #27ae60;
+    margin: 0 0 15px 0;
+}
+
+.reset-success p {
+    color: #ccc;
+    margin: 0 0 15px 0;
+}
+
+.reset-summary {
+    text-align: left;
+    background: rgba(39, 174, 96, 0.1);
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.reset-summary p {
+    margin: 0 0 10px 0;
+}
+
+.reset-summary ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.reset-summary li {
+    color: #aaa;
+    margin-bottom: 5px;
+}
+
+.reset-reboot-note {
+    background: rgba(241, 196, 15, 0.1);
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: left;
+}
+
+.reset-reboot-note p {
+    margin: 0;
+    color: #f1c40f;
+    font-size: 13px;
+}
+
+.reset-reboot-note p:first-child {
+    margin-bottom: 5px;
 }

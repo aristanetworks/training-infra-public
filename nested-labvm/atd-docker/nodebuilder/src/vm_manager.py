@@ -628,46 +628,87 @@ def restore_user_node(node_name: str, node_info: Dict) -> Dict:
 
 def restore_all_user_nodes() -> Dict:
     """
-    Restore all user-added nodes from user_nodes.yaml.
+    Restore all user-added nodes, hosts, and firewalls.
 
     This is called when the user clicks "Restore User Nodes" in the UI
     after the original topology is up and running.
 
     IMPORTANT: We restore in two phases:
-    1. Create ALL OVS bridges for ALL nodes first
+    1. Create ALL OVS bridges for ALL devices first
     2. Then start ALL VMs
 
-    This ensures that if Node B connects to Node A, the bridge exists
-    before either VM tries to use it. Nodes are processed in creation
-    order (as stored in user_nodes.yaml) to maintain consistency.
+    This ensures that if a device connects to another, the bridge exists
+    before either VM tries to use it. Devices are processed in creation
+    order to maintain consistency.
 
     Returns:
-        Dict with list of restored nodes and any errors
+        Dict with list of restored devices and any errors
     """
-    from persistence import load_user_nodes
-    from config import USER_NODES_PATH
+    from persistence import load_user_nodes, load_user_hosts, load_user_firewalls
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
 
-    logger.info("Restoring all user nodes")
+    logger.info("Restoring all user nodes, hosts, and firewalls")
 
+    # Collect all devices to restore
+    all_devices = []
+
+    # Get vEOS nodes
     user_data = load_user_nodes(USER_NODES_PATH)
     nodes = user_data.get('nodes', [])
+    for node_entry in nodes:
+        for node_name, node_info in node_entry.items():
+            all_devices.append({
+                'name': node_name,
+                'info': node_info,
+                'type': 'node',
+                'ip_field': 'ip_addr'
+            })
 
-    if not nodes:
+    # Get Linux hosts
+    hosts_data = load_user_hosts(USER_HOSTS_PATH)
+    hosts = hosts_data.get('hosts') or []
+    for host_entry in hosts:
+        for host_name, host_info in host_entry.items():
+            all_devices.append({
+                'name': host_name,
+                'info': host_info,
+                'type': 'host',
+                'ip_field': 'mgmt_ip'
+            })
+
+    # Get VyOS firewalls
+    firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
+    firewalls = firewalls_data.get('firewalls') or []
+    for fw_entry in firewalls:
+        for fw_name, fw_info in fw_entry.items():
+            all_devices.append({
+                'name': fw_name,
+                'info': fw_info,
+                'type': 'firewall',
+                'ip_field': 'mgmt_ip'
+            })
+
+    if not all_devices:
         return {
             'status': 'no_nodes',
-            'message': 'No user-added nodes to restore',
+            'message': 'No user-added devices to restore',
             'restored': [],
             'errors': []
         }
 
-    # Phase 1: Create ALL OVS bridges for ALL nodes first
+    # Phase 1: Create ALL OVS bridges for ALL devices first
     # This ensures bridges exist before any VM tries to use them
-    logger.info("Phase 1: Creating OVS bridges for all user nodes")
+    logger.info("Phase 1: Creating OVS bridges for all user devices")
     bridges_created = []
 
-    for node_entry in nodes:
-        for node_name, node_info in node_entry.items():
-            neighbors = node_info.get('neighbors', [])
+    for device in all_devices:
+        device_name = device['name']
+        device_info = device['info']
+        device_type = device['type']
+
+        # vEOS nodes use 'neighbors' format
+        if device_type == 'node':
+            neighbors = device_info.get('neighbors', [])
             for neighbor in neighbors:
                 local_port = neighbor.get('port', '')
                 target_device = neighbor.get('neighborDevice', '')
@@ -675,100 +716,166 @@ def restore_all_user_nodes() -> Dict:
 
                 if local_port and target_device and target_port:
                     bridge_name = generate_bridge_name(
-                        node_name, local_port,
+                        device_name, local_port,
                         target_device, target_port
                     )
-
                     try:
                         result = create_ovs_bridge(bridge_name)
                         if result['status'] == 'created':
                             logger.info(f"Created OVS bridge: {bridge_name}")
                             bridges_created.append(bridge_name)
-                        elif result['status'] == 'exists':
-                            logger.debug(f"OVS bridge already exists: {bridge_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to create bridge {bridge_name}: {e}")
+
+        # Linux hosts use 'connection' format
+        elif device_type == 'host':
+            connection = device_info.get('connection')
+            if connection:
+                target_device = connection.get('target_device', '')
+                target_port = connection.get('target_port', '')
+                if target_device and target_port:
+                    bridge_name = generate_bridge_name(
+                        device_name, 'eth1',
+                        target_device, target_port
+                    )
+                    try:
+                        result = create_ovs_bridge(bridge_name)
+                        if result['status'] == 'created':
+                            logger.info(f"Created OVS bridge: {bridge_name}")
+                            bridges_created.append(bridge_name)
+                    except Exception as e:
+                        logger.warning(f"Failed to create bridge {bridge_name}: {e}")
+
+        # VyOS firewalls use 'inside_interface' and 'outside_interface' format
+        elif device_type == 'firewall':
+            for iface_key in ['inside_interface', 'outside_interface']:
+                iface = device_info.get(iface_key, {})
+                target_device = iface.get('target_device', '')
+                target_port = iface.get('target_port', '')
+                local_port = 'eth1' if iface_key == 'inside_interface' else 'eth2'
+                if target_device and target_port:
+                    bridge_name = generate_bridge_name(
+                        device_name, local_port,
+                        target_device, target_port
+                    )
+                    try:
+                        result = create_ovs_bridge(bridge_name)
+                        if result['status'] == 'created':
+                            logger.info(f"Created OVS bridge: {bridge_name}")
+                            bridges_created.append(bridge_name)
                     except Exception as e:
                         logger.warning(f"Failed to create bridge {bridge_name}: {e}")
 
     logger.info(f"Phase 1 complete: {len(bridges_created)} bridges created")
 
     # Phase 2: Start all VMs in creation order
-    logger.info("Phase 2: Starting user node VMs in creation order")
+    logger.info("Phase 2: Starting user VMs in creation order")
     restored = []
     errors = []
 
-    for node_entry in nodes:
-        for node_name, node_info in node_entry.items():
-            # Check if VM exists
-            if not vm_exists(node_name):
-                errors.append({
-                    'name': node_name,
-                    'status': 'error',
-                    'error': 'VM not defined - may need to be recreated'
-                })
-                continue
+    for device in all_devices:
+        device_name = device['name']
+        device_info = device['info']
+        device_type = device['type']
+        ip_field = device['ip_field']
 
-            # Check current state
-            state = get_vm_state(node_name)
+        # Check if VM exists
+        if not vm_exists(device_name):
+            errors.append({
+                'name': device_name,
+                'type': device_type,
+                'status': 'error',
+                'error': 'VM not defined - may need to be recreated'
+            })
+            continue
 
-            if state == 'running':
-                logger.info(f"Node {node_name} is already running")
-                restored.append({
-                    'name': node_name,
-                    'status': 'already_running',
-                    'ip': node_info.get('ip_addr', '')
-                })
-                continue
+        # Check current state
+        state = get_vm_state(device_name)
 
-            # Start the VM
+        if state == 'running':
+            logger.info(f"Device {device_name} is already running")
+            restored.append({
+                'name': device_name,
+                'type': device_type,
+                'status': 'already_running',
+                'ip': device_info.get(ip_field, '')
+            })
+            continue
+
+        # Start the VM
+        try:
+            start_vm(device_name)
+            logger.info(f"Started VM: {device_name}")
+            restored.append({
+                'name': device_name,
+                'type': device_type,
+                'status': 'started',
+                'ip': device_info.get(ip_field, '')
+            })
+        except Exception as e:
+            logger.error(f"Failed to start VM {device_name}: {e}")
+            errors.append({
+                'name': device_name,
+                'type': device_type,
+                'status': 'error',
+                'error': str(e)
+            })
+
+    logger.info(f"Phase 2 complete: {len(restored)} devices restored, {len(errors)} errors")
+
+    # Phase 3: Cleanup orphaned bridges if no VMs started successfully
+    # This handles the case where bridges were created but all VM starts failed
+    successfully_started = [r for r in restored if r.get('status') == 'started']
+    bridges_cleaned = []
+
+    if len(successfully_started) == 0 and len(bridges_created) > 0 and len(errors) > 0:
+        logger.warning("No VMs started successfully - cleaning up orphaned bridges")
+        for bridge_name in bridges_created:
             try:
-                start_vm(node_name)
-                logger.info(f"Started VM: {node_name}")
-                restored.append({
-                    'name': node_name,
-                    'status': 'started',
-                    'ip': node_info.get('ip_addr', '')
-                })
+                result = delete_ovs_bridge(bridge_name)
+                if result.get('status') in ('deleted', 'not_found'):
+                    bridges_cleaned.append(bridge_name)
+                    logger.info(f"Cleaned up orphaned bridge: {bridge_name}")
             except Exception as e:
-                logger.error(f"Failed to start VM {node_name}: {e}")
-                errors.append({
-                    'name': node_name,
-                    'status': 'error',
-                    'error': str(e)
-                })
+                logger.warning(f"Failed to cleanup bridge {bridge_name}: {e}")
 
-    logger.info(f"Phase 2 complete: {len(restored)} nodes restored, {len(errors)} errors")
+        if bridges_cleaned:
+            logger.info(f"Phase 3 complete: Cleaned up {len(bridges_cleaned)} orphaned bridges")
+
+    # Log summary statistics
+    logger.info(
+        f"Restore summary: {len(successfully_started)} started, "
+        f"{len([r for r in restored if r.get('status') == 'already_running'])} already running, "
+        f"{len(errors)} errors, "
+        f"{len(bridges_created) - len(bridges_cleaned)} bridges active"
+    )
 
     return {
         'status': 'completed',
         'restored': restored,
         'errors': errors,
-        'total': len(nodes),
-        'bridges_created': len(bridges_created)
+        'total': len(all_devices),
+        'bridges_created': len(bridges_created),
+        'bridges_cleaned': len(bridges_cleaned)
     }
 
 
 def get_user_nodes_status() -> Dict:
     """
-    Get status of all user-added nodes.
+    Get status of all user-added nodes, hosts, and firewalls.
 
     Returns:
         Dict with node statuses and whether restoration is needed
     """
-    from persistence import load_user_nodes
-    from config import USER_NODES_PATH
-
-    user_data = load_user_nodes(USER_NODES_PATH)
-    nodes = user_data.get('nodes', [])
-
-    if not nodes:
-        return {
-            'has_user_nodes': False,
-            'nodes': [],
-            'needs_restore': False
-        }
+    from persistence import load_user_nodes, load_user_hosts, load_user_firewalls
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
 
     node_statuses = []
     needs_restore = False
+
+    # Get vEOS nodes
+    user_data = load_user_nodes(USER_NODES_PATH)
+    nodes = user_data.get('nodes', [])
 
     for node_entry in nodes:
         for node_name, node_info in node_entry.items():
@@ -778,6 +885,7 @@ def get_user_nodes_status() -> Dict:
             status = {
                 'name': node_name,
                 'ip': node_info.get('ip_addr', ''),
+                'type': 'node',
                 'exists': exists,
                 'state': state,
                 'running': state == 'running'
@@ -787,6 +895,59 @@ def get_user_nodes_status() -> Dict:
                 needs_restore = True
 
             node_statuses.append(status)
+
+    # Get Linux hosts
+    hosts_data = load_user_hosts(USER_HOSTS_PATH)
+    hosts = hosts_data.get('hosts') or []
+
+    for host_entry in hosts:
+        for host_name, host_info in host_entry.items():
+            state = get_vm_state(host_name)
+            exists = vm_exists(host_name)
+
+            status = {
+                'name': host_name,
+                'ip': host_info.get('mgmt_ip', ''),
+                'type': 'host',
+                'exists': exists,
+                'state': state,
+                'running': state == 'running'
+            }
+
+            if exists and state != 'running':
+                needs_restore = True
+
+            node_statuses.append(status)
+
+    # Get VyOS firewalls
+    firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
+    firewalls = firewalls_data.get('firewalls') or []
+
+    for fw_entry in firewalls:
+        for fw_name, fw_info in fw_entry.items():
+            state = get_vm_state(fw_name)
+            exists = vm_exists(fw_name)
+
+            status = {
+                'name': fw_name,
+                'ip': fw_info.get('mgmt_ip', ''),
+                'type': 'firewall',
+                'exists': exists,
+                'state': state,
+                'running': state == 'running'
+            }
+
+            if exists and state != 'running':
+                needs_restore = True
+
+            node_statuses.append(status)
+
+    if not node_statuses:
+        return {
+            'has_user_nodes': False,
+            'nodes': [],
+            'needs_restore': False
+        }
 
     return {
         'has_user_nodes': True,

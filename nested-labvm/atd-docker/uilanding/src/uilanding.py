@@ -1341,7 +1341,9 @@ class TopologyAPIHandler(BaseHandler):
                 p_routers.append(node)
             elif dtype == 'pe':
                 pe_routers.append(node)
-            elif dtype in ('ce', 'host', 'leaf', 'customer', 'other'):
+            elif DeviceTypeConfig.is_wan_customer_device(dtype) or dtype == 'leaf':
+                # Customer/endpoint devices go to left/right columns in WAN layout
+                # Also includes leafs which often connect to customer equipment
                 customer_devices.append(node)
             else:
                 other_devices.append(node)
@@ -2231,7 +2233,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             self.write(json.dumps({'devices': statuses}))
 
     def check_device_status(self, device_name):
-        """Check if a single device is reachable via eAPI."""
+        """Check if a single device is reachable. Uses eAPI for EOS devices, ping for hosts/firewalls."""
         cache_key = device_name
         current_time = time.time()
 
@@ -2242,9 +2244,17 @@ class DeviceStatusAPIHandler(BaseHandler):
                 if current_time - timestamp < self.CACHE_TTL:
                     return data
 
-        # Get device IP from topology
-        device_ip = get_device_ip_from_sources(device_name)
-        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
+        # Get device info from topology (includes device_category for hosts/firewalls)
+        all_devices = get_all_devices()
+        device_info = all_devices.get(device_name, {})
+        device_ip = device_info.get('ip', '')
+        device_category = device_info.get('device_category', 'node')
+
+        # Fallback to old method if not found in get_all_devices
+        if not device_ip:
+            device_ip = get_device_ip_from_sources(device_name)
+
+        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}, category: {device_category}")
         if not device_ip:
             result = {
                 'device': device_name,
@@ -2253,18 +2263,78 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
             return result
 
+        # For hosts and firewalls, use ping instead of eAPI
+        if device_category in ('host', 'firewall'):
+            result = self._check_device_via_ping(device_name, device_ip, device_category)
+        else:
+            # For EOS devices, use eAPI
+            result = self._check_device_via_eapi(device_name, device_ip)
+
+        # Update cache
+        with self._cache_lock:
+            self._cache[cache_key] = (current_time, result)
+
+        return result
+
+    def _check_device_via_ping(self, device_name, device_ip, device_category):
+        """Check if a host or firewall is reachable via ping."""
+        import subprocess
+
+        try:
+            # Quick ping with 1 second timeout
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '1', device_ip],
+                capture_output=True,
+                timeout=3
+            )
+
+            if result.returncode == 0:
+                device_type_label = 'Linux Host' if device_category == 'host' else 'VyOS Firewall'
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'up',
+                    'version': device_type_label,
+                    'last_check': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'down',
+                    'error': 'Ping failed',
+                    'last_check': datetime.now().isoformat()
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': 'Ping timeout',
+                'last_check': datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'error',
+                'error': str(e),
+                'last_check': datetime.now().isoformat()
+            }
+
+    def _check_device_via_eapi(self, device_name, device_ip):
+        """Check if an EOS device is reachable via eAPI."""
         # Get credentials from ACCESS_INFO
         try:
             host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
             username = host_yaml['login_info']['jump_host']['user']
             password = host_yaml['login_info']['jump_host']['pw']
         except Exception as e:
-            result = {
+            return {
                 'device': device_name,
                 'status': 'error',
                 'error': f'Cannot read credentials: {e}'
             }
-            return result
 
         # Try to connect via eAPI
         try:
@@ -2280,7 +2350,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             result_cmd = connection.execute(['show version'])
             version = result_cmd.get('result', [{}])[0].get('version', 'unknown')
 
-            result = {
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'up',
@@ -2289,7 +2359,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
 
         except pyeapi.eapilib.ConnectionError:
-            result = {
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'down',
@@ -2297,19 +2367,13 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
         except Exception as e:
-            result = {
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'error',
                 'error': str(e),
                 'last_check': datetime.now().isoformat()
             }
-
-        # Update cache
-        with self._cache_lock:
-            self._cache[cache_key] = (current_time, result)
-
-        return result
 
     def check_all_devices(self):
         """Check status of all devices from both modules.yaml and topo_build.yml."""

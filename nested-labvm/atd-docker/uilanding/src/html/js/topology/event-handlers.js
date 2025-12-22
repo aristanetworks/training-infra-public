@@ -246,7 +246,7 @@ export class EventManager {
             {
                 label: 'Delete Node',
                 action: () => {
-                    this.confirmDeleteNode(data.label, data.ip);
+                    this.confirmDeleteNode(data.label, data.ip, data.device_type);
                     this.hideContextMenu();
                 },
                 // Only show for user-added nodes in KVM labs
@@ -351,12 +351,23 @@ export class EventManager {
      * Show confirmation dialog for deleting a user-added node
      * Uses BaseModal for consistent theming with other dialogs.
      * Shows reboot prompt for affected devices after successful deletion.
+     * @param {string} nodeName - Name of the node to delete
+     * @param {string} nodeIp - IP address of the node
+     * @param {string} deviceType - Type of device: 'node', 'host', or 'firewall'
      */
-    async confirmDeleteNode(nodeName, nodeIp) {
+    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
+        // Determine display name and endpoint based on device type
+        const typeLabels = {
+            'host': 'Linux Host',
+            'firewall': 'Firewall',
+            'node': 'Node'
+        };
+        const typeLabel = typeLabels[deviceType] || 'Node';
+
         // Create modal using BaseModal
         const modal = new BaseModal({
             id: 'delete-node-modal',
-            title: 'Delete Node',
+            title: `Delete ${typeLabel}`,
             theme: BaseModal.THEMES.DARK,
             size: BaseModal.SIZES.MEDIUM
         });
@@ -408,7 +419,7 @@ export class EventManager {
         });
 
         const deleteBtn = modal.addFooterButton({
-            text: 'Delete Node',
+            text: `Delete ${typeLabel}`,
             type: 'danger',
             onClick: async () => {
                 deleteBtn.disabled = true;
@@ -416,7 +427,15 @@ export class EventManager {
                 cancelBtn.disabled = true;
 
                 try {
-                    const response = await fetch('/td-api/nodes/delete-node', {
+                    // Use correct endpoint based on device type
+                    const endpoints = {
+                        'host': '/td-api/nodes/delete-host',
+                        'firewall': '/td-api/nodes/delete-firewall',
+                        'node': '/td-api/nodes/delete-node'
+                    };
+                    const endpoint = endpoints[deviceType] || endpoints['node'];
+
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: nodeName })
@@ -425,7 +444,7 @@ export class EventManager {
                     const result = await response.json();
 
                     if (!response.ok) {
-                        throw new Error(result.error || 'Failed to delete node');
+                        throw new Error(result.error || `Failed to delete ${typeLabel.toLowerCase()}`);
                     }
 
                     // Refresh topology
@@ -440,7 +459,7 @@ export class EventManager {
                         modal.setContent(`
                             <div class="delete-node-success">
                                 <div class="success-icon">&#10004;</div>
-                                <h3>Node Deleted Successfully</h3>
+                                <h3>${typeLabel} Deleted Successfully</h3>
                                 <p><strong>${modal.escapeHtml(nodeName)}</strong> has been removed.</p>
                                 ${rebootManager.renderRebootSection(affectedDevices)}
                             </div>
@@ -460,12 +479,12 @@ export class EventManager {
                     } else {
                         // No affected devices, just close and notify
                         modal.hide();
-                        this.showNotification(`Node ${nodeName} deleted successfully`, 'success');
+                        this.showNotification(`${typeLabel} ${nodeName} deleted successfully`, 'success');
                     }
 
                 } catch (error) {
-                    console.error('Error deleting node:', error);
-                    this.showNotification(`Failed to delete node: ${error.message}`, 'error');
+                    console.error(`Error deleting ${typeLabel.toLowerCase()}:`, error);
+                    this.showNotification(`Failed to delete ${typeLabel.toLowerCase()}: ${error.message}`, 'error');
                     modal.hide();
                 }
             }
@@ -878,6 +897,18 @@ export class EventManager {
                     this.cy.zoom(1);
                     this.cy.center();
                 }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: this.isCeosLab ? 'Reset User Nodes (KVM only)' : 'Reset All User Nodes',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showResetConfirmation();
+                },
+                disabled: this.isCeosLab,
+                className: 'danger'
             }
         ];
 
@@ -889,7 +920,10 @@ export class EventManager {
                 menu.appendChild(separator);
             } else {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                let className = 'context-menu-item';
+                if (item.disabled) className += ' disabled';
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
                 menuItem.textContent = item.label;
                 if (!item.disabled) {
                     menuItem.addEventListener('click', item.action);
@@ -2933,6 +2967,162 @@ export class EventManager {
         const existing = document.getElementById('running-config-overlay');
         if (existing) {
             existing.remove();
+        }
+    }
+
+    /**
+     * Show reset all user nodes confirmation modal
+     * Requires checkbox confirmation before allowing reset
+     */
+    async showResetConfirmation() {
+        // Create modal using BaseModal
+        const modal = new BaseModal({
+            id: 'reset-all-modal',
+            title: 'Reset All User Nodes',
+            size: 'medium',
+            theme: 'dark'
+        });
+
+        modal.show();
+        modal.showLoading('Checking user nodes...');
+
+        try {
+            // Get current status to show what will be deleted
+            const status = await NodeBuilderAPI.getUserNodesStatus();
+
+            // Count items
+            const nodeCount = status.nodes?.length || 0;
+            const hostCount = status.hosts?.length || 0;
+            const firewallCount = status.firewalls?.length || 0;
+            const totalCount = nodeCount + hostCount + firewallCount;
+
+            if (totalCount === 0) {
+                modal.setContent(`
+                    <div class="reset-info">
+                        <p>There are no user-added nodes to reset.</p>
+                        <p class="reset-note">The topology is already in its original state.</p>
+                    </div>
+                `);
+                modal.clearFooter();
+                modal.addFooterButton({
+                    label: 'Close',
+                    type: 'secondary',
+                    onClick: () => modal.hide()
+                });
+                return;
+            }
+
+            // Build list of what will be deleted
+            let itemsList = '<ul class="reset-items-list">';
+            if (nodeCount > 0) {
+                const nodeNames = status.nodes.map(n => Object.keys(n)[0]).join(', ');
+                itemsList += `<li><strong>${nodeCount} vEOS node${nodeCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(nodeNames)}</li>`;
+            }
+            if (hostCount > 0) {
+                const hostNames = status.hosts.map(h => Object.keys(h)[0]).join(', ');
+                itemsList += `<li><strong>${hostCount} Linux host${hostCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(hostNames)}</li>`;
+            }
+            if (firewallCount > 0) {
+                const fwNames = status.firewalls.map(f => Object.keys(f)[0]).join(', ');
+                itemsList += `<li><strong>${firewallCount} VyOS firewall${firewallCount > 1 ? 's' : ''}:</strong> ${modal.escapeHtml(fwNames)}</li>`;
+            }
+            itemsList += '</ul>';
+
+            modal.setContent(`
+                <div class="reset-warning">
+                    <div class="reset-warning-icon">&#9888;</div>
+                    <h3>This will permanently delete:</h3>
+                    ${itemsList}
+                    <div class="reset-consequences">
+                        <p><strong>This action will:</strong></p>
+                        <ul>
+                            <li>Stop and remove all user-added VMs</li>
+                            <li>Delete all associated disk images</li>
+                            <li>Remove all user-created network bridges</li>
+                            <li>Clear all user node persistence files</li>
+                        </ul>
+                    </div>
+                    <div class="reset-confirm-checkbox">
+                        <label>
+                            <input type="checkbox" id="reset-confirm-check">
+                            <span>I understand this action cannot be undone</span>
+                        </label>
+                    </div>
+                </div>
+            `);
+
+            modal.clearFooter();
+            modal.addFooterButton({
+                label: 'Cancel',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
+
+            const resetBtn = modal.addFooterButton({
+                label: 'Reset All',
+                type: 'danger',
+                onClick: async () => {
+                    resetBtn.disabled = true;
+                    resetBtn.textContent = 'Resetting...';
+
+                    try {
+                        const result = await NodeBuilderAPI.resetAllUserNodes();
+
+                        // Show success
+                        const summary = result.summary || {};
+                        modal.setContent(`
+                            <div class="reset-success">
+                                <div class="reset-success-icon">&#10004;</div>
+                                <h3>Reset Complete</h3>
+                                <p>The topology has been restored to its original state.</p>
+                                <div class="reset-summary">
+                                    <p><strong>Removed:</strong></p>
+                                    <ul>
+                                        ${summary.nodes ? `<li>${summary.nodes} vEOS node${summary.nodes !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.hosts ? `<li>${summary.hosts} Linux host${summary.hosts !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.firewalls ? `<li>${summary.firewalls} VyOS firewall${summary.firewalls !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.bridges ? `<li>${summary.bridges} network bridge${summary.bridges !== 1 ? 's' : ''}</li>` : ''}
+                                    </ul>
+                                </div>
+                                ${result.affected_devices?.length > 0 ? `
+                                    <div class="reset-reboot-note">
+                                        <p><strong>Note:</strong> The following devices may need to be rebooted:</p>
+                                        <p>${result.affected_devices.join(', ')}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `);
+
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            label: 'Close',
+                            type: 'primary',
+                            onClick: () => {
+                                modal.hide();
+                                // Refresh the topology view
+                                if (window.topologyManager) {
+                                    window.topologyManager.refresh();
+                                }
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Reset failed:', error);
+                        modal.showError('Reset failed: ' + error.message);
+                    }
+                }
+            });
+
+            // Disable reset button until checkbox is checked
+            resetBtn.disabled = true;
+            const checkbox = modal.getContentElement().querySelector('#reset-confirm-check');
+            checkbox.addEventListener('change', () => {
+                resetBtn.disabled = !checkbox.checked;
+            });
+
+        } catch (error) {
+            console.error('Failed to load user nodes status:', error);
+            modal.showError('Failed to check user nodes: ' + error.message);
         }
     }
 
