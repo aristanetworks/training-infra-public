@@ -8,13 +8,22 @@ Handles:
 - Attaching interfaces to VMs
 """
 
+import logging
 import os
 import re
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
+logger = logging.getLogger('nodebuilder.interface_manager')
+
 from validation import get_all_nodes
-from config import get_topo_build_path, USER_NODES_PATH, MGMT_BRIDGE
+from config import (
+    get_topo_build_path,
+    USER_NODES_PATH,
+    USER_HOSTS_PATH,
+    USER_FIREWALLS_PATH,
+    MGMT_BRIDGE
+)
 
 
 def parse_device_name(dev_name: str) -> Dict:
@@ -161,6 +170,7 @@ def get_used_ports_from_live_vm(device_name: str) -> List[int]:
         )
 
         if result.returncode != 0:
+            # VM might not be running or doesn't exist - this is normal
             return []
 
         # Parse output - count data interfaces (connected to OVS bridges, not mgmt)
@@ -182,13 +192,89 @@ def get_used_ports_from_live_vm(device_name: str) -> List[int]:
         # Return list of port numbers (1 to interface_count)
         return list(range(1, interface_count + 1))
 
-    except Exception:
+    except subprocess.TimeoutExpired:
+        logger.warning(f"Timeout querying live VM interfaces for {device_name}")
         return []
+    except Exception as e:
+        logger.warning(f"Error querying live VM interfaces for {device_name}: {e}")
+        return []
+
+
+def check_port_consistency(device_name: str) -> Dict:
+    """
+    Check for port allocation consistency issues.
+
+    Detects:
+    - Gaps in port numbering (indicates persistence/VM mismatch)
+    - Differences between persistence and live VM
+
+    Args:
+        device_name: Name of the device
+
+    Returns:
+        Dict with consistency check results
+    """
+    topo_ports = get_used_ports_from_topology(device_name)
+    live_ports = get_used_ports_from_live_vm(device_name)
+
+    result = {
+        'device': device_name,
+        'topology_ports': topo_ports,
+        'live_ports': live_ports,
+        'consistent': True,
+        'issues': []
+    }
+
+    # Check for gaps in topology ports
+    if topo_ports:
+        expected = set(range(1, max(topo_ports) + 1))
+        actual = set(topo_ports)
+        gaps = expected - actual
+        if gaps:
+            result['consistent'] = False
+            result['issues'].append({
+                'type': 'port_gap',
+                'message': f"Gap in port numbering: missing ports {sorted(gaps)}",
+                'missing_ports': sorted(gaps)
+            })
+
+    # Check for mismatch between topology and live
+    topo_set = set(topo_ports)
+    live_set = set(live_ports)
+
+    in_topo_not_live = topo_set - live_set
+    in_live_not_topo = live_set - topo_set
+
+    if in_topo_not_live:
+        result['issues'].append({
+            'type': 'persistence_only',
+            'message': f"Ports in persistence but not attached to VM: {sorted(in_topo_not_live)}",
+            'ports': sorted(in_topo_not_live)
+        })
+
+    if in_live_not_topo:
+        result['issues'].append({
+            'type': 'live_only',
+            'message': f"Ports attached to VM but not in persistence: {sorted(in_live_not_topo)}",
+            'ports': sorted(in_live_not_topo)
+        })
+
+    if result['issues']:
+        result['consistent'] = False
+
+    return result
 
 
 def get_used_ports_from_topology(device_name: str) -> List[int]:
     """
-    Get list of used port numbers for a device from topology.
+    Get list of used port numbers for a device from ALL sources.
+
+    Checks:
+    1. Base topology (topo_build.yml) - original neighbor connections
+    2. User-added vEOS nodes (user_nodes.yaml) - added node neighbors
+    3. User-added Linux hosts (user_hosts.yaml) - host connections
+    4. User-added VyOS firewalls (user_firewalls.yaml) - firewall connections
+    5. Live VM interfaces (virsh domiflist) - catches unsaved attachments
 
     Args:
         device_name: Name of the device
@@ -196,11 +282,14 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
     Returns:
         List of used port numbers (e.g., [1, 2, 3] for Ethernet1-3)
     """
+    from persistence import load_user_hosts, load_user_firewalls
+
     topo_build_path = get_topo_build_path()
     all_nodes = get_all_nodes(topo_build_path, USER_NODES_PATH)
 
     used_ports = set()
 
+    # Source 1 & 2: Base topology + user-added vEOS nodes
     for node in all_nodes:
         # Check if this device has neighbors
         if node['name'].lower() == device_name.lower():
@@ -218,8 +307,49 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
                 if port_num:
                     used_ports.add(port_num)
 
-    # Also check live VM interfaces to catch recently attached interfaces
-    # that haven't been saved to config yet
+    # Source 3: User-added Linux hosts
+    try:
+        hosts_data = load_user_hosts(USER_HOSTS_PATH)
+        for host_entry in hosts_data.get('hosts', []) or []:
+            for host_name, host_info in host_entry.items():
+                connection = host_info.get('connection', {})
+                if connection:
+                    target_device = connection.get('target_device', '')
+                    if target_device.lower() == device_name.lower():
+                        port = connection.get('target_port', '')
+                        port_num = extract_port_number(port)
+                        if port_num:
+                            used_ports.add(port_num)
+    except Exception:
+        pass  # File might not exist
+
+    # Source 4: User-added VyOS firewalls (check both inside and outside)
+    try:
+        firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
+        for fw_entry in firewalls_data.get('firewalls', []) or []:
+            for fw_name, fw_info in fw_entry.items():
+                # Check inside interface
+                inside = fw_info.get('inside_interface', {})
+                if inside:
+                    target_device = inside.get('target_device', '')
+                    if target_device.lower() == device_name.lower():
+                        port = inside.get('target_port', '')
+                        port_num = extract_port_number(port)
+                        if port_num:
+                            used_ports.add(port_num)
+                # Check outside interface
+                outside = fw_info.get('outside_interface', {})
+                if outside:
+                    target_device = outside.get('target_device', '')
+                    if target_device.lower() == device_name.lower():
+                        port = outside.get('target_port', '')
+                        port_num = extract_port_number(port)
+                        if port_num:
+                            used_ports.add(port_num)
+    except Exception:
+        pass  # File might not exist
+
+    # Source 5: Live VM interfaces (catches recently attached but unsaved)
     live_ports = get_used_ports_from_live_vm(device_name)
     for port_num in live_ports:
         used_ports.add(port_num)
@@ -243,7 +373,63 @@ def extract_port_number(port_name: str) -> Optional[int]:
     return None
 
 
-def find_next_available_port(device_name: str) -> str:
+# Port allocation locking to prevent race conditions
+import fcntl
+import threading
+from contextlib import contextmanager
+
+# In-memory lock for thread safety within this process
+_port_allocation_lock = threading.Lock()
+# File-based lock path for cross-process safety
+_PORT_LOCK_FILE = '/tmp/nodebuilder_port_allocation.lock'
+
+
+@contextmanager
+def port_allocation_lock(device_name: str, timeout: float = 30.0):
+    """
+    Context manager for thread-safe and process-safe port allocation.
+
+    Uses both threading lock (for same-process concurrency) and
+    file lock (for cross-process concurrency).
+
+    Args:
+        device_name: Device name (for logging)
+        timeout: Lock acquisition timeout in seconds
+
+    Raises:
+        TimeoutError: If lock cannot be acquired within timeout
+    """
+    import time
+    start_time = time.time()
+
+    # Acquire thread lock first
+    acquired = _port_allocation_lock.acquire(timeout=timeout)
+    if not acquired:
+        raise TimeoutError(f"Timeout acquiring thread lock for port allocation on {device_name}")
+
+    try:
+        # Then acquire file lock for cross-process safety
+        lock_file = open(_PORT_LOCK_FILE, 'w')
+        while True:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (IOError, OSError):
+                if time.time() - start_time > timeout:
+                    lock_file.close()
+                    raise TimeoutError(f"Timeout acquiring file lock for port allocation on {device_name}")
+                time.sleep(0.1)
+
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            lock_file.close()
+    finally:
+        _port_allocation_lock.release()
+
+
+def find_next_available_port(device_name: str, use_lock: bool = True) -> str:
     """
     Find the next available Ethernet port on a device.
 
@@ -252,23 +438,33 @@ def find_next_available_port(device_name: str) -> str:
 
     Args:
         device_name: Name of the device
+        use_lock: Whether to acquire allocation lock (disable for read-only queries)
 
     Returns:
         Next available port name (e.g., "Ethernet5")
     """
-    used_ports = get_used_ports_from_topology(device_name)
+    def _find_port():
+        used_ports = get_used_ports_from_topology(device_name)
 
-    if not used_ports:
-        return "Ethernet1"
+        if not used_ports:
+            return "Ethernet1"
 
-    # Find next contiguous port after highest used
-    next_port = max(used_ports) + 1
-    return f"Ethernet{next_port}"
+        # Find next contiguous port after highest used
+        next_port = max(used_ports) + 1
+        return f"Ethernet{next_port}"
+
+    if use_lock:
+        with port_allocation_lock(device_name):
+            return _find_port()
+    else:
+        return _find_port()
 
 
 def get_target_devices_with_ports() -> List[Dict]:
     """
     Get all existing devices with their next available port.
+
+    This is a read-only query, so we don't need the allocation lock.
 
     Returns:
         List of dicts with 'name' and 'next_available_port'
@@ -279,7 +475,8 @@ def get_target_devices_with_ports() -> List[Dict]:
     devices = []
     for node in all_nodes:
         device_name = node['name']
-        next_port = find_next_available_port(device_name)
+        # Use non-locking version for read-only query
+        next_port = find_next_available_port(device_name, use_lock=False)
 
         # Get all used ports for reference
         used_ports = get_used_ports_from_topology(device_name)
@@ -307,6 +504,9 @@ def generate_bridge_name(
     Format: {dev1_code}{port1_num}-{dev2_code}{port2_num}
     Example: sp11-le13 (spine1 Ethernet1 to leaf1 Ethernet3)
 
+    Note: Device names are normalized to lowercase to ensure consistent
+    bridge names regardless of input case (Spine1 vs spine1).
+
     Args:
         device1: First device name
         port1: First port name
@@ -314,12 +514,13 @@ def generate_bridge_name(
         port2: Second port name
 
     Returns:
-        Bridge name string
+        Bridge name string (always lowercase)
     """
-    dev1_info = parse_device_name(device1)
-    port1_info = parse_device_name(port1)
-    dev2_info = parse_device_name(device2)
-    port2_info = parse_device_name(port2)
+    # Normalize to lowercase for consistent bridge names
+    dev1_info = parse_device_name(device1.lower())
+    port1_info = parse_device_name(port1.lower())
+    dev2_info = parse_device_name(device2.lower())
+    port2_info = parse_device_name(port2.lower())
 
     return f"{dev1_info['code']}{port1_info['code']}-{dev2_info['code']}{port2_info['code']}"
 
