@@ -378,6 +378,118 @@ def remove_neighbor_references(
     return removed_count
 
 
+def remove_all_device_references(
+    deleted_device_name: str,
+    user_nodes_path: str = DEFAULT_USER_NODES_PATH,
+    user_hosts_path: str = None,
+    user_firewalls_path: str = None
+) -> Dict:
+    """
+    Remove all references to a deleted device from ALL persistence files.
+
+    This is a comprehensive cleanup that handles:
+    1. Neighbor references in user_nodes.yaml
+    2. Connection references in user_hosts.yaml (target_device field)
+    3. Interface references in user_firewalls.yaml (inside/outside target_device)
+
+    Args:
+        deleted_device_name: Name of the device that was deleted
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml (optional)
+        user_firewalls_path: Path to user_firewalls.yaml (optional)
+
+    Returns:
+        Dict with counts of removed references by type
+    """
+    result = {
+        'nodes_cleaned': 0,
+        'hosts_cleaned': 0,
+        'firewalls_cleaned': 0,
+        'total': 0
+    }
+
+    deleted_lower = deleted_device_name.lower()
+
+    # 1. Clean up neighbor references in user_nodes.yaml
+    result['nodes_cleaned'] = remove_neighbor_references(
+        deleted_device_name, user_nodes_path
+    )
+
+    # 2. Clean up connection references in user_hosts.yaml
+    if user_hosts_path:
+        try:
+            hosts_data = load_user_hosts(user_hosts_path)
+            hosts_modified = False
+
+            for host_entry in hosts_data.get('hosts', []) or []:
+                for host_name, host_info in host_entry.items():
+                    connection = host_info.get('connection', {})
+                    if connection.get('target_device', '').lower() == deleted_lower:
+                        # Clear the connection - the target device no longer exists
+                        logger.warning(
+                            f"Host '{host_name}' was connected to deleted device "
+                            f"'{deleted_device_name}'. Marking connection as orphaned."
+                        )
+                        host_info['connection']['orphaned'] = True
+                        host_info['connection']['orphaned_target'] = deleted_device_name
+                        result['hosts_cleaned'] += 1
+                        hosts_modified = True
+
+            if hosts_modified:
+                save_user_hosts(hosts_data, user_hosts_path)
+                logger.info(
+                    f"Marked {result['hosts_cleaned']} host connection(s) as orphaned "
+                    f"due to deleted device '{deleted_device_name}'"
+                )
+        except Exception as e:
+            logger.warning(f"Error cleaning host references: {e}")
+
+    # 3. Clean up interface references in user_firewalls.yaml
+    if user_firewalls_path:
+        try:
+            firewalls_data = load_user_firewalls(user_firewalls_path)
+            firewalls_modified = False
+
+            for fw_entry in firewalls_data.get('firewalls', []) or []:
+                for fw_name, fw_info in fw_entry.items():
+                    for iface_key in ['inside_interface', 'outside_interface']:
+                        iface = fw_info.get(iface_key, {})
+                        if iface.get('target_device', '').lower() == deleted_lower:
+                            logger.warning(
+                                f"Firewall '{fw_name}' {iface_key} was connected to "
+                                f"deleted device '{deleted_device_name}'. Marking as orphaned."
+                            )
+                            iface['orphaned'] = True
+                            iface['orphaned_target'] = deleted_device_name
+                            result['firewalls_cleaned'] += 1
+                            firewalls_modified = True
+
+            if firewalls_modified:
+                save_user_firewalls(firewalls_data, user_firewalls_path)
+                logger.info(
+                    f"Marked {result['firewalls_cleaned']} firewall interface(s) as orphaned "
+                    f"due to deleted device '{deleted_device_name}'"
+                )
+        except Exception as e:
+            logger.warning(f"Error cleaning firewall references: {e}")
+
+    result['total'] = (
+        result['nodes_cleaned'] +
+        result['hosts_cleaned'] +
+        result['firewalls_cleaned']
+    )
+
+    if result['total'] > 0:
+        logger.info(
+            f"Cross-type cleanup for '{deleted_device_name}': "
+            f"{result['nodes_cleaned']} node refs, "
+            f"{result['hosts_cleaned']} host refs, "
+            f"{result['firewalls_cleaned']} firewall refs"
+        )
+
+    return result
+
+
 # ============================================================================
 # User Hosts Persistence (Linux Desktop VMs)
 # ============================================================================

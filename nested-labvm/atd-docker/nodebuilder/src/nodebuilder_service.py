@@ -191,6 +191,74 @@ async def existing_nodes(request):
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
+@routes.get('/topology/unified')
+async def unified_topology(request):
+    """
+    Return complete unified topology with ALL device types.
+
+    This endpoint provides a consistent view of all devices:
+    - Original topology vEOS nodes
+    - User-added vEOS nodes
+    - User-added Linux hosts
+    - User-added VyOS firewalls
+
+    Response includes:
+    - devices: List of all devices with standardized structure
+    - connections: List of all inter-device connections
+    - summary: Count statistics by device type
+
+    Query parameters:
+    - include_connections: bool (default true) - include connection list
+    - device_type: filter by device type (veos, linux_host, firewall)
+    - user_added: filter by user_added status (true, false)
+    """
+    from unified_topology import get_unified_topology, DeviceType
+    from config import (
+        USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+        get_topo_build_path
+    )
+
+    try:
+        topo_build_path = get_topo_build_path()
+        topology = get_unified_topology(
+            topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+        )
+
+        # Apply filters if specified
+        devices = topology['devices']
+
+        # Filter by device_type
+        device_type_filter = request.query.get('device_type')
+        if device_type_filter:
+            devices = [d for d in devices if d['device_type'] == device_type_filter]
+
+        # Filter by user_added
+        user_added_filter = request.query.get('user_added')
+        if user_added_filter is not None:
+            user_added_bool = user_added_filter.lower() == 'true'
+            devices = [d for d in devices if d['user_added'] == user_added_bool]
+
+        # Optionally exclude connections
+        include_connections = request.query.get('include_connections', 'true').lower() != 'false'
+
+        response = {
+            'devices': devices,
+            'summary': {
+                **topology['summary'],
+                'filtered_count': len(devices)
+            }
+        }
+
+        if include_connections:
+            response['connections'] = topology['connections']
+
+        return web.json_response(response)
+
+    except Exception as e:
+        logger.error(f"Error getting unified topology: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
 @routes.get('/target-devices')
 async def target_devices(request):
     """Return devices available as connection targets with available ports"""
@@ -218,9 +286,11 @@ async def validate_node(request):
     errors = []
     topo_build_path = get_topo_build_path()
 
-    # Validate name
+    # Validate name (check against ALL device types: nodes, hosts, firewalls)
     name = data.get('name', '')
-    name_valid, name_error = validate_device_name(name, topo_build_path, USER_NODES_PATH)
+    name_valid, name_error = validate_device_name(
+        name, topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    )
     if not name_valid:
         errors.append(name_error)
 
@@ -293,8 +363,10 @@ async def add_node(request):
                     'error': f'Maximum of {MAX_TOTAL_NODES} total nodes reached (topology has {len(all_nodes)} nodes)'
                 }, status=400)
 
-            # Validate name
-            name_valid, name_error = validate_device_name(name, topo_build_path, USER_NODES_PATH)
+            # Validate name (check against ALL device types)
+            name_valid, name_error = validate_device_name(
+                name, topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            )
             if not name_valid:
                 return web.json_response({'error': name_error}, status=400)
 
@@ -477,9 +549,9 @@ async def delete_node(request):
        (prevents orphaned connections when deleting a node that
        is connected to other user-added nodes)
     """
-    from persistence import get_user_node, remove_user_node, remove_neighbor_references
+    from persistence import get_user_node, remove_user_node, remove_all_device_references
     from resource_manager import get_resource_manager
-    from config import USER_NODES_PATH
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
 
     try:
         data = await request.json()
@@ -516,11 +588,13 @@ async def delete_node(request):
         # Remove from persistence
         remove_user_node(name, USER_NODES_PATH)
 
-        # Clean up neighbor references in other user nodes
-        # (prevents orphaned references when a node connected to other user nodes is deleted)
-        orphaned_refs_removed = remove_neighbor_references(name, USER_NODES_PATH)
-        if orphaned_refs_removed > 0:
-            result['orphaned_references_removed'] = orphaned_refs_removed
+        # Clean up references in ALL device types (nodes, hosts, firewalls)
+        # (prevents orphaned references when a node connected to other devices is deleted)
+        cleanup_result = remove_all_device_references(
+            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+        )
+        if cleanup_result['total'] > 0:
+            result['orphaned_references_removed'] = cleanup_result
 
         logger.info(f"Successfully deleted node: {name}")
 

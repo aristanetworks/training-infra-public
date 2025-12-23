@@ -231,20 +231,24 @@ RESERVED_NAMES = frozenset([
 def validate_device_name(
     name: str,
     topo_build_path: str,
-    user_nodes_path: str
+    user_nodes_path: str,
+    user_hosts_path: str = None,
+    user_firewalls_path: str = None
 ) -> Tuple[bool, Optional[str]]:
     """
-    Validate that a device name is valid and unique
+    Validate that a device name is valid and unique across ALL device types.
 
     Security considerations:
     - Prevents shell metacharacter injection
     - Prevents reserved name collisions
-    - Case-insensitive uniqueness check
+    - Case-insensitive uniqueness check across nodes, hosts, and firewalls
 
     Args:
         name: Device name to validate
         topo_build_path: Path to topo_build.yml
         user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml (optional for backward compat)
+        user_firewalls_path: Path to user_firewalls.yaml (optional for backward compat)
 
     Returns:
         Tuple of (is_valid, error_message)
@@ -268,8 +272,15 @@ def validate_device_name(
     if name.lower() in RESERVED_NAMES:
         return False, f"'{name}' is a reserved name and cannot be used"
 
-    # Check uniqueness (case-insensitive)
-    existing_names = get_existing_node_names(topo_build_path, user_nodes_path)
+    # Check uniqueness across ALL device types (case-insensitive)
+    # Use comprehensive check if paths are provided, otherwise fall back to nodes only
+    if user_hosts_path and user_firewalls_path:
+        existing_names = get_all_device_names(
+            topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path
+        )
+    else:
+        existing_names = get_existing_node_names(topo_build_path, user_nodes_path)
+
     if name.lower() in existing_names:
         return False, "This device name is already in use"
 
@@ -520,26 +531,10 @@ def validate_host_name(
     Returns:
         Tuple of (is_valid, error_message)
     """
-    from persistence import list_user_hosts, list_user_firewalls
-
-    # First validate using existing device name validation
-    valid, error = validate_device_name(name, topo_build_path, user_nodes_path)
-    if not valid:
-        return valid, error
-
-    # Also check against hosts
-    for host in list_user_hosts(user_hosts_path):
-        for host_name in host.keys():
-            if host_name.lower() == name.lower():
-                return False, "This name is already in use by a Linux host"
-
-    # Also check against firewalls
-    for fw in list_user_firewalls(user_firewalls_path):
-        for fw_name in fw.keys():
-            if fw_name.lower() == name.lower():
-                return False, "This name is already in use by a firewall"
-
-    return True, None
+    # Use the unified validation which now checks ALL device types
+    return validate_device_name(
+        name, topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path
+    )
 
 
 def validate_firewall_name(
