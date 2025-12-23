@@ -614,6 +614,9 @@ def delete_host(name: str) -> Dict:
     - OVS bridge to target device
     - Interface on target device
 
+    Uses shared ResourceManager methods to avoid code duplication
+    with firewall deletion.
+
     Args:
         name: Name of the host to delete
 
@@ -621,102 +624,53 @@ def delete_host(name: str) -> Dict:
         Dict with deletion status
     """
     from persistence import get_user_host
-    from interface_manager import get_vm_interfaces, detach_interface_from_vm
+    from resource_manager import get_resource_manager
 
     logger.info(f"Deleting Linux host: {name}")
 
-    results = {
-        'vm_destroyed': False,
-        'vm_undefined': False,
-        'disk_deleted': False,
-        'cidata_deleted': False,
-        'bridge_deleted': False,
-        'target_interface_detached': False,
-        'devices_needing_reboot': []
-    }
+    resource_mgr = get_resource_manager()
+    devices_needing_reboot = []
 
-    # Step 1: Get host info from persistence BEFORE deleting (need bridge info)
+    # Step 1: Get host info from persistence BEFORE deleting (need connection info)
     host_entry = get_user_host(name, USER_HOSTS_PATH)
-    bridge_name = None
-    target_device = None
+    connection = None
 
     if host_entry:
         for host_name, host_info in host_entry.items():
             connection = host_info.get('connection', {})
             if connection:
-                bridge_name = connection.get('bridge')
-                target_device = connection.get('target_device')
-                logger.info(f"Found connection info: bridge={bridge_name}, target={target_device}")
+                logger.info(
+                    f"Found connection: bridge={connection.get('bridge')}, "
+                    f"target={connection.get('target_device')}"
+                )
             break
 
-    # Step 2: Detach interface from target device
-    # Note: EOS doesn't support hot-unplug, so target device needs reboot
-    if target_device and bridge_name:
-        try:
-            interfaces = get_vm_interfaces(target_device)
-            for intf in interfaces:
-                if intf.get('source') == bridge_name:
-                    mac = intf.get('mac')
-                    if mac:
-                        logger.info(f"Detaching interface {mac} from {target_device}")
-                        detach_interface_from_vm(target_device, mac)
-                        results['target_interface_detached'] = True
-                        # EOS VMs don't support hot-unplug, need reboot
-                        if target_device not in results['devices_needing_reboot']:
-                            results['devices_needing_reboot'].append(target_device)
-                    break
-        except Exception as e:
-            logger.warning(f"Failed to detach interface from target: {e}")
+    # Step 2: Clean up connection (detach interface + delete bridge)
+    conn_result = resource_mgr.cleanup_connection(connection)
+    if conn_result['target_device']:
+        devices_needing_reboot.append(conn_result['target_device'])
 
-    # Step 3: Delete OVS bridge
-    if bridge_name:
-        try:
-            logger.info(f"Deleting OVS bridge: {bridge_name}")
-            delete_ovs_bridge(bridge_name)
-            results['bridge_deleted'] = True
-        except Exception as e:
-            logger.warning(f"Failed to delete bridge {bridge_name}: {e}")
-
-    # Step 4: Destroy running VM
-    try:
-        subprocess.run(['virsh', 'destroy', name],
-                       capture_output=True, timeout=30)
-        results['vm_destroyed'] = True
-    except Exception:
-        pass
-
-    # Step 5: Undefine VM
-    try:
-        result = subprocess.run(['virsh', 'undefine', name],
-                                capture_output=True, text=True, timeout=30)
-        results['vm_undefined'] = result.returncode == 0
-    except Exception as e:
-        logger.warning(f"Failed to undefine VM: {e}")
-
-    # Step 6: Delete disk image
-    disk_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{name}.qcow2'
-    if os.path.exists(disk_path):
-        try:
-            os.remove(disk_path)
-            results['disk_deleted'] = True
-        except Exception as e:
-            logger.warning(f"Failed to delete disk: {e}")
-
-    # Step 7: Delete cloud-init ISO
-    cidata_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{name}-cidata.iso'
-    if os.path.exists(cidata_path):
-        try:
-            os.remove(cidata_path)
-            results['cidata_deleted'] = True
-        except Exception as e:
-            logger.warning(f"Failed to delete cloud-init ISO: {e}")
+    # Step 3: Delete VM and disk images
+    vm_result = resource_mgr.delete_vm_with_cleanup(
+        vm_name=name,
+        disk_subdir='hosts',
+        has_cidata=True
+    )
 
     logger.info(f"Deleted Linux host: {name}")
 
     return {
         'status': 'deleted',
         'name': name,
-        'details': results
+        'details': {
+            'vm_destroyed': vm_result['vm_destroyed'],
+            'vm_undefined': vm_result['vm_undefined'],
+            'disk_deleted': vm_result['disk_deleted'],
+            'cidata_deleted': vm_result.get('cidata_deleted', False),
+            'bridge_deleted': conn_result['bridge_deleted'],
+            'target_interface_detached': conn_result['interface_detached'],
+            'devices_needing_reboot': devices_needing_reboot
+        }
     }
 
 

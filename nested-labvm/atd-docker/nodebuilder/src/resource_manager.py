@@ -790,6 +790,171 @@ class ResourceManager:
 
         return results
 
+    # =========================================================================
+    # Shared Cleanup Operations (for hosts and firewalls)
+    # =========================================================================
+
+    def cleanup_connection(
+        self,
+        connection: Optional[Dict],
+        connection_name: str = ''
+    ) -> Dict:
+        """
+        Clean up a single connection: detach interface from target and delete bridge.
+
+        This is a shared method used by both host and firewall deletion to avoid
+        code duplication.
+
+        Args:
+            connection: Connection dict with 'bridge' and 'target_device' keys
+            connection_name: Optional name for logging (e.g., 'inside', 'outside')
+
+        Returns:
+            Dict with cleanup status:
+            - interface_detached: bool
+            - bridge_deleted: bool
+            - target_device: str or None (device that needs reboot if detached)
+            - errors: list of error messages
+        """
+        result = {
+            'interface_detached': False,
+            'bridge_deleted': False,
+            'target_device': None,
+            'errors': []
+        }
+
+        if not connection:
+            return result
+
+        bridge_name = connection.get('bridge')
+        target_device = connection.get('target_device')
+        log_prefix = f"[{connection_name}] " if connection_name else ""
+
+        # Detach interface from target device
+        if target_device and bridge_name:
+            try:
+                interfaces = get_vm_interfaces(target_device)
+                for intf in interfaces:
+                    if intf.get('source') == bridge_name:
+                        mac = intf.get('mac')
+                        if mac:
+                            self.logger.info(
+                                f"{log_prefix}Detaching interface {mac} from {target_device}"
+                            )
+                            detach_interface_from_vm(target_device, mac)
+                            result['interface_detached'] = True
+                            # EOS VMs don't support hot-unplug, track for reboot
+                            result['target_device'] = target_device
+                        break
+            except Exception as e:
+                error_msg = f"Failed to detach {log_prefix}interface from {target_device}: {e}"
+                self.logger.warning(error_msg)
+                result['errors'].append(error_msg)
+
+        # Delete OVS bridge
+        if bridge_name:
+            try:
+                self.logger.info(f"{log_prefix}Deleting OVS bridge: {bridge_name}")
+                delete_ovs_bridge(bridge_name)
+                result['bridge_deleted'] = True
+            except Exception as e:
+                error_msg = f"Failed to delete {log_prefix}bridge {bridge_name}: {e}"
+                self.logger.warning(error_msg)
+                result['errors'].append(error_msg)
+
+        return result
+
+    def delete_vm_with_cleanup(
+        self,
+        vm_name: str,
+        disk_subdir: str,
+        has_cidata: bool = True
+    ) -> Dict:
+        """
+        Delete a VM and its associated disk images.
+
+        Common deletion logic for hosts and firewalls.
+
+        Args:
+            vm_name: Name of the VM to delete
+            disk_subdir: Subdirectory under LIBVIRT_IMAGES_PATH (e.g., 'hosts', 'firewall')
+            has_cidata: Whether to also delete cloud-init ISO
+
+        Returns:
+            Dict with deletion status:
+            - vm_destroyed: bool
+            - vm_undefined: bool
+            - disk_deleted: bool
+            - cidata_deleted: bool (if has_cidata=True)
+            - errors: list of error messages
+        """
+        import subprocess
+
+        result = {
+            'vm_destroyed': False,
+            'vm_undefined': False,
+            'disk_deleted': False,
+            'errors': []
+        }
+        if has_cidata:
+            result['cidata_deleted'] = False
+
+        # Step 1: Destroy running VM (force - don't fail if not running)
+        try:
+            proc = subprocess.run(
+                ['virsh', 'destroy', vm_name],
+                capture_output=True,
+                timeout=30
+            )
+            result['vm_destroyed'] = proc.returncode == 0
+        except Exception as e:
+            self.logger.warning(f"Failed to destroy VM {vm_name}: {e}")
+
+        # Step 2: Undefine VM
+        try:
+            proc = subprocess.run(
+                ['virsh', 'undefine', vm_name],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            result['vm_undefined'] = proc.returncode == 0
+            if proc.returncode != 0:
+                result['errors'].append(f"Undefine failed: {proc.stderr}")
+        except Exception as e:
+            error_msg = f"Failed to undefine VM {vm_name}: {e}"
+            self.logger.warning(error_msg)
+            result['errors'].append(error_msg)
+
+        # Step 3: Delete disk image
+        disk_path = f'{LIBVIRT_IMAGES_PATH}/{disk_subdir}/{vm_name}.qcow2'
+        if os.path.exists(disk_path):
+            try:
+                os.remove(disk_path)
+                result['disk_deleted'] = True
+                self.logger.info(f"Deleted disk: {disk_path}")
+            except Exception as e:
+                error_msg = f"Failed to delete disk {disk_path}: {e}"
+                self.logger.warning(error_msg)
+                result['errors'].append(error_msg)
+        else:
+            self.logger.info(f"Disk not found (already deleted?): {disk_path}")
+
+        # Step 4: Delete cloud-init ISO (if applicable)
+        if has_cidata:
+            cidata_path = f'{LIBVIRT_IMAGES_PATH}/{disk_subdir}/{vm_name}-cidata.iso'
+            if os.path.exists(cidata_path):
+                try:
+                    os.remove(cidata_path)
+                    result['cidata_deleted'] = True
+                    self.logger.info(f"Deleted cloud-init ISO: {cidata_path}")
+                except Exception as e:
+                    error_msg = f"Failed to delete cidata {cidata_path}: {e}"
+                    self.logger.warning(error_msg)
+                    result['errors'].append(error_msg)
+
+        return result
+
 
 # Module-level singleton instance
 _resource_manager: Optional[ResourceManager] = None

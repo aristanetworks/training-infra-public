@@ -559,6 +559,9 @@ def delete_firewall(name: str) -> Dict:
     - Inside OVS bridge and target interface
     - Outside OVS bridge and target interface
 
+    Uses shared ResourceManager methods to avoid code duplication
+    with host deletion.
+
     Args:
         name: Name of the firewall to delete
 
@@ -566,23 +569,14 @@ def delete_firewall(name: str) -> Dict:
         Dict with deletion status
     """
     from persistence import get_user_firewall
-    from interface_manager import get_vm_interfaces, detach_interface_from_vm
+    from resource_manager import get_resource_manager
 
     logger.info(f"Deleting VyOS firewall: {name}")
 
-    results = {
-        'vm_destroyed': False,
-        'vm_undefined': False,
-        'disk_deleted': False,
-        'cidata_deleted': False,
-        'inside_bridge_deleted': False,
-        'outside_bridge_deleted': False,
-        'inside_target_detached': False,
-        'outside_target_detached': False,
-        'devices_needing_reboot': []
-    }
+    resource_mgr = get_resource_manager()
+    devices_needing_reboot = []
 
-    # Step 1: Get firewall info from persistence BEFORE deleting (need bridge info)
+    # Step 1: Get firewall info from persistence BEFORE deleting (need connection info)
     fw_entry = get_user_firewall(name, USER_FIREWALLS_PATH)
     inside_conn = None
     outside_conn = None
@@ -594,105 +588,39 @@ def delete_firewall(name: str) -> Dict:
             logger.info(f"Found firewall connections: inside={inside_conn}, outside={outside_conn}")
             break
 
-    # Helper function to clean up a connection
-    # Note: EOS doesn't support hot-unplug, so target devices need reboot
-    def cleanup_connection(conn: Dict, conn_name: str) -> tuple:
-        """Clean up bridge and target interface for a connection.
-
-        Returns:
-            Tuple of (detached, bridge_deleted, target_device_if_detached)
-        """
-        detached = False
-        bridge_deleted = False
-        detached_target = None
-
-        if not conn:
-            return detached, bridge_deleted, detached_target
-
-        bridge_name = conn.get('bridge')
-        target_device = conn.get('target_device')
-
-        # Detach interface from target device
-        if target_device and bridge_name:
-            try:
-                interfaces = get_vm_interfaces(target_device)
-                for intf in interfaces:
-                    if intf.get('source') == bridge_name:
-                        mac = intf.get('mac')
-                        if mac:
-                            logger.info(f"Detaching {conn_name} interface {mac} from {target_device}")
-                            detach_interface_from_vm(target_device, mac)
-                            detached = True
-                            detached_target = target_device
-                        break
-            except Exception as e:
-                logger.warning(f"Failed to detach {conn_name} interface from target: {e}")
-
-        # Delete OVS bridge
-        if bridge_name:
-            try:
-                logger.info(f"Deleting {conn_name} OVS bridge: {bridge_name}")
-                delete_ovs_bridge(bridge_name)
-                bridge_deleted = True
-            except Exception as e:
-                logger.warning(f"Failed to delete {conn_name} bridge {bridge_name}: {e}")
-
-        return detached, bridge_deleted, detached_target
-
     # Step 2: Clean up inside connection
-    inside_detached, inside_bridge, inside_target = cleanup_connection(inside_conn, 'inside')
-    results['inside_target_detached'] = inside_detached
-    results['inside_bridge_deleted'] = inside_bridge
-    if inside_target and inside_target not in results['devices_needing_reboot']:
-        results['devices_needing_reboot'].append(inside_target)
+    inside_result = resource_mgr.cleanup_connection(inside_conn, 'inside')
+    if inside_result['target_device']:
+        devices_needing_reboot.append(inside_result['target_device'])
 
     # Step 3: Clean up outside connection
-    outside_detached, outside_bridge, outside_target = cleanup_connection(outside_conn, 'outside')
-    results['outside_target_detached'] = outside_detached
-    results['outside_bridge_deleted'] = outside_bridge
-    if outside_target and outside_target not in results['devices_needing_reboot']:
-        results['devices_needing_reboot'].append(outside_target)
+    outside_result = resource_mgr.cleanup_connection(outside_conn, 'outside')
+    if outside_result['target_device'] and outside_result['target_device'] not in devices_needing_reboot:
+        devices_needing_reboot.append(outside_result['target_device'])
 
-    # Step 4: Destroy running VM
-    try:
-        subprocess.run(['virsh', 'destroy', name],
-                       capture_output=True, timeout=30)
-        results['vm_destroyed'] = True
-    except Exception:
-        pass
-
-    # Step 5: Undefine VM
-    try:
-        result = subprocess.run(['virsh', 'undefine', name],
-                                capture_output=True, text=True, timeout=30)
-        results['vm_undefined'] = result.returncode == 0
-    except Exception as e:
-        logger.warning(f"Failed to undefine VM: {e}")
-
-    # Step 6: Delete disk image
-    disk_path = f'{LIBVIRT_IMAGES_PATH}/firewall/{name}.qcow2'
-    if os.path.exists(disk_path):
-        try:
-            os.remove(disk_path)
-            results['disk_deleted'] = True
-        except Exception as e:
-            logger.warning(f"Failed to delete disk: {e}")
-
-    # Step 7: Delete cloud-init ISO
-    cidata_path = f'{LIBVIRT_IMAGES_PATH}/firewall/{name}-cidata.iso'
-    if os.path.exists(cidata_path):
-        try:
-            os.remove(cidata_path)
-            results['cidata_deleted'] = True
-        except Exception as e:
-            logger.warning(f"Failed to delete cloud-init ISO: {e}")
+    # Step 4: Delete VM and disk images
+    vm_result = resource_mgr.delete_vm_with_cleanup(
+        vm_name=name,
+        disk_subdir='firewall',
+        has_cidata=True
+    )
 
     logger.info(f"Deleted VyOS firewall: {name}")
 
     return {
         'status': 'deleted',
         'name': name,
-        'details': results
+        'details': {
+            'vm_destroyed': vm_result['vm_destroyed'],
+            'vm_undefined': vm_result['vm_undefined'],
+            'disk_deleted': vm_result['disk_deleted'],
+            'cidata_deleted': vm_result.get('cidata_deleted', False),
+            'inside_bridge_deleted': inside_result['bridge_deleted'],
+            'outside_bridge_deleted': outside_result['bridge_deleted'],
+            'inside_target_detached': inside_result['interface_detached'],
+            'outside_target_detached': outside_result['interface_detached'],
+            'devices_needing_reboot': devices_needing_reboot
+        }
     }
 
 
