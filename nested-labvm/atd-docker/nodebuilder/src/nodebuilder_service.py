@@ -243,7 +243,8 @@ async def add_node(request):
     """Create new vEOS VM"""
     from validation import get_mac_for_ip, validate_device_name, get_available_ips
     from vm_manager import create_veos_node
-    from persistence import save_user_node
+    from persistence import save_user_node_pending, update_user_node_status, remove_user_node
+    from interface_manager import creation_lock
     from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
 
     try:
@@ -278,68 +279,97 @@ async def add_node(request):
             'error': f'Maximum {MAX_CONNECTIONS_PER_NODE} connections per node'
         }, status=400)
 
-    topo_build_path = get_topo_build_path()
-
-    # Security: Check total node count limit (topology + user-added)
-    from validation import get_all_nodes
-    all_nodes = get_all_nodes(topo_build_path, USER_NODES_PATH)
-    if len(all_nodes) >= MAX_TOTAL_NODES:
-        return web.json_response({
-            'error': f'Maximum of {MAX_TOTAL_NODES} total nodes reached (topology has {len(all_nodes)} nodes)'
-        }, status=400)
-
-    # Validate name
-    name_valid, name_error = validate_device_name(name, topo_build_path, USER_NODES_PATH)
-    if not name_valid:
-        return web.json_response({'error': name_error}, status=400)
-
-    # Validate IP is available
-    available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
-    if not any(entry['ip'] == ip for entry in available):
-        return web.json_response({'error': f'IP {ip} is not available or already in use'}, status=400)
-
     try:
-        # Get MAC from dnsmasq
-        mac = get_mac_for_ip(ip, DNSMASQ_PATH)
-        if not mac:
-            return web.json_response({'error': f'No MAC found for IP {ip}'}, status=400)
+        # Acquire creation lock to prevent concurrent creates from racing
+        # This serializes the entire validation + creation flow
+        with creation_lock(f'add-node:{name}'):
+            topo_build_path = get_topo_build_path()
 
-        logger.info(f"Creating vEOS node: {name} with IP {ip}, MAC {mac}")
+            # Security: Check total node count limit (topology + user-added)
+            from validation import get_all_nodes
+            all_nodes = get_all_nodes(topo_build_path, USER_NODES_PATH)
+            if len(all_nodes) >= MAX_TOTAL_NODES:
+                return web.json_response({
+                    'error': f'Maximum of {MAX_TOTAL_NODES} total nodes reached (topology has {len(all_nodes)} nodes)'
+                }, status=400)
 
-        # Create the VM (uses fixed CPU/RAM from config)
-        result = create_veos_node(name, ip, mac, connections)
+            # Validate name
+            name_valid, name_error = validate_device_name(name, topo_build_path, USER_NODES_PATH)
+            if not name_valid:
+                return web.json_response({'error': name_error}, status=400)
 
-        # Save to persistence
-        node_entry = {
-            'ip_addr': ip,
-            'sys_mac': mac,
-            'platform': 'veos',
-            'user_added': True,
-            'device_type': device_type or DEFAULT_DEVICE_TYPE,  # Always include device_type
-            'neighbors': [
-                {
-                    'neighborDevice': c['target_device'],
-                    'neighborPort': c['target_port'],
-                    'port': c['local_port']
-                } for c in result['connections']
-            ]
-        }
+            # Validate IP is available
+            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            if not any(entry['ip'] == ip for entry in available):
+                return web.json_response({'error': f'IP {ip} is not available or already in use'}, status=400)
 
-        node_data = {name: node_entry}
-        save_user_node(node_data, USER_NODES_PATH)
+            # Get MAC from dnsmasq
+            mac = get_mac_for_ip(ip, DNSMASQ_PATH)
+            if not mac:
+                return web.json_response({'error': f'No MAC found for IP {ip}'}, status=400)
 
-        logger.info(f"Successfully created node: {name}")
+            logger.info(f"Creating vEOS node: {name} with IP {ip}, MAC {mac}")
 
-        return web.json_response({
-            'status': 'created',
-            'node': {
-                'name': name,
-                'ip': ip,
-                'mac': mac,
-                'connections': result['connections']
+            # SAVE-BEFORE-CREATE: Save pending entry BEFORE VM creation
+            # This prevents zombie VMs if service crashes during creation
+            pending_entry = {
+                'ip_addr': ip,
+                'sys_mac': mac,
+                'platform': 'veos',
+                'device_type': device_type or DEFAULT_DEVICE_TYPE,
+                'neighbors': []  # Will be updated after creation
             }
-        })
+            save_user_node_pending(name, pending_entry, USER_NODES_PATH)
+            logger.debug(f"Saved pending node entry for {name}")
 
+            try:
+                # Create the VM (uses fixed CPU/RAM from config)
+                result = create_veos_node(name, ip, mac, connections)
+
+                # Update persistence with actual connection info
+                neighbors = [
+                    {
+                        'neighborDevice': c['target_device'],
+                        'neighborPort': c['target_port'],
+                        'port': c['local_port']
+                    } for c in result['connections']
+                ]
+                update_user_node_status(name, 'active', {'neighbors': neighbors}, USER_NODES_PATH)
+
+                logger.info(f"Successfully created node: {name}")
+
+                return web.json_response({
+                    'status': 'created',
+                    'node': {
+                        'name': name,
+                        'ip': ip,
+                        'mac': mac,
+                        'connections': result['connections']
+                    }
+                })
+
+            except Exception as e:
+                # VM creation failed - clean up any partially created resources
+                logger.error(f"VM creation failed for {name}: {e}")
+
+                # Try to clean up VM if it was created (prevents zombie VMs)
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                try:
+                    if rm.vm_exists(name):
+                        logger.info(f"Cleaning up partially created VM: {name}")
+                        rm.destroy_vm(name, force=True)
+                        rm.undefine_vm(name, force=True)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up VM {name}: {cleanup_error}")
+
+                # Remove the pending entry from persistence
+                remove_user_node(name, USER_NODES_PATH)
+                raise
+
+    except TimeoutError as e:
+        logger.warning(f"Concurrent creation in progress, request queued timeout: {e}")
+        return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except Exception as e:
         logger.error(f"Error creating node {name}: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
@@ -373,10 +403,18 @@ async def restore_user_nodes(request):
     is up and running.
     """
     from vm_manager import restore_all_user_nodes
+    from interface_manager import creation_lock
 
     try:
-        result = restore_all_user_nodes()
+        # Acquire creation lock to prevent concurrent creates from racing
+        with creation_lock('restore-all'):
+            result = restore_all_user_nodes()
         return web.json_response(result)
+    except TimeoutError:
+        return web.json_response(
+            {'error': 'Server busy - another operation in progress. Please try again.'},
+            status=503
+        )
     except Exception as e:
         logger.error(f"Error restoring user nodes: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
@@ -393,22 +431,30 @@ async def reset_all_user_nodes(request):
     Returns detailed results of each phase of the reset process.
     """
     from resource_manager import get_resource_manager
+    from interface_manager import creation_lock
 
     try:
-        logger.info("Initiating full reset of user-added nodes")
-        resource_mgr = get_resource_manager()
-        result = resource_mgr.reset_all_user_nodes()
+        # Acquire creation lock to prevent concurrent operations from racing
+        with creation_lock('reset-all'):
+            logger.info("Initiating full reset of user-added nodes")
+            resource_mgr = get_resource_manager()
+            result = resource_mgr.reset_all_user_nodes()
 
-        # Log summary
-        summary = result.get('summary', {})
-        logger.info(
-            f"Reset complete: {summary.get('nodes', 0)} nodes, "
-            f"{summary.get('hosts', 0)} hosts, "
-            f"{summary.get('firewalls', 0)} firewalls, "
-            f"{summary.get('bridges', 0)} bridges cleaned"
-        )
+            # Log summary
+            summary = result.get('summary', {})
+            logger.info(
+                f"Reset complete: {summary.get('nodes', 0)} nodes, "
+                f"{summary.get('hosts', 0)} hosts, "
+                f"{summary.get('firewalls', 0)} firewalls, "
+                f"{summary.get('bridges', 0)} bridges cleaned"
+            )
 
         return web.json_response(result)
+    except TimeoutError:
+        return web.json_response(
+            {'error': 'Server busy - another operation in progress. Please try again.'},
+            status=503
+        )
     except Exception as e:
         logger.error(f"Error resetting user nodes: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
@@ -1221,7 +1267,8 @@ async def add_host(request):
     }
     """
     from host_manager import create_host
-    from persistence import save_user_host
+    from persistence import save_user_host_pending, update_user_host_status, remove_user_host
+    from interface_manager import creation_lock
     from validation import (
         validate_host_name, validate_host_limit,
         get_mac_for_ip, get_available_ips, validate_cidr_ip
@@ -1243,70 +1290,103 @@ async def add_host(request):
     if not ip:
         return web.json_response({'error': 'Management IP is required'}, status=400)
 
-    topo_build_path = get_topo_build_path()
-
-    # Validate host limit
-    valid, error = validate_host_limit(USER_HOSTS_PATH, MAX_HOSTS_PER_TOPOLOGY)
-    if not valid:
-        return web.json_response({'error': error}, status=400)
-
-    # Validate name across all device types
-    valid, error = validate_host_name(
-        name, topo_build_path, USER_NODES_PATH,
-        USER_HOSTS_PATH, USER_FIREWALLS_PATH
-    )
-    if not valid:
-        return web.json_response({'error': error}, status=400)
-
-    # Validate IP is available
-    available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
-    if not any(entry['ip'] == ip for entry in available):
-        return web.json_response({
-            'error': f'IP {ip} is not available or already in use'
-        }, status=400)
-
-    # Validate data_ip format if provided
+    # Validate data_ip format if provided (can do before lock)
     if data_ip:
         valid, error = validate_cidr_ip(data_ip)
         if not valid:
             return web.json_response({'error': error}, status=400)
 
     try:
-        logger.info(f"Creating Linux host: {name} (IP: {ip})")
+        # Acquire creation lock to prevent concurrent creates from racing
+        with creation_lock(f'add-host:{name}'):
+            topo_build_path = get_topo_build_path()
 
-        # Create the host VM
-        result = create_host(name, ip, connection, data_ip)
+            # Validate host limit
+            valid, error = validate_host_limit(USER_HOSTS_PATH, MAX_HOSTS_PER_TOPOLOGY)
+            if not valid:
+                return web.json_response({'error': error}, status=400)
 
-        # Build neighbors list for topology diagram connections
-        neighbors = []
-        conn = result.get('connection')
-        if conn:
-            if conn.get('target_device'):
-                neighbors.append({
-                    'neighborDevice': conn['target_device'],
-                    'neighborPort': conn.get('target_port', ''),
-                    'port': HOST_DATA_PORT
+            # Validate name across all device types
+            valid, error = validate_host_name(
+                name, topo_build_path, USER_NODES_PATH,
+                USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            # Validate IP is available
+            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            if not any(entry['ip'] == ip for entry in available):
+                return web.json_response({
+                    'error': f'IP {ip} is not available or already in use'
+                }, status=400)
+
+            logger.info(f"Creating Linux host: {name} (IP: {ip})")
+
+            # SAVE-BEFORE-CREATE: Save pending entry BEFORE VM creation
+            pending_entry = {
+                'mgmt_ip': ip,
+                'data_ip': data_ip,
+                'connection': connection,
+                'neighbors': []  # Will be updated after creation
+            }
+            save_user_host_pending(name, pending_entry, USER_HOSTS_PATH)
+            logger.debug(f"Saved pending host entry for {name}")
+
+            try:
+                # Create the host VM
+                result = create_host(name, ip, connection, data_ip)
+
+                # Build neighbors list for topology diagram connections
+                neighbors = []
+                conn = result.get('connection')
+                if conn:
+                    if conn.get('target_device'):
+                        neighbors.append({
+                            'neighborDevice': conn['target_device'],
+                            'neighborPort': conn.get('target_port', ''),
+                            'port': HOST_DATA_PORT
+                        })
+                    else:
+                        logger.warning(f"Host {name} connection missing target_device")
+
+                # Update persistence with actual info
+                update_info = {
+                    'vnc_port': result.get('vnc_port'),
+                    'connection': conn,
+                    'neighbors': neighbors
+                }
+                update_user_host_status(name, 'active', update_info, USER_HOSTS_PATH)
+
+                logger.info(f"Successfully created Linux host: {name}")
+
+                return web.json_response({
+                    'status': 'created',
+                    'host': result
                 })
-            else:
-                logger.warning(f"Host {name} connection missing target_device")
 
-        # Save to persistence with neighbors for diagram connections
-        host_entry = {
-            'mgmt_ip': ip,
-            'data_ip': data_ip,
-            'vnc_port': result.get('vnc_port'),
-            'connection': conn,
-            'neighbors': neighbors
-        }
-        save_user_host({name: host_entry}, USER_HOSTS_PATH)
+            except Exception as e:
+                # VM creation failed - clean up any partially created resources
+                logger.error(f"Host VM creation failed for {name}: {e}")
 
-        logger.info(f"Successfully created Linux host: {name}")
+                # Try to clean up VM if it was created (prevents zombie VMs)
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                try:
+                    if rm.vm_exists(name):
+                        logger.info(f"Cleaning up partially created host VM: {name}")
+                        rm.destroy_vm(name, force=True)
+                        rm.undefine_vm(name, force=True)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up host VM {name}: {cleanup_error}")
 
-        return web.json_response({
-            'status': 'created',
-            'host': result
-        })
+                # Remove the pending entry from persistence
+                remove_user_host(name, USER_HOSTS_PATH)
+                raise
 
+    except TimeoutError as e:
+        logger.warning(f"Concurrent creation in progress, request queued timeout: {e}")
+        return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except ValueError as e:
         logger.warning(f"Validation error creating host {name}: {e}")
         return web.json_response({'error': str(e)}, status=400)
@@ -1458,7 +1538,8 @@ async def add_firewall(request):
     }
     """
     from firewall_manager import create_firewall
-    from persistence import save_user_firewall
+    from persistence import save_user_firewall_pending, update_user_firewall_status, remove_user_firewall
+    from interface_manager import creation_lock
     from validation import (
         validate_firewall_name, validate_firewall_limit,
         validate_cidr_ip, get_available_ips
@@ -1484,29 +1565,7 @@ async def add_firewall(request):
     if not outside_interface.get('ip'):
         return web.json_response({'error': 'Outside interface IP is required'}, status=400)
 
-    topo_build_path = get_topo_build_path()
-
-    # Validate firewall limit
-    valid, error = validate_firewall_limit(USER_FIREWALLS_PATH, MAX_FIREWALLS_PER_TOPOLOGY)
-    if not valid:
-        return web.json_response({'error': error}, status=400)
-
-    # Validate name across all device types
-    valid, error = validate_firewall_name(
-        name, topo_build_path, USER_NODES_PATH,
-        USER_HOSTS_PATH, USER_FIREWALLS_PATH
-    )
-    if not valid:
-        return web.json_response({'error': error}, status=400)
-
-    # Validate management IP is available
-    available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
-    if not any(entry['ip'] == mgmt_ip for entry in available):
-        return web.json_response({
-            'error': f'Management IP {mgmt_ip} is not available or already in use'
-        }, status=400)
-
-    # Validate interface IPs (CIDR format)
+    # Validate interface IPs (CIDR format) - can do before lock
     for iface_name, iface in [('inside', inside_interface), ('outside', outside_interface)]:
         valid, error = validate_cidr_ip(iface.get('ip', ''))
         if not valid:
@@ -1515,52 +1574,108 @@ async def add_firewall(request):
             }, status=400)
 
     try:
-        logger.info(f"Creating VyOS firewall: {name} (Mgmt IP: {mgmt_ip})")
+        # Acquire creation lock to prevent concurrent creates from racing
+        with creation_lock(f'add-firewall:{name}'):
+            topo_build_path = get_topo_build_path()
 
-        # Create the firewall VM
-        result = create_firewall(name, mgmt_ip, inside_interface, outside_interface)
+            # Validate firewall limit
+            valid, error = validate_firewall_limit(USER_FIREWALLS_PATH, MAX_FIREWALLS_PER_TOPOLOGY)
+            if not valid:
+                return web.json_response({'error': error}, status=400)
 
-        # Build neighbors list for topology diagram connections
-        neighbors = []
-        inside_iface = result.get('inside_interface')
-        outside_iface = result.get('outside_interface')
+            # Validate name across all device types
+            valid, error = validate_firewall_name(
+                name, topo_build_path, USER_NODES_PATH,
+                USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
 
-        if inside_iface:
-            if inside_iface.get('target_device'):
-                neighbors.append({
-                    'neighborDevice': inside_iface['target_device'],
-                    'neighborPort': inside_iface.get('target_port', ''),
-                    'port': FIREWALL_INSIDE_PORT
+            # Validate management IP is available
+            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            if not any(entry['ip'] == mgmt_ip for entry in available):
+                return web.json_response({
+                    'error': f'Management IP {mgmt_ip} is not available or already in use'
+                }, status=400)
+
+            logger.info(f"Creating VyOS firewall: {name} (Mgmt IP: {mgmt_ip})")
+
+            # SAVE-BEFORE-CREATE: Save pending entry BEFORE VM creation
+            pending_entry = {
+                'mgmt_ip': mgmt_ip,
+                'inside_interface': inside_interface,
+                'outside_interface': outside_interface,
+                'neighbors': []  # Will be updated after creation
+            }
+            save_user_firewall_pending(name, pending_entry, USER_FIREWALLS_PATH)
+            logger.debug(f"Saved pending firewall entry for {name}")
+
+            try:
+                # Create the firewall VM
+                result = create_firewall(name, mgmt_ip, inside_interface, outside_interface)
+
+                # Build neighbors list for topology diagram connections
+                neighbors = []
+                inside_iface = result.get('inside_interface')
+                outside_iface = result.get('outside_interface')
+
+                if inside_iface:
+                    if inside_iface.get('target_device'):
+                        neighbors.append({
+                            'neighborDevice': inside_iface['target_device'],
+                            'neighborPort': inside_iface.get('target_port', ''),
+                            'port': FIREWALL_INSIDE_PORT
+                        })
+                    else:
+                        logger.warning(f"Firewall {name} inside interface missing target_device")
+
+                if outside_iface:
+                    if outside_iface.get('target_device'):
+                        neighbors.append({
+                            'neighborDevice': outside_iface['target_device'],
+                            'neighborPort': outside_iface.get('target_port', ''),
+                            'port': FIREWALL_OUTSIDE_PORT
+                        })
+                    else:
+                        logger.warning(f"Firewall {name} outside interface missing target_device")
+
+                # Update persistence with actual info
+                update_info = {
+                    'inside_interface': inside_iface,
+                    'outside_interface': outside_iface,
+                    'neighbors': neighbors
+                }
+                update_user_firewall_status(name, 'active', update_info, USER_FIREWALLS_PATH)
+
+                logger.info(f"Successfully created VyOS firewall: {name}")
+
+                return web.json_response({
+                    'status': 'created',
+                    'firewall': result
                 })
-            else:
-                logger.warning(f"Firewall {name} inside interface missing target_device")
 
-        if outside_iface:
-            if outside_iface.get('target_device'):
-                neighbors.append({
-                    'neighborDevice': outside_iface['target_device'],
-                    'neighborPort': outside_iface.get('target_port', ''),
-                    'port': FIREWALL_OUTSIDE_PORT
-                })
-            else:
-                logger.warning(f"Firewall {name} outside interface missing target_device")
+            except Exception as e:
+                # VM creation failed - clean up any partially created resources
+                logger.error(f"Firewall VM creation failed for {name}: {e}")
 
-        # Save to persistence with neighbors for diagram connections
-        firewall_entry = {
-            'mgmt_ip': mgmt_ip,
-            'inside_interface': inside_iface,
-            'outside_interface': outside_iface,
-            'neighbors': neighbors
-        }
-        save_user_firewall({name: firewall_entry}, USER_FIREWALLS_PATH)
+                # Try to clean up VM if it was created (prevents zombie VMs)
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                try:
+                    if rm.vm_exists(name):
+                        logger.info(f"Cleaning up partially created firewall VM: {name}")
+                        rm.destroy_vm(name, force=True)
+                        rm.undefine_vm(name, force=True)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up firewall VM {name}: {cleanup_error}")
 
-        logger.info(f"Successfully created VyOS firewall: {name}")
+                # Remove the pending entry from persistence
+                remove_user_firewall(name, USER_FIREWALLS_PATH)
+                raise
 
-        return web.json_response({
-            'status': 'created',
-            'firewall': result
-        })
-
+    except TimeoutError as e:
+        logger.warning(f"Concurrent creation in progress, request queued timeout: {e}")
+        return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except ValueError as e:
         logger.warning(f"Validation error creating firewall {name}: {e}")
         return web.json_response({'error': str(e)}, status=400)
@@ -1771,6 +1886,62 @@ async def bridge_status(request):
 
     except Exception as e:
         logger.error(f"Error getting bridge status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/reconcile')
+async def reconcile_resources_dry_run(request):
+    """
+    Check for resource inconsistencies (dry run - no changes made).
+
+    Returns a report of:
+    - Orphan entries: Persistence records without corresponding VMs
+    - Zombie VMs: VMs stuck in 'creating' status
+    - Orphan bridges: OVS bridges with missing VM attachments
+
+    Use POST /reconcile to actually fix the issues.
+    """
+    from resource_manager import get_resource_manager
+
+    try:
+        logger.info("Running resource reconciliation (dry run)")
+        resource_mgr = get_resource_manager()
+        result = resource_mgr.reconcile_resources(dry_run=True)
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error during reconciliation: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/reconcile')
+async def reconcile_resources_fix(request):
+    """
+    Fix resource inconsistencies.
+
+    This will:
+    - Remove orphan persistence entries (records without VMs)
+    - Clean up orphaned bridges
+
+    Note: Zombie VMs (stuck in 'creating') are reported but require manual
+    intervention as they may need investigation.
+
+    Returns a report of fixed issues.
+    """
+    from resource_manager import get_resource_manager
+
+    try:
+        logger.info("Running resource reconciliation (fixing issues)")
+        resource_mgr = get_resource_manager()
+        result = resource_mgr.reconcile_resources(dry_run=False)
+
+        logger.info(f"Reconciliation complete: {len(result.get('fixed', []))} issues fixed")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error during reconciliation: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 

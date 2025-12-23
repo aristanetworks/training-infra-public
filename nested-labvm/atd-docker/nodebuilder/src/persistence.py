@@ -178,6 +178,80 @@ def save_user_node(node_data: Dict, path: str = DEFAULT_USER_NODES_PATH) -> bool
     return save_user_nodes(data, path)
 
 
+def save_user_node_pending(
+    name: str,
+    node_info: Dict,
+    path: str = DEFAULT_USER_NODES_PATH
+) -> bool:
+    """
+    Save a user node with 'creating' status before VM creation.
+
+    This implements the "save-before-create" pattern to prevent zombie VMs
+    if the service crashes between VM creation and persistence save.
+
+    Args:
+        name: Device name
+        node_info: Node info dict (ip_addr, sys_mac, etc.)
+        path: Path to user_nodes.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_nodes(path)
+
+    # Add pending status and timestamp
+    node_info['added_at'] = datetime.now(timezone.utc).isoformat()
+    node_info['user_added'] = True
+    node_info['status'] = 'creating'
+
+    # Append the new node
+    data['nodes'].append({name: node_info})
+
+    return save_user_nodes(data, path)
+
+
+def update_user_node_status(
+    name: str,
+    status: str = 'active',
+    additional_info: Optional[Dict] = None,
+    path: str = DEFAULT_USER_NODES_PATH
+) -> bool:
+    """
+    Update a user node's status after VM creation completes.
+
+    Args:
+        name: Device name
+        status: New status ('active' or 'failed')
+        additional_info: Optional dict to merge into node info (e.g., connections)
+        path: Path to user_nodes.yaml
+
+    Returns:
+        True if node was found and updated
+    """
+    data = load_user_nodes(path)
+
+    for node_entry in data.get('nodes', []):
+        for node_name, node_info in node_entry.items():
+            if node_name.lower() == name.lower():
+                # Update status
+                if status == 'active':
+                    # Remove the 'creating' status - active nodes have no status field
+                    node_info.pop('status', None)
+                else:
+                    node_info['status'] = status
+
+                # Merge additional info if provided
+                if additional_info:
+                    node_info.update(additional_info)
+
+                save_user_nodes(data, path)
+                logger.info(f"Updated node {name} status to {status}")
+                return True
+
+    logger.warning(f"Node {name} not found for status update")
+    return False
+
+
 def remove_user_node(name: str, path: str = DEFAULT_USER_NODES_PATH) -> bool:
     """
     Remove a user-added node from the persistence file.
@@ -402,6 +476,72 @@ def save_user_host(host_data: Dict, path: str = DEFAULT_USER_HOSTS_PATH) -> bool
     return save_user_hosts(data, path)
 
 
+def save_user_host_pending(
+    name: str,
+    host_info: Dict,
+    path: str = DEFAULT_USER_HOSTS_PATH
+) -> bool:
+    """
+    Save a user host with 'creating' status before VM creation.
+
+    Args:
+        name: Host name
+        host_info: Host info dict
+        path: Path to user_hosts.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_hosts(path)
+
+    host_info['added_at'] = datetime.now(timezone.utc).isoformat()
+    host_info['user_added'] = True
+    host_info['device_type'] = 'host'
+    host_info['status'] = 'creating'
+
+    data['hosts'].append({name: host_info})
+    return save_user_hosts(data, path)
+
+
+def update_user_host_status(
+    name: str,
+    status: str = 'active',
+    additional_info: Optional[Dict] = None,
+    path: str = DEFAULT_USER_HOSTS_PATH
+) -> bool:
+    """
+    Update a user host's status after VM creation completes.
+
+    Args:
+        name: Host name
+        status: New status ('active' or 'failed')
+        additional_info: Optional dict to merge into host info
+        path: Path to user_hosts.yaml
+
+    Returns:
+        True if host was found and updated
+    """
+    data = load_user_hosts(path)
+
+    for host_entry in data.get('hosts', []) or []:
+        for host_name, host_info in host_entry.items():
+            if host_name.lower() == name.lower():
+                if status == 'active':
+                    host_info.pop('status', None)
+                else:
+                    host_info['status'] = status
+
+                if additional_info:
+                    host_info.update(additional_info)
+
+                save_user_hosts(data, path)
+                logger.info(f"Updated host {name} status to {status}")
+                return True
+
+    logger.warning(f"Host {name} not found for status update")
+    return False
+
+
 def remove_user_host(name: str, path: str = DEFAULT_USER_HOSTS_PATH) -> bool:
     """Remove a user-added host from the persistence file."""
     data = load_user_hosts(path)
@@ -536,6 +676,72 @@ def save_user_firewall(firewall_data: Dict, path: str = DEFAULT_USER_FIREWALLS_P
 
     data['firewalls'].append(firewall_data)
     return save_user_firewalls(data, path)
+
+
+def save_user_firewall_pending(
+    name: str,
+    firewall_info: Dict,
+    path: str = DEFAULT_USER_FIREWALLS_PATH
+) -> bool:
+    """
+    Save a user firewall with 'creating' status before VM creation.
+
+    Args:
+        name: Firewall name
+        firewall_info: Firewall info dict
+        path: Path to user_firewalls.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_firewalls(path)
+
+    firewall_info['added_at'] = datetime.now(timezone.utc).isoformat()
+    firewall_info['user_added'] = True
+    firewall_info['device_type'] = 'firewall'
+    firewall_info['status'] = 'creating'
+
+    data['firewalls'].append({name: firewall_info})
+    return save_user_firewalls(data, path)
+
+
+def update_user_firewall_status(
+    name: str,
+    status: str = 'active',
+    additional_info: Optional[Dict] = None,
+    path: str = DEFAULT_USER_FIREWALLS_PATH
+) -> bool:
+    """
+    Update a user firewall's status after VM creation completes.
+
+    Args:
+        name: Firewall name
+        status: New status ('active' or 'failed')
+        additional_info: Optional dict to merge into firewall info
+        path: Path to user_firewalls.yaml
+
+    Returns:
+        True if firewall was found and updated
+    """
+    data = load_user_firewalls(path)
+
+    for fw_entry in data.get('firewalls', []) or []:
+        for fw_name, fw_info in fw_entry.items():
+            if fw_name.lower() == name.lower():
+                if status == 'active':
+                    fw_info.pop('status', None)
+                else:
+                    fw_info['status'] = status
+
+                if additional_info:
+                    fw_info.update(additional_info)
+
+                save_user_firewalls(data, path)
+                logger.info(f"Updated firewall {name} status to {status}")
+                return True
+
+    logger.warning(f"Firewall {name} not found for status update")
+    return False
 
 
 def remove_user_firewall(name: str, path: str = DEFAULT_USER_FIREWALLS_PATH) -> bool:

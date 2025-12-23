@@ -158,12 +158,21 @@ class ConnectionManager:
         except Exception as e:
             self.logger.error(f"Failed to attach to target: {e}")
             # Rollback: delete the bridge
+            rollback_success = False
             try:
                 delete_ovs_bridge(conn.bridge_name)
-            except Exception:
-                pass
+                rollback_success = True
+                self.logger.info(f"Rolled back bridge {conn.bridge_name} after attachment failure")
+            except Exception as rollback_err:
+                self.logger.error(
+                    f"ORPHANED BRIDGE: Failed to rollback bridge {conn.bridge_name}: {rollback_err}. "
+                    f"Manual cleanup may be required."
+                )
             result['status'] = 'failed'
             result['error'] = f"Target attachment failed: {e}"
+            result['rollback_success'] = rollback_success
+            if not rollback_success:
+                result['orphaned_bridge'] = conn.bridge_name
             return result
 
         result['status'] = 'created'
@@ -227,9 +236,11 @@ class ConnectionManager:
                         'device': conn.source_device
                     })
             except Exception as e:
-                self.logger.warning(f"Failed to detach from source: {e}")
+                # Log at ERROR level to ensure visibility
+                self.logger.error(f"Failed to detach from source {conn.source_device}: {e}")
                 result['errors'].append({
                     'step': 'detach_source',
+                    'device': conn.source_device,
                     'error': str(e)
                 })
 
@@ -252,13 +263,34 @@ class ConnectionManager:
                         'device': conn.target_device
                     })
             except Exception as e:
-                self.logger.warning(f"Failed to detach from target: {e}")
+                # Log at ERROR level to ensure visibility
+                self.logger.error(f"Failed to detach from target {conn.target_device}: {e}")
                 result['errors'].append({
                     'step': 'detach_target',
+                    'device': conn.target_device,
                     'error': str(e)
                 })
 
         # Step 3: Delete OVS bridge
+        # Check if any detachment had actual failures (not just "not_found" which is OK)
+        detachment_failures = [
+            err for err in result['errors']
+            if err.get('step') in ('detach_source', 'detach_target')
+        ]
+
+        if detachment_failures:
+            # Detachment failed - interfaces may still be attached to VMs
+            # Proceed with bridge deletion but add prominent warning
+            self.logger.warning(
+                f"BRIDGE DELETION WITH ATTACHED INTERFACES: {len(detachment_failures)} "
+                f"detachment(s) failed for bridge {conn.bridge_name}. "
+                f"VMs may have orphaned interfaces. Details: {detachment_failures}"
+            )
+            result['warning'] = (
+                f"Bridge {conn.bridge_name} deleted but {len(detachment_failures)} "
+                f"interface(s) may still be referenced in VM definitions"
+            )
+
         try:
             bridge_result = delete_ovs_bridge(conn.bridge_name)
             result['steps'].append({

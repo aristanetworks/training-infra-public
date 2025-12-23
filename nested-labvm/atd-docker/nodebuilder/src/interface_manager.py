@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 from typing import Dict, List, Optional, Tuple
+from xml.sax.saxutils import escape as xml_escape
 
 logger = logging.getLogger('nodebuilder.interface_manager')
 
@@ -376,12 +377,75 @@ def extract_port_number(port_name: str) -> Optional[int]:
 # Port allocation locking to prevent race conditions
 import fcntl
 import threading
+import time
 from contextlib import contextmanager
 
 # In-memory lock for thread safety within this process
 _port_allocation_lock = threading.Lock()
 # File-based lock path for cross-process safety
 _PORT_LOCK_FILE = '/tmp/nodebuilder_port_allocation.lock'
+
+# Global creation lock - prevents concurrent VM/resource creation
+_creation_lock = threading.Lock()
+_CREATION_LOCK_FILE = '/tmp/nodebuilder_creation.lock'
+
+
+@contextmanager
+def creation_lock(operation_name: str = 'create', timeout: float = 120.0):
+    """
+    Context manager for serializing VM/resource creation operations.
+
+    This lock wraps the ENTIRE creation flow (validation through VM creation)
+    to prevent race conditions where concurrent requests allocate the same
+    resources (IPs, ports, bridge names).
+
+    Uses both threading lock (for same-process concurrency) and
+    file lock (for cross-process concurrency).
+
+    Args:
+        operation_name: Operation description (for logging)
+        timeout: Lock acquisition timeout in seconds (longer for VM creation)
+
+    Raises:
+        TimeoutError: If lock cannot be acquired within timeout
+    """
+    start_time = time.time()
+
+    # Acquire thread lock first
+    acquired = _creation_lock.acquire(timeout=timeout)
+    if not acquired:
+        raise TimeoutError(f"Timeout acquiring thread lock for {operation_name}")
+
+    lock_file = None
+    try:
+        # Then acquire file lock for cross-process safety
+        lock_file = open(_CREATION_LOCK_FILE, 'w')
+        while True:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                logger.debug(f"Acquired creation lock for {operation_name}")
+                break
+            except (IOError, OSError):
+                if time.time() - start_time > timeout:
+                    raise TimeoutError(f"Timeout acquiring file lock for {operation_name}")
+                time.sleep(0.1)
+
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass  # Ignore errors during unlock
+            logger.debug(f"Released creation lock for {operation_name}")
+    finally:
+        # Always close file and release thread lock
+        if lock_file is not None:
+            try:
+                lock_file.close()
+            except Exception:
+                pass
+        _creation_lock.release()
 
 
 @contextmanager
@@ -392,6 +456,9 @@ def port_allocation_lock(device_name: str, timeout: float = 30.0):
     Uses both threading lock (for same-process concurrency) and
     file lock (for cross-process concurrency).
 
+    Note: This is a more granular lock for port allocation within the
+    creation flow. For full creation serialization, use creation_lock().
+
     Args:
         device_name: Device name (for logging)
         timeout: Lock acquisition timeout in seconds
@@ -399,7 +466,6 @@ def port_allocation_lock(device_name: str, timeout: float = 30.0):
     Raises:
         TimeoutError: If lock cannot be acquired within timeout
     """
-    import time
     start_time = time.time()
 
     # Acquire thread lock first
@@ -407,6 +473,7 @@ def port_allocation_lock(device_name: str, timeout: float = 30.0):
     if not acquired:
         raise TimeoutError(f"Timeout acquiring thread lock for port allocation on {device_name}")
 
+    lock_file = None
     try:
         # Then acquire file lock for cross-process safety
         lock_file = open(_PORT_LOCK_FILE, 'w')
@@ -416,16 +483,23 @@ def port_allocation_lock(device_name: str, timeout: float = 30.0):
                 break
             except (IOError, OSError):
                 if time.time() - start_time > timeout:
-                    lock_file.close()
                     raise TimeoutError(f"Timeout acquiring file lock for port allocation on {device_name}")
                 time.sleep(0.1)
 
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-            lock_file.close()
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass  # Ignore errors during unlock
     finally:
+        # Always close file and release thread lock
+        if lock_file is not None:
+            try:
+                lock_file.close()
+            except Exception:
+                pass
         _port_allocation_lock.release()
 
 
@@ -507,6 +581,10 @@ def generate_bridge_name(
     Note: Device names are normalized to lowercase to ensure consistent
     bridge names regardless of input case (Spine1 vs spine1).
 
+    Bridge names are limited to 15 characters (OVS/Linux interface limit).
+    If the generated name exceeds this, it will be truncated with a hash suffix
+    to maintain uniqueness.
+
     Args:
         device1: First device name
         port1: First port name
@@ -514,15 +592,28 @@ def generate_bridge_name(
         port2: Second port name
 
     Returns:
-        Bridge name string (always lowercase)
+        Bridge name string (always lowercase, max 15 chars)
     """
+    import hashlib
+
     # Normalize to lowercase for consistent bridge names
     dev1_info = parse_device_name(device1.lower())
     port1_info = parse_device_name(port1.lower())
     dev2_info = parse_device_name(device2.lower())
     port2_info = parse_device_name(port2.lower())
 
-    return f"{dev1_info['code']}{port1_info['code']}-{dev2_info['code']}{port2_info['code']}"
+    bridge_name = f"{dev1_info['code']}{port1_info['code']}-{dev2_info['code']}{port2_info['code']}"
+
+    # OVS/Linux has 15 char limit for interface names
+    MAX_BRIDGE_LEN = 15
+    if len(bridge_name) > MAX_BRIDGE_LEN:
+        # Truncate and add hash suffix for uniqueness
+        full_name = bridge_name
+        hash_suffix = hashlib.md5(full_name.encode()).hexdigest()[:4]
+        bridge_name = bridge_name[:MAX_BRIDGE_LEN - 5] + '-' + hash_suffix
+        logger.debug(f"Bridge name truncated: {full_name} -> {bridge_name}")
+
+    return bridge_name
 
 
 def create_ovs_bridge(bridge_name: str) -> Dict:
@@ -644,10 +735,13 @@ def attach_interface_to_vm(
     vm_is_running = vm_state == 'running'
 
     # Generate interface XML with OVS virtualport type
-    mac_element = f"<mac address='{mac}'/>" if mac else ""
+    # Use XML escaping for defense-in-depth (inputs are validated but escape anyway)
+    safe_bridge = xml_escape(bridge_name, {'"': '&quot;', "'": '&apos;'})
+    safe_mac = xml_escape(mac, {'"': '&quot;', "'": '&apos;'}) if mac else ""
+    mac_element = f"<mac address='{safe_mac}'/>" if mac else ""
     interface_xml = f"""<interface type='bridge'>
   {mac_element}
-  <source bridge='{bridge_name}'/>
+  <source bridge='{safe_bridge}'/>
   <model type='virtio'/>
   <virtualport type='openvswitch'/>
 </interface>"""
@@ -707,7 +801,12 @@ def attach_interface_to_vm(
                                 timeout=30
                             )
                             if add_result.returncode != 0:
-                                logger.warning(f"Failed to add {vnet_interface} to OVS: {add_result.stderr}")
+                                # This is a critical failure - interface attached but not in OVS
+                                # The network connection won't work
+                                raise RuntimeError(
+                                    f"Failed to add {vnet_interface} to OVS bridge {bridge_name}: "
+                                    f"{add_result.stderr}. Interface attached to VM but not connected to bridge."
+                                )
                             else:
                                 logger.info(f"Successfully added {vnet_interface} to {bridge_name}")
                         break

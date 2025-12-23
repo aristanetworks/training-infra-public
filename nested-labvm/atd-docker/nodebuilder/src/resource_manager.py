@@ -402,7 +402,7 @@ class ResourceManager:
         """
         from persistence import (
             load_user_nodes, load_user_hosts, load_user_firewalls,
-            atomic_write_yaml
+            remove_user_node, remove_user_host, remove_user_firewall
         )
         from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
         from host_manager import delete_host
@@ -418,6 +418,11 @@ class ResourceManager:
             'errors': [],
             'affected_devices': set()
         }
+
+        # Track successfully deleted entries for selective persistence removal
+        successfully_deleted_nodes = []
+        successfully_deleted_hosts = []
+        successfully_deleted_firewalls = []
 
         # Phase 1: Delete all user-added vEOS nodes
         self.logger.info("Phase 1: Deleting user-added vEOS nodes")
@@ -435,10 +440,14 @@ class ResourceManager:
 
                     # Delete the node
                     delete_result = self.delete_node_completely(node_name, node_info)
+                    delete_status = delete_result.get('status', 'unknown')
                     results['nodes_deleted'].append({
                         'name': node_name,
-                        'status': delete_result.get('status', 'unknown')
+                        'status': delete_status
                     })
+                    # Only track as successfully deleted if status indicates success
+                    if delete_status in ('deleted', 'success', 'completed'):
+                        successfully_deleted_nodes.append(node_name)
                     self.logger.info(f"Deleted user node: {node_name}")
                 except Exception as e:
                     self.logger.error(f"Failed to delete node {node_name}: {e}")
@@ -463,10 +472,14 @@ class ResourceManager:
 
                     # Delete the host
                     delete_result = delete_host(host_name)
+                    delete_status = delete_result.get('status', 'unknown')
                     results['hosts_deleted'].append({
                         'name': host_name,
-                        'status': delete_result.get('status', 'unknown')
+                        'status': delete_status
                     })
+                    # Only track as successfully deleted if status indicates success
+                    if delete_status in ('deleted', 'success', 'completed'):
+                        successfully_deleted_hosts.append(host_name)
                     self.logger.info(f"Deleted user host: {host_name}")
                 except Exception as e:
                     self.logger.error(f"Failed to delete host {host_name}: {e}")
@@ -493,10 +506,14 @@ class ResourceManager:
 
                     # Delete the firewall
                     delete_result = delete_firewall(fw_name)
+                    delete_status = delete_result.get('status', 'unknown')
                     results['firewalls_deleted'].append({
                         'name': fw_name,
-                        'status': delete_result.get('status', 'unknown')
+                        'status': delete_status
                     })
+                    # Only track as successfully deleted if status indicates success
+                    if delete_status in ('deleted', 'success', 'completed'):
+                        successfully_deleted_firewalls.append(fw_name)
                     self.logger.info(f"Deleted user firewall: {fw_name}")
                 except Exception as e:
                     self.logger.error(f"Failed to delete firewall {fw_name}: {e}")
@@ -519,34 +536,37 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 5: Clear persistence files
-        self.logger.info("Phase 5: Clearing persistence files")
+        # Phase 5: Remove successfully deleted entries from persistence
+        # Only remove entries that were successfully deleted to prevent zombie VMs
+        self.logger.info("Phase 5: Updating persistence files (removing successfully deleted entries)")
         try:
-            # Reset user_nodes.yaml
-            empty_nodes = {
-                'version': 1,
-                'nodes': []
-            }
-            atomic_write_yaml(empty_nodes, USER_NODES_PATH)
-            self.logger.info(f"Cleared {USER_NODES_PATH}")
+            # Remove successfully deleted nodes from user_nodes.yaml
+            for node_name in successfully_deleted_nodes:
+                try:
+                    remove_user_node(node_name, USER_NODES_PATH)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove node {node_name} from persistence: {e}")
 
-            # Reset user_hosts.yaml
-            empty_hosts = {
-                'version': 1,
-                'hosts': []
-            }
-            atomic_write_yaml(empty_hosts, USER_HOSTS_PATH)
-            self.logger.info(f"Cleared {USER_HOSTS_PATH}")
+            # Remove successfully deleted hosts from user_hosts.yaml
+            for host_name in successfully_deleted_hosts:
+                try:
+                    remove_user_host(host_name, USER_HOSTS_PATH)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove host {host_name} from persistence: {e}")
 
-            # Reset user_firewalls.yaml
-            empty_firewalls = {
-                'version': 1,
-                'firewalls': []
-            }
-            atomic_write_yaml(empty_firewalls, USER_FIREWALLS_PATH)
-            self.logger.info(f"Cleared {USER_FIREWALLS_PATH}")
+            # Remove successfully deleted firewalls from user_firewalls.yaml
+            for fw_name in successfully_deleted_firewalls:
+                try:
+                    remove_user_firewall(fw_name, USER_FIREWALLS_PATH)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove firewall {fw_name} from persistence: {e}")
+
+            self.logger.info(
+                f"Persistence updated: removed {len(successfully_deleted_nodes)} nodes, "
+                f"{len(successfully_deleted_hosts)} hosts, {len(successfully_deleted_firewalls)} firewalls"
+            )
         except Exception as e:
-            self.logger.error(f"Failed to clear persistence files: {e}")
+            self.logger.error(f"Failed to update persistence files: {e}")
             results['errors'].append({
                 'type': 'persistence',
                 'error': str(e)
@@ -669,6 +689,63 @@ class ResourceManager:
                 return True
         return False
 
+    def _get_expected_bridges_from_persistence(self) -> set:
+        """
+        Build a set of expected bridge names from persistence files.
+
+        This cross-references bridges with what should exist based on
+        user_nodes.yaml, user_hosts.yaml, and user_firewalls.yaml.
+
+        Returns:
+            Set of bridge names that should exist for active user devices
+        """
+        from persistence import load_user_nodes, load_user_hosts, load_user_firewalls
+        from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+        from interface_manager import generate_bridge_name
+
+        expected_bridges = set()
+
+        try:
+            # Get bridges from user nodes
+            nodes_data = load_user_nodes(USER_NODES_PATH)
+            for node_entry in nodes_data.get('nodes', []):
+                for node_name, node_info in node_entry.items():
+                    for neighbor in node_info.get('neighbors', []):
+                        local_port = neighbor.get('port', '')
+                        target_device = neighbor.get('neighborDevice', '')
+                        target_port = neighbor.get('neighborPort', '')
+                        if local_port and target_device and target_port:
+                            bridge = generate_bridge_name(
+                                node_name, local_port, target_device, target_port
+                            )
+                            expected_bridges.add(bridge)
+
+            # Get bridges from user hosts
+            hosts_data = load_user_hosts(USER_HOSTS_PATH)
+            for host_entry in hosts_data.get('hosts', []):
+                for host_name, host_info in host_entry.items():
+                    connection = host_info.get('connection', {})
+                    bridge = connection.get('bridge')
+                    if bridge:
+                        expected_bridges.add(bridge)
+
+            # Get bridges from user firewalls
+            firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
+            for fw_entry in firewalls_data.get('firewalls', []):
+                for fw_name, fw_info in fw_entry.items():
+                    for iface_key in ['inside_interface', 'outside_interface']:
+                        iface = fw_info.get(iface_key, {})
+                        bridge = iface.get('bridge')
+                        if bridge:
+                            expected_bridges.add(bridge)
+
+            self.logger.debug(f"Found {len(expected_bridges)} expected bridges from persistence")
+
+        except Exception as e:
+            self.logger.warning(f"Error building expected bridges from persistence: {e}")
+
+        return expected_bridges
+
     def _get_bridge_port_count(self, bridge_name: str) -> int:
         """
         Get the number of ports attached to a bridge.
@@ -704,7 +781,11 @@ class ResourceManager:
 
         Finds and deletes bridges that are:
         1. User-created (matching naming patterns)
-        2. Truly orphaned (0-1 ports attached, meaning one or both VMs deleted)
+        2. Truly orphaned, determined by:
+           a) Port count (0-1 ports means one/both VMs deleted)
+           b) NOT in persistence (bridge for a deleted user device)
+
+        Cross-references with persistence files to improve detection accuracy.
 
         Returns:
             Dict with cleanup results including found/deleted counts
@@ -717,10 +798,14 @@ class ResourceManager:
             'deleted': [],
             'failed': [],
             'skipped_system': 0,
-            'skipped_healthy': 0
+            'skipped_healthy': 0,
+            'not_in_persistence': 0
         }
 
         try:
+            # Get expected bridges from persistence for cross-reference
+            expected_bridges = self._get_expected_bridges_from_persistence()
+
             # Get all OVS bridges
             result = subprocess.run(
                 ['ovs-vsctl', 'list-br'],
@@ -758,17 +843,34 @@ class ResourceManager:
                 # Check port count - healthy bridges should have 2 ports
                 port_count = self._get_bridge_port_count(bridge)
 
-                if port_count < 2:
-                    # This bridge is orphaned (0-1 ports means one/both VMs deleted)
+                # Check if bridge is in persistence (expected to exist)
+                in_persistence = bridge in expected_bridges
+
+                # Determine if bridge is orphaned:
+                # 1. Port count < 2 (VMs deleted/disconnected)
+                # 2. Not in persistence (user device was deleted)
+                is_orphaned = port_count < 2 or not in_persistence
+
+                if is_orphaned:
+                    reason_parts = []
+                    if port_count < 2:
+                        reason_parts.append(f"port_count={port_count}")
+                    if not in_persistence:
+                        reason_parts.append("not_in_persistence")
+                        results['not_in_persistence'] += 1
+                    reason = ', '.join(reason_parts)
+
                     results['orphaned_found'].append({
                         'bridge': bridge,
-                        'port_count': port_count
+                        'port_count': port_count,
+                        'in_persistence': in_persistence,
+                        'reason': reason
                     })
 
                     try:
                         delete_ovs_bridge(bridge)
                         results['deleted'].append(bridge)
-                        self.logger.info(f"Deleted orphaned bridge: {bridge} (had {port_count} ports)")
+                        self.logger.info(f"Deleted orphaned bridge: {bridge} ({reason})")
                     except Exception as e:
                         results['failed'].append({
                             'bridge': bridge,
@@ -776,7 +878,7 @@ class ResourceManager:
                         })
                         self.logger.warning(f"Failed to delete bridge {bridge}: {e}")
                 else:
-                    # Bridge has 2+ ports, appears healthy
+                    # Bridge has 2+ ports and is in persistence - healthy
                     results['skipped_healthy'] += 1
 
         except Exception as e:
@@ -834,8 +936,10 @@ class ResourceManager:
         if target_device and bridge_name:
             try:
                 interfaces = get_vm_interfaces(target_device)
+                interface_found = False
                 for intf in interfaces:
                     if intf.get('source') == bridge_name:
+                        interface_found = True
                         mac = intf.get('mac')
                         if mac:
                             self.logger.info(
@@ -845,10 +949,21 @@ class ResourceManager:
                             result['interface_detached'] = True
                             # EOS VMs don't support hot-unplug, track for reboot
                             result['target_device'] = target_device
+                        else:
+                            error_msg = f"Interface on bridge {bridge_name} has no MAC address"
+                            self.logger.error(error_msg)
+                            result['errors'].append(error_msg)
                         break
+
+                if not interface_found:
+                    # Not an error - interface may already be detached or VM restarted
+                    self.logger.info(
+                        f"{log_prefix}No interface found on bridge {bridge_name} for {target_device}"
+                    )
             except Exception as e:
+                # Log at ERROR level so it's visible in logs
                 error_msg = f"Failed to detach {log_prefix}interface from {target_device}: {e}"
-                self.logger.warning(error_msg)
+                self.logger.error(error_msg)
                 result['errors'].append(error_msg)
 
         # Delete OVS bridge
@@ -954,6 +1069,209 @@ class ResourceManager:
                     result['errors'].append(error_msg)
 
         return result
+
+    # =========================================================================
+    # Reconciliation Operations (detect and fix inconsistencies)
+    # =========================================================================
+
+    def reconcile_resources(self, dry_run: bool = True) -> Dict:
+        """
+        Detect and optionally fix inconsistencies between persistence and reality.
+
+        This reconciliation handles three types of issues:
+        1. Zombie VMs: VMs that exist in libvirt but have no persistence entry
+        2. Orphan entries: Persistence entries for VMs that don't exist
+        3. Orphaned bridges: OVS bridges with missing VM attachments
+
+        Args:
+            dry_run: If True, only report issues without fixing them
+
+        Returns:
+            Dict with reconciliation results
+        """
+        from persistence import (
+            load_user_nodes, load_user_hosts, load_user_firewalls,
+            remove_user_node, remove_user_host, remove_user_firewall,
+            update_user_node_status
+        )
+        from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+
+        results = {
+            'dry_run': dry_run,
+            'zombie_vms': [],        # VMs without persistence
+            'orphan_entries': [],    # Persistence without VMs
+            'orphan_bridges': [],    # Bridges without proper attachments
+            'fixed': [],             # Items that were fixed
+            'errors': []
+        }
+
+        self.logger.info(f"Starting resource reconciliation (dry_run={dry_run})")
+
+        # Collect all persistence entries
+        persisted_names = set()
+
+        # Get node names from persistence
+        nodes_data = load_user_nodes(USER_NODES_PATH)
+        for node_entry in nodes_data.get('nodes', []):
+            for node_name in node_entry.keys():
+                persisted_names.add(node_name.lower())
+
+        # Get host names from persistence
+        hosts_data = load_user_hosts(USER_HOSTS_PATH)
+        for host_entry in hosts_data.get('hosts', []) or []:
+            for host_name in host_entry.keys():
+                persisted_names.add(host_name.lower())
+
+        # Get firewall names from persistence
+        firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
+        for fw_entry in firewalls_data.get('firewalls', []) or []:
+            for fw_name in fw_entry.keys():
+                persisted_names.add(fw_name.lower())
+
+        self.logger.info(f"Found {len(persisted_names)} persisted device names")
+
+        # Get all VMs from libvirt
+        try:
+            result = subprocess.run(
+                ['virsh', 'list', '--all', '--name'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            vm_names = [name.strip() for name in result.stdout.split('\n') if name.strip()]
+        except Exception as e:
+            self.logger.error(f"Failed to list VMs: {e}")
+            results['errors'].append(f"Failed to list VMs: {e}")
+            return results
+
+        # Find zombie VMs (in libvirt but not in persistence)
+        # We only care about VMs that look like user-created ones
+        # User VMs typically match persistence names
+        for vm_name in vm_names:
+            vm_lower = vm_name.lower()
+            # Skip system VMs (usually topology VMs from topo_build.yml)
+            # User VMs would be in our persistence files
+            if vm_lower not in persisted_names:
+                # Check if this is a candidate zombie (not a topo VM)
+                # We can't easily distinguish without checking topo_build.yml
+                # For now, we look for VMs with 'status: creating' stuck
+                pass
+
+        # Find orphan entries (in persistence but not in libvirt)
+        for node_entry in nodes_data.get('nodes', []):
+            for node_name, node_info in node_entry.items():
+                if not self.vm_exists(node_name):
+                    status = node_info.get('status', 'active')
+                    results['orphan_entries'].append({
+                        'name': node_name,
+                        'type': 'node',
+                        'status': status,
+                        'reason': 'VM not defined in libvirt'
+                    })
+                    if not dry_run:
+                        try:
+                            remove_user_node(node_name, USER_NODES_PATH)
+                            results['fixed'].append(f"Removed orphan node entry: {node_name}")
+                        except Exception as e:
+                            results['errors'].append(f"Failed to remove orphan node {node_name}: {e}")
+
+        for host_entry in hosts_data.get('hosts', []) or []:
+            for host_name, host_info in host_entry.items():
+                if not self.vm_exists(host_name):
+                    status = host_info.get('status', 'active')
+                    results['orphan_entries'].append({
+                        'name': host_name,
+                        'type': 'host',
+                        'status': status,
+                        'reason': 'VM not defined in libvirt'
+                    })
+                    if not dry_run:
+                        try:
+                            remove_user_host(host_name, USER_HOSTS_PATH)
+                            results['fixed'].append(f"Removed orphan host entry: {host_name}")
+                        except Exception as e:
+                            results['errors'].append(f"Failed to remove orphan host {host_name}: {e}")
+
+        for fw_entry in firewalls_data.get('firewalls', []) or []:
+            for fw_name, fw_info in fw_entry.items():
+                if not self.vm_exists(fw_name):
+                    status = fw_info.get('status', 'active')
+                    results['orphan_entries'].append({
+                        'name': fw_name,
+                        'type': 'firewall',
+                        'status': status,
+                        'reason': 'VM not defined in libvirt'
+                    })
+                    if not dry_run:
+                        try:
+                            remove_user_firewall(fw_name, USER_FIREWALLS_PATH)
+                            results['fixed'].append(f"Removed orphan firewall entry: {fw_name}")
+                        except Exception as e:
+                            results['errors'].append(f"Failed to remove orphan firewall {fw_name}: {e}")
+
+        # Check for entries with 'creating' status (stuck creates)
+        for node_entry in nodes_data.get('nodes', []):
+            for node_name, node_info in node_entry.items():
+                if node_info.get('status') == 'creating':
+                    # This is a pending create that may have failed
+                    if self.vm_exists(node_name):
+                        results['zombie_vms'].append({
+                            'name': node_name,
+                            'type': 'node',
+                            'status': 'creating',
+                            'reason': 'Stuck in creating status but VM exists'
+                        })
+                        # Auto-fix: If VM exists, update status to active
+                        if not dry_run:
+                            try:
+                                update_user_node_status(node_name, 'active', {}, USER_NODES_PATH)
+                                results['fixed'].append(f"Fixed stuck node status: {node_name}")
+                            except Exception as e:
+                                results['errors'].append(f"Failed to fix stuck node {node_name}: {e}")
+                    # If VM doesn't exist, it's already caught as orphan
+
+        # Clean orphaned bridges
+        if not dry_run:
+            try:
+                bridge_results = self.cleanup_all_orphaned_bridges()
+                results['orphan_bridges'] = bridge_results.get('orphaned_found', [])
+                for bridge in bridge_results.get('deleted', []):
+                    results['fixed'].append(f"Deleted orphan bridge: {bridge}")
+            except Exception as e:
+                results['errors'].append(f"Bridge cleanup failed: {e}")
+        else:
+            # Dry run - just scan for orphan bridges
+            try:
+                result = subprocess.run(
+                    ['ovs-vsctl', 'list-br'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if result.returncode == 0:
+                    bridges = [b.strip() for b in result.stdout.split('\n') if b.strip()]
+                    system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+                    for bridge in bridges:
+                        if bridge in system_bridges:
+                            continue
+                        if any(c in bridge for c in ['x', '-']):  # User bridges have patterns
+                            port_count = self._get_bridge_port_count(bridge)
+                            if port_count < 2:
+                                results['orphan_bridges'].append({
+                                    'bridge': bridge,
+                                    'port_count': port_count
+                                })
+            except Exception as e:
+                results['errors'].append(f"Bridge scan failed: {e}")
+
+        self.logger.info(
+            f"Reconciliation complete: orphan_entries={len(results['orphan_entries'])}, "
+            f"zombie_vms={len(results['zombie_vms'])}, "
+            f"orphan_bridges={len(results['orphan_bridges'])}, "
+            f"fixed={len(results['fixed'])}"
+        )
+
+        return results
 
 
 # Module-level singleton instance

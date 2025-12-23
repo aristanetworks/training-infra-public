@@ -657,6 +657,16 @@ def delete_host(name: str) -> Dict:
         has_cidata=True
     )
 
+    # Step 4: Revoke any noVNC tokens for this host
+    tokens_revoked = 0
+    try:
+        from novnc_manager import revoke_tokens_for_host
+        tokens_revoked = revoke_tokens_for_host(name)
+        if tokens_revoked > 0:
+            logger.info(f"Revoked {tokens_revoked} noVNC tokens for {name}")
+    except Exception as e:
+        logger.warning(f"Failed to revoke noVNC tokens for {name}: {e}")
+
     logger.info(f"Deleted Linux host: {name}")
 
     return {
@@ -669,6 +679,7 @@ def delete_host(name: str) -> Dict:
             'cidata_deleted': vm_result.get('cidata_deleted', False),
             'bridge_deleted': conn_result['bridge_deleted'],
             'target_interface_detached': conn_result['interface_detached'],
+            'tokens_revoked': tokens_revoked,
             'devices_needing_reboot': devices_needing_reboot
         }
     }
