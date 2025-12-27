@@ -973,6 +973,53 @@ class BaseUrlHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
+class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to provide uptime data with runtime information for timer widget
+        """
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            self.set_header("Content-Type", "application/json")
+
+            # Get uptime data directly from atd-uptime service
+            try:
+                response = requests.get("http://atd-uptime:50010/uptime", timeout=1)
+                instance_data = response.json()
+
+                # Add runtime from topology metadata
+                if instance_data.get('status') == 'init' and TOPO_DATA and 'labels' in TOPO_DATA and 'runtime' in TOPO_DATA['labels']:
+                    instance_data['runtime'] = int(TOPO_DATA['labels']['runtime'])
+                else:
+                    instance_data['runtime'] = 12
+
+                # Add exam time information if available
+                instance_data['exam_end_time'] = EXAM_END_TIME
+                instance_data['exam_start_time'] = EXAM_START_TIME
+
+                self.write(json.dumps(instance_data))
+            except:
+                # If uptime service is not ready, return default values
+                self.write(json.dumps({
+                    'boottime': 0,
+                    'uptime': 0,
+                    'runtime': 12,
+                    'status': 'init',
+                    'exam_end_time': EXAM_END_TIME,
+                    'exam_start_time': EXAM_START_TIME
+                }))
+        except Exception as e:
+            self.set_status(500)
+            self.write(json.dumps({
+                "error": str(e),
+                "boottime": 0,
+                "uptime": 0,
+                "runtime": 12,
+                "status": "error",
+                "exam_end_time": 0,
+                "exam_start_time": 0
+            }))
+
 class GetAccessInfoHandler(tornado.web.RequestHandler):
     def validate_field(self, customer_details, field_name, default_value, validated_details, defaulted_fields):
         """
@@ -2988,9 +3035,10 @@ if __name__ == "__main__":
         (r'/getClientId', GetClientIdHandler),
         (r'/getExamInstructions', GetExamInstructionsHandler),
         (r'/getUserSessionId', GetUserSessionIdHandler),
-        (r'/beginExam', BeginExamHandler),  
+        (r'/beginExam', BeginExamHandler),
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
+        (r'/uptimeWithRuntime', UptimeWithRuntimeHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
