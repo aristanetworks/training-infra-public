@@ -227,6 +227,17 @@ def get_firewall_base_image_path(auto_download: bool = True) -> str:
 USER_HOSTS_PATH = os.getenv('USER_HOSTS_PATH', '/etc/atd/user_hosts.yaml')
 USER_FIREWALLS_PATH = os.getenv('USER_FIREWALLS_PATH', '/etc/atd/user_firewalls.yaml')
 
+# Orphaned interfaces persistence (for interface slot preservation)
+ORPHANED_INTERFACES_PATH = os.getenv(
+    'ORPHANED_INTERFACES_PATH',
+    '/etc/atd/orphaned_interfaces.yaml'
+)
+
+# Feature flag for interface slot preservation (can be disabled for rollback)
+ENABLE_SLOT_PRESERVATION = os.getenv(
+    'ENABLE_SLOT_PRESERVATION', 'true'
+).lower() == 'true'
+
 # Cloud-init templates directory
 CLOUD_INIT_TEMPLATES_PATH = os.getenv(
     'CLOUD_INIT_TEMPLATES_PATH',

@@ -23,7 +23,8 @@ from config import (
     USER_NODES_PATH,
     USER_HOSTS_PATH,
     USER_FIREWALLS_PATH,
-    MGMT_BRIDGE
+    MGMT_BRIDGE,
+    ENABLE_SLOT_PRESERVATION
 )
 
 
@@ -503,21 +504,48 @@ def port_allocation_lock(device_name: str, timeout: float = 30.0):
         _port_allocation_lock.release()
 
 
-def find_next_available_port(device_name: str, use_lock: bool = True) -> str:
+def find_next_available_port(
+    device_name: str,
+    use_lock: bool = True,
+    prefer_orphaned: bool = True
+) -> str:
     """
     Find the next available Ethernet port on a device.
 
-    vEOS requires contiguous interfaces, so we find the highest
-    used port and return the next one.
+    When interface slot preservation is enabled, this function first checks
+    for orphaned slots that can be reused. Orphaned slots are interfaces that
+    were preserved when a user device was deleted, to prevent vEOS renumbering.
+
+    If no orphaned slots are available, falls back to finding the next
+    contiguous port after the highest used port.
 
     Args:
         device_name: Name of the device
         use_lock: Whether to acquire allocation lock (disable for read-only queries)
+        prefer_orphaned: Whether to check for orphaned slots first (default True)
 
     Returns:
         Next available port name (e.g., "Ethernet5")
     """
     def _find_port():
+        # Check for orphaned slots first (if enabled)
+        if prefer_orphaned and ENABLE_SLOT_PRESERVATION:
+            try:
+                # Import here to avoid circular import
+                from orphaned_interfaces import get_next_orphaned_slot
+                orphaned = get_next_orphaned_slot(device_name)
+                if orphaned:
+                    slot_number = orphaned.get('slot_number')
+                    if slot_number:
+                        logger.debug(
+                            f"Found orphaned slot for {device_name}: Ethernet{slot_number}"
+                        )
+                        return f"Ethernet{slot_number}"
+            except Exception as e:
+                # If orphaned slot lookup fails, continue with standard logic
+                logger.warning(f"Error checking orphaned slots for {device_name}: {e}")
+
+        # Standard logic: find next port after highest used
         used_ports = get_used_ports_from_topology(device_name)
 
         if not used_ports:
@@ -882,6 +910,188 @@ def detach_interface_from_vm(
         raise RuntimeError(f"Timeout detaching interface from {vm_name}")
     except Exception as e:
         raise RuntimeError(f"Error detaching interface from {vm_name}: {e}")
+
+
+def update_interface_bridge(
+    vm_name: str,
+    mac_address: str,
+    new_bridge: str
+) -> Dict:
+    """
+    Update an existing interface's bridge connection without detaching.
+
+    Uses virsh update-device to modify the interface in-place, which
+    preserves the interface slot position (preventing vEOS renumbering).
+
+    This is the key function for interface slot preservation:
+    - Instead of detaching an interface (which causes renumbering on reboot)
+    - We update its bridge connection to point to a new OVS bridge
+
+    If the VM is running, applies immediately with --live --config.
+    If the VM is not running, uses --config only (takes effect on next boot).
+
+    Args:
+        vm_name: Name of the VM
+        mac_address: MAC address of the interface to update
+        new_bridge: Name of the new OVS bridge to connect to
+
+    Returns:
+        Dict with status and details:
+        {
+            'status': 'updated' | 'configured',
+            'vm': vm_name,
+            'mac': mac_address,
+            'new_bridge': new_bridge,
+            'immediate': bool  # True if VM was running
+        }
+
+    Raises:
+        RuntimeError: If update fails
+    """
+    import tempfile
+    from vm_manager import get_vm_state
+
+    # Check if VM is running
+    vm_state = get_vm_state(vm_name)
+    vm_is_running = vm_state == 'running'
+
+    # First, verify the interface exists on this VM
+    interfaces = get_vm_interfaces(vm_name)
+    interface_found = False
+    old_bridge = None
+
+    for intf in interfaces:
+        if intf.get('mac', '').lower() == mac_address.lower():
+            interface_found = True
+            old_bridge = intf.get('source', '')
+            break
+
+    if not interface_found:
+        raise RuntimeError(
+            f"Interface with MAC {mac_address} not found on VM {vm_name}"
+        )
+
+    # Generate interface XML with OVS virtualport type
+    # Use XML escaping for defense-in-depth
+    safe_bridge = xml_escape(new_bridge, {'"': '&quot;', "'": '&apos;'})
+    safe_mac = xml_escape(mac_address, {'"': '&quot;', "'": '&apos;'})
+
+    interface_xml = f"""<interface type='bridge'>
+  <mac address='{safe_mac}'/>
+  <source bridge='{safe_bridge}'/>
+  <model type='virtio'/>
+  <virtualport type='openvswitch'/>
+</interface>"""
+
+    xml_path = None
+    try:
+        # Write XML to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+            f.write(interface_xml)
+            xml_path = f.name
+
+        # Build command based on VM state
+        # Note: update-device modifies existing device, unlike attach-device
+        cmd = ['virsh', 'update-device', vm_name, xml_path, '--config']
+        if vm_is_running:
+            cmd.append('--live')  # Apply immediately if running
+
+        logger.info(
+            f"Updating interface bridge: {vm_name} MAC={mac_address} "
+            f"old_bridge={old_bridge} new_bridge={new_bridge}"
+        )
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to update interface: {result.stderr}")
+
+        # For running VMs, we may need to manually update OVS port
+        # The old bridge connection should be removed, new one added
+        if vm_is_running:
+            # Find the vnet interface by checking domiflist
+            domiflist_result = subprocess.run(
+                ['virsh', 'domiflist', vm_name],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if domiflist_result.returncode == 0:
+                # Find interface with our MAC and new bridge
+                for line in domiflist_result.stdout.strip().split('\n'):
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        vnet_interface = parts[0]
+                        source_bridge = parts[2]
+                        intf_mac = parts[4]
+
+                        if intf_mac.lower() == mac_address.lower():
+                            # Check if interface is in the new OVS bridge
+                            check_port = subprocess.run(
+                                ['ovs-vsctl', 'port-to-br', vnet_interface],
+                                capture_output=True,
+                                text=True
+                            )
+
+                            current_bridge = check_port.stdout.strip() if check_port.returncode == 0 else None
+
+                            # If interface is in old bridge, remove it
+                            if current_bridge and current_bridge != new_bridge:
+                                logger.info(
+                                    f"Removing {vnet_interface} from old bridge {current_bridge}"
+                                )
+                                subprocess.run(
+                                    ['ovs-vsctl', 'del-port', current_bridge, vnet_interface],
+                                    capture_output=True,
+                                    timeout=30
+                                )
+
+                            # Add to new bridge if not already there
+                            if current_bridge != new_bridge:
+                                logger.info(
+                                    f"Adding {vnet_interface} to new bridge {new_bridge}"
+                                )
+                                add_result = subprocess.run(
+                                    ['ovs-vsctl', 'add-port', new_bridge, vnet_interface],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=30
+                                )
+                                if add_result.returncode != 0:
+                                    raise RuntimeError(
+                                        f"Failed to add {vnet_interface} to OVS bridge "
+                                        f"{new_bridge}: {add_result.stderr}"
+                                    )
+                            break
+
+        logger.info(
+            f"Successfully updated interface bridge: {vm_name} MAC={mac_address} "
+            f"-> {new_bridge} (immediate={vm_is_running})"
+        )
+
+        return {
+            'status': 'updated' if vm_is_running else 'configured',
+            'vm': vm_name,
+            'mac': mac_address,
+            'old_bridge': old_bridge,
+            'new_bridge': new_bridge,
+            'immediate': vm_is_running
+        }
+
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"Timeout updating interface on {vm_name}")
+    except Exception as e:
+        raise RuntimeError(f"Error updating interface on {vm_name}: {e}")
+    finally:
+        # Clean up temp file
+        if xml_path and os.path.exists(xml_path):
+            os.remove(xml_path)
 
 
 def list_ovs_bridges() -> List[str]:

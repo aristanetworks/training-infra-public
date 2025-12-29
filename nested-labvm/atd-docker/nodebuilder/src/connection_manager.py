@@ -23,8 +23,16 @@ from interface_manager import (
     detach_interface_from_vm,
     generate_bridge_name,
     find_next_available_port,
-    get_vm_interfaces
+    get_vm_interfaces,
+    update_interface_bridge,
+    extract_port_number
 )
+from orphaned_interfaces import (
+    record_orphaned_slot,
+    get_orphaned_slot_by_port,
+    claim_orphaned_slot
+)
+from config import ENABLE_SLOT_PRESERVATION
 
 logger = logging.getLogger('nodebuilder')
 
@@ -104,8 +112,9 @@ class ConnectionManager:
 
         Creates:
         1. OVS bridge with appropriate name
-        2. Interface attachment on source device (if running)
-        3. Interface attachment on target device (if running)
+        2. Interface attachment on target device:
+           - If target port has an orphaned slot: reuse it via update_interface_bridge
+           - Otherwise: attach a new interface via attach_interface_to_vm
 
         Note: For new nodes, the source interface is added via XML definition,
         so we only attach to the target device. For Edit operations, we may
@@ -117,10 +126,23 @@ class ConnectionManager:
         Returns:
             Dict with creation status and details
         """
-        self.logger.info(
-            f"Creating connection: {conn.source_device}:{conn.source_port} <-> "
-            f"{conn.target_device}:{conn.target_port} (bridge: {conn.bridge_name})"
-        )
+        # Check if target port corresponds to an orphaned slot
+        slot_number = extract_port_number(conn.target_port)
+        orphaned_slot = None
+        if slot_number and ENABLE_SLOT_PRESERVATION:
+            orphaned_slot = get_orphaned_slot_by_port(conn.target_device, slot_number)
+
+        if orphaned_slot:
+            self.logger.info(
+                f"Creating connection (reusing orphaned slot): "
+                f"{conn.source_device}:{conn.source_port} <-> "
+                f"{conn.target_device}:{conn.target_port} (bridge: {conn.bridge_name})"
+            )
+        else:
+            self.logger.info(
+                f"Creating connection: {conn.source_device}:{conn.source_port} <-> "
+                f"{conn.target_device}:{conn.target_port} (bridge: {conn.bridge_name})"
+            )
 
         result = {
             'connection': {
@@ -130,7 +152,8 @@ class ConnectionManager:
                 'target_port': conn.target_port,
                 'bridge': conn.bridge_name
             },
-            'steps': []
+            'steps': [],
+            'reused_orphaned_slot': orphaned_slot is not None
         }
 
         # Step 1: Create OVS bridge
@@ -147,33 +170,98 @@ class ConnectionManager:
             result['error'] = f"Bridge creation failed: {e}"
             return result
 
-        # Step 2: Attach interface to target device
-        try:
-            attach_result = attach_interface_to_vm(conn.target_device, conn.bridge_name)
-            result['steps'].append({
-                'step': 'attach_target',
-                'status': attach_result.get('status'),
-                'device': conn.target_device
-            })
-        except Exception as e:
-            self.logger.error(f"Failed to attach to target: {e}")
-            # Rollback: delete the bridge
-            rollback_success = False
+        # Step 2: Connect target device to bridge
+        if orphaned_slot:
+            # Reuse orphaned slot - update existing interface's bridge
+            update_succeeded = False
             try:
-                delete_ovs_bridge(conn.bridge_name)
-                rollback_success = True
-                self.logger.info(f"Rolled back bridge {conn.bridge_name} after attachment failure")
-            except Exception as rollback_err:
-                self.logger.error(
-                    f"ORPHANED BRIDGE: Failed to rollback bridge {conn.bridge_name}: {rollback_err}. "
-                    f"Manual cleanup may be required."
+                update_result = update_interface_bridge(
+                    vm_name=conn.target_device,
+                    mac_address=orphaned_slot['mac_address'],
+                    new_bridge=conn.bridge_name
                 )
-            result['status'] = 'failed'
-            result['error'] = f"Target attachment failed: {e}"
-            result['rollback_success'] = rollback_success
-            if not rollback_success:
-                result['orphaned_bridge'] = conn.bridge_name
-            return result
+                update_succeeded = True
+                result['steps'].append({
+                    'step': 'reuse_orphaned_slot',
+                    'status': update_result.get('status'),
+                    'device': conn.target_device,
+                    'port': conn.target_port,
+                    'mac': orphaned_slot['mac_address'],
+                    'old_bridge': orphaned_slot.get('old_bridge'),
+                    'immediate': update_result.get('immediate', False)
+                })
+
+            except Exception as e:
+                self.logger.error(f"Failed to update interface bridge: {e}")
+                # Rollback: delete the bridge (only if update failed)
+                rollback_success = False
+                try:
+                    delete_ovs_bridge(conn.bridge_name)
+                    rollback_success = True
+                    self.logger.info(f"Rolled back bridge {conn.bridge_name} after update failure")
+                except Exception as rollback_err:
+                    self.logger.error(
+                        f"ORPHANED BRIDGE: Failed to rollback bridge {conn.bridge_name}: {rollback_err}"
+                    )
+
+                # Don't claim the orphaned slot - leave it for retry
+                result['status'] = 'failed'
+                result['error'] = f"Failed to reuse orphaned slot: {e}"
+                result['rollback_success'] = rollback_success
+                if not rollback_success:
+                    result['orphaned_bridge'] = conn.bridge_name
+                return result
+
+            # Only claim the orphaned slot after update succeeds
+            # This is done in a separate try block to avoid rollback if only claim fails
+            if update_succeeded:
+                try:
+                    claim_orphaned_slot(conn.target_device, orphaned_slot['mac_address'])
+                    self.logger.info(
+                        f"Successfully reused orphaned slot: {conn.target_device}:{conn.target_port} "
+                        f"(MAC: {orphaned_slot['mac_address']}) -> bridge {conn.bridge_name}"
+                    )
+                except Exception as claim_err:
+                    # Interface update succeeded but claim failed
+                    # Log error but don't rollback - the connection is working
+                    self.logger.warning(
+                        f"Failed to claim orphaned slot on {conn.target_device}: {claim_err}. "
+                        f"Slot may be orphaned in registry but interface is connected."
+                    )
+                    result['steps'].append({
+                        'step': 'claim_orphaned_slot',
+                        'status': 'warning',
+                        'error': str(claim_err),
+                        'note': 'Interface connected but registry not updated'
+                    })
+        else:
+            # Standard attach - create new interface
+            try:
+                attach_result = attach_interface_to_vm(conn.target_device, conn.bridge_name)
+                result['steps'].append({
+                    'step': 'attach_target',
+                    'status': attach_result.get('status'),
+                    'device': conn.target_device
+                })
+            except Exception as e:
+                self.logger.error(f"Failed to attach to target: {e}")
+                # Rollback: delete the bridge
+                rollback_success = False
+                try:
+                    delete_ovs_bridge(conn.bridge_name)
+                    rollback_success = True
+                    self.logger.info(f"Rolled back bridge {conn.bridge_name} after attachment failure")
+                except Exception as rollback_err:
+                    self.logger.error(
+                        f"ORPHANED BRIDGE: Failed to rollback bridge {conn.bridge_name}: {rollback_err}. "
+                        f"Manual cleanup may be required."
+                    )
+                result['status'] = 'failed'
+                result['error'] = f"Target attachment failed: {e}"
+                result['rollback_success'] = rollback_success
+                if not rollback_success:
+                    result['orphaned_bridge'] = conn.bridge_name
+                return result
 
         result['status'] = 'created'
         return result
@@ -182,27 +270,39 @@ class ConnectionManager:
         self,
         conn: Connection,
         detach_from_source: bool = True,
-        detach_from_target: bool = True
+        detach_from_target: bool = True,
+        preserve_target_slot: bool = None
     ) -> Dict:
         """
         Delete a connection between two nodes.
 
         Cleans up:
         1. Interface from source device (if requested)
-        2. Interface from target device (if requested)
+        2. Interface from target device (if requested, unless preserving slot)
         3. OVS bridge
+
+        When preserve_target_slot is True, the target interface is kept attached
+        to the VM but recorded as "orphaned" for later reuse. This prevents
+        vEOS interface renumbering issues.
 
         Args:
             conn: Connection object
             detach_from_source: Whether to detach interface from source device
             detach_from_target: Whether to detach interface from target device
+            preserve_target_slot: If True, keep target interface attached and record
+                as orphaned. Defaults to ENABLE_SLOT_PRESERVATION config.
 
         Returns:
             Dict with deletion status and details
         """
+        # Default to config setting if not specified
+        if preserve_target_slot is None:
+            preserve_target_slot = ENABLE_SLOT_PRESERVATION
+
         self.logger.info(
             f"Deleting connection: {conn.source_device}:{conn.source_port} <-> "
             f"{conn.target_device}:{conn.target_port} (bridge: {conn.bridge_name})"
+            f" [preserve_slot={preserve_target_slot}]"
         )
 
         result = {
@@ -217,7 +317,7 @@ class ConnectionManager:
             'errors': []
         }
 
-        # Step 1: Detach interface from source device
+        # Step 1: Detach interface from source device (the user-added device being deleted)
         if detach_from_source:
             try:
                 mac = self._find_interface_mac(conn.source_device, conn.bridge_name)
@@ -236,7 +336,6 @@ class ConnectionManager:
                         'device': conn.source_device
                     })
             except Exception as e:
-                # Log at ERROR level to ensure visibility
                 self.logger.error(f"Failed to detach from source {conn.source_device}: {e}")
                 result['errors'].append({
                     'step': 'detach_source',
@@ -244,8 +343,72 @@ class ConnectionManager:
                     'error': str(e)
                 })
 
-        # Step 2: Detach interface from target device
-        if detach_from_target:
+        # Step 2: Handle target device interface
+        # If preserving slot, record as orphaned instead of detaching
+        if preserve_target_slot and detach_from_target:
+            try:
+                mac = self._find_interface_mac(conn.target_device, conn.bridge_name)
+                if mac:
+                    # Extract slot number from port name (e.g., "Ethernet5" -> 5)
+                    slot_number = extract_port_number(conn.target_port)
+                    if slot_number:
+                        # Record as orphaned slot for later reuse
+                        record_orphaned_slot(
+                            target_device=conn.target_device,
+                            slot_number=slot_number,
+                            mac_address=mac,
+                            old_bridge=conn.bridge_name,
+                            original_connection={
+                                'source_device': conn.source_device,
+                                'source_port': conn.source_port,
+                                'target_device': conn.target_device,
+                                'target_port': conn.target_port
+                            }
+                        )
+                        self.logger.info(
+                            f"Preserved interface slot: {conn.target_device}:{conn.target_port} "
+                            f"(MAC: {mac}) - recorded as orphaned for reuse"
+                        )
+                        result['steps'].append({
+                            'step': 'preserve_target_slot',
+                            'status': 'orphaned',
+                            'device': conn.target_device,
+                            'port': conn.target_port,
+                            'slot_number': slot_number,
+                            'mac': mac
+                        })
+                    else:
+                        # Can't extract slot number, fall back to detach
+                        self.logger.warning(
+                            f"Could not extract slot number from {conn.target_port}, "
+                            f"falling back to detach"
+                        )
+                        detach_result = detach_interface_from_vm(conn.target_device, mac)
+                        result['steps'].append({
+                            'step': 'detach_target',
+                            'status': detach_result.get('status'),
+                            'device': conn.target_device,
+                            'mac': mac,
+                            'fallback': True
+                        })
+                else:
+                    result['steps'].append({
+                        'step': 'preserve_target_slot',
+                        'status': 'not_found',
+                        'device': conn.target_device
+                    })
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to preserve slot on {conn.target_device}: {e}"
+                )
+                result['errors'].append({
+                    'step': 'preserve_target_slot',
+                    'device': conn.target_device,
+                    'error': str(e)
+                })
+
+        elif detach_from_target:
+            # Standard detach behavior (no slot preservation)
             try:
                 mac = self._find_interface_mac(conn.target_device, conn.bridge_name)
                 if mac:
@@ -263,7 +426,6 @@ class ConnectionManager:
                         'device': conn.target_device
                     })
             except Exception as e:
-                # Log at ERROR level to ensure visibility
                 self.logger.error(f"Failed to detach from target {conn.target_device}: {e}")
                 result['errors'].append({
                     'step': 'detach_target',
@@ -275,20 +437,17 @@ class ConnectionManager:
         # Check if any detachment had actual failures (not just "not_found" which is OK)
         detachment_failures = [
             err for err in result['errors']
-            if err.get('step') in ('detach_source', 'detach_target')
+            if err.get('step') in ('detach_source', 'detach_target', 'preserve_target_slot')
         ]
 
         if detachment_failures:
-            # Detachment failed - interfaces may still be attached to VMs
-            # Proceed with bridge deletion but add prominent warning
             self.logger.warning(
-                f"BRIDGE DELETION WITH ATTACHED INTERFACES: {len(detachment_failures)} "
-                f"detachment(s) failed for bridge {conn.bridge_name}. "
-                f"VMs may have orphaned interfaces. Details: {detachment_failures}"
+                f"BRIDGE DELETION WITH ISSUES: {len(detachment_failures)} "
+                f"error(s) for bridge {conn.bridge_name}. Details: {detachment_failures}"
             )
             result['warning'] = (
                 f"Bridge {conn.bridge_name} deleted but {len(detachment_failures)} "
-                f"interface(s) may still be referenced in VM definitions"
+                f"error(s) occurred during cleanup"
             )
 
         try:
@@ -306,6 +465,7 @@ class ConnectionManager:
             })
 
         result['status'] = 'deleted' if not result['errors'] else 'deleted_with_errors'
+        result['slot_preserved'] = preserve_target_slot
         return result
 
     def _find_interface_mac(self, vm_name: str, bridge_name: str) -> Optional[str]:

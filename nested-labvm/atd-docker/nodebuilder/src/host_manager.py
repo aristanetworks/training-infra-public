@@ -33,7 +33,9 @@ from interface_manager import (
     attach_interface_to_vm,
     generate_bridge_name,
     find_next_available_port,
-    parse_device_name
+    parse_device_name,
+    update_interface_bridge,
+    extract_port_number
 )
 
 logger = logging.getLogger('nodebuilder')
@@ -553,11 +555,73 @@ def create_host(
             raise RuntimeError(f"Failed to start VM: {result.stderr}")
 
         # Step 7: Attach interface to target VM if connected
+        # Check for orphaned slots that can be reused (live updates, no reboot needed)
+        targets_reused_slots = []
+        targets_need_reboot = []
+
         if processed_connection:
             target_device = processed_connection['target_device']
+            target_port = processed_connection['target_port']
             bridge_name = processed_connection['bridge']
-            logger.info(f"Attaching interface to {target_device}")
-            attach_interface_to_vm(target_device, bridge_name)
+
+            # Check for orphaned slot to reuse
+            orphaned_slot = None
+            try:
+                from config import ENABLE_SLOT_PRESERVATION
+                from orphaned_interfaces import get_orphaned_slot_by_port, claim_orphaned_slot
+                if ENABLE_SLOT_PRESERVATION:
+                    port_num = extract_port_number(target_port)
+                    orphaned_slot = get_orphaned_slot_by_port(target_device, port_num)
+                    if orphaned_slot:
+                        logger.debug(
+                            f"Found orphaned slot for {target_device}:{target_port} "
+                            f"(MAC {orphaned_slot.get('mac_address')})"
+                        )
+            except Exception as e:
+                logger.warning(f"Error checking orphaned slots for {target_device}: {e}")
+                orphaned_slot = None
+
+            if orphaned_slot:
+                # Reuse existing interface by updating the bridge connection
+                logger.info(
+                    f"Reusing orphaned slot on {target_device} for bridge {bridge_name}"
+                )
+                try:
+                    result = update_interface_bridge(
+                        target_device,
+                        orphaned_slot['mac_address'],
+                        bridge_name
+                    )
+                    if result.get('status') == 'updated':
+                        claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
+                        processed_connection['reused_orphaned_slot'] = True
+                        targets_reused_slots.append(target_device)
+                        logger.info(
+                            f"Successfully reused orphaned slot on {target_device} - "
+                            f"no reboot needed"
+                        )
+                    else:
+                        # Fallback to attach
+                        logger.warning(
+                            f"Failed to update bridge on {target_device}, falling back to attach"
+                        )
+                        attach_interface_to_vm(target_device, bridge_name)
+                        processed_connection['reused_orphaned_slot'] = False
+                        targets_need_reboot.append(target_device)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to reuse orphaned slot on {target_device}: {e}, "
+                        f"falling back to attach"
+                    )
+                    attach_interface_to_vm(target_device, bridge_name)
+                    processed_connection['reused_orphaned_slot'] = False
+                    targets_need_reboot.append(target_device)
+            else:
+                # No orphaned slot - attach new interface
+                logger.info(f"Attaching new interface to {target_device}")
+                attach_interface_to_vm(target_device, bridge_name)
+                processed_connection['reused_orphaned_slot'] = False
+                targets_need_reboot.append(target_device)
 
         # Clean up temp XML file
         if os.path.exists(xml_path):
@@ -571,7 +635,9 @@ def create_host(
             'mgmt_ip': mgmt_ip,
             'data_ip': data_ip,
             'vnc_port': x11vnc_port,  # x11vnc inside VM on port 5900
-            'connection': processed_connection
+            'connection': processed_connection,
+            'targets_reused_slots': targets_reused_slots,
+            'targets_need_reboot': targets_need_reboot
         }
 
     except Exception as e:

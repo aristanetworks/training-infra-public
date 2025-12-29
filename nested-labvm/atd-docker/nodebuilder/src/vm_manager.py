@@ -21,7 +21,9 @@ from interface_manager import (
     attach_interface_to_vm,
     generate_bridge_name,
     find_next_available_port,
-    parse_device_name
+    parse_device_name,
+    update_interface_bridge,
+    extract_port_number
 )
 from config import (
     LIBVIRT_IMAGES_PATH,
@@ -478,14 +480,87 @@ def create_veos_node(
         # button in the UI which calls the /restore-user-nodes endpoint.
 
         # Step 6: Attach interfaces to target VMs
+        # Check for orphaned slots that can be reused (live updates, no reboot needed)
+        targets_reused_slots = []
+        targets_need_reboot = []
+
+        try:
+            from config import ENABLE_SLOT_PRESERVATION
+            from orphaned_interfaces import get_orphaned_slot_by_port, claim_orphaned_slot
+            slot_preservation_enabled = ENABLE_SLOT_PRESERVATION
+        except ImportError:
+            slot_preservation_enabled = False
+
         for conn in processed_connections:
             target_device = conn['target_device']
+            target_port = conn['target_port']
             bridge_name = conn['bridge']
 
-            logger.info(
-                f"Attaching interface to {target_device} on bridge {bridge_name}"
-            )
-            attach_interface_to_vm(target_device, bridge_name)
+            # Check if we can reuse an orphaned slot for this target port
+            orphaned_slot = None
+            if slot_preservation_enabled:
+                try:
+                    port_num = extract_port_number(target_port)
+                    orphaned_slot = get_orphaned_slot_by_port(target_device, port_num)
+                    if orphaned_slot:
+                        logger.debug(
+                            f"Found orphaned slot for {target_device}:{target_port} "
+                            f"(slot {orphaned_slot.get('slot_number')}, MAC {orphaned_slot.get('mac_address')})"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Error checking orphaned slots for {target_device}:{target_port}: {e}"
+                    )
+                    orphaned_slot = None
+
+            if orphaned_slot:
+                # Reuse existing interface by updating the bridge connection (live update)
+                logger.info(
+                    f"Reusing orphaned slot {orphaned_slot['slot_number']} on "
+                    f"{target_device} for bridge {bridge_name}"
+                )
+                try:
+                    # update_interface_bridge automatically detects VM state and uses
+                    # --live flag when VM is running
+                    result = update_interface_bridge(
+                        target_device,
+                        orphaned_slot['mac_address'],
+                        bridge_name
+                    )
+                    if result.get('status') == 'updated':
+                        # Claim the orphaned slot (uses MAC address as identifier)
+                        claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
+                        conn['reused_orphaned_slot'] = True
+                        targets_reused_slots.append(target_device)
+                        logger.info(
+                            f"Successfully reused orphaned slot on {target_device} - "
+                            f"no reboot needed"
+                        )
+                    else:
+                        # Fallback to attach
+                        logger.warning(
+                            f"Failed to update bridge on {target_device}, "
+                            f"falling back to attach"
+                        )
+                        attach_interface_to_vm(target_device, bridge_name)
+                        conn['reused_orphaned_slot'] = False
+                        targets_need_reboot.append(target_device)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to reuse orphaned slot on {target_device}: {e}, "
+                        f"falling back to attach"
+                    )
+                    attach_interface_to_vm(target_device, bridge_name)
+                    conn['reused_orphaned_slot'] = False
+                    targets_need_reboot.append(target_device)
+            else:
+                # No orphaned slot available - attach new interface (reboot needed)
+                logger.info(
+                    f"Attaching new interface to {target_device} on bridge {bridge_name}"
+                )
+                attach_interface_to_vm(target_device, bridge_name)
+                conn['reused_orphaned_slot'] = False
+                targets_need_reboot.append(target_device)
 
         # Clean up temp XML file (not needed after define)
         if os.path.exists(xml_path):
@@ -493,12 +568,21 @@ def create_veos_node(
 
         logger.info(f"Successfully created vEOS node: {name}")
 
+        # Return reboot information so UI knows which targets need rebooting
+        # Ensure mutual exclusivity: if a device needs a reboot for ANY connection,
+        # it should only appear in targets_need_reboot, not in targets_reused_slots
+        targets_reused_slots_set = set(targets_reused_slots)
+        targets_need_reboot_set = set(targets_need_reboot)
+        final_reused_slots = targets_reused_slots_set - targets_need_reboot_set
+
         return {
             'status': 'created',
             'name': name,
             'ip': ip,
             'mac': mac,
-            'connections': processed_connections
+            'connections': processed_connections,
+            'targets_reused_slots': list(final_reused_slots),
+            'targets_need_reboot': list(targets_need_reboot_set)
         }
 
 

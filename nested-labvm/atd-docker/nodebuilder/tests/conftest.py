@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 def mock_path_validation():
     """Mock path validation to allow temp directories in tests."""
     with patch('persistence._validate_path', return_value=True):
-        yield
+        with patch('orphaned_interfaces._validate_path', return_value=True):
+            yield
 
 
 @pytest.fixture

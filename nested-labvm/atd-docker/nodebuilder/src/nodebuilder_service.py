@@ -417,7 +417,11 @@ async def add_node(request):
                         'ip': ip,
                         'mac': mac,
                         'connections': result['connections']
-                    }
+                    },
+                    # Include reboot information so UI knows which targets need rebooting
+                    # Targets that reused orphaned slots don't need a reboot
+                    'targets_reused_slots': result.get('targets_reused_slots', []),
+                    'targets_need_reboot': result.get('targets_need_reboot', [])
                 })
 
             except Exception as e:
@@ -1011,6 +1015,8 @@ async def add_cluster(request):
 
         created_nodes = []
         internal_bridges = []  # Track bridges created for internal connections
+        all_targets_reused_slots = []  # Aggregate reboot info across all nodes
+        all_targets_need_reboot = []
         conn_mgr = get_connection_manager()
 
         # PHASE 1: Create all VMs with only external connections
@@ -1056,6 +1062,9 @@ async def add_cluster(request):
                     'mac': mac,
                     'connections': result.get('connections', [])
                 })
+                # Collect reboot info from this node
+                all_targets_reused_slots.extend(result.get('targets_reused_slots', []))
+                all_targets_need_reboot.extend(result.get('targets_need_reboot', []))
                 logger.info(f"  Created VM: {full_name}")
             except Exception as e:
                 # Rollback all created nodes
@@ -1099,8 +1108,13 @@ async def add_cluster(request):
                 create_ovs_bridge(bridge_name)
 
                 # Attach interface to both VMs
+                # Note: attach_interface_to_vm requires reboot for the interface to work
                 attach_interface_to_vm(from_name, bridge_name)
                 attach_interface_to_vm(to_name, bridge_name)
+
+                # Track that these cluster nodes need reboot for internal connections
+                all_targets_need_reboot.append(from_name)
+                all_targets_need_reboot.append(to_name)
 
                 internal_bridges.append({
                     'bridge': bridge_name,
@@ -1171,13 +1185,21 @@ async def add_cluster(request):
 
         logger.info(f"Successfully created cluster: {template_id} ({len(created_nodes)} nodes)")
 
+        # Apply mutual exclusivity: if a device needs reboot for ANY reason,
+        # it should only appear in targets_need_reboot (not in targets_reused_slots)
+        targets_reused_slots_set = set(all_targets_reused_slots)
+        targets_need_reboot_set = set(all_targets_need_reboot)
+        final_reused_slots = targets_reused_slots_set - targets_need_reboot_set
+
         return web.json_response({
             'status': 'created',
             'cluster': template_id,
             'prefix': name_prefix,
             'nodes': created_nodes,
             'internal_bridges': internal_bridges,
-            'impairments_to_apply': applied_impairments
+            'impairments_to_apply': applied_impairments,
+            'targets_reused_slots': list(final_reused_slots),
+            'targets_need_reboot': list(targets_need_reboot_set)
         })
 
     except Exception as e:
@@ -1436,7 +1458,9 @@ async def add_host(request):
 
                 return web.json_response({
                     'status': 'created',
-                    'host': result
+                    'host': result,
+                    'targets_reused_slots': result.get('targets_reused_slots', []),
+                    'targets_need_reboot': result.get('targets_need_reboot', [])
                 })
 
             except Exception as e:
@@ -1725,7 +1749,9 @@ async def add_firewall(request):
 
                 return web.json_response({
                     'status': 'created',
-                    'firewall': result
+                    'firewall': result,
+                    'targets_reused_slots': result.get('targets_reused_slots', []),
+                    'targets_need_reboot': result.get('targets_need_reboot', [])
                 })
 
             except Exception as e:
@@ -2017,6 +2043,214 @@ async def reconcile_resources_fix(request):
     except Exception as e:
         logger.error(f"Error during reconciliation: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# Orphaned Interface Slots Endpoints
+# ============================================================================
+
+@routes.get('/orphaned-slots')
+async def get_orphaned_slots(request):
+    """
+    Get all orphaned interface slots.
+
+    Orphaned slots are interfaces that were preserved when user devices
+    were deleted, to prevent vEOS interface renumbering. They can be
+    reused when adding new devices.
+
+    Query parameters:
+        device: Optional filter by device name
+
+    Returns:
+        JSON with orphaned slots by device and summary counts
+    """
+    from orphaned_interfaces import (
+        list_all_orphaned_slots,
+        get_orphaned_slots_for_device,
+        count_orphaned_slots
+    )
+
+    try:
+        device_filter = request.query.get('device')
+
+        # Validate device name if provided (security: prevent injection attacks)
+        if device_filter:
+            from validation import validate_device_name
+            is_valid, error = validate_device_name(device_filter)
+            if not is_valid:
+                return web.json_response({'error': f'Invalid device name: {error}'}, status=400)
+
+            # Get slots for specific device
+            slots = get_orphaned_slots_for_device(device_filter)
+            result = {
+                'success': True,
+                'device': device_filter,
+                'orphaned_slots': slots,
+                'count': len(slots)
+            }
+        else:
+            # Get all slots
+            all_slots = list_all_orphaned_slots()
+            counts = count_orphaned_slots()
+
+            result = {
+                'success': True,
+                'orphaned_slots': all_slots,
+                'summary': counts
+            }
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error getting orphaned slots: {e}", exc_info=True)
+        return web.json_response({
+            'success': False,
+            'error': sanitize_error(e)
+        }, status=500)
+
+
+@routes.post('/cleanup-orphaned-slots')
+async def cleanup_orphaned_slots(request):
+    """
+    Clean up orphaned interface slots.
+
+    This endpoint can:
+    1. Clear all orphaned slots (for full cleanup)
+    2. Clear slots for a specific device
+    3. Optionally detach the interfaces from VMs before clearing
+
+    Request body (optional):
+        {
+            "device_name": "spine1",  # Optional: clear specific device only
+            "truly_detach": false     # Optional: detach interfaces before clearing
+        }
+
+    Returns:
+        JSON with cleanup results
+    """
+    from orphaned_interfaces import (
+        clear_all_orphaned_slots,
+        clear_orphaned_slots_for_device,
+        get_orphaned_slots_for_device,
+        list_all_orphaned_slots
+    )
+    from interface_manager import detach_interface_from_vm
+
+    try:
+        # Parse request body (may be empty)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+
+        device_name = data.get('device_name')
+        truly_detach = data.get('truly_detach', False)
+
+        # Validate device name if provided (security: prevent injection attacks)
+        if device_name:
+            from validation import validate_device_name
+            is_valid, error = validate_device_name(device_name)
+            if not is_valid:
+                return web.json_response({'error': f'Invalid device name: {error}'}, status=400)
+
+        result = {
+            'success': True,
+            'slots_cleared': 0,
+            'interfaces_detached': 0,
+            'errors': []
+        }
+
+        if device_name:
+            # Clean specific device
+            logger.info(f"Cleaning orphaned slots for device: {device_name}")
+
+            if truly_detach:
+                slots = get_orphaned_slots_for_device(device_name)
+                for slot in slots:
+                    try:
+                        mac = slot.get('mac_address')
+                        if mac:
+                            detach_interface_from_vm(device_name, mac)
+                            result['interfaces_detached'] += 1
+                    except Exception as e:
+                        result['errors'].append({
+                            'device': device_name,
+                            'mac': slot.get('mac_address'),
+                            'error': str(e)
+                        })
+
+            cleared = clear_orphaned_slots_for_device(device_name)
+            result['slots_cleared'] = cleared
+            result['device'] = device_name
+
+        else:
+            # Clean all devices
+            logger.info("Cleaning all orphaned slots")
+
+            if truly_detach:
+                all_slots = list_all_orphaned_slots()
+                for dev_name, slots in all_slots.items():
+                    for slot in slots:
+                        try:
+                            mac = slot.get('mac_address')
+                            if mac:
+                                detach_interface_from_vm(dev_name, mac)
+                                result['interfaces_detached'] += 1
+                        except Exception as e:
+                            result['errors'].append({
+                                'device': dev_name,
+                                'mac': slot.get('mac_address'),
+                                'error': str(e)
+                            })
+
+            cleared = clear_all_orphaned_slots()
+            result['slots_cleared'] = cleared
+
+        logger.info(
+            f"Orphaned slots cleanup complete: {result['slots_cleared']} slots cleared, "
+            f"{result['interfaces_detached']} interfaces detached"
+        )
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error cleaning orphaned slots: {e}", exc_info=True)
+        return web.json_response({
+            'success': False,
+            'error': sanitize_error(e)
+        }, status=500)
+
+
+@routes.get('/orphaned-slots/validate')
+async def validate_orphaned_slots(request):
+    """
+    Validate orphaned slots against actual VM state.
+
+    Checks:
+    1. Devices exist in libvirt
+    2. Interfaces with recorded MACs exist on devices
+    3. No duplicate slot numbers per device
+
+    Returns:
+        JSON with validation results and any issues found
+    """
+    from orphaned_interfaces import validate_orphaned_slots as do_validate
+
+    try:
+        logger.info("Validating orphaned interface slots")
+        result = do_validate()
+
+        return web.json_response({
+            'success': True,
+            'validation': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error validating orphaned slots: {e}", exc_info=True)
+        return web.json_response({
+            'success': False,
+            'error': sanitize_error(e)
+        }, status=500)
 
 
 def create_app():

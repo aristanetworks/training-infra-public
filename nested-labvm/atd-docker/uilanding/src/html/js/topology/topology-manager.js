@@ -9,6 +9,7 @@ import { EventManager } from './event-handlers.js';
 import { FilterManager, DEVICE_TYPE_INFO, loadDeviceTypeInfo, getDeviceTypeInfo } from './filter-manager.js';
 import { StatusUpdater } from './status-updater.js';
 import { CapturePanel } from './capture-panel.js';
+import { OrphanedSlotsMonitor } from './orphaned-slots-monitor.js';
 
 /**
  * Impairment type color constants
@@ -40,6 +41,7 @@ export class TopologyManager {
         this.filterManager = null;
         this.statusUpdater = null;
         this.capturePanel = null;  // Packet capture panel
+        this.orphanedSlotsMonitor = null;  // Orphaned interface slots monitor
         this.isInitialized = false;
         this.topologyData = null;
         this.originalPositions = {};  // Store original positions for reset
@@ -155,6 +157,14 @@ export class TopologyManager {
             if (typeof window.AddFirewallWizard !== 'undefined') {
                 window.addFirewallWizard = new window.AddFirewallWizard(this);
                 console.log('[TopologyManager] AddFirewallWizard initialized');
+            }
+
+            // Initialize OrphanedSlotsMonitor for tracking orphaned interface slots (KVM labs only)
+            // This monitors for interface slots preserved from deleted devices
+            if (this.topologyData.metadata?.eos_type === 'veos') {
+                this.orphanedSlotsMonitor = new OrphanedSlotsMonitor(this);
+                this.orphanedSlotsMonitor.init();
+                console.log('[TopologyManager] OrphanedSlotsMonitor initialized');
             }
 
             this.isInitialized = true;
@@ -1285,6 +1295,10 @@ export class TopologyManager {
 
         if (this.capturePanel) {
             this.capturePanel.destroy();
+        }
+
+        if (this.orphanedSlotsMonitor) {
+            this.orphanedSlotsMonitor.destroy();
         }
 
         if (this.cy) {

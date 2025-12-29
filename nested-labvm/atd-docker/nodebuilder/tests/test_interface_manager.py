@@ -21,7 +21,9 @@ from interface_manager import (
     get_used_ports_from_topology,
     find_next_available_port,
     creation_lock,
-    port_allocation_lock
+    port_allocation_lock,
+    update_interface_bridge,
+    get_vm_interfaces
 )
 
 
@@ -231,3 +233,203 @@ class TestPortAllocationLock:
         with patch('interface_manager._PORT_LOCK_FILE', lock_file):
             with port_allocation_lock('after-exception-device', timeout=1.0):
                 pass
+
+
+class TestUpdateInterfaceBridge:
+    """Tests for update_interface_bridge function.
+
+    This function is key to interface slot preservation - it updates
+    an existing interface's bridge connection without detaching/reattaching.
+    """
+
+    def test_update_interface_bridge_running_vm(self):
+        """Test updating bridge on a running VM."""
+        with patch('interface_manager.get_vm_state', return_value='running'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                # Mock existing interface
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet5',
+                        'type': 'bridge',
+                        'source': 'old-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:aa:bb:05'
+                    }
+                ]
+
+                with patch('interface_manager.subprocess.run') as mock_run:
+                    # Mock successful update-device
+                    mock_run.return_value = Mock(
+                        returncode=0,
+                        stdout='Device updated successfully',
+                        stderr=''
+                    )
+
+                    result = update_interface_bridge(
+                        vm_name='spine1',
+                        mac_address='52:54:00:aa:bb:05',
+                        new_bridge='new-bridge'
+                    )
+
+                    assert result['status'] == 'updated'
+                    assert result['vm'] == 'spine1'
+                    assert result['mac'] == '52:54:00:aa:bb:05'
+                    assert result['new_bridge'] == 'new-bridge'
+                    assert result['old_bridge'] == 'old-bridge'
+                    assert result['immediate'] is True
+
+    def test_update_interface_bridge_stopped_vm(self):
+        """Test updating bridge on a stopped VM."""
+        with patch('interface_manager.get_vm_state', return_value='shut off'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet5',
+                        'type': 'bridge',
+                        'source': 'old-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:aa:bb:05'
+                    }
+                ]
+
+                with patch('interface_manager.subprocess.run') as mock_run:
+                    mock_run.return_value = Mock(
+                        returncode=0,
+                        stdout='Device updated successfully',
+                        stderr=''
+                    )
+
+                    result = update_interface_bridge(
+                        vm_name='spine1',
+                        mac_address='52:54:00:aa:bb:05',
+                        new_bridge='new-bridge'
+                    )
+
+                    assert result['status'] == 'configured'
+                    assert result['immediate'] is False
+
+    def test_update_interface_bridge_mac_not_found(self):
+        """Test error when MAC address not found on VM."""
+        with patch('interface_manager.get_vm_state', return_value='running'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                # No matching MAC
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet1',
+                        'type': 'bridge',
+                        'source': 'some-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:xx:xx:xx'
+                    }
+                ]
+
+                with pytest.raises(RuntimeError) as exc_info:
+                    update_interface_bridge(
+                        vm_name='spine1',
+                        mac_address='52:54:00:aa:bb:05',
+                        new_bridge='new-bridge'
+                    )
+
+                assert 'not found on VM' in str(exc_info.value)
+
+    def test_update_interface_bridge_case_insensitive_mac(self):
+        """Test that MAC address matching is case-insensitive."""
+        with patch('interface_manager.get_vm_state', return_value='shut off'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet5',
+                        'type': 'bridge',
+                        'source': 'old-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:AA:BB:05'  # Uppercase
+                    }
+                ]
+
+                with patch('interface_manager.subprocess.run') as mock_run:
+                    mock_run.return_value = Mock(
+                        returncode=0,
+                        stdout='',
+                        stderr=''
+                    )
+
+                    # Call with lowercase - should still match
+                    result = update_interface_bridge(
+                        vm_name='spine1',
+                        mac_address='52:54:00:aa:bb:05',
+                        new_bridge='new-bridge'
+                    )
+
+                    assert result['status'] == 'configured'
+
+    def test_update_interface_bridge_virsh_failure(self):
+        """Test error handling when virsh update-device fails."""
+        with patch('interface_manager.get_vm_state', return_value='running'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet5',
+                        'type': 'bridge',
+                        'source': 'old-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:aa:bb:05'
+                    }
+                ]
+
+                with patch('interface_manager.subprocess.run') as mock_run:
+                    mock_run.return_value = Mock(
+                        returncode=1,
+                        stdout='',
+                        stderr='error: operation failed: interface not found'
+                    )
+
+                    with pytest.raises(RuntimeError) as exc_info:
+                        update_interface_bridge(
+                            vm_name='spine1',
+                            mac_address='52:54:00:aa:bb:05',
+                            new_bridge='new-bridge'
+                        )
+
+                    assert 'Failed to update interface' in str(exc_info.value)
+
+    def test_update_interface_uses_correct_virsh_command(self):
+        """Test that correct virsh command is used."""
+        with patch('interface_manager.get_vm_state', return_value='running'):
+            with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
+                mock_interfaces.return_value = [
+                    {
+                        'interface': 'vnet5',
+                        'type': 'bridge',
+                        'source': 'old-bridge',
+                        'model': 'virtio',
+                        'mac': '52:54:00:aa:bb:05'
+                    }
+                ]
+
+                with patch('interface_manager.subprocess.run') as mock_run:
+                    mock_run.return_value = Mock(
+                        returncode=0,
+                        stdout='',
+                        stderr=''
+                    )
+
+                    update_interface_bridge(
+                        vm_name='spine1',
+                        mac_address='52:54:00:aa:bb:05',
+                        new_bridge='new-bridge'
+                    )
+
+                    # Find the update-device call
+                    update_call = None
+                    for call in mock_run.call_args_list:
+                        args = call[0][0] if call[0] else call[1].get('args', [])
+                        if 'update-device' in args:
+                            update_call = args
+                            break
+
+                    assert update_call is not None, "update-device command not found"
+                    assert 'virsh' in update_call
+                    assert 'update-device' in update_call
+                    assert 'spine1' in update_call
+                    assert '--config' in update_call
+                    assert '--live' in update_call  # Running VM should have --live

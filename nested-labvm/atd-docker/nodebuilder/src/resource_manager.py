@@ -572,6 +572,52 @@ class ResourceManager:
                 'error': str(e)
             })
 
+        # Phase 6: Clear orphaned interface slots
+        # When doing a full reset, we need to clear the orphaned slots registry
+        # and optionally detach the orphaned interfaces from VMs
+        self.logger.info("Phase 6: Clearing orphaned interface slots")
+        try:
+            from orphaned_interfaces import clear_all_orphaned_slots, list_all_orphaned_slots
+            from interface_manager import detach_interface_from_vm
+
+            # Get current orphaned slots before clearing
+            all_orphaned = list_all_orphaned_slots()
+            orphaned_count = sum(len(slots) for slots in all_orphaned.values())
+
+            if orphaned_count > 0:
+                # Optionally detach the orphaned interfaces for a clean slate
+                # This is safe during reset-all because we're restoring to original state
+                for device_name, slots in all_orphaned.items():
+                    for slot in slots:
+                        try:
+                            mac = slot.get('mac_address')
+                            if mac:
+                                detach_interface_from_vm(device_name, mac)
+                                self.logger.debug(
+                                    f"Detached orphaned interface {mac} from {device_name}"
+                                )
+                        except Exception as e:
+                            # Not critical - interface may already be gone
+                            self.logger.debug(
+                                f"Could not detach orphaned interface from {device_name}: {e}"
+                            )
+
+                # Clear the orphaned slots registry
+                cleared_count = clear_all_orphaned_slots()
+                results['orphaned_slots_cleared'] = cleared_count
+                self.logger.info(f"Cleared {cleared_count} orphaned interface slot(s)")
+            else:
+                results['orphaned_slots_cleared'] = 0
+                self.logger.info("No orphaned interface slots to clear")
+
+        except Exception as e:
+            self.logger.error(f"Failed to clear orphaned interface slots: {e}")
+            results['errors'].append({
+                'type': 'orphaned_slots',
+                'error': str(e)
+            })
+            results['orphaned_slots_cleared'] = 0
+
         # Convert set to list for JSON serialization
         results['affected_devices'] = list(results['affected_devices'])
 
@@ -588,6 +634,7 @@ class ResourceManager:
             'hosts': len(results['hosts_deleted']),
             'firewalls': len(results['firewalls_deleted']),
             'bridges': len(results['bridges_cleaned']),
+            'orphaned_slots': results.get('orphaned_slots_cleared', 0),
             'errors': len(results['errors']),
             'affected_devices': len(results['affected_devices'])
         }
@@ -595,6 +642,7 @@ class ResourceManager:
         self.logger.info(
             f"Reset complete: {total_deleted} devices deleted, "
             f"{len(results['bridges_cleaned'])} bridges cleaned, "
+            f"{results.get('orphaned_slots_cleared', 0)} orphaned slots cleared, "
             f"{len(results['errors'])} errors"
         )
 

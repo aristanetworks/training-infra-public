@@ -2285,3 +2285,25 @@
 .reset-reboot-note p:first-child {
     margin-bottom: 5px;
 }
+
+
+/* Reused Slots Info - shown when orphaned interface slots were reused */
+.reused-slots-info {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin: 15px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.reused-slots-info .info-icon {
+    color: #2ecc71;
+    font-size: 18px;
+}
+
+.reused-slots-info strong {
+    color: #2ecc71;
+}

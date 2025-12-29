@@ -821,14 +821,34 @@ class AddNodeWizard {
             this.logMessage(log, `VM: ${result.node?.name || this.nodeConfig.name}`);
             this.logMessage(log, `IP: ${result.node?.ip || this.nodeConfig.ip}`);
 
-            // Get unique target devices that need rebooting
-            const rebootTargets = [...new Set(this.nodeConfig.connections.map(c => c.target_device))];
+            // Get target devices that need rebooting from API response
+            // If targets_need_reboot is provided, use it (may exclude devices that reused orphaned slots)
+            // Otherwise, fall back to all target devices (for backwards compatibility)
+            let rebootTargets;
+            const targetsReusedSlots = result.targets_reused_slots || [];
+            const targetsNeedReboot = result.targets_need_reboot || [];
+
+            if (targetsNeedReboot.length > 0 || targetsReusedSlots.length > 0) {
+                // Use API-provided reboot information
+                rebootTargets = targetsNeedReboot;
+                if (targetsReusedSlots.length > 0) {
+                    this.logMessage(log, `Reused interface slots on: ${targetsReusedSlots.join(', ')} (no reboot needed)`, 'info');
+                }
+            } else {
+                // Fall back to all targets for backwards compatibility
+                rebootTargets = [...new Set(this.nodeConfig.connections.map(c => c.target_device))];
+            }
 
             // Store result for later use
             this.createdNode = result.node || { name: this.nodeConfig.name, ip: this.nodeConfig.ip };
 
             // Use shared DeviceRebootManager for reboot section
             const rebootManager = new DeviceRebootManager(this.targetDevices);
+
+            // Build the reused slots message if any
+            const reusedSlotsInfo = targetsReusedSlots.length > 0
+                ? `<p class="reused-slots-info"><span class="info-icon">&#9432;</span> Reused interface slots on <strong>${targetsReusedSlots.join(', ')}</strong> - no reboot needed for these devices.</p>`
+                : '';
 
             // Show success state with reboot options
             content.innerHTML = `
@@ -841,7 +861,7 @@ class AddNodeWizard {
                         <p>IP Address: <code>${this.escapeHtml(this.nodeConfig.ip)}</code></p>
                         <p>MAC Address: <code>${this.escapeHtml(this.nodeConfig.mac)}</code></p>
                     </div>
-
+                    ${reusedSlotsInfo}
                     ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}
                 </div>
             `;
