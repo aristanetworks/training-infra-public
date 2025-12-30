@@ -279,6 +279,44 @@ export function getCytoscapeStyles() {
             }
         },
 
+        // --- VeloCloud SD-WAN icons (user-added VeloCloud devices) ---
+        {
+            selector: '.device-type-velo_orchestrator',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
+            selector: '.device-type-velo_gateway',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-velo_edge',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
         // ==========================================
         // Status Styles - Visual indicators for device reachability
         // Uses underlay to show status behind PNG icons

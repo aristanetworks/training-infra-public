@@ -885,6 +885,18 @@ export class EventManager {
                 disabled: this.isCeosLab
             },
             {
+                label: this.isCeosLab ? 'Add VeloCloud Device (KVM only)' : 'Add VeloCloud Device',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addVelocloudWizard) {
+                        window.addVelocloudWizard.show();
+                    } else {
+                        console.error('AddVelocloudWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
                 type: 'separator'
             },
             {

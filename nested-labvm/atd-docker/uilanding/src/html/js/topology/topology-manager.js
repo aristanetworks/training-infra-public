@@ -159,6 +159,12 @@ export class TopologyManager {
                 console.log('[TopologyManager] AddFirewallWizard initialized');
             }
 
+            // Initialize AddVelocloudWizard for VeloCloud SD-WAN device addition (KVM labs only)
+            if (typeof window.AddVelocloudWizard !== 'undefined') {
+                window.addVelocloudWizard = new window.AddVelocloudWizard(this);
+                console.log('[TopologyManager] AddVelocloudWizard initialized');
+            }
+
             // Initialize OrphanedSlotsMonitor for tracking orphaned interface slots (KVM labs only)
             // This monitors for interface slots preserved from deleted devices
             if (this.topologyData.metadata?.eos_type === 'veos') {

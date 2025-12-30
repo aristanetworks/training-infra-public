@@ -225,6 +225,53 @@ def get_firewall_base_image_path(auto_download: bool = True) -> str:
     return FIREWALL_BASE_IMAGE_PATH
 
 
+# =============================================================================
+# VeloCloud Configuration
+# =============================================================================
+# VeloCloud (VMware SD-WAN) device support - now owned by Arista
+# Feature gate is read from ACCESS_INFO.yaml extras.velocloud_enabled
+
+# Feature defaults (individual device types can be disabled here)
+VELO_EDGE_ENABLED = True
+VELO_GATEWAY_ENABLED = True
+VELO_ORCHESTRATOR_ENABLED = True
+
+# VM specifications
+VELO_EDGE_CPU = 2
+VELO_EDGE_RAM_MB = 2048
+VELO_GATEWAY_CPU = 4
+VELO_GATEWAY_RAM_MB = 4096
+VELO_ORCHESTRATOR_CPU = 4
+VELO_ORCHESTRATOR_RAM_MB = 8192
+
+# Device limits per topology
+MAX_VELO_EDGE_PER_TOPOLOGY = 2
+MAX_VELO_GATEWAY_PER_TOPOLOGY = 1
+MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY = 1
+
+# Base image paths
+VELO_EDGE_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-edge-base.qcow2'
+VELO_GATEWAY_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-gateway-base.qcow2'
+VELO_ORCHESTRATOR_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-orchestrator-base.qcow2'
+
+# VeloCloud Orchestrator has multiple disk images (rootfs + 3 storage disks)
+VELO_ORCHESTRATOR_DISKS = [
+    {'name': 'rootfs', 'file': 'rootfs.qcow2', 'target': 'vda'},
+    {'name': 'store', 'file': 'store.qcow2', 'target': 'vdb'},
+    {'name': 'store2', 'file': 'store2.qcow2', 'target': 'vdc'},
+    {'name': 'store3', 'file': 'store3.qcow2', 'target': 'vdd'},
+]
+
+# Persistence
+USER_VELO_PATH = os.getenv('USER_VELO_PATH', '/etc/atd/user_velo.yaml')
+
+# Interface naming
+VELO_EDGE_WAN_PORTS = ['eth1', 'eth2', 'eth3']
+VELO_EDGE_LAN_PORT = 'eth4'
+VELO_GATEWAY_TRANSPORT_PORTS = ['eth1', 'eth2']
+VELO_ORCHESTRATOR_DATA_PORT = 'eth1'
+
+
 # Orphaned interfaces persistence (for interface slot preservation)
 ORPHANED_INTERFACES_PATH = os.getenv(
     'ORPHANED_INTERFACES_PATH',
@@ -302,6 +349,17 @@ def get_gcp_base_image_bucket() -> str:
 GCP_BASE_IMAGE_BUCKET = get_gcp_base_image_bucket()
 GCP_HOST_IMAGE_PATH = 'hosts/ubuntu-desktop-base.qcow2'
 GCP_FIREWALL_IMAGE_PATH = 'firewall/vyos-base.qcow2'
+GCP_VELO_EDGE_IMAGE_PATH = 'velo/velocloud-edge-base.qcow2'
+GCP_VELO_GATEWAY_IMAGE_PATH = 'velo/velocloud-gateway-base.qcow2'
+GCP_VELO_ORCHESTRATOR_IMAGE_PATH = 'velo/velocloud-orchestrator-base.qcow2'
+
+# GCP paths for Orchestrator's multiple disk images
+GCP_VELO_ORCHESTRATOR_DISK_PATHS = [
+    'velo/orchestrator/rootfs.qcow2',
+    'velo/orchestrator/store.qcow2',
+    'velo/orchestrator/store2.qcow2',
+    'velo/orchestrator/store3.qcow2',
+]
 
 # Download timeout for base images (large files need time)
 BASE_IMAGE_DOWNLOAD_TIMEOUT = 600  # 10 minutes
@@ -319,6 +377,9 @@ def log_gcp_config():
     logger.info(f"GCP Configuration: project={project}, bucket={bucket}")
     logger.info(f"  Host image: {bucket}/{GCP_HOST_IMAGE_PATH}")
     logger.info(f"  Firewall image: {bucket}/{GCP_FIREWALL_IMAGE_PATH}")
+    logger.info(f"  VeloCloud Edge image: {bucket}/{GCP_VELO_EDGE_IMAGE_PATH}")
+    logger.info(f"  VeloCloud Gateway image: {bucket}/{GCP_VELO_GATEWAY_IMAGE_PATH}")
+    logger.info(f"  VeloCloud Orchestrator image: {bucket}/{GCP_VELO_ORCHESTRATOR_IMAGE_PATH}")
 
 
 def get_device_credentials() -> dict:
@@ -415,3 +476,156 @@ DEFAULT_NETWORK_LATENCY_MS = 25
 
 # Minimum file size to consider a downloaded image valid (1MB)
 MIN_VALID_IMAGE_SIZE_BYTES = 1000000
+
+
+# =============================================================================
+# VeloCloud Helper Functions
+# =============================================================================
+
+def is_velo_enabled() -> bool:
+    """
+    Check if VeloCloud features are enabled.
+
+    VeloCloud is enabled if ANY of:
+    1. extras.velocloud_enabled is True in ACCESS_INFO.yaml (explicit enable)
+    2. The lab is in dev mode (atd-testdrivetraining-dev project)
+    3. NODEBUILDER_TEST_MODE environment variable is set
+
+    For production labs, velocloud_enabled must be explicitly set to True.
+
+    Returns:
+        True if VeloCloud features should be shown/available
+    """
+    # Allow test mode to bypass feature gate
+    if os.getenv('NODEBUILDER_TEST_MODE', '').lower() == 'true':
+        return True
+
+    try:
+        from ruamel.yaml import YAML
+        yaml = YAML()
+        with open(ACCESS_INFO_PATH, 'r') as f:
+            access_info = yaml.load(f)
+
+            # Check explicit enable flag
+            extras = access_info.get('extras', {})
+            if extras.get('velocloud_enabled', False):
+                return True
+
+            # Enable by default for dev labs
+            project = access_info.get('project', '')
+            if project and 'prod' not in project.lower():
+                # Dev environment - enable VeloCloud by default
+                return True
+
+            return False
+    except Exception:
+        return False
+
+
+def get_velo_config() -> dict:
+    """
+    Get VeloCloud configuration (all from config.py defaults).
+
+    Returns:
+        {
+            'enabled': bool,           # From ACCESS_INFO extras
+            'edge': {
+                'enabled': bool,
+                'max_count': int,
+                'cpu': int,
+                'ram_mb': int
+            },
+            'gateway': {...},
+            'orchestrator': {...}
+        }
+    """
+    return {
+        'enabled': is_velo_enabled(),
+        'edge': {
+            'enabled': VELO_EDGE_ENABLED,
+            'max_count': MAX_VELO_EDGE_PER_TOPOLOGY,
+            'cpu': VELO_EDGE_CPU,
+            'ram_mb': VELO_EDGE_RAM_MB
+        },
+        'gateway': {
+            'enabled': VELO_GATEWAY_ENABLED,
+            'max_count': MAX_VELO_GATEWAY_PER_TOPOLOGY,
+            'cpu': VELO_GATEWAY_CPU,
+            'ram_mb': VELO_GATEWAY_RAM_MB
+        },
+        'orchestrator': {
+            'enabled': VELO_ORCHESTRATOR_ENABLED,
+            'max_count': MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY,
+            'cpu': VELO_ORCHESTRATOR_CPU,
+            'ram_mb': VELO_ORCHESTRATOR_RAM_MB
+        }
+    }
+
+
+def get_velo_base_image_path(device_type: str, auto_download: bool = True) -> str:
+    """
+    Get base image path for VeloCloud device type.
+    Downloads from GCP if not found locally.
+
+    Args:
+        device_type: 'edge', 'gateway', or 'orchestrator'
+        auto_download: If True, download from GCP if missing
+
+    Returns:
+        Path to the base image (may not exist if download failed)
+    """
+    image_map = {
+        'edge': (VELO_EDGE_BASE_IMAGE, GCP_VELO_EDGE_IMAGE_PATH),
+        'gateway': (VELO_GATEWAY_BASE_IMAGE, GCP_VELO_GATEWAY_IMAGE_PATH),
+        'orchestrator': (VELO_ORCHESTRATOR_BASE_IMAGE, GCP_VELO_ORCHESTRATOR_IMAGE_PATH)
+    }
+
+    if device_type not in image_map:
+        raise ValueError(f"Unknown VeloCloud device type: {device_type}")
+
+    local_path, gcp_path = image_map[device_type]
+
+    if os.path.exists(local_path):
+        return local_path
+
+    if auto_download:
+        if download_base_image_from_gcp(gcp_path, local_path):
+            return local_path
+
+    return local_path
+
+
+def get_velo_orchestrator_disk_paths(auto_download: bool = True) -> list:
+    """
+    Get all disk image paths for VeloCloud Orchestrator.
+    The orchestrator uses 4 disk images: rootfs, store, store2, store3.
+
+    Args:
+        auto_download: If True, download from GCP if missing
+
+    Returns:
+        List of dicts with 'local_path', 'gcp_path', 'target', 'name' for each disk
+    """
+    base_dir = f'{LIBVIRT_IMAGES_PATH}/velo/base/orchestrator'
+    disk_paths = []
+
+    for i, disk in enumerate(VELO_ORCHESTRATOR_DISKS):
+        local_path = os.path.join(base_dir, disk['file'])
+        gcp_path = GCP_VELO_ORCHESTRATOR_DISK_PATHS[i]
+
+        disk_info = {
+            'name': disk['name'],
+            'local_path': local_path,
+            'gcp_path': gcp_path,
+            'target': disk['target'],
+            'file': disk['file']
+        }
+
+        # Download if missing
+        if auto_download and not os.path.exists(local_path):
+            os.makedirs(base_dir, exist_ok=True)
+            download_base_image_from_gcp(gcp_path, local_path)
+
+        disk_paths.append(disk_info)
+
+    return disk_paths

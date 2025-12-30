@@ -1,0 +1,64 @@
+#cloud-config
+# VeloCloud Gateway Cloud-Init Template
+#
+# PLACEHOLDER: This template provides basic configuration for VeloCloud Gateway.
+# VeloCloud Gateway serves as a data plane hub for Edge traffic and requires
+# VCO registration in production, but this is configured for standalone training.
+#
+# Variables replaced at runtime:
+#   {hostname}      - VM hostname
+#   {password}      - User password
+#   {mgmt_ip}       - Management IP address (eth0)
+#   {gateway}       - Default gateway
+#   {transport1_ip} - Transport interface 1 IP with CIDR (eth1) - optional
+#   {transport2_ip} - Transport interface 2 IP with CIDR (eth2) - optional
+#
+# Interface mapping:
+#   eth0 - Management interface (vmgmt bridge)
+#   eth1 - Transport interface 1 (primary uplink)
+#   eth2 - Transport interface 2 (secondary uplink)
+#
+# Note: VeloCloud Gateway images may not fully support standard cloud-init.
+# This template will be refined based on actual image capabilities.
+
+# Set hostname
+hostname: {hostname}
+manage_etc_hosts: true
+
+# Create admin user
+users:
+  - name: arista
+    groups: [sudo, wheel]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+
+# Set password
+chpasswd:
+  expire: false
+  users:
+    - name: arista
+      password: {password}
+      type: text
+    - name: root
+      password: {password}
+      type: text
+
+# Network configuration
+write_files:
+  - path: /etc/network/interfaces.d/eth0
+    content: |
+      auto eth0
+      iface eth0 inet static
+        address {mgmt_ip}
+        netmask 255.255.255.0
+        gateway {gateway}
+    permissions: '0644'
+
+runcmd:
+  # Basic network setup
+  - ip link set eth0 up
+  - ip link set eth1 up
+  - ip link set eth2 up
+  # Signal completion
+  - touch /var/lib/cloud/instance/velocloud-gateway-init-complete

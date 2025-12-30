@@ -892,3 +892,223 @@ def list_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> List[Dict]:
     data = load_user_firewalls(path)
     # Handle case where firewalls key exists but value is None
     return data.get('firewalls') or []
+
+
+# ============================================================================
+# User VeloCloud Devices Persistence (Edge, Gateway, Orchestrator)
+# ============================================================================
+
+DEFAULT_USER_VELO_PATH = '/etc/atd/user_velo.yaml'
+
+
+def get_empty_user_velo() -> Dict:
+    """Get the structure for an empty user_velo.yaml file."""
+    return {
+        'version': 1,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'devices': []
+    }
+
+
+def load_user_velo(path: str = DEFAULT_USER_VELO_PATH) -> Dict:
+    """
+    Load user-added VeloCloud devices from persistence file.
+
+    Args:
+        path: Path to user_velo.yaml
+
+    Returns:
+        Dict with user VeloCloud devices data
+    """
+    yaml = YAML()
+    yaml.preserve_quotes = True
+
+    try:
+        if not os.path.exists(path):
+            return get_empty_user_velo()
+
+        with open(path, 'r') as f:
+            data = yaml.load(f)
+
+        if data is None:
+            return get_empty_user_velo()
+
+        if 'devices' not in data or data['devices'] is None:
+            data['devices'] = []
+        if 'version' not in data:
+            data['version'] = 1
+
+        return data
+
+    except Exception as e:
+        logger.error(f"Error loading user VeloCloud devices from {path}: {e}")
+        return get_empty_user_velo()
+
+
+def save_user_velo(data: Dict, path: str = DEFAULT_USER_VELO_PATH) -> bool:
+    """Save user VeloCloud devices data to persistence file."""
+    if not _validate_path(path):
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.preserve_quotes = True
+
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    temp_path = f"{path}.tmp"
+
+    try:
+        with open(temp_path, 'w') as f:
+            yaml.dump(data, f)
+        os.rename(temp_path, path)
+        logger.info(f"Saved user VeloCloud devices to {path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user VeloCloud devices to {path}: {e}")
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
+
+
+def save_user_velo_device_pending(
+    name: str,
+    device_type: str,
+    device_info: Dict,
+    path: str = DEFAULT_USER_VELO_PATH
+) -> bool:
+    """
+    Save a user VeloCloud device with 'creating' status before VM creation.
+
+    Args:
+        name: Device name
+        device_type: 'edge', 'gateway', or 'orchestrator'
+        device_info: Device info dict
+        path: Path to user_velo.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_velo(path)
+
+    device_info['added_at'] = datetime.now(timezone.utc).isoformat()
+    device_info['user_added'] = True
+    device_info['device_type'] = device_type
+    device_info['status'] = 'creating'
+
+    data['devices'].append({name: device_info})
+    return save_user_velo(data, path)
+
+
+def update_user_velo_device_status(
+    name: str,
+    status: str = 'active',
+    additional_info: Optional[Dict] = None,
+    path: str = DEFAULT_USER_VELO_PATH
+) -> bool:
+    """
+    Update a user VeloCloud device's status after VM creation completes.
+
+    Args:
+        name: Device name
+        status: New status ('active' or 'failed')
+        additional_info: Optional dict to merge into device info
+        path: Path to user_velo.yaml
+
+    Returns:
+        True if device was found and updated
+    """
+    data = load_user_velo(path)
+
+    for device_entry in data.get('devices', []) or []:
+        for device_name, device_info in device_entry.items():
+            if device_name.lower() == name.lower():
+                if status == 'active':
+                    device_info.pop('status', None)
+                else:
+                    device_info['status'] = status
+
+                if additional_info:
+                    device_info.update(additional_info)
+
+                save_user_velo(data, path)
+                logger.info(f"Updated VeloCloud device {name} status to {status}")
+                return True
+
+    logger.warning(f"VeloCloud device {name} not found for status update")
+    return False
+
+
+def remove_user_velo_device(name: str, path: str = DEFAULT_USER_VELO_PATH) -> bool:
+    """Remove a user-added VeloCloud device from the persistence file."""
+    data = load_user_velo(path)
+    original_count = len(data['devices'])
+
+    data['devices'] = [
+        device for device in data['devices']
+        if name.lower() not in [k.lower() for k in device.keys()]
+    ]
+
+    if len(data['devices']) == original_count:
+        logger.warning(f"VeloCloud device {name} not found in user devices")
+        return False
+
+    save_user_velo(data, path)
+    logger.info(f"Removed VeloCloud device {name} from user devices")
+    return True
+
+
+def get_user_velo_device(name: str, path: str = DEFAULT_USER_VELO_PATH) -> Optional[Dict]:
+    """Get a specific user-added VeloCloud device by name."""
+    data = load_user_velo(path)
+
+    for device in data['devices']:
+        for device_name, device_info in device.items():
+            if device_name.lower() == name.lower():
+                return {device_name: device_info}
+
+    return None
+
+
+def list_user_velo_devices(path: str = DEFAULT_USER_VELO_PATH) -> List[Dict]:
+    """List all user-added VeloCloud devices."""
+    data = load_user_velo(path)
+    return data.get('devices') or []
+
+
+def get_velo_device_count(path: str = DEFAULT_USER_VELO_PATH) -> int:
+    """Get total count of user-added VeloCloud devices."""
+    return len(list_user_velo_devices(path))
+
+
+def get_velo_device_count_by_type(
+    device_type: str,
+    path: str = DEFAULT_USER_VELO_PATH
+) -> int:
+    """
+    Get count of user-added VeloCloud devices by type.
+
+    Args:
+        device_type: 'edge', 'gateway', or 'orchestrator'
+        path: Path to user_velo.yaml
+
+    Returns:
+        Number of devices of the specified type
+    """
+    devices = list_user_velo_devices(path)
+    count = 0
+
+    for device_entry in devices:
+        for _, device_info in device_entry.items():
+            if device_info.get('device_type', '').lower() == device_type.lower():
+                count += 1
+
+    return count

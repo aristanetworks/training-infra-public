@@ -1,0 +1,71 @@
+#cloud-config
+# VeloCloud Edge Cloud-Init Template
+#
+# PLACEHOLDER: This template provides basic configuration for VeloCloud Edge.
+# VeloCloud Edge typically requires VCO activation, but this is configured
+# for standalone mode for training purposes.
+#
+# Variables replaced at runtime:
+#   {hostname}   - VM hostname
+#   {password}   - User password
+#   {mgmt_ip}    - Management IP address (eth0)
+#   {gateway}    - Default gateway
+#   {wan1_ip}    - WAN1 interface IP with CIDR (eth1) - optional
+#   {wan2_ip}    - WAN2 interface IP with CIDR (eth2) - optional
+#   {wan3_ip}    - WAN3 interface IP with CIDR (eth3) - optional
+#   {lan_ip}     - LAN interface IP with CIDR (eth4) - optional
+#
+# Interface mapping:
+#   eth0 - Management interface (vmgmt bridge)
+#   eth1 - WAN1 interface (first WAN uplink)
+#   eth2 - WAN2 interface (second WAN uplink)
+#   eth3 - WAN3 interface (third WAN uplink)
+#   eth4 - LAN interface (connects to internal network)
+#
+# Note: VeloCloud Edge images may not fully support standard cloud-init.
+# This template will be refined based on actual image capabilities.
+
+# Set hostname
+hostname: {hostname}
+manage_etc_hosts: true
+
+# Create admin user
+users:
+  - name: arista
+    groups: [sudo, wheel]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+
+# Set password
+chpasswd:
+  expire: false
+  users:
+    - name: arista
+      password: {password}
+      type: text
+    - name: root
+      password: {password}
+      type: text
+
+# Network configuration
+# Note: VeloCloud may handle networking differently
+write_files:
+  - path: /etc/network/interfaces.d/eth0
+    content: |
+      auto eth0
+      iface eth0 inet static
+        address {mgmt_ip}
+        netmask 255.255.255.0
+        gateway {gateway}
+    permissions: '0644'
+
+runcmd:
+  # Basic network setup
+  - ip link set eth0 up
+  - ip link set eth1 up
+  - ip link set eth2 up
+  - ip link set eth3 up
+  - ip link set eth4 up
+  # Signal completion
+  - touch /var/lib/cloud/instance/velocloud-edge-init-complete

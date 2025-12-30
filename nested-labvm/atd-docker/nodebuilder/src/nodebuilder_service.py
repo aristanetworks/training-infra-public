@@ -28,6 +28,12 @@ Firewall Endpoints:
 - POST /add-firewall        - Create new VyOS firewall VM
 - POST /edit-firewall       - Edit firewall interface IPs
 - POST /delete-firewall     - Delete a firewall
+
+VeloCloud Endpoints:
+- GET  /velo-status         - Get VeloCloud device count and availability
+- GET  /velo-devices        - List all VeloCloud devices
+- POST /add-velo-device     - Create new VeloCloud device (Edge, Gateway, Orchestrator)
+- POST /delete-velo-device  - Delete a VeloCloud device
 """
 
 import logging
@@ -1936,6 +1942,296 @@ async def delete_firewall_endpoint(request):
 
     except Exception as e:
         logger.error(f"Error deleting firewall {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# VeloCloud Endpoints
+# ============================================================================
+
+@routes.get('/velo-status')
+async def velo_status(request):
+    """
+    Get current VeloCloud device count and availability.
+
+    Returns count of existing devices by type and whether more can be added.
+    Also returns whether VeloCloud feature is enabled.
+    """
+    from velo_manager import get_velo_status
+
+    try:
+        status = get_velo_status()
+        return web.json_response(status)
+    except Exception as e:
+        logger.error(f"Error getting VeloCloud status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/velo-devices')
+async def velo_devices(request):
+    """
+    List all VeloCloud devices with their status.
+
+    Query parameters:
+        device_type: Optional filter by device type (edge, gateway, orchestrator)
+    """
+    from velo_manager import list_velo_devices
+
+    try:
+        devices = list_velo_devices()
+
+        # Apply filter if specified
+        device_type_filter = request.query.get('device_type')
+        if device_type_filter:
+            devices = [d for d in devices if d.get('device_type') == device_type_filter.lower()]
+
+        return web.json_response({'devices': devices})
+    except Exception as e:
+        logger.error(f"Error listing VeloCloud devices: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-velo-device')
+async def add_velo_device(request):
+    """
+    Create a new VeloCloud device VM.
+
+    Request body: {
+        "name": "edge1",
+        "device_type": "edge",  # edge, gateway, or orchestrator
+        "mgmt_ip": "192.168.0.60",
+        "connections": [
+            {
+                "local_port": "wan1",
+                "target_device": "spine1",
+                "target_port": "Ethernet8"
+            }
+        ],
+        "interface_ips": {
+            "wan1": "10.1.1.1/24",
+            "lan": "10.2.2.1/24"
+        }
+    }
+    """
+    from velo_manager import create_velo_device
+    from persistence import (
+        save_user_velo_device_pending,
+        update_user_velo_device_status,
+        remove_user_velo_device
+    )
+    from interface_manager import creation_lock
+    from validation import (
+        validate_velo_name, validate_velo_limit, validate_velo_enabled,
+        validate_velo_device_type, validate_velo_device_type_enabled,
+        validate_cidr_ip, get_available_ips
+    )
+    from config import (
+        DNSMASQ_PATH, USER_NODES_PATH, USER_HOSTS_PATH,
+        USER_FIREWALLS_PATH, USER_VELO_PATH, get_topo_build_path,
+        MAX_VELO_EDGE_PER_TOPOLOGY, MAX_VELO_GATEWAY_PER_TOPOLOGY,
+        MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY
+    )
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+    device_type = data.get('device_type', '')
+    mgmt_ip = data.get('mgmt_ip', '')
+    connections = data.get('connections', [])
+    interface_ips = data.get('interface_ips', {})
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+    if not device_type:
+        return web.json_response({'error': 'Device type is required'}, status=400)
+    if not mgmt_ip:
+        return web.json_response({'error': 'Management IP is required'}, status=400)
+
+    # Validate device type before proceeding
+    valid, error = validate_velo_device_type(device_type)
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    # Validate interface IPs format if provided
+    for iface_name, ip in interface_ips.items():
+        valid, error = validate_cidr_ip(ip)
+        if not valid:
+            return web.json_response({
+                'error': f'{iface_name} interface: {error}'
+            }, status=400)
+
+    try:
+        # Acquire creation lock to prevent concurrent creates from racing
+        with creation_lock(f'add-velo:{name}'):
+            topo_build_path = get_topo_build_path()
+
+            # Validate VeloCloud is enabled
+            valid, error = validate_velo_enabled()
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            # Validate this device type is enabled
+            valid, error = validate_velo_device_type_enabled(device_type)
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            # Validate device limit for this type
+            valid, error = validate_velo_limit(
+                device_type, USER_VELO_PATH,
+                MAX_VELO_EDGE_PER_TOPOLOGY,
+                MAX_VELO_GATEWAY_PER_TOPOLOGY,
+                MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            # Validate name across all device types including VeloCloud
+            valid, error = validate_velo_name(
+                name, topo_build_path, USER_NODES_PATH,
+                USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            # Validate management IP is available
+            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            if not any(entry['ip'] == mgmt_ip for entry in available):
+                return web.json_response({
+                    'error': f'Management IP {mgmt_ip} is not available or already in use'
+                }, status=400)
+
+            logger.info(f"Creating VeloCloud {device_type}: {name} (Mgmt IP: {mgmt_ip})")
+
+            # SAVE-BEFORE-CREATE: Save pending entry BEFORE VM creation
+            pending_entry = {
+                'device_type': device_type.lower(),
+                'mgmt_ip': mgmt_ip,
+                'interface_ips': interface_ips,
+                'connections': connections,
+                'neighbors': []  # Will be updated after creation
+            }
+            save_user_velo_device_pending(name, device_type, pending_entry, USER_VELO_PATH)
+            logger.debug(f"Saved pending VeloCloud entry for {name}")
+
+            try:
+                # Create the VeloCloud device VM
+                result = create_velo_device(
+                    name, device_type, mgmt_ip, connections, interface_ips
+                )
+
+                # Build neighbors list for topology diagram connections
+                neighbors = []
+                for conn in result.get('connections', []):
+                    if conn.get('target_device'):
+                        neighbors.append({
+                            'neighborDevice': conn['target_device'],
+                            'neighborPort': conn.get('target_port', ''),
+                            'port': conn.get('local_port', '')
+                        })
+
+                # Update persistence with actual info
+                update_info = {
+                    'connections': result.get('connections', []),
+                    'neighbors': neighbors
+                }
+                update_user_velo_device_status(name, 'active', update_info, USER_VELO_PATH)
+
+                logger.info(f"Successfully created VeloCloud {device_type}: {name}")
+
+                return web.json_response({
+                    'status': 'created',
+                    'device': result,
+                    'targets_reused_slots': result.get('targets_reused_slots', []),
+                    'targets_need_reboot': result.get('targets_need_reboot', [])
+                })
+
+            except Exception as e:
+                # VM creation failed - clean up any partially created resources
+                logger.error(f"VeloCloud VM creation failed for {name}: {e}")
+
+                # Try to clean up VM if it was created (prevents zombie VMs)
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                try:
+                    if rm.vm_exists(name):
+                        logger.info(f"Cleaning up partially created VeloCloud VM: {name}")
+                        rm.destroy_vm(name, force=True)
+                        rm.undefine_vm(name, force=True)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up VeloCloud VM {name}: {cleanup_error}")
+
+                # Remove the pending entry from persistence
+                remove_user_velo_device(name, USER_VELO_PATH)
+                raise
+
+    except TimeoutError as e:
+        logger.warning(f"Concurrent creation in progress, request queued timeout: {e}")
+        return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
+    except ValueError as e:
+        logger.warning(f"Validation error creating VeloCloud device {name}: {e}")
+        return web.json_response({'error': str(e)}, status=400)
+    except FileNotFoundError as e:
+        logger.error(f"Required file not found for VeloCloud device {name}: {e}")
+        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed for VeloCloud device {name}: {e}")
+        return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
+    except Exception as e:
+        logger.error(f"Unexpected error creating VeloCloud device {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-velo-device')
+async def delete_velo_device_endpoint(request):
+    """
+    Delete a VeloCloud device VM.
+
+    Request body: { "name": "edge1" }
+    """
+    from velo_manager import delete_velo_device
+    from persistence import get_user_velo_device, remove_user_velo_device
+    from config import USER_VELO_PATH
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '')
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+
+    # Security: Validate device name format
+    import re
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
+        return web.json_response({'error': 'Invalid device name format'}, status=400)
+
+    # Validate: must be a user-added VeloCloud device
+    device = get_user_velo_device(name, USER_VELO_PATH)
+    if not device:
+        return web.json_response({
+            'error': f"VeloCloud device '{name}' not found"
+        }, status=400)
+
+    try:
+        logger.info(f"Deleting VeloCloud device: {name}")
+
+        # Delete the VM
+        result = delete_velo_device(name)
+
+        # Remove from persistence
+        remove_user_velo_device(name, USER_VELO_PATH)
+
+        logger.info(f"Successfully deleted VeloCloud device: {name}")
+
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error deleting VeloCloud device {name}: {e}", exc_info=True)
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 

@@ -40,7 +40,8 @@ class DeviceTypeConfig:
     CATEGORIES = {
         'provider': ['internet', 'isp'],
         'core': ['core', 'dci', 'p', 'rr'],
-        'edge': ['borderleaf', 'pe', 'ce', 'gw', 'router', 'firewall'],
+        'edge': ['borderleaf', 'pe', 'ce', 'gw', 'router', 'firewall',
+                 'velo_orchestrator', 'velo_gateway', 'velo_edge'],
         'fabric': ['spine', 'leaf', 'memleaf'],
         'endpoint': ['host', 'linux_host', 'customer', 'oob', 'other'],
     }
@@ -221,6 +222,39 @@ class DeviceTypeConfig:
             'group_name': 'Firewall',
             'color': '#e67e22',
             'shape': 'octagon',
+            'category': 'edge',
+            'patterns': [],  # User-defined: set via device_type, not pattern matching
+            'user_defined': True,
+        },
+        'velo_orchestrator': {
+            'tier': 2,
+            'priority': 42,
+            'label': 'VeloCloud Orchestrators',
+            'group_name': 'VeloCloud',
+            'color': '#0891b2',  # Cyan-600 for management plane
+            'shape': 'octagon',
+            'category': 'edge',
+            'patterns': [],  # User-defined: set via device_type, not pattern matching
+            'user_defined': True,
+        },
+        'velo_gateway': {
+            'tier': 3,
+            'priority': 43,
+            'label': 'VeloCloud Gateways',
+            'group_name': 'VeloCloud',
+            'color': '#06b6d4',  # Cyan-500 for data plane hub
+            'shape': 'pentagon',
+            'category': 'edge',
+            'patterns': [],  # User-defined: set via device_type, not pattern matching
+            'user_defined': True,
+        },
+        'velo_edge': {
+            'tier': 4,
+            'priority': 44,
+            'label': 'VeloCloud Edges',
+            'group_name': 'VeloCloud',
+            'color': '#22d3ee',  # Cyan-400 for edge appliances
+            'shape': 'hexagon',
             'category': 'edge',
             'patterns': [],  # User-defined: set via device_type, not pattern matching
             'user_defined': True,

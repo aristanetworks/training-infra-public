@@ -606,21 +606,23 @@ def get_all_device_names(
     topo_build_path: str,
     user_nodes_path: str,
     user_hosts_path: str,
-    user_firewalls_path: str
+    user_firewalls_path: str,
+    user_velo_path: str = None
 ) -> Set[str]:
     """
-    Get all device names across all types (topology, nodes, hosts, firewalls).
+    Get all device names across all types (topology, nodes, hosts, firewalls, velo).
 
     Args:
         topo_build_path: Path to topo_build.yml
         user_nodes_path: Path to user_nodes.yaml
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
+        user_velo_path: Path to user_velo.yaml (optional)
 
     Returns:
         Set of all device names (lowercase)
     """
-    from persistence import list_user_hosts, list_user_firewalls
+    from persistence import list_user_hosts, list_user_firewalls, list_user_velo_devices
 
     # Get existing node names
     names = get_existing_node_names(topo_build_path, user_nodes_path)
@@ -635,4 +637,183 @@ def get_all_device_names(
         for fw_name in fw.keys():
             names.add(fw_name.lower())
 
+    # Add VeloCloud device names
+    if user_velo_path:
+        for velo in list_user_velo_devices(user_velo_path):
+            names.add(velo.get('name', '').lower())
+
     return names
+
+
+# ============================================================================
+# VeloCloud Validation
+# ============================================================================
+
+# Valid VeloCloud device types
+VALID_VELO_DEVICE_TYPES = frozenset(['edge', 'gateway', 'orchestrator'])
+
+
+def validate_velo_device_type(device_type: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that the VeloCloud device type is valid.
+
+    Args:
+        device_type: Device type to validate (edge, gateway, orchestrator)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not device_type:
+        return False, "VeloCloud device type is required"
+
+    if device_type.lower() not in VALID_VELO_DEVICE_TYPES:
+        valid_types = ', '.join(sorted(VALID_VELO_DEVICE_TYPES))
+        return False, f"Invalid VeloCloud device type: {device_type}. Valid types: {valid_types}"
+
+    return True, None
+
+
+def validate_velo_limit(
+    device_type: str,
+    user_velo_path: str,
+    max_edge: int = 2,
+    max_gateway: int = 1,
+    max_orchestrator: int = 1
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that the VeloCloud device limit for the specified type has not been reached.
+
+    Args:
+        device_type: Device type (edge, gateway, orchestrator)
+        user_velo_path: Path to user_velo.yaml
+        max_edge: Maximum Edge devices per topology
+        max_gateway: Maximum Gateway devices per topology
+        max_orchestrator: Maximum Orchestrator devices per topology
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    from persistence import get_velo_device_count_by_type
+
+    device_type_lower = device_type.lower()
+
+    # Validate device type first
+    valid, error = validate_velo_device_type(device_type)
+    if not valid:
+        return False, error
+
+    current_count = get_velo_device_count_by_type(device_type_lower, user_velo_path)
+
+    limits = {
+        'edge': max_edge,
+        'gateway': max_gateway,
+        'orchestrator': max_orchestrator
+    }
+
+    max_allowed = limits.get(device_type_lower, 1)
+
+    if current_count >= max_allowed:
+        type_name = device_type_lower.capitalize()
+        return False, f"Maximum of {max_allowed} VeloCloud {type_name} device(s) per topology reached"
+
+    return True, None
+
+
+def validate_velo_name(
+    name: str,
+    topo_build_path: str,
+    user_nodes_path: str,
+    user_hosts_path: str,
+    user_firewalls_path: str,
+    user_velo_path: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate a VeloCloud device name for uniqueness across all device types.
+
+    Args:
+        name: Device name to validate
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml
+        user_firewalls_path: Path to user_firewalls.yaml
+        user_velo_path: Path to user_velo.yaml
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "VeloCloud device name is required"
+
+    # Check length first (prevents regex DoS)
+    if len(name) > 32:
+        return False, "Device name must be 32 characters or less"
+
+    if len(name) < 2:
+        return False, "Device name must be at least 2 characters"
+
+    # Check format - alphanumeric, underscore only (no hyphens at start)
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*[a-zA-Z0-9]$|^[a-zA-Z][a-zA-Z0-9]$', name):
+        return False, "Device name must start with a letter, end with letter/number, and contain only letters, numbers, and underscores"
+
+    # Check for reserved names (case-insensitive)
+    if name.lower() in RESERVED_NAMES:
+        return False, f"'{name}' is a reserved name and cannot be used"
+
+    # Check uniqueness across ALL device types including VeloCloud
+    existing_names = get_all_device_names(
+        topo_build_path, user_nodes_path, user_hosts_path,
+        user_firewalls_path, user_velo_path
+    )
+
+    if name.lower() in existing_names:
+        return False, "This device name is already in use"
+
+    return True, None
+
+
+def validate_velo_enabled() -> Tuple[bool, Optional[str]]:
+    """
+    Validate that VeloCloud feature is enabled.
+
+    Returns:
+        Tuple of (is_enabled, error_message)
+    """
+    from config import is_velo_enabled
+
+    if not is_velo_enabled():
+        return False, "VeloCloud feature is not enabled for this topology"
+
+    return True, None
+
+
+def validate_velo_device_type_enabled(device_type: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that a specific VeloCloud device type is enabled.
+
+    Args:
+        device_type: Device type to check (edge, gateway, orchestrator)
+
+    Returns:
+        Tuple of (is_enabled, error_message)
+    """
+    from config import get_velo_config
+
+    # First check that VeloCloud is enabled overall
+    valid, error = validate_velo_enabled()
+    if not valid:
+        return False, error
+
+    # Validate the device type
+    valid, error = validate_velo_device_type(device_type)
+    if not valid:
+        return False, error
+
+    config = get_velo_config()
+    device_type_lower = device_type.lower()
+
+    type_enabled_key = f"{device_type_lower}_enabled"
+    if not config.get(type_enabled_key, False):
+        type_name = device_type_lower.capitalize()
+        return False, f"VeloCloud {type_name} devices are not enabled for this topology"
+
+    return True, None

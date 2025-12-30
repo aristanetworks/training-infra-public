@@ -548,6 +548,93 @@ class NodeBuilderAPI {
     }
 
     // =========================================
+    // VeloCloud SD-WAN API Methods
+    // =========================================
+
+    /**
+     * Get VeloCloud device status (count and availability)
+     */
+    static async getVeloStatus() {
+        const response = await fetch('/td-api/nodes/velo-status');
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to fetch VeloCloud status');
+        }
+        return await response.json();
+    }
+
+    /**
+     * Get list of VeloCloud devices
+     */
+    static async getVeloDevices(deviceType = null) {
+        const url = deviceType
+            ? `/td-api/nodes/velo-devices?device_type=${encodeURIComponent(deviceType)}`
+            : '/td-api/nodes/velo-devices';
+        const response = await fetch(url);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to fetch VeloCloud devices');
+        }
+        return await response.json();
+    }
+
+    /**
+     * Create a new VeloCloud device
+     */
+    static async addVeloDevice(config) {
+        const response = await fetch('/td-api/nodes/add-velo-device', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to create VeloCloud device');
+        }
+
+        // Invalidate caches
+        this.invalidateCache('available-ips');
+        this.invalidateCache('target-devices');
+
+        return result;
+    }
+
+    /**
+     * Delete a VeloCloud device
+     */
+    static async deleteVeloDevice(name) {
+        const response = await fetch('/td-api/nodes/delete-velo-device', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete VeloCloud device');
+        }
+
+        // Invalidate caches
+        this.invalidateCache();
+
+        return result;
+    }
+
+    /**
+     * Load data for add VeloCloud wizard
+     */
+    static async loadVeloWizardData() {
+        const [veloStatus, availableIps, targetDevices] = await Promise.all([
+            this.getVeloStatus(),
+            this.getAvailableIps(),
+            this.getTargetDevices()
+        ]);
+
+        return { veloStatus, availableIps, targetDevices };
+    }
+
+    // =========================================
     // Reset Operations
     // =========================================
 

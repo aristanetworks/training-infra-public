@@ -2307,3 +2307,228 @@
 .reused-slots-info strong {
     color: #2ecc71;
 }
+
+/* ===========================================
+   Add VeloCloud Wizard Styles (SD-WAN Devices)
+   Cyan/teal header matching SD-WAN branding
+   =========================================== */
+
+.add-velocloud-wizard .wizard-header {
+    background: linear-gradient(135deg, #0c4a5e 0%, #083344 100%);
+}
+
+/* Device type selection grid */
+.device-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.device-type-card {
+    padding: 20px;
+    background: #252525;
+    border: 2px solid #333;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
+    text-align: center;
+}
+
+.device-type-card:hover:not(.disabled) {
+    border-color: #06b6d4;
+    background: #2a2a2a;
+    transform: translateY(-2px);
+}
+
+.device-type-card.selected {
+    border-color: #06b6d4;
+    background: rgba(6, 182, 212, 0.1);
+}
+
+.device-type-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.device-type-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.device-type-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.device-type-desc {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.4;
+    margin-bottom: 12px;
+}
+
+.device-type-limit {
+    font-size: 11px;
+    color: #06b6d4;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: rgba(6, 182, 212, 0.1);
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.device-type-limit.at-limit {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+}
+
+/* VeloCloud limit badge */
+.velocloud-limit-badge {
+    background: #1a3a4a;
+    border-color: #0891b2;
+}
+
+.velocloud-limit-badge .limit-count {
+    color: #22d3ee;
+}
+
+/* VeloCloud info boxes */
+.velocloud-info-box {
+    background: #1a3a4a;
+    border: 1px solid #0891b2;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.velocloud-info-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #22d3ee;
+    font-weight: 600;
+}
+
+.velocloud-info-box ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.velocloud-info-box li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+.velocloud-interface-info {
+    background: #1a3a4a;
+    border-color: #0891b2;
+}
+
+.velocloud-interface-info h4 {
+    color: #22d3ee;
+}
+
+/* Interface configuration cards */
+.interfaces-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.interface-config-card {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.2s;
+}
+
+.interface-config-card:focus-within {
+    border-color: #06b6d4;
+}
+
+.interface-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.interface-name {
+    font-weight: 600;
+    color: #22d3ee;
+    font-size: 14px;
+}
+
+.interface-desc {
+    font-size: 12px;
+    color: #888;
+}
+
+.interface-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.interface-fields .form-group {
+    margin-bottom: 0;
+}
+
+.interface-fields label {
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.interface-fields .form-input,
+.interface-fields .form-select {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+/* VeloCloud interface note */
+.velocloud-interface-note {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    border-radius: 6px;
+}
+
+.velocloud-interface-note p {
+    margin: 0;
+    font-size: 13px;
+    color: #22d3ee;
+}
+
+/* VeloCloud success icon */
+.wizard-success .success-icon.velocloud-success {
+    background: #0891b2;
+}
+
+/* No interfaces configured message */
+.no-interfaces-configured {
+    color: #888;
+    font-style: italic;
+    padding: 16px;
+    text-align: center;
+    background: #1a1a1a;
+    border-radius: 6px;
+}
+
+/* Responsive adjustments for device type grid */
+@media (max-width: 700px) {
+    .device-type-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .interface-fields {
+        grid-template-columns: 1fr;
+    }
+}

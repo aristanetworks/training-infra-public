@@ -1,0 +1,1065 @@
+/**
+ * Add VeloCloud Wizard for ATL Topology
+ *
+ * Multi-step wizard for dynamically adding VeloCloud SD-WAN devices to running KVM labs.
+ * Supports three device types:
+ * - Edge: SD-WAN appliance with WAN1-3 and LAN interfaces
+ * - Gateway: Data plane hub with Transport1-2 interfaces
+ * - Orchestrator: Management plane with single data interface
+ *
+ * Wizard Flow:
+ * 1. Select device type (Edge, Gateway, Orchestrator)
+ * 2. Enter hostname (validates uniqueness, shows limits)
+ * 3. Select management IP address
+ * 4. Configure interfaces (varies by device type)
+ * 5. Review and confirm
+ *
+ * Only available for KVM labs with VeloCloud feature enabled.
+ *
+ * Dependencies:
+ * - NodeBuilderAPI (shared API service)
+ * - DeviceRebootManager (shared reboot component)
+ */
+
+class AddVelocloudWizard {
+    // Configuration constants
+    static MAX_NAME_LENGTH = 32;
+    static NAME_VALIDATION_DEBOUNCE_MS = 300;
+
+    // Device type configurations
+    static DEVICE_TYPES = {
+        edge: {
+            label: 'VeloCloud Edge',
+            description: 'SD-WAN appliance for branch and edge locations',
+            icon: '🌐',
+            interfaces: [
+                { key: 'wan1', label: 'WAN1', description: 'Primary WAN uplink', required: false },
+                { key: 'wan2', label: 'WAN2', description: 'Secondary WAN uplink', required: false },
+                { key: 'wan3', label: 'WAN3', description: 'Tertiary WAN uplink', required: false },
+                { key: 'lan', label: 'LAN', description: 'Internal network', required: false }
+            ],
+            deviceType: 'velo_edge'
+        },
+        gateway: {
+            label: 'VeloCloud Gateway',
+            description: 'Data plane hub for Edge traffic aggregation',
+            icon: '🔀',
+            interfaces: [
+                { key: 'transport1', label: 'Transport1', description: 'Primary transport', required: false },
+                { key: 'transport2', label: 'Transport2', description: 'Secondary transport', required: false }
+            ],
+            deviceType: 'velo_gateway'
+        },
+        orchestrator: {
+            label: 'VeloCloud Orchestrator',
+            description: 'Management and control plane (VCO)',
+            icon: '🎛️',
+            interfaces: [
+                { key: 'data', label: 'Data', description: 'Data interface for Edge/Gateway connectivity', required: false }
+            ],
+            deviceType: 'velo_orchestrator'
+        }
+    };
+
+    constructor(topologyManager) {
+        this.topologyManager = topologyManager;
+        this.overlay = null;
+        this.currentStep = 1;
+        this.totalSteps = 5;
+
+        // Wizard state
+        this.veloConfig = {
+            device_type: '',
+            name: '',
+            mgmt_ip: '',
+            interfaces: {}  // Will be populated based on device type
+        };
+
+        // Cached data from API
+        this.veloStatus = null;
+        this.availableIps = [];
+        this.targetDevices = [];
+
+        // Validation state
+        this.nameValid = false;
+        this.nameError = '';
+
+        this.isSubmitting = false;
+
+        // Event handler references for cleanup
+        this.escapeHandler = null;
+
+        // Track validation request for race condition prevention
+        this.pendingValidationRequestId = 0;
+    }
+
+    /**
+     * Check if VeloCloud feature is available (KVM mode + feature enabled)
+     */
+    isAvailable() {
+        const eventManager = this.topologyManager?.eventManager;
+        if (eventManager && eventManager.isCeosLab) {
+            return false;
+        }
+        // Feature flag check will be done during loadAvailableData
+        return true;
+    }
+
+    /**
+     * Show the wizard overlay
+     */
+    async show() {
+        if (!this.isAvailable()) {
+            console.log('VeloCloud wizard not available for container labs');
+            return;
+        }
+
+        // Reset state
+        this.currentStep = 1;
+        this.veloConfig = {
+            device_type: '',
+            name: '',
+            mgmt_ip: '',
+            interfaces: {}
+        };
+        this.nameValid = false;
+        this.nameError = '';
+        this.isSubmitting = false;
+
+        // Create overlay
+        this.createOverlay();
+
+        // Load data from API
+        await this.loadAvailableData();
+
+        // Render first step
+        this.renderStep();
+    }
+
+    /**
+     * Hide and cleanup the wizard
+     */
+    hide() {
+        if (this.escapeHandler) {
+            document.removeEventListener('keydown', this.escapeHandler);
+            this.escapeHandler = null;
+        }
+
+        if (this.overlay) {
+            this.overlay.remove();
+            this.overlay = null;
+        }
+    }
+
+    /**
+     * Create the wizard overlay and container
+     */
+    createOverlay() {
+        this.hide();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'add-node-wizard-overlay';
+        overlay.innerHTML = `
+            <div class="add-node-wizard add-velocloud-wizard">
+                <div class="wizard-header">
+                    <h2>Add VeloCloud Device</h2>
+                    <button class="wizard-close-btn" title="Close">&times;</button>
+                </div>
+                <div class="wizard-progress">
+                    <div class="progress-steps">
+                        <div class="progress-step active" data-step="1">
+                            <span class="step-number">1</span>
+                            <span class="step-label">Type</span>
+                        </div>
+                        <div class="progress-connector"></div>
+                        <div class="progress-step" data-step="2">
+                            <span class="step-number">2</span>
+                            <span class="step-label">Name</span>
+                        </div>
+                        <div class="progress-connector"></div>
+                        <div class="progress-step" data-step="3">
+                            <span class="step-number">3</span>
+                            <span class="step-label">Mgmt IP</span>
+                        </div>
+                        <div class="progress-connector"></div>
+                        <div class="progress-step" data-step="4">
+                            <span class="step-number">4</span>
+                            <span class="step-label">Interfaces</span>
+                        </div>
+                        <div class="progress-connector"></div>
+                        <div class="progress-step" data-step="5">
+                            <span class="step-number">5</span>
+                            <span class="step-label">Review</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-content">
+                    <!-- Step content rendered here -->
+                </div>
+                <div class="wizard-footer">
+                    <button class="wizard-btn wizard-btn-secondary wizard-back-btn" style="display: none;">Back</button>
+                    <div class="wizard-footer-spacer"></div>
+                    <button class="wizard-btn wizard-btn-secondary wizard-cancel-btn">Cancel</button>
+                    <button class="wizard-btn wizard-btn-primary wizard-next-btn">Next</button>
+                </div>
+            </div>
+        `;
+
+        // Event listeners
+        overlay.querySelector('.wizard-close-btn').addEventListener('click', () => this.hide());
+        overlay.querySelector('.wizard-cancel-btn').addEventListener('click', () => this.hide());
+        overlay.querySelector('.wizard-back-btn').addEventListener('click', () => this.previousStep());
+        overlay.querySelector('.wizard-next-btn').addEventListener('click', () => this.nextStep());
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.hide();
+            }
+        });
+
+        // Close on escape key
+        this.escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.hide();
+            }
+        };
+        document.addEventListener('keydown', this.escapeHandler);
+
+        document.body.appendChild(overlay);
+        this.overlay = overlay;
+    }
+
+    /**
+     * Load available data from API
+     */
+    async loadAvailableData() {
+        const content = this.overlay.querySelector('.wizard-content');
+        content.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>Loading available resources...</p></div>';
+
+        try {
+            const data = await NodeBuilderAPI.loadVeloWizardData();
+            this.veloStatus = data.veloStatus;
+            this.availableIps = data.availableIps;
+            this.targetDevices = data.targetDevices;
+
+        } catch (error) {
+            console.error('[AddVelocloudWizard] Error loading wizard data:', error);
+            content.innerHTML = `
+                <div class="wizard-error">
+                    <div class="error-icon">&#10008;</div>
+                    <h3>Failed to Load Resources</h3>
+                    <p>${this.escapeHtml(error.message)}</p>
+                    <p class="error-hint">Make sure the nodebuilder service is running.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Check if VeloCloud feature is enabled
+        if (!this.veloStatus.enabled) {
+            content.innerHTML = `
+                <div class="wizard-error">
+                    <div class="error-icon">&#9888;</div>
+                    <h3>VeloCloud Feature Not Enabled</h3>
+                    <p>VeloCloud SD-WAN devices are not available in this topology.</p>
+                    <p class="error-hint">Contact your administrator to enable VeloCloud support.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Check if we have any available IPs
+        if (this.availableIps.length === 0) {
+            content.innerHTML = `
+                <div class="wizard-error">
+                    <div class="error-icon">&#9888;</div>
+                    <h3>No Available IP Addresses</h3>
+                    <p>All IPs from the DHCP pool are currently in use.</p>
+                </div>
+            `;
+            return;
+        }
+    }
+
+    /**
+     * Render the current step content
+     */
+    renderStep() {
+        const content = this.overlay.querySelector('.wizard-content');
+        const backBtn = this.overlay.querySelector('.wizard-back-btn');
+        const nextBtn = this.overlay.querySelector('.wizard-next-btn');
+
+        // Update progress indicator
+        this.overlay.querySelectorAll('.progress-step').forEach((step, index) => {
+            step.classList.remove('active', 'completed');
+            if (index + 1 < this.currentStep) {
+                step.classList.add('completed');
+            } else if (index + 1 === this.currentStep) {
+                step.classList.add('active');
+            }
+        });
+
+        // Update back button visibility
+        backBtn.style.display = this.currentStep > 1 ? 'block' : 'none';
+
+        // Update next button text
+        if (this.currentStep === this.totalSteps) {
+            nextBtn.textContent = 'Create Device';
+            nextBtn.classList.add('wizard-btn-create');
+        } else {
+            nextBtn.textContent = 'Next';
+            nextBtn.classList.remove('wizard-btn-create');
+        }
+
+        // Render step content
+        switch (this.currentStep) {
+            case 1:
+                this.renderDeviceTypeStep(content);
+                break;
+            case 2:
+                this.renderNameStep(content);
+                break;
+            case 3:
+                this.renderMgmtIpStep(content);
+                break;
+            case 4:
+                this.renderInterfacesStep(content);
+                break;
+            case 5:
+                this.renderReviewStep(content);
+                break;
+        }
+
+        this.updateNextButtonState();
+    }
+
+    /**
+     * Step 1: Device Type Selection
+     */
+    renderDeviceTypeStep(content) {
+        const counts = this.veloStatus.counts || {};
+        const limits = this.veloStatus.limits || {};
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-device-type">
+                <h3>Select VeloCloud Device Type</h3>
+                <p class="step-description">Choose the type of VeloCloud SD-WAN device to add to your topology.</p>
+
+                <div class="device-type-grid">
+                    ${Object.entries(AddVelocloudWizard.DEVICE_TYPES).map(([key, config]) => {
+                        const count = counts[key] || 0;
+                        const limit = limits[key] || 1;
+                        const atLimit = count >= limit;
+
+                        return `
+                            <div class="device-type-card ${this.veloConfig.device_type === key ? 'selected' : ''} ${atLimit ? 'disabled' : ''}"
+                                 data-type="${key}"
+                                 ${atLimit ? 'title="Limit reached"' : ''}>
+                                <div class="device-type-icon">${config.icon}</div>
+                                <div class="device-type-label">${config.label}</div>
+                                <div class="device-type-desc">${config.description}</div>
+                                <div class="device-type-limit ${atLimit ? 'at-limit' : ''}">
+                                    ${count}/${limit} used
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="velocloud-info-box">
+                    <h4>VeloCloud SD-WAN Overview</h4>
+                    <ul>
+                        <li><strong>Edge</strong> - Branch appliance with WAN and LAN connectivity</li>
+                        <li><strong>Gateway</strong> - Cloud-based data plane for Edge aggregation</li>
+                        <li><strong>Orchestrator</strong> - Central management and control (VCO)</li>
+                        <li>All devices configured for standalone training mode</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        // Add click handlers for device type cards
+        content.querySelectorAll('.device-type-card:not(.disabled)').forEach(card => {
+            card.addEventListener('click', () => {
+                content.querySelectorAll('.device-type-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                this.veloConfig.device_type = card.dataset.type;
+
+                // Initialize interfaces for the selected type
+                const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+                this.veloConfig.interfaces = {};
+                typeConfig.interfaces.forEach(iface => {
+                    this.veloConfig.interfaces[iface.key] = {
+                        ip: '',
+                        target_device: '',
+                        target_port: ''
+                    };
+                });
+
+                this.updateNextButtonState();
+            });
+        });
+    }
+
+    /**
+     * Step 2: Device Name Entry
+     */
+    renderNameStep(content) {
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+        const counts = this.veloStatus.counts || {};
+        const limits = this.veloStatus.limits || {};
+        const currentCount = counts[this.veloConfig.device_type] || 0;
+        const maxAllowed = limits[this.veloConfig.device_type] || 1;
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-name">
+                <h3>Enter Device Name</h3>
+                <p class="step-description">Choose a unique name for the ${typeConfig.label}. Names must start with a letter and contain only letters, numbers, dashes, and underscores.</p>
+
+                <div class="host-limit-badge velocloud-limit-badge">
+                    <span class="limit-count">${currentCount}/${maxAllowed}</span>
+                    <span class="limit-label">${typeConfig.label.toLowerCase()} used</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="velocloud-name">Device Name</label>
+                    <input type="text"
+                           id="velocloud-name"
+                           class="form-input"
+                           placeholder="e.g., ${this.veloConfig.device_type}1, sdwan-${this.veloConfig.device_type}"
+                           value="${this.escapeHtml(this.veloConfig.name)}"
+                           maxlength="${AddVelocloudWizard.MAX_NAME_LENGTH}"
+                           autocomplete="off"
+                           aria-describedby="velocloud-name-validation"
+                           aria-invalid="${this.nameError ? 'true' : 'false'}">
+                    <div id="velocloud-name-validation"
+                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
+                         role="alert"
+                         aria-live="polite">
+                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
+                    </div>
+                </div>
+
+                <div class="velocloud-info-box">
+                    <h4>${typeConfig.label} Details</h4>
+                    <ul>
+                        <li>Device Type: ${typeConfig.label}</li>
+                        <li>Interfaces: Management + ${typeConfig.interfaces.map(i => i.label).join(', ')}</li>
+                        <li>Access via SSH or serial console</li>
+                        <li>Default credentials: arista / arista</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        const input = content.querySelector('#velocloud-name');
+        input.focus();
+
+        // Validate on input with debounce
+        let debounceTimer;
+        input.addEventListener('input', (e) => {
+            this.veloConfig.name = e.target.value.trim();
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => this.validateName(), AddVelocloudWizard.NAME_VALIDATION_DEBOUNCE_MS);
+        });
+
+        // Validate on enter key
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && this.nameValid) {
+                this.nextStep();
+            }
+        });
+    }
+
+    /**
+     * Validate device name via API
+     */
+    async validateName() {
+        const name = this.veloConfig.name;
+        const validationMsg = this.overlay.querySelector('.validation-message');
+
+        if (!name) {
+            this.nameValid = false;
+            this.nameError = '';
+            validationMsg.className = 'validation-message';
+            validationMsg.textContent = '';
+            this.updateNextButtonState();
+            return;
+        }
+
+        // Quick client-side validation
+        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
+            this.nameValid = false;
+            this.nameError = 'Name must start with a letter and contain only letters, numbers, dashes, and underscores';
+            validationMsg.className = 'validation-message error';
+            validationMsg.textContent = this.nameError;
+            this.updateNextButtonState();
+            return;
+        }
+
+        if (name.length > AddVelocloudWizard.MAX_NAME_LENGTH) {
+            this.nameValid = false;
+            this.nameError = `Name must be ${AddVelocloudWizard.MAX_NAME_LENGTH} characters or less`;
+            validationMsg.className = 'validation-message error';
+            validationMsg.textContent = this.nameError;
+            this.updateNextButtonState();
+            return;
+        }
+
+        // Server-side validation using shared API
+        const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
+        this.pendingValidationRequestId = expectedRequestId;
+        this.pendingValidationName = name;
+
+        try {
+            const result = await NodeBuilderAPI.validateNode(name);
+
+            // Check for race conditions
+            if (result.requestId !== this.pendingValidationRequestId ||
+                result.validatedName !== this.pendingValidationName) {
+                return;
+            }
+
+            if (result.valid) {
+                this.nameValid = true;
+                this.nameError = '';
+                validationMsg.className = 'validation-message success';
+                validationMsg.textContent = 'Name is available';
+            } else {
+                this.nameValid = false;
+                this.nameError = result.errors?.[0] || 'Invalid name';
+                validationMsg.className = 'validation-message error';
+                validationMsg.textContent = this.nameError;
+            }
+        } catch (error) {
+            console.error('[AddVelocloudWizard] Error validating name:', error);
+            // Allow proceeding on validation error
+            this.nameValid = true;
+            this.nameError = '';
+            validationMsg.className = 'validation-message';
+            validationMsg.textContent = '';
+        }
+
+        this.updateNextButtonState();
+    }
+
+    /**
+     * Step 3: Management IP Selection
+     */
+    renderMgmtIpStep(content) {
+        const ipOptions = this.availableIps.map(entry => `
+            <option value="${this.escapeHtml(entry.ip)}"
+                    data-hostname="${this.escapeHtml(entry.hostname || '')}">
+                ${this.escapeHtml(entry.ip)}${entry.hostname ? ` (${this.escapeHtml(entry.hostname)})` : ''}
+            </option>
+        `).join('');
+
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-ip">
+                <h3>Select Management IP</h3>
+                <p class="step-description">Choose an available IP address for SSH management access (eth0 - management interface).</p>
+
+                <div class="form-group">
+                    <label for="velocloud-mgmt-ip">Management IP Address</label>
+                    <select id="velocloud-mgmt-ip" class="form-select">
+                        <option value="">Select an IP address...</option>
+                        ${ipOptions}
+                    </select>
+                </div>
+
+                <div class="ip-info">
+                    <p><strong>${this.availableIps.length}</strong> IP addresses available</p>
+                </div>
+
+                <div class="interface-info-box velocloud-interface-info">
+                    <h4>${typeConfig.label} Network Interfaces</h4>
+                    <p>The device will have the following network interfaces:</p>
+                    <ul>
+                        <li><strong>eth0 (Management)</strong> - For SSH access, uses the IP selected above</li>
+                        ${typeConfig.interfaces.map((iface, idx) => `
+                            <li><strong>eth${idx + 1} (${iface.label})</strong> - ${iface.description}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        const select = content.querySelector('#velocloud-mgmt-ip');
+
+        // Set current value if already selected
+        if (this.veloConfig.mgmt_ip) {
+            select.value = this.veloConfig.mgmt_ip;
+        }
+
+        select.addEventListener('change', (e) => {
+            this.veloConfig.mgmt_ip = e.target.value;
+            this.updateNextButtonState();
+        });
+    }
+
+    /**
+     * Step 4: Interface Configuration
+     */
+    renderInterfacesStep(content) {
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-interfaces">
+                <h3>Configure Interfaces</h3>
+                <p class="step-description">Configure the data interfaces for the ${typeConfig.label}. All interfaces are optional - configure only what you need.</p>
+
+                <div class="interfaces-container">
+                    ${typeConfig.interfaces.map((iface, idx) => {
+                        const ifaceConfig = this.veloConfig.interfaces[iface.key] || { ip: '', target_device: '', target_port: '' };
+
+                        return `
+                            <div class="interface-config-card" data-interface="${iface.key}">
+                                <div class="interface-header">
+                                    <span class="interface-name">eth${idx + 1} - ${iface.label}</span>
+                                    <span class="interface-desc">${iface.description}</span>
+                                </div>
+                                <div class="interface-fields">
+                                    <div class="form-group">
+                                        <label for="iface-${iface.key}-ip">IP Address (CIDR)</label>
+                                        <input type="text" id="iface-${iface.key}-ip" class="form-input interface-ip"
+                                               placeholder="e.g., 10.${idx + 1}.1.1/24 (optional)"
+                                               value="${this.escapeHtml(ifaceConfig.ip)}"
+                                               data-interface="${iface.key}">
+                                        <div id="iface-${iface.key}-validation" class="validation-message"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="iface-${iface.key}-device">Target Switch</label>
+                                        <select id="iface-${iface.key}-device" class="form-select interface-device" data-interface="${iface.key}">
+                                            <option value="">Not connected</option>
+                                            ${this.targetDevices.map(device => `
+                                                <option value="${this.escapeHtml(device.name)}"
+                                                        data-next-port="${this.escapeHtml(device.next_available_port)}">
+                                                    ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
+                                                </option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="iface-${iface.key}-port">Target Port</label>
+                                        <input type="text" id="iface-${iface.key}-port" class="form-input interface-port"
+                                               placeholder="Auto-selected" readonly
+                                               value="${this.escapeHtml(ifaceConfig.target_port)}"
+                                               data-interface="${iface.key}">
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="velocloud-interface-note">
+                    <p><strong>Note:</strong> Interfaces without IP addresses or target switches will be created but left unconfigured.</p>
+                </div>
+            </div>
+        `;
+
+        // Set initial values and add event listeners
+        typeConfig.interfaces.forEach(iface => {
+            const ifaceConfig = this.veloConfig.interfaces[iface.key] || { ip: '', target_device: '', target_port: '' };
+
+            const ipInput = content.querySelector(`#iface-${iface.key}-ip`);
+            const deviceSelect = content.querySelector(`#iface-${iface.key}-device`);
+            const portInput = content.querySelector(`#iface-${iface.key}-port`);
+            const validationMsg = content.querySelector(`#iface-${iface.key}-validation`);
+
+            // Set initial values
+            if (ifaceConfig.target_device) {
+                deviceSelect.value = ifaceConfig.target_device;
+            }
+
+            ipInput.addEventListener('input', (e) => {
+                this.veloConfig.interfaces[iface.key].ip = e.target.value.trim();
+                if (e.target.value.trim()) {
+                    this.validateCidrIp(e.target.value.trim(), validationMsg);
+                } else {
+                    validationMsg.className = 'validation-message';
+                    validationMsg.textContent = '';
+                }
+                this.updateNextButtonState();
+            });
+
+            deviceSelect.addEventListener('change', (e) => {
+                const selectedOption = e.target.selectedOptions[0];
+                const nextPort = selectedOption?.dataset.nextPort || '';
+
+                // Calculate the actual next port considering other interfaces using the same device
+                let actualPort = nextPort;
+                if (e.target.value) {
+                    const sameDeviceCount = this.countSameDeviceInterfaces(e.target.value, iface.key);
+                    if (sameDeviceCount > 0 && nextPort) {
+                        const portNum = parseInt(nextPort.replace(/\D/g, ''), 10);
+                        if (!isNaN(portNum)) {
+                            actualPort = `Ethernet${portNum + sameDeviceCount}`;
+                        }
+                    }
+                }
+
+                portInput.value = actualPort;
+                this.veloConfig.interfaces[iface.key].target_device = e.target.value;
+                this.veloConfig.interfaces[iface.key].target_port = actualPort;
+                this.updateNextButtonState();
+            });
+        });
+    }
+
+    /**
+     * Count how many interfaces are already configured to use the same device
+     */
+    countSameDeviceInterfaces(deviceName, excludeInterface) {
+        let count = 0;
+        Object.entries(this.veloConfig.interfaces).forEach(([key, config]) => {
+            if (key !== excludeInterface && config.target_device === deviceName) {
+                count++;
+            }
+        });
+        return count;
+    }
+
+    /**
+     * Validate CIDR IP format
+     */
+    validateCidrIp(value, validationEl) {
+        if (!value) {
+            validationEl.className = 'validation-message';
+            validationEl.textContent = '';
+            return true; // Empty is valid (optional)
+        }
+
+        // Basic CIDR validation regex
+        const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+        if (!cidrRegex.test(value)) {
+            validationEl.className = 'validation-message error';
+            validationEl.textContent = 'Invalid format. Use CIDR notation (e.g., 10.1.1.1/24)';
+            return false;
+        }
+
+        // Validate IP octets and prefix length
+        const [ip, prefix] = value.split('/');
+        const octets = ip.split('.').map(Number);
+        const prefixLen = parseInt(prefix, 10);
+
+        if (octets.some(o => o < 0 || o > 255)) {
+            validationEl.className = 'validation-message error';
+            validationEl.textContent = 'Invalid IP address octets';
+            return false;
+        }
+
+        if (prefixLen < 1 || prefixLen > 32) {
+            validationEl.className = 'validation-message error';
+            validationEl.textContent = 'Prefix length must be between 1 and 32';
+            return false;
+        }
+
+        validationEl.className = 'validation-message success';
+        validationEl.textContent = 'Valid';
+        return true;
+    }
+
+    /**
+     * Step 5: Review and Confirm
+     */
+    renderReviewStep(content) {
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        // Build interfaces summary
+        const configuredInterfaces = Object.entries(this.veloConfig.interfaces)
+            .filter(([key, config]) => config.ip || config.target_device)
+            .map(([key, config]) => {
+                const ifaceInfo = typeConfig.interfaces.find(i => i.key === key);
+                return { key, label: ifaceInfo?.label || key, ...config };
+            });
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-review">
+                <h3>Review Configuration</h3>
+                <p class="step-description">Please review the configuration before creating the ${typeConfig.label}.</p>
+
+                <div class="review-section">
+                    <h4>Device Information</h4>
+                    <table class="review-table">
+                        <tr>
+                            <th>Device Type</th>
+                            <td>${typeConfig.label}</td>
+                        </tr>
+                        <tr>
+                            <th>Device Name</th>
+                            <td>${this.escapeHtml(this.veloConfig.name)}</td>
+                        </tr>
+                        <tr>
+                            <th>Management IP</th>
+                            <td>${this.escapeHtml(this.veloConfig.mgmt_ip)}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="review-section">
+                    <h4>Data Interfaces</h4>
+                    ${configuredInterfaces.length > 0 ? `
+                        <table class="review-table">
+                            <tr>
+                                <th>Interface</th>
+                                <th>IP Address</th>
+                                <th>Connected To</th>
+                            </tr>
+                            ${configuredInterfaces.map(iface => `
+                                <tr>
+                                    <td>${this.escapeHtml(iface.label)}</td>
+                                    <td>${iface.ip ? this.escapeHtml(iface.ip) : '<em>Not configured</em>'}</td>
+                                    <td>${iface.target_device ? `${this.escapeHtml(iface.target_device)} (${this.escapeHtml(iface.target_port)})` : '<em>Not connected</em>'}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    ` : `
+                        <p class="no-interfaces-configured">No data interfaces configured. Interfaces will be created but left unconfigured.</p>
+                    `}
+                </div>
+
+                <div class="review-notes">
+                    <h4>What happens next:</h4>
+                    <ul>
+                        <li>A new ${typeConfig.label} VM will be created with the specified configuration</li>
+                        <li>The device will boot and be accessible via SSH within ~90 seconds</li>
+                        <li>Device is configured for standalone training mode</li>
+                        <li>Default login: arista / arista</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Update next button enabled/disabled state
+     */
+    updateNextButtonState() {
+        const nextBtn = this.overlay?.querySelector('.wizard-next-btn');
+        if (!nextBtn) return;
+
+        let canProceed = false;
+
+        switch (this.currentStep) {
+            case 1:
+                canProceed = this.veloConfig.device_type !== '';
+                break;
+            case 2:
+                canProceed = this.nameValid && this.veloConfig.name.length > 0;
+                break;
+            case 3:
+                canProceed = this.veloConfig.mgmt_ip !== '';
+                break;
+            case 4:
+                // All interfaces are optional, so always allow proceeding
+                // Just validate any filled-in IPs
+                canProceed = this.validateAllInterfaceIps();
+                break;
+            case 5:
+                canProceed = !this.isSubmitting;
+                break;
+        }
+
+        nextBtn.disabled = !canProceed || this.isSubmitting;
+    }
+
+    /**
+     * Validate all interface IPs that have values
+     */
+    validateAllInterfaceIps() {
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+        for (const iface of typeConfig.interfaces) {
+            const ip = this.veloConfig.interfaces[iface.key]?.ip;
+            if (ip && !this.isValidCidr(ip)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if a string is valid CIDR notation
+     */
+    isValidCidr(value) {
+        if (!value) return true; // Empty is valid (optional)
+        const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+        if (!cidrRegex.test(value)) return false;
+
+        const [ip, prefix] = value.split('/');
+        const octets = ip.split('.').map(Number);
+        const prefixLen = parseInt(prefix, 10);
+
+        return !octets.some(o => o < 0 || o > 255) && prefixLen >= 1 && prefixLen <= 32;
+    }
+
+    /**
+     * Go to next step
+     */
+    async nextStep() {
+        if (this.currentStep === this.totalSteps) {
+            await this.submitDevice();
+            return;
+        }
+
+        this.currentStep++;
+        this.renderStep();
+    }
+
+    /**
+     * Go to previous step
+     */
+    previousStep() {
+        if (this.currentStep > 1) {
+            this.currentStep--;
+            this.renderStep();
+        }
+    }
+
+    /**
+     * Submit the device creation request
+     */
+    async submitDevice() {
+        if (this.isSubmitting) return;
+
+        this.isSubmitting = true;
+        const nextBtn = this.overlay.querySelector('.wizard-next-btn');
+        nextBtn.textContent = 'Creating...';
+        nextBtn.disabled = true;
+
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+        const content = this.overlay.querySelector('.wizard-content');
+        content.innerHTML = `
+            <div class="wizard-creating">
+                <div class="spinner large"></div>
+                <h3>Creating ${typeConfig.label}...</h3>
+                <p>This may take up to 90 seconds. Please wait.</p>
+                <div class="creation-log"></div>
+            </div>
+        `;
+
+        const log = content.querySelector('.creation-log');
+
+        try {
+            this.logMessage(log, 'Sending request to nodebuilder service...');
+
+            // Build interface configuration for API
+            const interfaceConfig = {};
+            Object.entries(this.veloConfig.interfaces).forEach(([key, config]) => {
+                if (config.ip || config.target_device) {
+                    interfaceConfig[key] = {
+                        ip: config.ip || null,
+                        target_device: config.target_device || null,
+                        target_port: config.target_port || null
+                    };
+                }
+            });
+
+            const result = await NodeBuilderAPI.addVeloDevice({
+                name: this.veloConfig.name,
+                device_type: this.veloConfig.device_type,
+                mgmt_ip: this.veloConfig.mgmt_ip,
+                interfaces: interfaceConfig
+            });
+
+            this.logMessage(log, 'Device created successfully!', 'success');
+            this.logMessage(log, `VM: ${result.device?.name || this.veloConfig.name}`);
+            this.logMessage(log, `Type: ${typeConfig.label}`);
+            this.logMessage(log, `Mgmt IP: ${result.device?.mgmt_ip || this.veloConfig.mgmt_ip}`);
+
+            // Handle reboot targets
+            const rebootTargets = result.targets_need_reboot || [];
+            const reusedSlots = result.targets_reused_slots || [];
+
+            if (reusedSlots.length > 0) {
+                this.logMessage(log, `Optimized: ${reusedSlots.join(', ')} reused existing interface slots`, 'success');
+            }
+
+            // Store result for later use
+            this.createdDevice = result.device || { name: this.veloConfig.name, mgmt_ip: this.veloConfig.mgmt_ip };
+
+            // Use shared DeviceRebootManager for reboot section
+            const rebootManager = new DeviceRebootManager(this.targetDevices);
+
+            // Show success state with reboot options
+            content.innerHTML = `
+                <div class="wizard-success">
+                    <div class="success-icon velocloud-success">&#10004;</div>
+                    <h3>${typeConfig.label} Created!</h3>
+                    <p>The device <strong>${this.escapeHtml(this.veloConfig.name)}</strong> has been created.</p>
+                    <p>It will be ready for SSH access within ~90 seconds.</p>
+                    <div class="success-details">
+                        <p>Device Type: <code>${typeConfig.label}</code></p>
+                        <p>Management IP: <code>${this.escapeHtml(this.veloConfig.mgmt_ip)}</code></p>
+                    </div>
+
+                    ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}
+                </div>
+            `;
+
+            // Attach reboot handlers if there are targets
+            if (rebootTargets.length > 0) {
+                rebootManager.attachEventHandlers(content);
+            }
+
+            // Update button to close
+            nextBtn.textContent = 'Close';
+            nextBtn.disabled = false;
+            nextBtn.onclick = () => {
+                this.hide();
+                if (this.topologyManager) {
+                    this.topologyManager.refreshTopology();
+                }
+            };
+
+            // Hide back and cancel buttons
+            this.overlay.querySelector('.wizard-back-btn').style.display = 'none';
+            this.overlay.querySelector('.wizard-cancel-btn').style.display = 'none';
+
+        } catch (error) {
+            console.error('[AddVelocloudWizard] Error creating device:', error);
+
+            content.innerHTML = `
+                <div class="wizard-error">
+                    <div class="error-icon">&#10008;</div>
+                    <h3>Failed to Create Device</h3>
+                    <p>${this.escapeHtml(error.message)}</p>
+                    <p class="error-hint">Check the nodebuilder service logs for more details.</p>
+                </div>
+            `;
+
+            nextBtn.textContent = 'Retry';
+            nextBtn.disabled = false;
+            nextBtn.onclick = () => this.submitDevice();
+
+            this.isSubmitting = false;
+        }
+    }
+
+    /**
+     * Log a message to the creation log
+     */
+    logMessage(logElement, message, type = 'info') {
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logElement.appendChild(entry);
+        logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Export for use in other modules
+window.AddVelocloudWizard = AddVelocloudWizard;

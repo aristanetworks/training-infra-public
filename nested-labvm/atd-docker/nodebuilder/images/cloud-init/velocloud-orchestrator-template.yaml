@@ -1,0 +1,62 @@
+#cloud-config
+# VeloCloud Orchestrator (VCO) Cloud-Init Template
+#
+# PLACEHOLDER: This template provides basic configuration for VeloCloud Orchestrator.
+# VCO is the management and control plane for VeloCloud SD-WAN deployments.
+# In production, VCO requires proper licensing and network connectivity.
+#
+# Variables replaced at runtime:
+#   {hostname}   - VM hostname
+#   {password}   - User password
+#   {mgmt_ip}    - Management IP address (eth0)
+#   {gateway}    - Default gateway
+#   {data_ip}    - Data interface IP with CIDR (eth1) - optional
+#
+# Interface mapping:
+#   eth0 - Management interface (vmgmt bridge) - admin access
+#   eth1 - Data interface (Edge/Gateway connectivity)
+#
+# Note: VeloCloud Orchestrator images may not fully support standard cloud-init.
+# This template will be refined based on actual image capabilities.
+# VCO typically uses its own first-boot configuration wizard.
+
+# Set hostname
+hostname: {hostname}
+manage_etc_hosts: true
+
+# Create admin user
+users:
+  - name: arista
+    groups: [sudo, wheel]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+
+# Set password
+chpasswd:
+  expire: false
+  users:
+    - name: arista
+      password: {password}
+      type: text
+    - name: root
+      password: {password}
+      type: text
+
+# Network configuration
+write_files:
+  - path: /etc/network/interfaces.d/eth0
+    content: |
+      auto eth0
+      iface eth0 inet static
+        address {mgmt_ip}
+        netmask 255.255.255.0
+        gateway {gateway}
+    permissions: '0644'
+
+runcmd:
+  # Basic network setup
+  - ip link set eth0 up
+  - ip link set eth1 up
+  # Signal completion
+  - touch /var/lib/cloud/instance/velocloud-orchestrator-init-complete
