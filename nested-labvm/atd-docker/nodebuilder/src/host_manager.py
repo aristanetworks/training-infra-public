@@ -43,6 +43,25 @@ from interface_manager import (
 
 logger = logging.getLogger('nodebuilder')
 
+
+def yaml_safe_string(value: str) -> str:
+    """
+    Escape a string for safe use in YAML.
+
+    Wraps the value in single quotes and escapes any embedded single quotes
+    by doubling them. This ensures passwords with special characters work.
+
+    Args:
+        value: The string to escape
+
+    Returns:
+        YAML-safe quoted string
+    """
+    # Escape single quotes by doubling them, then wrap in single quotes
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+
 # Base XML template for Linux Host VM
 HOST_BASE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <domain type='kvm'>
@@ -157,7 +176,7 @@ def generate_cloud_init_iso(
             # Replace placeholders in template
             user_data = user_data.replace('{hostname}', hostname)
             user_data = user_data.replace('{username}', username)
-            user_data = user_data.replace('{password}', password)
+            user_data = user_data.replace('{password}', yaml_safe_string(password))
             user_data = user_data.replace('{mgmt_ip}', mgmt_ip)
             user_data = user_data.replace('{gateway}', gateway)
 
@@ -189,7 +208,7 @@ chpasswd:
   expire: false
   users:
     - name: {username}
-      password: {password}
+      password: {yaml_safe_string(password)}
       type: text
 
 write_files:

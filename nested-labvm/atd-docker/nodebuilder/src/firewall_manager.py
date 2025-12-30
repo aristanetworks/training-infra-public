@@ -42,6 +42,25 @@ from interface_manager import (
 
 logger = logging.getLogger('nodebuilder')
 
+
+def yaml_safe_string(value: str) -> str:
+    """
+    Escape a string for safe use in YAML.
+
+    Wraps the value in single quotes and escapes any embedded single quotes
+    by doubling them. This ensures passwords with special characters work.
+
+    Args:
+        value: The string to escape
+
+    Returns:
+        YAML-safe quoted string
+    """
+    # Escape single quotes by doubling them, then wrap in single quotes
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+
 # Base XML template for VyOS Firewall VM
 FIREWALL_BASE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <domain type='kvm'>
@@ -147,7 +166,12 @@ def generate_vyos_cloud_init(
                 user_data = f.read()
         else:
             # Fallback inline template
+            # VyOS uses its own password format, not standard chpasswd
             user_data = """#cloud-config
+password: {password}
+users:
+  - name: arista
+    passwd: {password}
 vyos_config_commands:
   - set system host-name {hostname}
   - set system time-zone UTC
@@ -167,13 +191,14 @@ vyos_config_commands:
 """
 
         # Replace placeholders
+        # Use yaml_safe_string for password to handle special characters
         user_data = user_data.format(
             hostname=hostname,
             mgmt_ip=mgmt_ip,
             inside_ip=inside_ip,
             outside_ip=outside_ip,
             gateway=gateway,
-            password=password
+            password=yaml_safe_string(password)
         )
 
         # Write user-data
