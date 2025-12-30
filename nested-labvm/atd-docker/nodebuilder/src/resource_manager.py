@@ -871,8 +871,7 @@ class ResourceManager:
             'deleted': [],
             'failed': [],
             'skipped_system': 0,
-            'skipped_healthy': 0,
-            'not_in_persistence': 0
+            'skipped_healthy': 0
         }
 
         try:
@@ -920,18 +919,17 @@ class ResourceManager:
                 in_persistence = bridge in expected_bridges
 
                 # Determine if bridge is orphaned:
-                # 1. Port count < 2 (VMs deleted/disconnected)
-                # 2. Not in persistence (user device was deleted)
-                is_orphaned = port_count < 2 or not in_persistence
+                # A bridge is orphaned if it has < 2 ports (one or both VMs deleted)
+                #
+                # IMPORTANT: We only use port count, not persistence.
+                # Original topology bridges are NOT in user persistence but should
+                # never be deleted. If a bridge has 2 ports, it's healthy regardless
+                # of whether it's in user persistence or the original topology.
+                is_orphaned = port_count < 2
 
                 if is_orphaned:
-                    reason_parts = []
-                    if port_count < 2:
-                        reason_parts.append(f"port_count={port_count}")
-                    if not in_persistence:
-                        reason_parts.append("not_in_persistence")
-                        results['not_in_persistence'] += 1
-                    reason = ', '.join(reason_parts)
+                    # Bridge has < 2 ports, meaning one or both VMs are gone
+                    reason = f"port_count={port_count}"
 
                     results['orphaned_found'].append({
                         'bridge': bridge,
