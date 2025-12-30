@@ -2832,7 +2832,8 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 if isinstance(node_entry, dict):
                     for device_name in node_entry.keys():
                         # Generate short code (same logic as kvm-topo-builder)
-                        short_code = self.get_short_code(device_name)
+                        # Lowercase for consistent matching with bridge codes
+                        short_code = self.get_short_code(device_name).lower()
                         device_lookup[short_code] = device_name
 
         # Also include user-added devices from persistence files
@@ -2850,7 +2851,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                         for entry in user_data[key]:
                             if isinstance(entry, dict):
                                 for device_name in entry.keys():
-                                    short_code = self.get_short_code(device_name)
+                                    short_code = self.get_short_code(device_name).lower()
                                     device_lookup[short_code] = device_name
             except Exception as e:
                 pS(f"Warning: Error loading {user_file_path} for bridge enrichment: {e}")
