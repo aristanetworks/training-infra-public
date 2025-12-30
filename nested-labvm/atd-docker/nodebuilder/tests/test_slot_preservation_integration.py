@@ -179,7 +179,7 @@ class TestSlotPreservationFlow:
         # (gap at 5, which is orphaned)
         with patch('interface_manager.get_used_ports_from_topology', return_value={1, 2, 3, 4, 6, 7}):
             with patch('interface_manager.ENABLE_SLOT_PRESERVATION', True):
-                with patch('interface_manager.get_next_orphaned_slot') as mock_orphan:
+                with patch('orphaned_interfaces.get_next_orphaned_slot') as mock_orphan:
                     mock_orphan.return_value = {
                         'slot_number': 5,
                         'mac_address': '52:54:00:aa:bb:05'
@@ -193,7 +193,7 @@ class TestSlotPreservationFlow:
         """Test that find_next_available_port falls back when no orphans exist."""
         with patch('interface_manager.get_used_ports_from_topology', return_value={1, 2, 3, 4}):
             with patch('interface_manager.ENABLE_SLOT_PRESERVATION', True):
-                with patch('interface_manager.get_next_orphaned_slot') as mock_orphan:
+                with patch('orphaned_interfaces.get_next_orphaned_slot') as mock_orphan:
                     mock_orphan.return_value = None  # No orphaned slots
 
                     # Should return max+1
@@ -229,7 +229,7 @@ class TestFullCycleScenarios:
             with patch('interface_manager.get_used_ports_from_topology', return_value={1, 2, 3, 4}):
                 with patch('interface_manager.ENABLE_SLOT_PRESERVATION', True):
                     # Mock the orphaned slot lookup
-                    with patch('interface_manager.get_next_orphaned_slot') as mock_get:
+                    with patch('orphaned_interfaces.get_next_orphaned_slot') as mock_get:
                         mock_get.return_value = orphaned
                         port = find_next_available_port('spine1', use_lock=False)
                         assert port == 'Ethernet5'

@@ -25,7 +25,10 @@ from config import (
     MAX_HOSTS_PER_TOPOLOGY,
     MGMT_BRIDGE,
     CLOUD_INIT_TEMPLATES_PATH,
-    USER_HOSTS_PATH
+    USER_HOSTS_PATH,
+    SUBPROCESS_TIMEOUT_SHORT,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    SUBPROCESS_TIMEOUT_LONG
 )
 from interface_manager import (
     create_ovs_bridge,
@@ -281,7 +284,7 @@ ethernets:
                      '-joliet', '-rock', temp_dir],
                     capture_output=True,
                     text=True,
-                    timeout=30
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
                 )
                 if result.returncode == 0:
                     logger.info(f"Created cloud-init ISO: {iso_path}")
@@ -537,7 +540,7 @@ def create_host(
             ['virsh', 'define', xml_path],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to define VM: {result.stderr}")
@@ -549,79 +552,30 @@ def create_host(
             ['virsh', 'start', name],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to start VM: {result.stderr}")
 
         # Step 7: Attach interface to target VM if connected
-        # Check for orphaned slots that can be reused (live updates, no reboot needed)
+        # Use shared slot reuse logic to check for orphaned slots
+        from slot_reuse import attach_interface_with_slot_reuse
+
         targets_reused_slots = []
         targets_need_reboot = []
 
         if processed_connection:
-            target_device = processed_connection['target_device']
-            target_port = processed_connection['target_port']
-            bridge_name = processed_connection['bridge']
+            result = attach_interface_with_slot_reuse(
+                target_device=processed_connection['target_device'],
+                target_port=processed_connection['target_port'],
+                bridge_name=processed_connection['bridge'],
+                connection_dict=processed_connection
+            )
 
-            # Check for orphaned slot to reuse
-            orphaned_slot = None
-            try:
-                from config import ENABLE_SLOT_PRESERVATION
-                from orphaned_interfaces import get_orphaned_slot_by_port, claim_orphaned_slot
-                if ENABLE_SLOT_PRESERVATION:
-                    port_num = extract_port_number(target_port)
-                    orphaned_slot = get_orphaned_slot_by_port(target_device, port_num)
-                    if orphaned_slot:
-                        logger.debug(
-                            f"Found orphaned slot for {target_device}:{target_port} "
-                            f"(MAC {orphaned_slot.get('mac_address')})"
-                        )
-            except Exception as e:
-                logger.warning(f"Error checking orphaned slots for {target_device}: {e}")
-                orphaned_slot = None
-
-            if orphaned_slot:
-                # Reuse existing interface by updating the bridge connection
-                logger.info(
-                    f"Reusing orphaned slot on {target_device} for bridge {bridge_name}"
-                )
-                try:
-                    result = update_interface_bridge(
-                        target_device,
-                        orphaned_slot['mac_address'],
-                        bridge_name
-                    )
-                    if result.get('status') == 'updated':
-                        claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
-                        processed_connection['reused_orphaned_slot'] = True
-                        targets_reused_slots.append(target_device)
-                        logger.info(
-                            f"Successfully reused orphaned slot on {target_device} - "
-                            f"no reboot needed"
-                        )
-                    else:
-                        # Fallback to attach
-                        logger.warning(
-                            f"Failed to update bridge on {target_device}, falling back to attach"
-                        )
-                        attach_interface_to_vm(target_device, bridge_name)
-                        processed_connection['reused_orphaned_slot'] = False
-                        targets_need_reboot.append(target_device)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to reuse orphaned slot on {target_device}: {e}, "
-                        f"falling back to attach"
-                    )
-                    attach_interface_to_vm(target_device, bridge_name)
-                    processed_connection['reused_orphaned_slot'] = False
-                    targets_need_reboot.append(target_device)
+            if result.reused_slot:
+                targets_reused_slots.append(result.target_device)
             else:
-                # No orphaned slot - attach new interface
-                logger.info(f"Attaching new interface to {target_device}")
-                attach_interface_to_vm(target_device, bridge_name)
-                processed_connection['reused_orphaned_slot'] = False
-                targets_need_reboot.append(target_device)
+                targets_need_reboot.append(result.target_device)
 
         # Clean up temp XML file
         if os.path.exists(xml_path):
@@ -649,9 +603,9 @@ def create_host(
             try:
                 if resource_type == 'vm':
                     subprocess.run(['virsh', 'destroy', resource_id],
-                                   capture_output=True, timeout=30)
+                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
                     subprocess.run(['virsh', 'undefine', resource_id],
-                                   capture_output=True, timeout=30)
+                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
                 elif resource_type == 'image':
                     if os.path.exists(resource_id):
                         os.remove(resource_id)
@@ -767,7 +721,7 @@ def get_host_vnc_info(name: str) -> Optional[Dict]:
             ['virsh', 'vncdisplay', name],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=SUBPROCESS_TIMEOUT_SHORT
         )
 
         if result.returncode != 0:

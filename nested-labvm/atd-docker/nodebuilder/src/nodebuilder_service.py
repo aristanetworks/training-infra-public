@@ -48,7 +48,10 @@ from config import (
     USER_FIREWALLS_PATH,
     HOST_DATA_PORT,
     FIREWALL_INSIDE_PORT,
-    FIREWALL_OUTSIDE_PORT
+    FIREWALL_OUTSIDE_PORT,
+    SUBPROCESS_TIMEOUT_SHORT,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    DEFAULT_NETWORK_LATENCY_MS
 )
 
 # Configure logging
@@ -911,7 +914,7 @@ async def add_cluster(request):
     from vm_manager import create_veos_node
     from persistence import save_user_node
     from connection_manager import get_connection_manager, Connection
-    from interface_manager import create_ovs_bridge, attach_interface_to_vm, generate_bridge_name
+    from interface_manager import create_ovs_bridge, attach_interface_to_vm, generate_bridge_name, creation_lock
     from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
 
     try:
@@ -928,283 +931,320 @@ async def add_cluster(request):
     if not template_id:
         return web.json_response({'error': 'template_id is required'}, status=400)
 
-    # Get template
+    # Get template first (before lock) to fail fast on invalid template
     template = get_template_by_id(template_id)
     if not template:
         return web.json_response({'error': f"Unknown template: {template_id}"}, status=400)
 
-    topo_build_path = get_topo_build_path()
+    # Use creation lock to prevent race conditions on cluster prefix validation
+    # Lock includes template_id and name_prefix to allow concurrent creation of different clusters
+    try:
+        with creation_lock(f'add-cluster:{template_id}:{name_prefix}'):
+            topo_build_path = get_topo_build_path()
 
-    # Get available IPs
-    available_ips = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            # Get available IPs
+            available_ips = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
 
-    # Validate request
-    valid, error = validate_cluster_request(
-        template_id,
-        external_connections,
-        len(available_ips)
-    )
-    if not valid:
-        return web.json_response({'error': error}, status=400)
-
-    # Validate external connection targets exist
-    for ext_conn in external_connections:
-        target_device = ext_conn.get('target_device')
-        if target_device:
-            valid, error = validate_target_device_exists(target_device, topo_build_path, USER_NODES_PATH)
+            # Validate request
+            valid, error = validate_cluster_request(
+                template_id,
+                external_connections,
+                len(available_ips)
+            )
             if not valid:
                 return web.json_response({'error': error}, status=400)
 
-    # Generate unique prefix to avoid name conflicts
-    # If user's prefix results in conflicts, auto-increment (e.g., prefix_2, prefix_3)
-    try:
-        unique_prefix = generate_unique_cluster_prefix(
-            name_prefix,
-            template.nodes,
-            topo_build_path,
-            USER_NODES_PATH
-        )
-    except ValueError as e:
-        return web.json_response({'error': str(e)}, status=400)
-
-    # Log if prefix was modified
-    if unique_prefix != name_prefix:
-        logger.info(f"Auto-adjusted prefix from '{name_prefix}' to '{unique_prefix}' to avoid conflicts")
-
-    # Generate node names with the unique prefix
-    node_names = {}
-    for node_template in template.nodes:
-        full_name = node_template.get_full_name(unique_prefix)
-        # Validate name format (not uniqueness - that's already handled above)
-        if not full_name or len(full_name) > 32:
-            return web.json_response({
-                'error': f"Invalid node name '{full_name}': must be 1-32 characters"
-            }, status=400)
-        node_names[node_template.name_suffix] = full_name
-
-    # Update name_prefix to the unique version for response
-    name_prefix = unique_prefix
-
-    # Assign IPs (use provided or auto-assign from available)
-    assigned_ips = {}
-    available_ip_list = list(available_ips)
-    ip_index = 0
-
-    for node_template in template.nodes:
-        suffix = node_template.name_suffix
-        full_name = node_names[suffix]
-
-        if suffix in ip_assignments:
-            # Use provided IP
-            ip = ip_assignments[suffix]
-            # Validate it's available
-            if not any(entry['ip'] == ip for entry in available_ips):
-                return web.json_response({
-                    'error': f"IP {ip} is not available for {full_name}"
-                }, status=400)
-            assigned_ips[suffix] = ip
-        else:
-            # Auto-assign from available
-            if ip_index >= len(available_ip_list):
-                return web.json_response({'error': 'Not enough IPs available'}, status=400)
-            assigned_ips[suffix] = available_ip_list[ip_index]['ip']
-            ip_index += 1
-
-    try:
-        logger.info(f"Creating cluster from template: {template_id}")
-
-        created_nodes = []
-        internal_bridges = []  # Track bridges created for internal connections
-        all_targets_reused_slots = []  # Aggregate reboot info across all nodes
-        all_targets_need_reboot = []
-        conn_mgr = get_connection_manager()
-
-        # PHASE 1: Create all VMs with only external connections
-        # (internal connections are added after all VMs exist)
-        logger.info(f"Phase 1: Creating {len(template.nodes)} VMs")
-
-        for node_template in template.nodes:
-            suffix = node_template.name_suffix
-            full_name = node_names[suffix]
-            ip = assigned_ips[suffix]
-            mac = get_mac_for_ip(ip, DNSMASQ_PATH)
-
-            if not mac:
-                # Rollback already created nodes
-                from resource_manager import get_resource_manager
-                rm = get_resource_manager()
-                for created in created_nodes:
-                    try:
-                        rm.delete_node_completely(created['name'], {})
-                    except Exception:
-                        pass
-                return web.json_response({
-                    'error': f"No MAC found for IP {ip}"
-                }, status=400)
-
-            # Only include external connections for this node
-            # (connections to existing topology devices)
-            node_external_connections = []
+            # Validate external connection targets exist
             for ext_conn in external_connections:
-                if ext_conn.get('from_node') == suffix:
-                    node_external_connections.append({
-                        'target_device': ext_conn['target_device'],
-                        'target_port': ext_conn.get('target_port')
-                    })
+                target_device = ext_conn.get('target_device')
+                if target_device:
+                    valid, error = validate_target_device_exists(target_device, topo_build_path, USER_NODES_PATH)
+                    if not valid:
+                        return web.json_response({'error': error}, status=400)
+
+            # Generate unique prefix to avoid name conflicts
+            # If user's prefix results in conflicts, auto-increment (e.g., prefix_2, prefix_3)
+            try:
+                unique_prefix = generate_unique_cluster_prefix(
+                    name_prefix,
+                    template.nodes,
+                    topo_build_path,
+                    USER_NODES_PATH
+                )
+            except ValueError as e:
+                return web.json_response({'error': str(e)}, status=400)
+
+            # Log if prefix was modified
+            if unique_prefix != name_prefix:
+                logger.info(f"Auto-adjusted prefix from '{name_prefix}' to '{unique_prefix}' to avoid conflicts")
+
+            # Generate node names with the unique prefix
+            node_names = {}
+            for node_template in template.nodes:
+                full_name = node_template.get_full_name(unique_prefix)
+                # Validate name format (not uniqueness - that's already handled above)
+                if not full_name or len(full_name) > 32:
+                    return web.json_response({
+                        'error': f"Invalid node name '{full_name}': must be 1-32 characters"
+                    }, status=400)
+                node_names[node_template.name_suffix] = full_name
+
+            # Update name_prefix to the unique version for response
+            name_prefix = unique_prefix
+
+            # Assign IPs (use provided or auto-assign from available)
+            assigned_ips = {}
+            available_ip_list = list(available_ips)
+            ip_index = 0
+
+            for node_template in template.nodes:
+                suffix = node_template.name_suffix
+                full_name = node_names[suffix]
+
+                if suffix in ip_assignments:
+                    # Use provided IP
+                    ip = ip_assignments[suffix]
+                    # Validate it's available
+                    if not any(entry['ip'] == ip for entry in available_ips):
+                        return web.json_response({
+                            'error': f"IP {ip} is not available for {full_name}"
+                        }, status=400)
+                    assigned_ips[suffix] = ip
+                else:
+                    # Auto-assign from available
+                    if ip_index >= len(available_ip_list):
+                        return web.json_response({'error': 'Not enough IPs available'}, status=400)
+                    assigned_ips[suffix] = available_ip_list[ip_index]['ip']
+                    ip_index += 1
 
             try:
-                # Create VM with only external connections
-                result = create_veos_node(full_name, ip, mac, node_external_connections)
-                created_nodes.append({
-                    'name': full_name,
-                    'suffix': suffix,
-                    'ip': ip,
-                    'mac': mac,
-                    'connections': result.get('connections', [])
-                })
-                # Collect reboot info from this node
-                all_targets_reused_slots.extend(result.get('targets_reused_slots', []))
-                all_targets_need_reboot.extend(result.get('targets_need_reboot', []))
-                logger.info(f"  Created VM: {full_name}")
-            except Exception as e:
-                # Rollback all created nodes
-                logger.error(f"Failed to create {full_name}: {e}")
-                from resource_manager import get_resource_manager
-                rm = get_resource_manager()
-                for created in created_nodes:
+                logger.info(f"Creating cluster from template: {template_id}")
+
+                created_nodes = []
+                internal_bridges = []  # Track bridges created for internal connections
+                # Track reboot info for EXTERNAL topology targets only (not cluster nodes)
+                external_targets_reused_slots = []
+                external_targets_need_reboot = []
+                # Track cluster nodes that need reboot (always all of them for internal connections)
+                cluster_nodes_need_reboot = set()
+                conn_mgr = get_connection_manager()
+
+                # PHASE 1: Create all VMs with only external connections
+                # (internal connections are added after all VMs exist)
+                logger.info(f"Phase 1: Creating {len(template.nodes)} VMs")
+
+                for node_template in template.nodes:
+                    suffix = node_template.name_suffix
+                    full_name = node_names[suffix]
+                    ip = assigned_ips[suffix]
+                    mac = get_mac_for_ip(ip, DNSMASQ_PATH)
+
+                    if not mac:
+                        # Rollback already created nodes
+                        from resource_manager import get_resource_manager
+                        rm = get_resource_manager()
+                        for created in created_nodes:
+                            try:
+                                rm.delete_node_completely(created['name'], {})
+                            except Exception:
+                                pass
+                        return web.json_response({
+                            'error': f"No MAC found for IP {ip}"
+                        }, status=400)
+
+                    # Only include external connections for this node
+                    # (connections to existing topology devices)
+                    node_external_connections = []
+                    for ext_conn in external_connections:
+                        if ext_conn.get('from_node') == suffix:
+                            node_external_connections.append({
+                                'target_device': ext_conn['target_device'],
+                                'target_port': ext_conn.get('target_port')
+                            })
+
                     try:
-                        rm.delete_node_completely(created['name'], {})
-                    except Exception:
-                        pass
-                raise
+                        # Create VM with only external connections
+                        result = create_veos_node(full_name, ip, mac, node_external_connections)
+                        created_nodes.append({
+                            'name': full_name,
+                            'suffix': suffix,
+                            'ip': ip,
+                            'mac': mac,
+                            'connections': result.get('connections', [])
+                        })
+                        # Collect reboot info for external targets from this node
+                        external_targets_reused_slots.extend(result.get('targets_reused_slots', []))
+                        external_targets_need_reboot.extend(result.get('targets_need_reboot', []))
+                        logger.info(f"  Created VM: {full_name}")
+                    except Exception as e:
+                        # Rollback all created nodes
+                        logger.error(f"Failed to create {full_name}: {e}")
+                        from resource_manager import get_resource_manager
+                        rm = get_resource_manager()
+                        for created in created_nodes:
+                            try:
+                                rm.delete_node_completely(created['name'], {})
+                            except Exception:
+                                pass
+                        raise
 
-        # PHASE 2: Create internal connections between cluster nodes
-        # Now that all VMs exist, we can connect them to each other
-        logger.info(f"Phase 2: Creating {len(template.internal_connections)} internal connections")
+                # PHASE 2: Create internal connections between cluster nodes
+                # Now that all VMs exist, we can connect them to each other
+                logger.info(f"Phase 2: Creating {len(template.internal_connections)} internal connections")
+                failed_internal_connections = []
+                from interface_manager import delete_ovs_bridge
 
-        for int_conn in template.internal_connections:
-            from_suffix = int_conn.from_node
-            to_suffix = int_conn.to_node
-            from_name = node_names[from_suffix]
-            to_name = node_names[to_suffix]
+                for int_conn in template.internal_connections:
+                    from_suffix = int_conn.from_node
+                    to_suffix = int_conn.to_node
+                    from_name = node_names[from_suffix]
+                    to_name = node_names[to_suffix]
 
-            # Find both nodes to calculate their next port numbers BEFORE adding connections
-            from_node = next((n for n in created_nodes if n['suffix'] == from_suffix), None)
-            to_node = next((n for n in created_nodes if n['suffix'] == to_suffix), None)
+                    # Find both nodes to calculate their next port numbers BEFORE adding connections
+                    from_node = next((n for n in created_nodes if n['suffix'] == from_suffix), None)
+                    to_node = next((n for n in created_nodes if n['suffix'] == to_suffix), None)
 
-            if not from_node or not to_node:
-                logger.error(f"Could not find nodes for internal connection: {from_suffix} -> {to_suffix}")
-                continue
+                    if not from_node or not to_node:
+                        logger.error(f"Could not find nodes for internal connection: {from_suffix} -> {to_suffix}")
+                        failed_internal_connections.append({
+                            'from': from_suffix,
+                            'to': to_suffix,
+                            'error': 'Node not found in created_nodes'
+                        })
+                        continue
 
-            # Calculate port numbers for both ends
-            from_port = f"Ethernet{len(from_node['connections']) + 1}"
-            to_port = f"Ethernet{len(to_node['connections']) + 1}"
+                    # Calculate port numbers for both ends
+                    from_port = f"Ethernet{len(from_node['connections']) + 1}"
+                    to_port = f"Ethernet{len(to_node['connections']) + 1}"
 
-            # Generate bridge name for this internal connection
-            bridge_name = generate_bridge_name(from_name, from_port, to_name, to_port)
+                    # Generate bridge name for this internal connection
+                    bridge_name = generate_bridge_name(from_name, from_port, to_name, to_port)
+                    bridge_created = False
 
-            try:
-                # Create OVS bridge
-                create_ovs_bridge(bridge_name)
+                    try:
+                        # Create OVS bridge
+                        create_ovs_bridge(bridge_name)
+                        bridge_created = True
 
-                # Attach interface to both VMs
-                # Note: attach_interface_to_vm requires reboot for the interface to work
-                attach_interface_to_vm(from_name, bridge_name)
-                attach_interface_to_vm(to_name, bridge_name)
+                        # Attach interface to both VMs
+                        # Note: attach_interface_to_vm requires reboot for the interface to work
+                        attach_interface_to_vm(from_name, bridge_name)
+                        attach_interface_to_vm(to_name, bridge_name)
 
-                # Track that these cluster nodes need reboot for internal connections
-                all_targets_need_reboot.append(from_name)
-                all_targets_need_reboot.append(to_name)
+                        # Track that these cluster nodes need reboot for internal connections
+                        cluster_nodes_need_reboot.add(from_name)
+                        cluster_nodes_need_reboot.add(to_name)
 
-                internal_bridges.append({
-                    'bridge': bridge_name,
-                    'from': from_name,
-                    'to': to_name
+                        internal_bridges.append({
+                            'bridge': bridge_name,
+                            'from': from_name,
+                            'to': to_name
+                        })
+
+                        # Add connection records with correct port info for BOTH ends
+                        from_node['connections'].append({
+                            'local_port': from_port,
+                            'target_device': to_name,
+                            'target_port': to_port,
+                            'bridge': bridge_name,
+                            'internal': True
+                        })
+                        to_node['connections'].append({
+                            'local_port': to_port,
+                            'target_device': from_name,
+                            'target_port': from_port,
+                            'bridge': bridge_name,
+                            'internal': True
+                        })
+
+                        logger.info(f"  Connected: {from_name} <-> {to_name} (bridge: {bridge_name})")
+
+                    except Exception as e:
+                        logger.error(f"Failed to create internal connection {from_name} <-> {to_name}: {e}")
+                        failed_internal_connections.append({
+                            'from': from_name,
+                            'to': to_name,
+                            'error': str(e)
+                        })
+                        # Rollback: delete the bridge if it was created
+                        if bridge_created:
+                            try:
+                                delete_ovs_bridge(bridge_name)
+                                logger.info(f"  Rolled back bridge {bridge_name} after connection failure")
+                            except Exception as rollback_err:
+                                logger.warning(f"  Failed to rollback bridge {bridge_name}: {rollback_err}")
+
+                # PHASE 3: Apply impairments to cluster bridges if specified
+                applied_impairments = []
+                if impairments:
+                    logger.info(f"Phase 3: Applying impairments to {len(internal_bridges)} internal bridges")
+
+                    # Note: Impairments are applied via captureservice API
+                    # We'll return the bridge names so the frontend can apply impairments
+                    for bridge_info in internal_bridges:
+                        applied_impairments.append({
+                            'bridge': bridge_info['bridge'],
+                            'from': bridge_info['from'],
+                            'to': bridge_info['to'],
+                            'impairments': impairments
+                        })
+
+                # Save all nodes to persistence
+                for node_info in created_nodes:
+                    neighbors = []
+                    for c in node_info['connections']:
+                        neighbors.append({
+                            'neighborDevice': c.get('target_device', ''),
+                            'neighborPort': c.get('target_port', ''),
+                            'port': c.get('local_port', ''),
+                            'bridge': c.get('bridge', ''),
+                            'internal': c.get('internal', False)
+                        })
+
+                    node_data = {
+                        node_info['name']: {
+                            'ip_addr': node_info['ip'],
+                            'sys_mac': node_info['mac'],
+                            'platform': 'veos',
+                            'user_added': True,
+                            'cluster': template_id,
+                            'neighbors': neighbors
+                        }
+                    }
+                    save_user_node(node_data, USER_NODES_PATH)
+
+                logger.info(f"Successfully created cluster: {template_id} ({len(created_nodes)} nodes)")
+
+                # Apply mutual exclusivity for EXTERNAL targets only:
+                # If an external target needs reboot for ANY reason, it should only appear
+                # in targets_need_reboot (not in targets_reused_slots)
+                ext_reused_set = set(external_targets_reused_slots)
+                ext_reboot_set = set(external_targets_need_reboot)
+                final_ext_reused = ext_reused_set - ext_reboot_set
+
+                # Combine external targets needing reboot with cluster nodes needing reboot
+                # (cluster nodes are tracked separately and always need reboot for internal connections)
+                all_need_reboot = ext_reboot_set | cluster_nodes_need_reboot
+
+                return web.json_response({
+                    'status': 'created',
+                    'cluster': template_id,
+                    'prefix': name_prefix,
+                    'nodes': created_nodes,
+                    'internal_bridges': internal_bridges,
+                    'internal_connections_failed': failed_internal_connections,
+                    'impairments_to_apply': applied_impairments,
+                    'targets_reused_slots': list(final_ext_reused),
+                    'targets_need_reboot': list(all_need_reboot)
                 })
-
-                # Add connection records with correct port info for BOTH ends
-                from_node['connections'].append({
-                    'local_port': from_port,
-                    'target_device': to_name,
-                    'target_port': to_port,
-                    'bridge': bridge_name,
-                    'internal': True
-                })
-                to_node['connections'].append({
-                    'local_port': to_port,
-                    'target_device': from_name,
-                    'target_port': from_port,
-                    'bridge': bridge_name,
-                    'internal': True
-                })
-
-                logger.info(f"  Connected: {from_name} <-> {to_name} (bridge: {bridge_name})")
 
             except Exception as e:
-                logger.error(f"Failed to create internal connection {from_name} <-> {to_name}: {e}")
-                # Continue with other connections - partial cluster is still useful
+                logger.error(f"Error creating cluster {template_id}: {e}", exc_info=True)
+                return web.json_response({'error': sanitize_error(e)}, status=500)
 
-        # PHASE 3: Apply impairments to cluster bridges if specified
-        applied_impairments = []
-        if impairments:
-            logger.info(f"Phase 3: Applying impairments to {len(internal_bridges)} internal bridges")
-
-            # Note: Impairments are applied via captureservice API
-            # We'll return the bridge names so the frontend can apply impairments
-            for bridge_info in internal_bridges:
-                applied_impairments.append({
-                    'bridge': bridge_info['bridge'],
-                    'from': bridge_info['from'],
-                    'to': bridge_info['to'],
-                    'impairments': impairments
-                })
-
-        # Save all nodes to persistence
-        for node_info in created_nodes:
-            neighbors = []
-            for c in node_info['connections']:
-                neighbors.append({
-                    'neighborDevice': c.get('target_device', ''),
-                    'neighborPort': c.get('target_port', ''),
-                    'port': c.get('local_port', ''),
-                    'bridge': c.get('bridge', ''),
-                    'internal': c.get('internal', False)
-                })
-
-            node_data = {
-                node_info['name']: {
-                    'ip_addr': node_info['ip'],
-                    'sys_mac': node_info['mac'],
-                    'platform': 'veos',
-                    'user_added': True,
-                    'cluster': template_id,
-                    'neighbors': neighbors
-                }
-            }
-            save_user_node(node_data, USER_NODES_PATH)
-
-        logger.info(f"Successfully created cluster: {template_id} ({len(created_nodes)} nodes)")
-
-        # Apply mutual exclusivity: if a device needs reboot for ANY reason,
-        # it should only appear in targets_need_reboot (not in targets_reused_slots)
-        targets_reused_slots_set = set(all_targets_reused_slots)
-        targets_need_reboot_set = set(all_targets_need_reboot)
-        final_reused_slots = targets_reused_slots_set - targets_need_reboot_set
-
-        return web.json_response({
-            'status': 'created',
-            'cluster': template_id,
-            'prefix': name_prefix,
-            'nodes': created_nodes,
-            'internal_bridges': internal_bridges,
-            'impairments_to_apply': applied_impairments,
-            'targets_reused_slots': list(final_reused_slots),
-            'targets_need_reboot': list(targets_need_reboot_set)
-        })
-
-    except Exception as e:
-        logger.error(f"Error creating cluster {template_id}: {e}", exc_info=True)
-        return web.json_response({'error': sanitize_error(e)}, status=500)
+    except TimeoutError as e:
+        logger.warning(f"Concurrent cluster creation in progress, request queued timeout: {e}")
+        return web.json_response({'error': 'Server busy with another cluster creation, please retry'}, status=503)
 
 
 @routes.post('/save-config')
@@ -1294,7 +1334,7 @@ async def reboot_devices(request):
                 ['virsh', 'reboot', device],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
 
             if result.returncode != 0:
@@ -1945,7 +1985,7 @@ async def bridge_status(request):
             ['ovs-vsctl', 'list-br'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -1962,7 +2002,7 @@ async def bridge_status(request):
                 ['ovs-vsctl', 'list-ports', bridge],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=SUBPROCESS_TIMEOUT_SHORT
             )
 
             ports = []

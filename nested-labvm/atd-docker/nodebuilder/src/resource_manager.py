@@ -24,7 +24,12 @@ from interface_manager import (
     generate_bridge_name,
     get_vm_interfaces
 )
-from config import LIBVIRT_IMAGES_PATH
+from config import (
+    LIBVIRT_IMAGES_PATH,
+    SUBPROCESS_TIMEOUT_SHORT,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    SUBPROCESS_TIMEOUT_LONG
+)
 
 logger = logging.getLogger('nodebuilder')
 
@@ -61,7 +66,7 @@ class ResourceManager:
             ['virsh', 'destroy', vm_name],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
 
         if result.returncode != 0:
@@ -92,7 +97,7 @@ class ResourceManager:
             ['virsh', 'undefine', vm_name],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
 
         if result.returncode != 0:
@@ -110,7 +115,7 @@ class ResourceManager:
                 ['virsh', 'dominfo', vm_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
             return result.returncode == 0
         except Exception:
@@ -123,7 +128,7 @@ class ResourceManager:
                 ['virsh', 'domstate', vm_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
             if result.returncode != 0:
                 return 'unknown'
@@ -668,7 +673,7 @@ class ResourceManager:
                 ['ovs-vsctl', 'list-br'],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
 
             if result.returncode != 0:
@@ -811,7 +816,7 @@ class ResourceManager:
                 ['ovs-vsctl', 'list-ports', bridge_name],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=SUBPROCESS_TIMEOUT_SHORT
             )
 
             if result.returncode != 0:
@@ -859,7 +864,7 @@ class ResourceManager:
                 ['ovs-vsctl', 'list-br'],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
 
             if result.returncode != 0:
@@ -1067,7 +1072,7 @@ class ResourceManager:
             proc = subprocess.run(
                 ['virsh', 'destroy', vm_name],
                 capture_output=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
             result['vm_destroyed'] = proc.returncode == 0
         except Exception as e:
@@ -1079,7 +1084,7 @@ class ResourceManager:
                 ['virsh', 'undefine', vm_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
             result['vm_undefined'] = proc.returncode == 0
             if proc.returncode != 0:
@@ -1184,7 +1189,7 @@ class ResourceManager:
                 ['virsh', 'list', '--all', '--name'],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
             vm_names = [name.strip() for name in result.stdout.split('\n') if name.strip()]
         except Exception as e:
@@ -1294,7 +1299,7 @@ class ResourceManager:
                     ['ovs-vsctl', 'list-br'],
                     capture_output=True,
                     text=True,
-                    timeout=30
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
                 )
                 if result.returncode == 0:
                     bridges = [b.strip() for b in result.stdout.split('\n') if b.strip()]

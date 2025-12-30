@@ -25,7 +25,9 @@ from config import (
     MGMT_BRIDGE,
     CLOUD_INIT_TEMPLATES_PATH,
     USER_FIREWALLS_PATH,
-    get_device_credentials
+    get_device_credentials,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    SUBPROCESS_TIMEOUT_LONG
 )
 from interface_manager import (
     create_ovs_bridge,
@@ -199,7 +201,7 @@ local-hostname: {hostname}
                      '-joliet', '-rock', temp_dir],
                     capture_output=True,
                     text=True,
-                    timeout=30
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
                 )
                 if result.returncode == 0:
                     logger.info(f"Created VyOS cloud-init ISO: {iso_path}")
@@ -481,7 +483,7 @@ def create_firewall(
             ['virsh', 'define', xml_path],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to define VM: {result.stderr}")
@@ -493,97 +495,49 @@ def create_firewall(
             ['virsh', 'start', name],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to start VM: {result.stderr}")
 
         # Step 8: Attach interfaces to target VMs
-        # Check for orphaned slots that can be reused (live updates, no reboot needed)
+        # Use shared slot reuse logic to check for orphaned slots
+        from slot_reuse import attach_interface_with_slot_reuse, apply_mutual_exclusivity
+
         targets_reused_slots = []
         targets_need_reboot = []
 
-        # Helper to check and use orphaned slot or attach new interface
-        def attach_with_orphan_check(conn, interface_name):
-            """Check for orphaned slot and reuse, or attach new interface."""
-            if not conn:
-                return
-
-            target_device = conn['target_device']
-            target_port = conn['target_port']
-            bridge_name = conn['bridge']
-
-            # Check for orphaned slot to reuse
-            orphaned_slot = None
-            try:
-                from config import ENABLE_SLOT_PRESERVATION
-                from orphaned_interfaces import get_orphaned_slot_by_port, claim_orphaned_slot
-                if ENABLE_SLOT_PRESERVATION:
-                    port_num = extract_port_number(target_port)
-                    orphaned_slot = get_orphaned_slot_by_port(target_device, port_num)
-                    if orphaned_slot:
-                        logger.debug(
-                            f"Found orphaned slot for {target_device}:{target_port} "
-                            f"(MAC {orphaned_slot.get('mac_address')})"
-                        )
-            except Exception as e:
-                logger.warning(f"Error checking orphaned slots for {target_device}: {e}")
-                orphaned_slot = None
-
-            if orphaned_slot:
-                # Reuse existing interface by updating the bridge connection
-                logger.info(
-                    f"Reusing orphaned slot on {target_device} for {interface_name} "
-                    f"(bridge {bridge_name})"
-                )
-                try:
-                    result = update_interface_bridge(
-                        target_device,
-                        orphaned_slot['mac_address'],
-                        bridge_name
-                    )
-                    if result.get('status') == 'updated':
-                        claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
-                        conn['reused_orphaned_slot'] = True
-                        targets_reused_slots.append(target_device)
-                        logger.info(
-                            f"Successfully reused orphaned slot on {target_device} - "
-                            f"no reboot needed"
-                        )
-                    else:
-                        # Fallback to attach
-                        logger.warning(
-                            f"Failed to update bridge on {target_device}, falling back to attach"
-                        )
-                        attach_interface_to_vm(target_device, bridge_name)
-                        conn['reused_orphaned_slot'] = False
-                        targets_need_reboot.append(target_device)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to reuse orphaned slot on {target_device}: {e}, "
-                        f"falling back to attach"
-                    )
-                    attach_interface_to_vm(target_device, bridge_name)
-                    conn['reused_orphaned_slot'] = False
-                    targets_need_reboot.append(target_device)
-            else:
-                # No orphaned slot - attach new interface
-                logger.info(f"Attaching new {interface_name} to {target_device}")
-                attach_interface_to_vm(target_device, bridge_name)
-                conn['reused_orphaned_slot'] = False
-                targets_need_reboot.append(target_device)
-
         # Attach inside interface
-        attach_with_orphan_check(inside_conn, 'inside interface')
+        if inside_conn:
+            result = attach_interface_with_slot_reuse(
+                target_device=inside_conn['target_device'],
+                target_port=inside_conn['target_port'],
+                bridge_name=inside_conn['bridge'],
+                connection_dict=inside_conn
+            )
+            if result.reused_slot:
+                targets_reused_slots.append(result.target_device)
+            else:
+                targets_need_reboot.append(result.target_device)
 
         # Attach outside interface
-        attach_with_orphan_check(outside_conn, 'outside interface')
+        if outside_conn:
+            result = attach_interface_with_slot_reuse(
+                target_device=outside_conn['target_device'],
+                target_port=outside_conn['target_port'],
+                bridge_name=outside_conn['bridge'],
+                connection_dict=outside_conn
+            )
+            if result.reused_slot:
+                targets_reused_slots.append(result.target_device)
+            else:
+                targets_need_reboot.append(result.target_device)
 
-        # Ensure mutual exclusivity: if a device needs reboot for ANY interface,
+        # Apply mutual exclusivity: if a device needs reboot for ANY interface,
         # it should only appear in targets_need_reboot
-        targets_reused_slots_set = set(targets_reused_slots)
-        targets_need_reboot_set = set(targets_need_reboot)
-        final_reused_slots = targets_reused_slots_set - targets_need_reboot_set
+        final_reused_slots, final_need_reboot = apply_mutual_exclusivity(
+            targets_reused_slots, targets_need_reboot
+        )
 
         # Clean up temp XML file
         if os.path.exists(xml_path):
@@ -597,8 +551,8 @@ def create_firewall(
             'mgmt_ip': mgmt_ip,
             'inside_interface': inside_conn,
             'outside_interface': outside_conn,
-            'targets_reused_slots': list(final_reused_slots),
-            'targets_need_reboot': list(targets_need_reboot_set)
+            'targets_reused_slots': final_reused_slots,
+            'targets_need_reboot': final_need_reboot
         }
 
     except Exception as e:
@@ -610,9 +564,9 @@ def create_firewall(
             try:
                 if resource_type == 'vm':
                     subprocess.run(['virsh', 'destroy', resource_id],
-                                   capture_output=True, timeout=30)
+                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
                     subprocess.run(['virsh', 'undefine', resource_id],
-                                   capture_output=True, timeout=30)
+                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
                 elif resource_type == 'image':
                     if os.path.exists(resource_id):
                         os.remove(resource_id)
@@ -776,7 +730,7 @@ def edit_firewall(
     # Reboot VM to apply changes
     try:
         subprocess.run(['virsh', 'reboot', name],
-                       capture_output=True, timeout=30)
+                       capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
     except Exception as e:
         logger.warning(f"Failed to reboot firewall: {e}")
 

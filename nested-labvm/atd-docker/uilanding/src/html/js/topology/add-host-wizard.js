@@ -718,10 +718,16 @@ class AddHostWizard {
             this.logMessage(log, `VM: ${result.host?.name || this.hostConfig.name}`);
             this.logMessage(log, `IP: ${result.host?.mgmt_ip || this.hostConfig.ip}`);
 
-            // Get target device that needs rebooting (if connection was configured)
-            const rebootTargets = this.hostConfig.connection?.target_device
-                ? [this.hostConfig.connection.target_device]
-                : [];
+            // Use API-provided reboot info (accounts for orphaned slot reuse)
+            // targets_need_reboot: devices that need reboot (new interface attached)
+            // targets_reused_slots: devices that reused orphaned slots (no reboot needed)
+            const rebootTargets = result.targets_need_reboot || [];
+            const reusedSlots = result.targets_reused_slots || [];
+
+            // Log slot reuse optimization if applicable
+            if (reusedSlots.length > 0) {
+                this.logMessage(log, `Optimized: ${reusedSlots.join(', ')} reused existing interface slots (no reboot needed)`, 'success');
+            }
 
             // Store result for later use
             this.createdHost = result.host || { name: this.hostConfig.name, ip: this.hostConfig.ip };

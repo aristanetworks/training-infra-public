@@ -244,7 +244,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_bridge_running_vm(self):
         """Test updating bridge on a running VM."""
-        with patch('interface_manager.get_vm_state', return_value='running'):
+        with patch('vm_manager.get_vm_state', return_value='running'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 # Mock existing interface
                 mock_interfaces.return_value = [
@@ -280,7 +280,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_bridge_stopped_vm(self):
         """Test updating bridge on a stopped VM."""
-        with patch('interface_manager.get_vm_state', return_value='shut off'):
+        with patch('vm_manager.get_vm_state', return_value='shut off'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 mock_interfaces.return_value = [
                     {
@@ -310,7 +310,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_bridge_mac_not_found(self):
         """Test error when MAC address not found on VM."""
-        with patch('interface_manager.get_vm_state', return_value='running'):
+        with patch('vm_manager.get_vm_state', return_value='running'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 # No matching MAC
                 mock_interfaces.return_value = [
@@ -334,7 +334,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_bridge_case_insensitive_mac(self):
         """Test that MAC address matching is case-insensitive."""
-        with patch('interface_manager.get_vm_state', return_value='shut off'):
+        with patch('vm_manager.get_vm_state', return_value='shut off'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 mock_interfaces.return_value = [
                     {
@@ -364,7 +364,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_bridge_virsh_failure(self):
         """Test error handling when virsh update-device fails."""
-        with patch('interface_manager.get_vm_state', return_value='running'):
+        with patch('vm_manager.get_vm_state', return_value='running'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 mock_interfaces.return_value = [
                     {
@@ -394,7 +394,7 @@ class TestUpdateInterfaceBridge:
 
     def test_update_interface_uses_correct_virsh_command(self):
         """Test that correct virsh command is used."""
-        with patch('interface_manager.get_vm_state', return_value='running'):
+        with patch('vm_manager.get_vm_state', return_value='running'):
             with patch('interface_manager.get_vm_interfaces') as mock_interfaces:
                 mock_interfaces.return_value = [
                     {

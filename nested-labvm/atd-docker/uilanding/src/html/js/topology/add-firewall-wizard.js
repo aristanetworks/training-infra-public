@@ -589,16 +589,33 @@ class AddFirewallWizard {
      * Step 4: Outside Interface Configuration
      */
     renderOutsideInterfaceStep(content) {
-        // Filter out device already used for inside interface
+        // Allow same device for inside and outside (different ports)
         const insideDevice = this.firewallConfig.inside_interface.target_device;
-        const availableDevices = this.targetDevices.filter(d => d.name !== insideDevice);
+        const insidePort = this.firewallConfig.inside_interface.target_port;
 
-        const deviceOptions = availableDevices.map(device => `
-            <option value="${this.escapeHtml(device.name)}"
-                    data-next-port="${this.escapeHtml(device.next_available_port)}">
-                ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
-            </option>
-        `).join('');
+        // Calculate the next available port for each device
+        // If device is already used for inside interface, calculate port after that
+        const deviceOptions = this.targetDevices.map(device => {
+            let nextPort = device.next_available_port;
+            let portNote = `next: ${device.next_available_port}`;
+
+            // If this device is used for inside interface, calculate the NEXT port after inside
+            if (device.name === insideDevice && insidePort) {
+                const insidePortNum = parseInt(insidePort.replace(/\D/g, ''), 10);
+                if (!isNaN(insidePortNum)) {
+                    nextPort = `Ethernet${insidePortNum + 1}`;
+                    portNote = `next: ${nextPort} (after inside)`;
+                }
+            }
+
+            return `
+                <option value="${this.escapeHtml(device.name)}"
+                        data-next-port="${this.escapeHtml(nextPort)}"
+                        data-is-inside-device="${device.name === insideDevice}">
+                    ${this.escapeHtml(device.name)} (${portNote})
+                </option>
+            `;
+        }).join('');
 
         content.innerHTML = `
             <div class="wizard-step wizard-step-interface">
@@ -620,7 +637,7 @@ class AddFirewallWizard {
                         <option value="">Select a switch...</option>
                         ${deviceOptions}
                     </select>
-                    ${insideDevice ? `<p class="field-hint">${this.escapeHtml(insideDevice)} is already used for inside interface</p>` : ''}
+                    <p class="field-hint" id="outside-device-hint">You can use the same device as inside interface (different ports will be used)</p>
                 </div>
 
                 <div class="form-group">
@@ -887,11 +904,16 @@ class AddFirewallWizard {
             this.logMessage(log, `VM: ${result.firewall?.name || this.firewallConfig.name}`);
             this.logMessage(log, `Mgmt IP: ${result.firewall?.mgmt_ip || this.firewallConfig.mgmt_ip}`);
 
-            // Get unique target devices that need rebooting (inside and outside interfaces)
-            const rebootTargets = [...new Set([
-                this.firewallConfig.inside_interface?.target_device,
-                this.firewallConfig.outside_interface?.target_device
-            ].filter(Boolean))];
+            // Use API-provided reboot info (accounts for orphaned slot reuse)
+            // targets_need_reboot: devices that need reboot (new interface attached)
+            // targets_reused_slots: devices that reused orphaned slots (no reboot needed)
+            const rebootTargets = result.targets_need_reboot || [];
+            const reusedSlots = result.targets_reused_slots || [];
+
+            // Log slot reuse optimization if applicable
+            if (reusedSlots.length > 0) {
+                this.logMessage(log, `Optimized: ${reusedSlots.join(', ')} reused existing interface slots (no reboot needed)`, 'success');
+            }
 
             // Store result for later use
             this.createdFirewall = result.firewall || { name: this.firewallConfig.name, mgmt_ip: this.firewallConfig.mgmt_ip };

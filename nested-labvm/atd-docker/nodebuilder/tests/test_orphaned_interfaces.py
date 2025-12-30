@@ -426,7 +426,7 @@ class TestValidation:
 
     def test_validate_with_mocked_virsh(self, populated_orphaned_file):
         """Test validation with mocked virsh commands."""
-        with patch('orphaned_interfaces.subprocess.run') as mock_run:
+        with patch('subprocess.run') as mock_run:
             # Mock successful virsh dominfo
             mock_run.return_value = Mock(
                 returncode=0,
@@ -443,7 +443,7 @@ class TestValidation:
 
     def test_validate_detects_missing_device(self, populated_orphaned_file):
         """Test validation detects when device doesn't exist."""
-        with patch('orphaned_interfaces.subprocess.run') as mock_run:
+        with patch('subprocess.run') as mock_run:
             # Mock failed virsh dominfo (device not found)
             mock_run.return_value = Mock(
                 returncode=1,

@@ -30,7 +30,9 @@ from config import (
     VEOS_BASE_IMAGE_PATH,
     MGMT_BRIDGE,
     VEOS_CPU,
-    VEOS_RAM_MB
+    VEOS_RAM_MB,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    SUBPROCESS_TIMEOUT_LONG
 )
 
 logger = logging.getLogger('nodebuilder')
@@ -124,12 +126,12 @@ class NodeCreationTransaction:
                     # Destroy running VM
                     subprocess.run(
                         ['virsh', 'destroy', resource_id],
-                        capture_output=True, timeout=30
+                        capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT
                     )
                     # Undefine VM
                     subprocess.run(
                         ['virsh', 'undefine', resource_id],
-                        capture_output=True, timeout=30
+                        capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT
                     )
 
                 elif resource_type == 'image':
@@ -288,7 +290,7 @@ def define_vm(xml_path: str) -> Dict:
         ['virsh', 'define', xml_path],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=SUBPROCESS_TIMEOUT_LONG
     )
 
     if result.returncode != 0:
@@ -311,7 +313,7 @@ def start_vm(vm_name: str) -> Dict:
         ['virsh', 'start', vm_name],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=SUBPROCESS_TIMEOUT_LONG
     )
 
     if result.returncode != 0:
@@ -334,7 +336,7 @@ def autostart_vm(vm_name: str) -> Dict:
         ['virsh', 'autostart', vm_name],
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=SUBPROCESS_TIMEOUT_DEFAULT
     )
 
     if result.returncode != 0:
@@ -357,7 +359,7 @@ def destroy_vm(vm_name: str) -> Dict:
         ['virsh', 'destroy', vm_name],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=SUBPROCESS_TIMEOUT_LONG
     )
 
     # Don't fail if VM is not running
@@ -378,7 +380,7 @@ def undefine_vm(vm_name: str) -> Dict:
         ['virsh', 'undefine', vm_name],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=SUBPROCESS_TIMEOUT_LONG
     )
 
     if result.returncode != 0:
@@ -480,87 +482,15 @@ def create_veos_node(
         # button in the UI which calls the /restore-user-nodes endpoint.
 
         # Step 6: Attach interfaces to target VMs
-        # Check for orphaned slots that can be reused (live updates, no reboot needed)
-        targets_reused_slots = []
-        targets_need_reboot = []
+        # Use shared slot reuse logic to check for orphaned slots that can be reused
+        from slot_reuse import (
+            process_connections_with_slot_reuse,
+            apply_mutual_exclusivity
+        )
 
-        try:
-            from config import ENABLE_SLOT_PRESERVATION
-            from orphaned_interfaces import get_orphaned_slot_by_port, claim_orphaned_slot
-            slot_preservation_enabled = ENABLE_SLOT_PRESERVATION
-        except ImportError:
-            slot_preservation_enabled = False
-
-        for conn in processed_connections:
-            target_device = conn['target_device']
-            target_port = conn['target_port']
-            bridge_name = conn['bridge']
-
-            # Check if we can reuse an orphaned slot for this target port
-            orphaned_slot = None
-            if slot_preservation_enabled:
-                try:
-                    port_num = extract_port_number(target_port)
-                    orphaned_slot = get_orphaned_slot_by_port(target_device, port_num)
-                    if orphaned_slot:
-                        logger.debug(
-                            f"Found orphaned slot for {target_device}:{target_port} "
-                            f"(slot {orphaned_slot.get('slot_number')}, MAC {orphaned_slot.get('mac_address')})"
-                        )
-                except Exception as e:
-                    logger.warning(
-                        f"Error checking orphaned slots for {target_device}:{target_port}: {e}"
-                    )
-                    orphaned_slot = None
-
-            if orphaned_slot:
-                # Reuse existing interface by updating the bridge connection (live update)
-                logger.info(
-                    f"Reusing orphaned slot {orphaned_slot['slot_number']} on "
-                    f"{target_device} for bridge {bridge_name}"
-                )
-                try:
-                    # update_interface_bridge automatically detects VM state and uses
-                    # --live flag when VM is running
-                    result = update_interface_bridge(
-                        target_device,
-                        orphaned_slot['mac_address'],
-                        bridge_name
-                    )
-                    if result.get('status') == 'updated':
-                        # Claim the orphaned slot (uses MAC address as identifier)
-                        claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
-                        conn['reused_orphaned_slot'] = True
-                        targets_reused_slots.append(target_device)
-                        logger.info(
-                            f"Successfully reused orphaned slot on {target_device} - "
-                            f"no reboot needed"
-                        )
-                    else:
-                        # Fallback to attach
-                        logger.warning(
-                            f"Failed to update bridge on {target_device}, "
-                            f"falling back to attach"
-                        )
-                        attach_interface_to_vm(target_device, bridge_name)
-                        conn['reused_orphaned_slot'] = False
-                        targets_need_reboot.append(target_device)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to reuse orphaned slot on {target_device}: {e}, "
-                        f"falling back to attach"
-                    )
-                    attach_interface_to_vm(target_device, bridge_name)
-                    conn['reused_orphaned_slot'] = False
-                    targets_need_reboot.append(target_device)
-            else:
-                # No orphaned slot available - attach new interface (reboot needed)
-                logger.info(
-                    f"Attaching new interface to {target_device} on bridge {bridge_name}"
-                )
-                attach_interface_to_vm(target_device, bridge_name)
-                conn['reused_orphaned_slot'] = False
-                targets_need_reboot.append(target_device)
+        targets_reused_slots, targets_need_reboot = process_connections_with_slot_reuse(
+            processed_connections
+        )
 
         # Clean up temp XML file (not needed after define)
         if os.path.exists(xml_path):
@@ -568,12 +498,11 @@ def create_veos_node(
 
         logger.info(f"Successfully created vEOS node: {name}")
 
-        # Return reboot information so UI knows which targets need rebooting
-        # Ensure mutual exclusivity: if a device needs a reboot for ANY connection,
-        # it should only appear in targets_need_reboot, not in targets_reused_slots
-        targets_reused_slots_set = set(targets_reused_slots)
-        targets_need_reboot_set = set(targets_need_reboot)
-        final_reused_slots = targets_reused_slots_set - targets_need_reboot_set
+        # Apply mutual exclusivity: if a device needs reboot for ANY connection,
+        # it should only appear in targets_need_reboot
+        final_reused, final_reboot = apply_mutual_exclusivity(
+            targets_reused_slots, targets_need_reboot
+        )
 
         return {
             'status': 'created',
@@ -581,8 +510,8 @@ def create_veos_node(
             'ip': ip,
             'mac': mac,
             'connections': processed_connections,
-            'targets_reused_slots': list(final_reused_slots),
-            'targets_need_reboot': list(targets_need_reboot_set)
+            'targets_reused_slots': final_reused,
+            'targets_need_reboot': final_reboot
         }
 
 
@@ -601,7 +530,7 @@ def get_vm_state(vm_name: str) -> str:
             ['virsh', 'domstate', vm_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -628,7 +557,7 @@ def vm_exists(vm_name: str) -> bool:
             ['virsh', 'dominfo', vm_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
         return result.returncode == 0
 

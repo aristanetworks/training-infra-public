@@ -15,6 +15,8 @@ SERVICE_HOST = os.getenv('NODEBUILDER_HOST', '0.0.0.0')
 DNSMASQ_PATH = os.getenv('DNSMASQ_PATH', '/etc/NetworkManager/dnsmasq.d/atd.conf')
 ACCESS_INFO_PATH = os.getenv('ACCESS_INFO_PATH', '/etc/atd/ACCESS_INFO.yaml')
 USER_NODES_PATH = os.getenv('USER_NODES_PATH', '/etc/atd/user_nodes.yaml')
+USER_HOSTS_PATH = os.getenv('USER_HOSTS_PATH', '/etc/atd/user_hosts.yaml')
+USER_FIREWALLS_PATH = os.getenv('USER_FIREWALLS_PATH', '/etc/atd/user_firewalls.yaml')
 
 # Security: Pattern for valid topology names (prevents path traversal)
 VALID_TOPO_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
@@ -139,7 +141,7 @@ def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
         )
         if result.returncode == 0 and os.path.exists(local_path):
             # Verify file isn't empty or error page
-            if os.path.getsize(local_path) > 1000000:  # > 1MB
+            if os.path.getsize(local_path) > MIN_VALID_IMAGE_SIZE_BYTES:
                 logger.info(f"Successfully downloaded {local_path}")
                 return True
             else:
@@ -222,10 +224,6 @@ def get_firewall_base_image_path(auto_download: bool = True) -> str:
 
     return FIREWALL_BASE_IMAGE_PATH
 
-
-# Persistence paths for new node types
-USER_HOSTS_PATH = os.getenv('USER_HOSTS_PATH', '/etc/atd/user_hosts.yaml')
-USER_FIREWALLS_PATH = os.getenv('USER_FIREWALLS_PATH', '/etc/atd/user_firewalls.yaml')
 
 # Orphaned interfaces persistence (for interface slot preservation)
 ORPHANED_INTERFACES_PATH = os.getenv(
@@ -350,3 +348,70 @@ def get_device_credentials() -> dict:
             'username': 'arista',
             'password': 'arista'
         }
+
+
+# =============================================================================
+# Timeout Configuration
+# =============================================================================
+# Centralized timeout values for subprocess calls and lock operations.
+# Adjust these based on system performance and network conditions.
+
+# Short timeout for quick operations (VM state checks, interface queries)
+SUBPROCESS_TIMEOUT_SHORT = 10
+
+# Default timeout for most subprocess calls (virsh commands, OVS operations)
+SUBPROCESS_TIMEOUT_DEFAULT = 30
+
+# Long timeout for operations that may take time (VM start/stop, disk operations)
+SUBPROCESS_TIMEOUT_LONG = 60
+
+# Lock acquisition timeouts
+CREATION_LOCK_TIMEOUT = 120.0  # Lock for VM/cluster creation operations
+PORT_ALLOCATION_LOCK_TIMEOUT = 30.0  # Lock for port allocation
+
+
+# =============================================================================
+# PCI Slot Configuration
+# =============================================================================
+# PCI slots for VM interface assignments. These follow libvirt conventions.
+# Format: (slot_hex, function_hex)
+
+# USB controller slots (standard for all VMs)
+PCI_SLOT_USB_CONTROLLER = ('0x06', '0x7')
+
+# VirtIO serial controller (standard for all VMs)
+PCI_SLOT_VIRTIO_SERIAL = ('0x07', '0x0')
+
+# Management interface slot (eth0/first interface)
+PCI_SLOT_MGMT_INTERFACE = ('0x03', '0x0')
+
+# Data interface slots for Linux hosts and firewalls
+PCI_SLOT_DATA_INTERFACE_1 = ('0x04', '0x0')  # eth1 / inside interface
+PCI_SLOT_DATA_INTERFACE_2 = ('0x05', '0x0')  # eth2 / outside interface
+
+
+# =============================================================================
+# Port Number Configuration
+# =============================================================================
+# Ethernet port numbering for topology connections
+
+# Minimum port number for data interfaces (Ethernet1 is first data port)
+MIN_DATA_PORT_NUMBER = 1
+
+# Maximum port number for data interfaces (vEOS limit)
+MAX_DATA_PORT_NUMBER = 99
+
+# Starting port number for topology neighbor detection
+DEFAULT_STARTING_PORT = 1
+
+
+# =============================================================================
+# Network Configuration Defaults
+# =============================================================================
+# Default values for network simulation and configuration
+
+# Default network latency for simulated links (milliseconds)
+DEFAULT_NETWORK_LATENCY_MS = 25
+
+# Minimum file size to consider a downloaded image valid (1MB)
+MIN_VALID_IMAGE_SIZE_BYTES = 1000000

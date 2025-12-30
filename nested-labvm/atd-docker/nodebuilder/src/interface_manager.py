@@ -24,7 +24,11 @@ from config import (
     USER_HOSTS_PATH,
     USER_FIREWALLS_PATH,
     MGMT_BRIDGE,
-    ENABLE_SLOT_PRESERVATION
+    ENABLE_SLOT_PRESERVATION,
+    SUBPROCESS_TIMEOUT_DEFAULT,
+    SUBPROCESS_TIMEOUT_LONG,
+    CREATION_LOCK_TIMEOUT,
+    PORT_ALLOCATION_LOCK_TIMEOUT
 )
 
 
@@ -120,7 +124,7 @@ def get_vm_interfaces(vm_name: str) -> List[Dict]:
             ['virsh', 'domiflist', vm_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -168,7 +172,7 @@ def get_used_ports_from_live_vm(device_name: str) -> List[int]:
             ['virsh', 'domiflist', device_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -392,7 +396,7 @@ _CREATION_LOCK_FILE = '/tmp/nodebuilder_creation.lock'
 
 
 @contextmanager
-def creation_lock(operation_name: str = 'create', timeout: float = 120.0):
+def creation_lock(operation_name: str = 'create', timeout: float = CREATION_LOCK_TIMEOUT):
     """
     Context manager for serializing VM/resource creation operations.
 
@@ -450,7 +454,7 @@ def creation_lock(operation_name: str = 'create', timeout: float = 120.0):
 
 
 @contextmanager
-def port_allocation_lock(device_name: str, timeout: float = 30.0):
+def port_allocation_lock(device_name: str, timeout: float = PORT_ALLOCATION_LOCK_TIMEOUT):
     """
     Context manager for thread-safe and process-safe port allocation.
 
@@ -659,7 +663,7 @@ def create_ovs_bridge(bridge_name: str) -> Dict:
         result = subprocess.run(
             ['ovs-vsctl', 'br-exists', bridge_name],
             capture_output=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode == 0:
@@ -671,7 +675,7 @@ def create_ovs_bridge(bridge_name: str) -> Dict:
             ['ovs-vsctl', 'add-br', bridge_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -682,7 +686,7 @@ def create_ovs_bridge(bridge_name: str) -> Dict:
             ['ovs-vsctl', 'set', 'bridge', bridge_name, 'other-config:forward-bpdu=true'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -693,7 +697,7 @@ def create_ovs_bridge(bridge_name: str) -> Dict:
             ['ip', 'link', 'set', bridge_name, 'up'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         return {'status': 'created', 'bridge': bridge_name}
@@ -719,7 +723,7 @@ def delete_ovs_bridge(bridge_name: str) -> Dict:
             ['ovs-vsctl', 'del-br', bridge_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
@@ -790,7 +794,7 @@ def attach_interface_to_vm(
             cmd,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
 
         if result.returncode != 0:
@@ -804,7 +808,7 @@ def attach_interface_to_vm(
                 ['virsh', 'domiflist', vm_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
 
             if domiflist_result.returncode == 0:
@@ -826,7 +830,7 @@ def attach_interface_to_vm(
                                 ['ovs-vsctl', 'add-port', bridge_name, vnet_interface],
                                 capture_output=True,
                                 text=True,
-                                timeout=30
+                                timeout=SUBPROCESS_TIMEOUT_DEFAULT
                             )
                             if add_result.returncode != 0:
                                 # This is a critical failure - interface attached but not in OVS
@@ -893,7 +897,7 @@ def detach_interface_from_vm(
             cmd,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
 
         if result.returncode != 0:
@@ -1005,7 +1009,7 @@ def update_interface_bridge(
             cmd,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=SUBPROCESS_TIMEOUT_LONG
         )
 
         if result.returncode != 0:
@@ -1019,7 +1023,7 @@ def update_interface_bridge(
                 ['virsh', 'domiflist', vm_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
             )
 
             if domiflist_result.returncode == 0:
@@ -1049,7 +1053,7 @@ def update_interface_bridge(
                                 subprocess.run(
                                     ['ovs-vsctl', 'del-port', current_bridge, vnet_interface],
                                     capture_output=True,
-                                    timeout=30
+                                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
                                 )
 
                             # Add to new bridge if not already there
@@ -1061,7 +1065,7 @@ def update_interface_bridge(
                                     ['ovs-vsctl', 'add-port', new_bridge, vnet_interface],
                                     capture_output=True,
                                     text=True,
-                                    timeout=30
+                                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
                                 )
                                 if add_result.returncode != 0:
                                     raise RuntimeError(
@@ -1106,7 +1110,7 @@ def list_ovs_bridges() -> List[str]:
             ['ovs-vsctl', 'list-br'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
         )
 
         if result.returncode != 0:
