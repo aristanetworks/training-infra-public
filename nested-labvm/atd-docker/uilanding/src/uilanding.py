@@ -2835,37 +2835,54 @@ class CaptureBridgesAPIHandler(BaseHandler):
                         short_code = self.get_short_code(device_name)
                         device_lookup[short_code] = device_name
 
-        # Also include user-added nodes from user_nodes.yaml
-        user_nodes_path = '/etc/atd/user_nodes.yaml'
-        try:
-            if os.path.exists(user_nodes_path):
-                with open(user_nodes_path, 'r') as f:
-                    user_data = YAML().load(f)
-                if user_data and 'nodes' in user_data and user_data['nodes']:
-                    for node_entry in user_data['nodes']:
-                        if isinstance(node_entry, dict):
-                            for device_name in node_entry.keys():
-                                short_code = self.get_short_code(device_name)
-                                device_lookup[short_code] = device_name
-        except Exception as e:
-            pS(f"Warning: Error loading user_nodes.yaml for bridge enrichment: {e}")
+        # Also include user-added devices from persistence files
+        user_files = [
+            ('/etc/atd/user_nodes.yaml', 'nodes'),
+            ('/etc/atd/user_hosts.yaml', 'hosts'),
+            ('/etc/atd/user_firewalls.yaml', 'firewalls'),
+        ]
+        for user_file_path, key in user_files:
+            try:
+                if os.path.exists(user_file_path):
+                    with open(user_file_path, 'r') as f:
+                        user_data = YAML().load(f)
+                    if user_data and key in user_data and user_data[key]:
+                        for entry in user_data[key]:
+                            if isinstance(entry, dict):
+                                for device_name in entry.keys():
+                                    short_code = self.get_short_code(device_name)
+                                    device_lookup[short_code] = device_name
+            except Exception as e:
+                pS(f"Warning: Error loading {user_file_path} for bridge enrichment: {e}")
 
         # Enrich each bridge
         for bridge in bridges:
-            src_code = bridge.get('source_device', '')
-            tgt_code = bridge.get('target_device', '')
+            src_code = bridge.get('source_device', '').lower()
+            tgt_code = bridge.get('target_device', '').lower()
 
             if src_code in device_lookup:
                 bridge['source_device_name'] = device_lookup[src_code]
             if tgt_code in device_lookup:
                 bridge['target_device_name'] = device_lookup[tgt_code]
 
-            # Convert port codes to full names (Et1 -> Ethernet1)
-            if bridge.get('source_port', '').startswith('Et'):
-                port_num = bridge['source_port'][2:]
+            # Convert port codes to full names
+            # - Et1/et1 -> Ethernet1 (EOS switches)
+            # - eth1 stays as eth1 (Linux hosts/firewalls)
+            src_port = bridge.get('source_port', '')
+            tgt_port = bridge.get('target_port', '')
+
+            if src_port.lower().startswith('eth'):
+                # Linux host interface - keep as-is
+                bridge['source_port_name'] = src_port
+            elif src_port.lower().startswith('et'):
+                # EOS Ethernet port
+                port_num = src_port[2:]
                 bridge['source_port_name'] = f'Ethernet{port_num}'
-            if bridge.get('target_port', '').startswith('Et'):
-                port_num = bridge['target_port'][2:]
+
+            if tgt_port.lower().startswith('eth'):
+                bridge['target_port_name'] = tgt_port
+            elif tgt_port.lower().startswith('et'):
+                port_num = tgt_port[2:]
                 bridge['target_port_name'] = f'Ethernet{port_num}'
 
         return bridges

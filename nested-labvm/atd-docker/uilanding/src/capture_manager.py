@@ -469,7 +469,12 @@ class CaptureManager:
         Parse OVS bridge name to extract device and port info.
 
         Bridge naming convention: {dev1-short}{port1}-{dev2-short}{port2}
-        Example: sp1Et1-le1Et1 -> spine1:Ethernet1 <-> leaf1:Ethernet1
+        Examples:
+          sp1et1-le1et1 -> spine1:Ethernet1 <-> leaf1:Ethernet1
+          client1eth1-sp4et9 -> client1:eth1 <-> spine4:Ethernet9
+          fw1eth1-le1et5 -> fw1:eth1 <-> leaf1:Ethernet5
+
+        Supports both uppercase and lowercase port prefixes (Et, et, eth).
         """
         result = {
             "source_device": "",
@@ -484,27 +489,48 @@ class CaptureManager:
         try:
             parts = bridge_name.split('-')
             if len(parts) == 2:
-                # Parse source (e.g., "sp1Et1" -> device="sp1", port="Et1")
                 src = parts[0]
                 tgt = parts[1]
 
-                # Find where letters end and Ethernet starts
-                for i, char in enumerate(src):
-                    if char == 'E' and i > 0:
-                        result["source_device"] = src[:i]
-                        result["source_port"] = src[i:]
-                        break
+                # Parse each part to find device/port boundary
+                # Look for port prefixes: 'et', 'Et', 'eth' (case-insensitive)
+                src_device, src_port = self._split_device_port(src)
+                tgt_device, tgt_port = self._split_device_port(tgt)
 
-                for i, char in enumerate(tgt):
-                    if char == 'E' and i > 0:
-                        result["target_device"] = tgt[:i]
-                        result["target_port"] = tgt[i:]
-                        break
+                result["source_device"] = src_device
+                result["source_port"] = src_port
+                result["target_device"] = tgt_device
+                result["target_port"] = tgt_port
 
         except Exception:
             pass
 
         return result
+
+    def _split_device_port(self, part: str) -> tuple:
+        """
+        Split a device+port string into (device, port).
+
+        Looks for port prefixes 'eth' or 'et' (case-insensitive).
+        Examples:
+          'sp1et1' -> ('sp1', 'et1')
+          'client1eth1' -> ('client1', 'eth1')
+          'le1Et5' -> ('le1', 'Et5')
+        """
+        lower = part.lower()
+
+        # Look for 'eth' first (longer prefix, for Linux hosts)
+        eth_idx = lower.find('eth')
+        if eth_idx > 0:
+            return part[:eth_idx], part[eth_idx:]
+
+        # Then look for 'et' (for Ethernet)
+        et_idx = lower.find('et')
+        if et_idx > 0:
+            return part[:et_idx], part[et_idx:]
+
+        # No port prefix found - return empty port
+        return part, ""
 
     def _is_bridge_capturing(self, bridge_name: str) -> bool:
         """Check if a bridge currently has an active capture."""

@@ -299,6 +299,8 @@ services:
       - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
       # noVNC token directory shared with novnc container for WebSocket auth
       - /tmp/novnc:/tmp/novnc:rw
+      # GCP credentials for gsutil to download base images from bucket
+      - /root/.config/gcloud:/root/.config/gcloud:ro
       # Note: Cloud-init templates are built into the Docker image
       # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:

@@ -117,12 +117,22 @@ def get_firewall_count() -> int:
     """
     Get the current count of user-added VyOS firewalls.
 
+    Only counts firewalls with 'created' status, not pending 'creating' entries.
+
     Returns:
         Number of firewalls currently defined
     """
     from persistence import load_user_firewalls
     firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
-    return len(firewalls_data.get('firewalls', []))
+    firewalls = firewalls_data.get('firewalls', [])
+    # Exclude 'creating' status entries (pending creations)
+    count = 0
+    for fw in firewalls:
+        if isinstance(fw, dict):
+            for fw_info in fw.values():
+                if isinstance(fw_info, dict) and fw_info.get('status') != 'creating':
+                    count += 1
+    return count
 
 
 def generate_vyos_cloud_init(

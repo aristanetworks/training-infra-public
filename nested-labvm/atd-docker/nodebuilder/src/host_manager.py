@@ -119,12 +119,22 @@ def get_host_count() -> int:
     """
     Get the current count of user-added Linux hosts.
 
+    Only counts hosts with 'created' status, not pending 'creating' entries.
+
     Returns:
         Number of hosts currently defined
     """
     from persistence import load_user_hosts
     hosts_data = load_user_hosts(USER_HOSTS_PATH)
-    return len(hosts_data.get('hosts', []))
+    hosts = hosts_data.get('hosts', [])
+    # Exclude 'creating' status entries (pending creations)
+    count = 0
+    for host in hosts:
+        if isinstance(host, dict):
+            for host_info in host.values():
+                if isinstance(host_info, dict) and host_info.get('status') != 'creating':
+                    count += 1
+    return count
 
 
 def generate_cloud_init_iso(
@@ -269,7 +279,31 @@ local-hostname: {hostname}
         # Write network-config (version 2 netplan format)
         # This is processed by cloud-init early, before package installation
         # Ubuntu uses predictable interface names: ens3, ens4 for virtio NICs
-        network_config = f"""version: 2
+        if data_ip:
+            # Include data interface IP if provided
+            network_config = f"""version: 2
+ethernets:
+  ens3:
+    addresses:
+      - {mgmt_ip}/24
+    routes:
+      - to: default
+        via: {gateway}
+    nameservers:
+      addresses:
+        - 8.8.8.8
+        - {gateway}
+  ens4:
+    addresses:
+      - {data_ip}
+    dhcp4: false
+    optional: true
+    link-local: []
+"""
+            logger.info(f"Generated network-config for {hostname} with mgmt IP {mgmt_ip} and data IP {data_ip}")
+        else:
+            # No data IP - user configures manually
+            network_config = f"""version: 2
 ethernets:
   ens3:
     addresses:
@@ -286,9 +320,9 @@ ethernets:
     optional: true
     link-local: []
 """
+            logger.info(f"Generated network-config for {hostname} with mgmt IP {mgmt_ip} (no data IP)")
         with open(os.path.join(temp_dir, 'network-config'), 'w') as f:
             f.write(network_config)
-        logger.info(f"Generated network-config for {hostname} with IP {mgmt_ip}")
 
         # Generate ISO
         iso_path = f'{LIBVIRT_IMAGES_PATH}/hosts/{hostname}-cidata.iso'
