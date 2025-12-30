@@ -47,7 +47,13 @@ class ExamSessionGuard {
             }
         }
 
-        // Heartbeat is stale, session is dead
+        // Heartbeat is stale, session is dead - clean it up
+        // This fixes the issue where second exam attempts are blocked by stale sessions
+        console.log('Stale exam session detected, cleaning up localStorage...');
+        localStorage.removeItem(this.STORAGE_KEY);
+        localStorage.removeItem(this.SESSION_ID_KEY);
+        localStorage.removeItem(this.HEARTBEAT_KEY);
+
         return false;
     }
 

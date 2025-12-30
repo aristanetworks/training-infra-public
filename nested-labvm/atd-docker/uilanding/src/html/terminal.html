@@ -660,6 +660,41 @@
       color: var(--primary-color);
     }
 
+    /* Time Remaining Widget - matches panel-toggle styling */
+    .time-remaining-widget {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--secondary-color);
+      border-radius: 0;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .time-remaining-label {
+      color: var(--secondary-color);
+    }
+
+    .time-remaining-value {
+      color: var(--secondary-color);
+      font-family: 'Courier New', monospace;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .time-remaining-widget.warning {
+      border-color: #ff6b6b;
+    }
+
+    .time-remaining-widget.warning .time-remaining-label,
+    .time-remaining-widget.warning .time-remaining-value {
+      color: #ff6b6b;
+    }
+
     /* Side panel (shared styles for topology and labguides) */
     .side-panel {
       width: 50%;
@@ -933,6 +968,10 @@
           <!-- Tabs are inserted here dynamically -->
         </div>
         <div class="tab-bar-actions">
+          <div class="time-remaining-widget" id="timeRemainingWidget">
+            <span class="time-remaining-label">Time Remaining</span>
+            <span class="time-remaining-value" id="timeRemainingValue">--:--:--</span>
+          </div>
           <button class="split-toggle" id="splitToggle">Split View</button>
           <button class="panel-toggle" id="labguidesToggle">Lab Guides</button>
           <button class="panel-toggle" id="topoToggle">Topology</button>
@@ -1711,9 +1750,61 @@
       }
     };
 
+    // Time Remaining Timer
+    function initTimeRemaining() {
+      const timerValue = document.getElementById('timeRemainingValue');
+      const timerWidget = document.getElementById('timeRemainingWidget');
+      if (!timerValue || !timerWidget) return;
+
+      async function updateTimer() {
+        try {
+          const response = await fetch('/uptimeWithRuntime');
+          const data = await response.json();
+
+          let remainingSeconds = 0;
+          const currentTime = Math.floor(Date.now() / 1000);
+
+          if (data.exam_end_time && data.exam_end_time > 0) {
+            remainingSeconds = data.exam_end_time - currentTime;
+          } else if (data.boottime && data.runtime) {
+            const expirationTime = data.boottime + (data.runtime * 60 * 60);
+            remainingSeconds = expirationTime - currentTime;
+          }
+
+          if (remainingSeconds <= 0) {
+            timerValue.textContent = '00:00:00';
+            timerWidget.classList.add('warning');
+            return;
+          }
+
+          const hours = Math.floor(remainingSeconds / 3600);
+          const minutes = Math.floor((remainingSeconds % 3600) / 60);
+          const seconds = Math.floor(remainingSeconds % 60);
+
+          timerValue.textContent =
+            String(hours).padStart(2, '0') + ':' +
+            String(minutes).padStart(2, '0') + ':' +
+            String(seconds).padStart(2, '0');
+
+          if (remainingSeconds < 300) {
+            timerWidget.classList.add('warning');
+          } else {
+            timerWidget.classList.remove('warning');
+          }
+        } catch (error) {
+          console.error('Failed to fetch timer data:', error);
+          timerValue.textContent = '--:--:--';
+        }
+      }
+
+      updateTimer();
+      setInterval(updateTimer, 1000);
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
       TerminalManager.init();
+      initTimeRemaining();
 
       // Initialize topology when panel is opened
       await TerminalManager.initTopology();
