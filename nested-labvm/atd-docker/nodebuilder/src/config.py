@@ -75,7 +75,11 @@ MAX_HOSTS_PER_TOPOLOGY = 2
 HOST_VNC_BASE_PORT = 5920  # VNC ports: 5920, 5921
 
 
-def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
+def download_base_image_from_gcp(
+    gcp_path: str,
+    local_path: str,
+    timeout: int = None
+) -> bool:
     """
     Download a base image from GCP bucket if it doesn't exist locally.
 
@@ -84,10 +88,13 @@ def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
     Args:
         gcp_path: Path within the GCP bucket (e.g., 'hosts/ubuntu-desktop-base.qcow2')
         local_path: Local destination path
+        timeout: Download timeout in seconds (defaults to BASE_IMAGE_DOWNLOAD_TIMEOUT)
 
     Returns:
         True if download succeeded or file already exists, False on error
     """
+    if timeout is None:
+        timeout = BASE_IMAGE_DOWNLOAD_TIMEOUT
     import subprocess
     import logging
 
@@ -113,7 +120,7 @@ def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
             ['gsutil', 'cp', gcp_url, local_path],
             capture_output=True,
             text=True,
-            timeout=BASE_IMAGE_DOWNLOAD_TIMEOUT
+            timeout=timeout
         )
         if result.returncode == 0:
             logger.info(f"Successfully downloaded {local_path}")
@@ -137,7 +144,7 @@ def download_base_image_from_gcp(gcp_path: str, local_path: str) -> bool:
         result = subprocess.run(
             ['curl', '-L', '--progress-bar', '-o', local_path, https_url],
             capture_output=False,  # Show progress bar
-            timeout=BASE_IMAGE_DOWNLOAD_TIMEOUT
+            timeout=timeout
         )
         if result.returncode == 0 and os.path.exists(local_path):
             # Verify file isn't empty or error page
@@ -363,6 +370,7 @@ GCP_VELO_ORCHESTRATOR_DISK_PATHS = [
 
 # Download timeout for base images (large files need time)
 BASE_IMAGE_DOWNLOAD_TIMEOUT = 600  # 10 minutes
+LARGE_IMAGE_DOWNLOAD_TIMEOUT = 1800  # 30 minutes for orchestrator disks (~2.5GB each)
 
 
 def log_gcp_config():
@@ -621,10 +629,13 @@ def get_velo_orchestrator_disk_paths(auto_download: bool = True) -> list:
             'file': disk['file']
         }
 
-        # Download if missing
+        # Download if missing (use longer timeout for large orchestrator disks)
         if auto_download and not os.path.exists(local_path):
             os.makedirs(base_dir, exist_ok=True)
-            download_base_image_from_gcp(gcp_path, local_path)
+            download_base_image_from_gcp(
+                gcp_path, local_path,
+                timeout=LARGE_IMAGE_DOWNLOAD_TIMEOUT
+            )
 
         disk_paths.append(disk_info)
 
