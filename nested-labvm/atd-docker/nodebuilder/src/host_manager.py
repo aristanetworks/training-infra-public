@@ -265,6 +265,7 @@ ethernets:
   ens4:
     dhcp4: false
     optional: true
+    link-local: []
 """
         with open(os.path.join(temp_dir, 'network-config'), 'w') as f:
             f.write(network_config)
