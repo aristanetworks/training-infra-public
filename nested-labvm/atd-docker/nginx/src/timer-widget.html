@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #atd-countdown-timer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 999999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 120px;
+            text-align: center;
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+
+        #atd-countdown-timer:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        #atd-countdown-timer.exam-mode {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        #atd-countdown-timer.warning {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%);
+            animation: pulse 2s infinite;
+        }
+
+        #atd-countdown-timer.expired {
+            background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        .timer-label {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timer-value {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .timer-error {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div id="atd-countdown-timer">
+        <div class="timer-label">Time Remaining</div>
+        <div class="timer-value">--:--:--</div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            const UPTIME_ENDPOINT = '/uptime';
+            const UPDATE_INTERVAL = 1000; // 1 second
+            const RETRY_DELAY = 5000; // 5 seconds on error
+            const WARNING_THRESHOLD = 300; // 5 minutes in seconds
+
+            let timerElement = document.getElementById('atd-countdown-timer');
+            let timerValue = timerElement.querySelector('.timer-value');
+            let timerLabel = timerElement.querySelector('.timer-label');
+            let updateInterval = null;
+            let isExamMode = false;
+            let examEndTime = null;
+            let labBoottime = null;
+            let labRuntime = null; // in hours
+
+            // Format seconds to HH:MM:SS
+            function formatTime(seconds) {
+                if (seconds < 0) return '00:00:00';
+
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+
+                return [
+                    String(hours).padStart(2, '0'),
+                    String(minutes).padStart(2, '0'),
+                    String(secs).padStart(2, '0')
+                ].join(':');
+            }
+
+            // Fetch timer data from uptime endpoint
+            async function fetchTimerData() {
+                try {
+                    const response = await fetch(UPTIME_ENDPOINT, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        },
+                        cache: 'no-cache'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    return data;
+                } catch (error) {
+                    console.error('[ATD Timer] Failed to fetch timer data:', error);
+                    throw error;
+                }
+            }
+
+            // Check if exam mode is active (exam_end_time exists)
+            async function detectExamMode() {
+                try {
+                    // Try to fetch exam status from a separate endpoint if available
+                    // For now, we'll detect exam mode based on URL or other indicators
+                    // This is a placeholder - actual implementation may vary
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('exam') || window.location.pathname.includes('/exam')) {
+                        isExamMode = true;
+                        timerElement.classList.add('exam-mode');
+                        timerLabel.textContent = 'Exam Time';
+                    }
+                } catch (error) {
+                    console.error('[ATD Timer] Failed to detect exam mode:', error);
+                }
+            }
+
+            // Calculate time remaining
+            function calculateTimeRemaining(data) {
+                const currentTime = Math.floor(Date.now() / 1000);
+                let timeRemaining = 0;
+
+                if (isExamMode && examEndTime) {
+                    // Exam mode: Use absolute end time
+                    timeRemaining = examEndTime - currentTime;
+                } else if (data.boottime) {
+                    // Normal lab mode: Use boottime + runtime
+                    // Assume runtime is 8 hours if not specified
+                    const runtime = labRuntime || 8;
+                    const expirationTime = data.boottime + (runtime * 60 * 60);
+                    timeRemaining = expirationTime - currentTime;
+                } else {
+                    throw new Error('Missing boottime data');
+                }
+
+                return timeRemaining;
+            }
+
+            // Update timer display
+            function updateTimer(timeRemaining) {
+                const formattedTime = formatTime(timeRemaining);
+                timerValue.textContent = formattedTime;
+
+                // Update visual state based on time remaining
+                if (timeRemaining <= 0) {
+                    timerElement.classList.add('expired');
+                    timerElement.classList.remove('warning');
+                    timerLabel.textContent = isExamMode ? 'Exam Ended' : 'Lab Expired';
+                } else if (timeRemaining <= WARNING_THRESHOLD) {
+                    timerElement.classList.add('warning');
+                    timerElement.classList.remove('expired');
+                } else {
+                    timerElement.classList.remove('warning', 'expired');
+                }
+            }
+
+            // Show error state
+            function showError(message) {
+                timerValue.textContent = 'Error';
+                timerValue.classList.add('timer-error');
+                timerLabel.textContent = message || 'Connection Error';
+                console.error('[ATD Timer]', message);
+            }
+
+            // Main update loop
+            async function update() {
+                try {
+                    const data = await fetchTimerData();
+
+                    // Store boottime if available
+                    if (data.boottime) {
+                        labBoottime = data.boottime;
+                    }
+
+                    // Calculate and display time remaining
+                    const timeRemaining = calculateTimeRemaining(data);
+                    updateTimer(timeRemaining);
+
+                } catch (error) {
+                    showError('Failed to fetch timer');
+
+                    // Retry after delay
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                    }
+                    setTimeout(() => {
+                        startTimer();
+                    }, RETRY_DELAY);
+                }
+            }
+
+            // Start timer updates
+            function startTimer() {
+                // Initial update
+                update();
+
+                // Set up interval for regular updates
+                if (updateInterval) {
+                    clearInterval(updateInterval);
+                }
+                updateInterval = setInterval(update, UPDATE_INTERVAL);
+            }
+
+            // Initialize timer
+            async function init() {
+                console.log('[ATD Timer] Initializing countdown timer widget');
+
+                // Detect exam mode
+                await detectExamMode();
+
+                // Start timer updates
+                startTimer();
+
+                // Clean up on page unload
+                window.addEventListener('beforeunload', () => {
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                    }
+                });
+            }
+
+            // Start when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
+    </script>
+</body>
+</html>
