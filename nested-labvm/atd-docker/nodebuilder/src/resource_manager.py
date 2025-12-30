@@ -592,25 +592,44 @@ class ResourceManager:
             if orphaned_count > 0:
                 # Optionally detach the orphaned interfaces for a clean slate
                 # This is safe during reset-all because we're restoring to original state
+                detach_successes = []
+                detach_failures = []
+
                 for device_name, slots in all_orphaned.items():
                     for slot in slots:
                         try:
                             mac = slot.get('mac_address')
                             if mac:
                                 detach_interface_from_vm(device_name, mac)
-                                self.logger.debug(
+                                detach_successes.append({
+                                    'device': device_name,
+                                    'mac': mac
+                                })
+                                self.logger.info(
                                     f"Detached orphaned interface {mac} from {device_name}"
                                 )
                         except Exception as e:
-                            # Not critical - interface may already be gone
-                            self.logger.debug(
+                            # Interface may already be gone - warn but continue
+                            detach_failures.append({
+                                'device': device_name,
+                                'mac': slot.get('mac_address'),
+                                'error': str(e)
+                            })
+                            self.logger.warning(
                                 f"Could not detach orphaned interface from {device_name}: {e}"
                             )
+
+                # Track detachment results
+                results['orphaned_detach_successes'] = len(detach_successes)
+                results['orphaned_detach_failures'] = detach_failures
 
                 # Clear the orphaned slots registry
                 cleared_count = clear_all_orphaned_slots()
                 results['orphaned_slots_cleared'] = cleared_count
-                self.logger.info(f"Cleared {cleared_count} orphaned interface slot(s)")
+                self.logger.info(
+                    f"Cleared {cleared_count} orphaned interface slot(s) "
+                    f"({len(detach_successes)} detached, {len(detach_failures)} failed)"
+                )
             else:
                 results['orphaned_slots_cleared'] = 0
                 self.logger.info("No orphaned interface slots to clear")
@@ -640,6 +659,7 @@ class ResourceManager:
             'firewalls': len(results['firewalls_deleted']),
             'bridges': len(results['bridges_cleaned']),
             'orphaned_slots': results.get('orphaned_slots_cleared', 0),
+            'orphaned_detach_failures': len(results.get('orphaned_detach_failures', [])),
             'errors': len(results['errors']),
             'affected_devices': len(results['affected_devices'])
         }
