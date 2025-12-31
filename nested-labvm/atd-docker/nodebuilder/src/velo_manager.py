@@ -171,7 +171,9 @@ def generate_velo_cloud_init(
     gateway: str = '192.168.0.1',
     password: Optional[str] = None,
     interface_ips: Optional[Dict[str, str]] = None,
-    gateway_config: Optional[Dict[str, str]] = None
+    gateway_config: Optional[Dict[str, str]] = None,
+    edge_config: Optional[Dict[str, str]] = None,
+    orchestrator_config: Optional[Dict[str, str]] = None
 ) -> str:
     """
     Generate a cloud-init ISO for VeloCloud device provisioning.
@@ -191,6 +193,16 @@ def generate_velo_cloud_init(
                         - eth0_gateway: Default gateway for eth0
                         - eth1_ip: Handoff interface IP with CIDR
                         - eth1_gateway: Gateway for eth1
+        edge_config: Optional dict for Edge-specific config:
+                     - vco: VeloCloud Orchestrator address
+                     - activation_code: Edge activation key
+                     - interfaces: dict of GE1-GE8 config (ip, netmask, gateway, type)
+        orchestrator_config: Optional dict for Orchestrator-specific config:
+                             - eth0_ip: Management interface IP with CIDR
+                             - eth0_netmask: Management interface netmask
+                             - eth0_gateway: Default gateway
+                             - eth1_ip: Data interface IP (optional)
+                             - eth1_netmask: Data interface netmask (optional)
 
     Returns:
         Path to the generated ISO file
@@ -254,14 +266,38 @@ def generate_velo_cloud_init(
             user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
             user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
 
+        # Handle Edge-specific configuration
+        if device_type_lower == 'edge' and edge_config:
+            vco = edge_config.get('vco', 'orchestrator.velocloud.net')
+            activation_code = edge_config.get('activation_code', 'XXXX-XXXX-XXXX-XXXX')
+            user_data = user_data.replace('{vco}', vco)
+            user_data = user_data.replace('{activation_code}', activation_code)
+        elif device_type_lower == 'edge':
+            # Provide defaults for Edge if no config specified
+            user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
+            user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
+
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:
             f.write(user_data)
 
-        # Write meta-data
+        # Write meta-data (Edge and Orchestrator use network-interfaces section)
         meta_data = f"""instance-id: {hostname}
 local-hostname: {hostname}
 """
+        # Add Edge network-interfaces section if edge_config provided
+        if device_type_lower == 'edge' and edge_config:
+            network_interfaces = edge_config.get('interfaces', {})
+            if network_interfaces:
+                meta_data += _generate_edge_network_interfaces(network_interfaces)
+
+        # Add Orchestrator network-interfaces section
+        if device_type_lower == 'orchestrator':
+            orch_config = orchestrator_config or {}
+            meta_data += _generate_orchestrator_network_interfaces(
+                mgmt_ip, gateway, orch_config
+            )
+
         with open(os.path.join(temp_dir, 'meta-data'), 'w') as f:
             f.write(meta_data)
 
@@ -337,6 +373,108 @@ ethernets:
         metric: 13"""
 
     return config
+
+
+def _generate_edge_network_interfaces(interfaces: Dict[str, Dict]) -> str:
+    """
+    Generate network-interfaces section for VeloCloud Edge meta-data.
+
+    VeloCloud Edge uses a different format than standard cloud-init:
+    - Interface names are GE1-GE8 (not eth0-eth7)
+    - Network config goes in meta-data, not network-config file
+    - Supports static and DHCP types
+
+    Args:
+        interfaces: Dict of interface configs, e.g.:
+                   {'GE3': {'type': 'static', 'ip': '10.1.1.1', 'netmask': '255.255.255.0', 'gateway': '10.1.1.254'}}
+
+    Returns:
+        YAML string for network-interfaces section
+    """
+    if not interfaces:
+        return ""
+
+    lines = ["network-interfaces:"]
+
+    for iface_name, config in interfaces.items():
+        # Normalize interface name (ensure uppercase GE format)
+        iface_upper = iface_name.upper()
+        if not iface_upper.startswith('GE'):
+            continue
+
+        iface_type = config.get('type', 'dhcp')
+
+        if iface_type == 'static':
+            ip = config.get('ip', '')
+            netmask = config.get('netmask', '255.255.255.0')
+            gw = config.get('gateway', '')
+
+            if ip:
+                lines.append(f"  {iface_upper}:")
+                lines.append(f"    type: static")
+                lines.append(f"    ipaddr: {ip}")
+                lines.append(f"    netmask: {netmask}")
+                if gw:
+                    lines.append(f"    gateway: {gw}")
+        else:
+            # DHCP is default for VeloCloud Edge
+            lines.append(f"  {iface_upper}:")
+            lines.append(f"    type: dhcp")
+
+    if len(lines) == 1:
+        return ""  # No interfaces configured
+
+    return "\n".join(lines) + "\n"
+
+
+def _generate_orchestrator_network_interfaces(
+    mgmt_ip: str,
+    gateway: str,
+    orch_config: Dict[str, str]
+) -> str:
+    """
+    Generate network-interfaces section for VeloCloud Orchestrator meta-data.
+
+    VeloCloud Orchestrator uses the same meta-data format as VCE Edge:
+    - eth0: Management interface (required)
+    - eth1: Data interface (optional - for Edge/Gateway connectivity)
+
+    Args:
+        mgmt_ip: Management IP address (without CIDR)
+        gateway: Default gateway
+        orch_config: Dict with optional overrides:
+                    - eth0_ip: Override management IP
+                    - eth0_netmask: Management netmask (default 255.255.255.0)
+                    - eth0_gateway: Override gateway
+                    - eth1_ip: Data interface IP (optional)
+                    - eth1_netmask: Data interface netmask
+
+    Returns:
+        YAML string for network-interfaces section
+    """
+    lines = ["network-interfaces: |"]
+
+    # eth0 - Management interface (always configured)
+    eth0_ip = orch_config.get('eth0_ip', mgmt_ip)
+    eth0_netmask = orch_config.get('eth0_netmask', '255.255.255.0')
+    eth0_gateway = orch_config.get('eth0_gateway', gateway)
+
+    lines.append("  auto eth0")
+    lines.append("  iface eth0 inet static")
+    lines.append(f"    address {eth0_ip}")
+    lines.append(f"    netmask {eth0_netmask}")
+    lines.append(f"    gateway {eth0_gateway}")
+
+    # eth1 - Data interface (optional)
+    eth1_ip = orch_config.get('eth1_ip', '')
+    if eth1_ip:
+        eth1_netmask = orch_config.get('eth1_netmask', '255.255.255.0')
+        lines.append("  auto eth1")
+        lines.append("  iface eth1 inet static")
+        lines.append(f"    address {eth1_ip}")
+        lines.append(f"    netmask {eth1_netmask}")
+
+    return "\n".join(lines) + "\n"
 
 
 def _get_fallback_template(device_type: str) -> str:
@@ -593,7 +731,9 @@ def create_velo_device(
     mgmt_ip: str,
     connections: Optional[List[Dict]] = None,
     interface_ips: Optional[Dict[str, str]] = None,
-    gateway_config: Optional[Dict[str, str]] = None
+    gateway_config: Optional[Dict[str, str]] = None,
+    edge_config: Optional[Dict[str, str]] = None,
+    orchestrator_config: Optional[Dict[str, str]] = None
 ) -> Dict:
     """
     Create a complete VeloCloud device VM.
@@ -611,6 +751,16 @@ def create_velo_device(
                         - eth0_gateway: Default gateway for eth0
                         - eth1_ip: Handoff interface IP with CIDR
                         - eth1_gateway: Gateway for eth1
+        edge_config: Optional dict for Edge-specific config:
+                     - vco: VeloCloud Orchestrator address
+                     - activation_code: Edge activation key
+                     - interfaces: dict of GE1-GE8 config (ip, netmask, gateway, type)
+        orchestrator_config: Optional dict for Orchestrator-specific config:
+                             - eth0_ip: Override management IP
+                             - eth0_netmask: Management interface netmask
+                             - eth0_gateway: Override gateway
+                             - eth1_ip: Data interface IP (optional)
+                             - eth1_netmask: Data interface netmask (optional)
 
     Returns:
         Dict with creation status and details
@@ -650,7 +800,9 @@ def create_velo_device(
         cidata_path = generate_velo_cloud_init(
             device_type_lower, name, mgmt_ip,
             interface_ips=interface_ips,
-            gateway_config=gateway_config
+            gateway_config=gateway_config,
+            edge_config=edge_config,
+            orchestrator_config=orchestrator_config
         )
         created_resources.append(('cidata', cidata_path))
 

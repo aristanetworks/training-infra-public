@@ -33,12 +33,17 @@ class AddVelocloudWizard {
             description: 'SD-WAN appliance for branch and edge locations',
             icon: '🌐',
             interfaces: [
-                { key: 'wan1', label: 'WAN1', description: 'Primary WAN uplink', required: false },
-                { key: 'wan2', label: 'WAN2', description: 'Secondary WAN uplink', required: false },
-                { key: 'wan3', label: 'WAN3', description: 'Tertiary WAN uplink', required: false },
-                { key: 'lan', label: 'LAN', description: 'Internal network', required: false }
+                { key: 'GE1', label: 'GE1 (LAN)', description: 'LAN port - Internal network', required: false },
+                { key: 'GE2', label: 'GE2 (LAN)', description: 'LAN port - Internal network', required: false },
+                { key: 'GE3', label: 'GE3 (WAN)', description: 'WAN port - Primary uplink', required: false },
+                { key: 'GE4', label: 'GE4 (WAN)', description: 'WAN port - Secondary uplink', required: false },
+                { key: 'GE5', label: 'GE5 (WAN)', description: 'WAN port - Tertiary uplink', required: false },
+                { key: 'GE6', label: 'GE6 (WAN)', description: 'WAN port - Additional uplink', required: false },
+                { key: 'GE7', label: 'GE7 (WAN)', description: 'WAN port - Additional uplink', required: false },
+                { key: 'GE8', label: 'GE8 (WAN)', description: 'WAN port - Additional uplink', required: false }
             ],
-            deviceType: 'velo_edge'
+            deviceType: 'velo_edge',
+            requiresEdgeConfig: true  // Flag for Edge-specific VCO configuration
         },
         gateway: {
             label: 'VeloCloud Gateway',
@@ -56,7 +61,8 @@ class AddVelocloudWizard {
             description: 'Management and control plane (VCO)',
             icon: '🎛️',
             interfaces: [
-                { key: 'data', label: 'Data', description: 'Data interface for Edge/Gateway connectivity', required: false }
+                { key: 'eth0', label: 'eth0 (Mgmt)', description: 'Management interface - admin/web access', required: false },
+                { key: 'eth1', label: 'eth1 (Data)', description: 'Data interface - Edge/Gateway connectivity', required: false }
             ],
             deviceType: 'velo_orchestrator'
         }
@@ -81,6 +87,11 @@ class AddVelocloudWizard {
                 eth0_gateway: '',
                 eth1_ip: '',
                 eth1_gateway: ''
+            },
+            edge_config: {  // Edge-specific configuration
+                vco: '',
+                activation_code: '',
+                interfaces: {}  // GE1-GE8 interface config (type, ip, netmask, gateway)
             }
         };
 
@@ -137,6 +148,11 @@ class AddVelocloudWizard {
                 eth0_gateway: '',
                 eth1_ip: '',
                 eth1_gateway: ''
+            },
+            edge_config: {
+                vco: '',
+                activation_code: '',
+                interfaces: {}
             }
         };
         this.nameValid = false;
@@ -629,6 +645,12 @@ class AddVelocloudWizard {
             return;
         }
 
+        // Edge has special configuration requirements (VCO + GE interface config)
+        if (typeConfig.requiresEdgeConfig) {
+            this.renderEdgeConfigStep(content);
+            return;
+        }
+
         content.innerHTML = `
             <div class="wizard-step wizard-step-interfaces">
                 <h3>Configure Interfaces</h3>
@@ -864,6 +886,177 @@ class AddVelocloudWizard {
     }
 
     /**
+     * Step 4 (Edge): VeloCloud Edge-specific Configuration
+     * Collects VCO registration and GE interface network details
+     */
+    renderEdgeConfigStep(content) {
+        const ec = this.veloConfig.edge_config;
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        // Build interface rows for GE3-GE8 (WAN ports - most commonly configured)
+        // GE1-GE2 are LAN ports, typically used for downstream connections
+        const wanInterfaces = typeConfig.interfaces.filter(i => i.key.match(/GE[3-8]/));
+        const lanInterfaces = typeConfig.interfaces.filter(i => i.key.match(/GE[12]/));
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-edge-config">
+                <h3>Edge Configuration</h3>
+                <p class="step-description">Configure the VeloCloud Edge orchestrator and network interface settings.</p>
+
+                <!-- VCO Registration Section -->
+                <div class="config-section">
+                    <h4>Orchestrator Registration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edge-vco">VCO Address</label>
+                            <input type="text" id="edge-vco" class="form-input"
+                                   placeholder="orchestrator.example.com"
+                                   value="${this.escapeHtml(ec.vco)}">
+                            <small class="form-hint">VeloCloud Orchestrator hostname or IP</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="edge-activation">Activation Code</label>
+                            <input type="text" id="edge-activation" class="form-input"
+                                   placeholder="XXXX-XXXX-XXXX-XXXX"
+                                   value="${this.escapeHtml(ec.activation_code)}">
+                            <small class="form-hint">Edge activation key from VCO</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WAN Interfaces (GE3-GE8) -->
+                <div class="config-section">
+                    <h4>WAN Interfaces (GE3-GE8)</h4>
+                    <p class="section-desc">Configure WAN ports for internet/MPLS uplinks. Leave blank for DHCP.</p>
+                    <div class="edge-interfaces-grid">
+                        ${wanInterfaces.map(iface => {
+                            const ifConfig = ec.interfaces[iface.key] || {};
+                            return `
+                                <div class="edge-interface-row" data-interface="${iface.key}">
+                                    <div class="interface-label">${iface.key}</div>
+                                    <div class="interface-fields">
+                                        <select class="form-select interface-type" data-interface="${iface.key}">
+                                            <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
+                                            <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
+                                        </select>
+                                        <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
+                                               placeholder="IP (e.g., 10.1.1.1)"
+                                               value="${this.escapeHtml(ifConfig.ip || '')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                        <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
+                                               placeholder="Netmask"
+                                               value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                        <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
+                                               placeholder="Gateway"
+                                               value="${this.escapeHtml(ifConfig.gateway || '')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- LAN Interfaces (GE1-GE2) - Simplified -->
+                <div class="config-section">
+                    <h4>LAN Interfaces (GE1-GE2) - Optional</h4>
+                    <p class="section-desc">Configure LAN ports for internal network connections.</p>
+                    <div class="edge-interfaces-grid">
+                        ${lanInterfaces.map(iface => {
+                            const ifConfig = ec.interfaces[iface.key] || {};
+                            return `
+                                <div class="edge-interface-row" data-interface="${iface.key}">
+                                    <div class="interface-label">${iface.key}</div>
+                                    <div class="interface-fields">
+                                        <select class="form-select interface-type" data-interface="${iface.key}">
+                                            <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
+                                            <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
+                                        </select>
+                                        <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
+                                               placeholder="IP (e.g., 192.168.1.1)"
+                                               value="${this.escapeHtml(ifConfig.ip || '')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                        <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
+                                               placeholder="Netmask"
+                                               value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                        <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
+                                               placeholder="Gateway"
+                                               value="${this.escapeHtml(ifConfig.gateway || '')}"
+                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <div class="velocloud-interface-note">
+                    <p><strong>Note:</strong> Edge uses default credentials: <code>root</code> / <code>[lab password]</code></p>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners for VCO fields
+        const vcoInput = content.querySelector('#edge-vco');
+        const activationInput = content.querySelector('#edge-activation');
+
+        vcoInput.addEventListener('input', (e) => {
+            this.veloConfig.edge_config.vco = e.target.value.trim();
+        });
+
+        activationInput.addEventListener('input', (e) => {
+            this.veloConfig.edge_config.activation_code = e.target.value.trim();
+        });
+
+        // Add event listeners for each interface row
+        content.querySelectorAll('.edge-interface-row').forEach(row => {
+            const ifaceKey = row.dataset.interface;
+            const typeSelect = row.querySelector('.interface-type');
+            const ipInput = row.querySelector('.interface-ip');
+            const netmaskInput = row.querySelector('.interface-netmask');
+            const gatewayInput = row.querySelector('.interface-gateway');
+
+            // Initialize interface config if not exists
+            if (!this.veloConfig.edge_config.interfaces[ifaceKey]) {
+                this.veloConfig.edge_config.interfaces[ifaceKey] = { type: 'dhcp' };
+            }
+
+            typeSelect.addEventListener('change', (e) => {
+                const isStatic = e.target.value === 'static';
+                ipInput.disabled = !isStatic;
+                netmaskInput.disabled = !isStatic;
+                gatewayInput.disabled = !isStatic;
+
+                this.veloConfig.edge_config.interfaces[ifaceKey].type = e.target.value;
+
+                if (!isStatic) {
+                    // Clear static config when switching to DHCP
+                    this.veloConfig.edge_config.interfaces[ifaceKey].ip = '';
+                    this.veloConfig.edge_config.interfaces[ifaceKey].netmask = '';
+                    this.veloConfig.edge_config.interfaces[ifaceKey].gateway = '';
+                    ipInput.value = '';
+                    netmaskInput.value = '255.255.255.0';
+                    gatewayInput.value = '';
+                }
+            });
+
+            ipInput.addEventListener('input', (e) => {
+                this.veloConfig.edge_config.interfaces[ifaceKey].ip = e.target.value.trim();
+            });
+
+            netmaskInput.addEventListener('input', (e) => {
+                this.veloConfig.edge_config.interfaces[ifaceKey].netmask = e.target.value.trim();
+            });
+
+            gatewayInput.addEventListener('input', (e) => {
+                this.veloConfig.edge_config.interfaces[ifaceKey].gateway = e.target.value.trim();
+            });
+        });
+    }
+
+    /**
      * Count how many interfaces are already configured to use the same device
      */
     countSameDeviceInterfaces(deviceName, excludeInterface) {
@@ -953,7 +1146,8 @@ class AddVelocloudWizard {
                     </table>
                 </div>
 
-                ${typeConfig.requiresGatewayConfig ? this.renderGatewayReviewSection() : `
+                ${typeConfig.requiresGatewayConfig ? this.renderGatewayReviewSection() :
+                  typeConfig.requiresEdgeConfig ? this.renderEdgeReviewSection() : `
                 <div class="review-section">
                     <h4>Data Interfaces</h4>
                     ${configuredInterfaces.length > 0 ? `
@@ -984,6 +1178,10 @@ class AddVelocloudWizard {
                         <li>The device will boot and be accessible via SSH within ~90 seconds</li>
                         ${typeConfig.requiresGatewayConfig ?
                             '<li>Gateway will attempt to register with the configured VCO</li><li>Default login: vcadmin / [lab password]</li>' :
+                          typeConfig.requiresEdgeConfig ?
+                            '<li>Edge will attempt to register with the configured VCO</li><li>Default login: root / [lab password]</li>' :
+                          this.veloConfig.device_type === 'orchestrator' ?
+                            '<li>Web UI available at https://&lt;mgmt_ip&gt;/</li><li>Default login: vcadmin / [lab password]</li>' :
                             '<li>Device is configured for standalone training mode</li><li>Default login: arista / arista</li>'}
                     </ul>
                 </div>
@@ -1036,6 +1234,60 @@ class AddVelocloudWizard {
     }
 
     /**
+     * Render Edge-specific review section
+     */
+    renderEdgeReviewSection() {
+        const ec = this.veloConfig.edge_config;
+
+        // Build configured interfaces list
+        const configuredInterfaces = Object.entries(ec.interfaces || {})
+            .filter(([key, config]) => config.type === 'static' && config.ip)
+            .map(([key, config]) => ({ key, ...config }));
+
+        return `
+            <div class="review-section">
+                <h4>Orchestrator Registration</h4>
+                <table class="review-table">
+                    <tr>
+                        <th>VCO Address</th>
+                        <td>${ec.vco ? this.escapeHtml(ec.vco) : '<em>Not configured</em>'}</td>
+                    </tr>
+                    <tr>
+                        <th>Activation Code</th>
+                        <td>${ec.activation_code ? this.escapeHtml(ec.activation_code) : '<em>Not configured</em>'}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="review-section">
+                <h4>Network Interfaces (GE1-GE8)</h4>
+                ${configuredInterfaces.length > 0 ? `
+                    <table class="review-table">
+                        <tr>
+                            <th>Interface</th>
+                            <th>Type</th>
+                            <th>IP Address</th>
+                            <th>Netmask</th>
+                            <th>Gateway</th>
+                        </tr>
+                        ${configuredInterfaces.map(iface => `
+                            <tr>
+                                <td>${this.escapeHtml(iface.key)}</td>
+                                <td>Static</td>
+                                <td>${this.escapeHtml(iface.ip)}</td>
+                                <td>${this.escapeHtml(iface.netmask || '255.255.255.0')}</td>
+                                <td>${iface.gateway ? this.escapeHtml(iface.gateway) : '<em>None</em>'}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                ` : `
+                    <p class="no-interfaces-configured">All interfaces configured for DHCP (default VeloCloud Edge behavior).</p>
+                `}
+            </div>
+        `;
+    }
+
+    /**
      * Update next button enabled/disabled state
      */
     updateNextButtonState() {
@@ -1073,7 +1325,7 @@ class AddVelocloudWizard {
     validateAllInterfaceIps() {
         const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
 
-        // For Gateway, validate gateway_config IPs instead
+        // For Gateway, validate gateway_config IPs (CIDR format)
         if (typeConfig.requiresGatewayConfig) {
             const gc = this.veloConfig.gateway_config;
             if (gc.eth0_ip && !this.isValidCidr(gc.eth0_ip)) return false;
@@ -1081,7 +1333,18 @@ class AddVelocloudWizard {
             return true;
         }
 
-        // Standard interface validation for Edge/Orchestrator
+        // For Edge, validate edge_config interface IPs (plain IP format)
+        if (typeConfig.requiresEdgeConfig) {
+            const ec = this.veloConfig.edge_config;
+            for (const [key, config] of Object.entries(ec.interfaces || {})) {
+                if (config.type === 'static' && config.ip && !this.isValidIp(config.ip)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Standard interface validation for Orchestrator
         for (const iface of typeConfig.interfaces) {
             const ip = this.veloConfig.interfaces[iface.key]?.ip;
             if (ip && !this.isValidCidr(ip)) {
@@ -1089,6 +1352,18 @@ class AddVelocloudWizard {
             }
         }
         return true;
+    }
+
+    /**
+     * Check if a string is a valid IP address (without CIDR)
+     */
+    isValidIp(value) {
+        if (!value) return true; // Empty is valid (optional)
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (!ipRegex.test(value)) return false;
+
+        const octets = value.split('.').map(Number);
+        return !octets.some(o => o < 0 || o > 255);
     }
 
     /**
@@ -1179,6 +1454,11 @@ class AddVelocloudWizard {
             // Add gateway_config for Gateway devices
             if (this.veloConfig.device_type === 'gateway') {
                 requestPayload.gateway_config = this.veloConfig.gateway_config;
+            }
+
+            // Add edge_config for Edge devices
+            if (this.veloConfig.device_type === 'edge') {
+                requestPayload.edge_config = this.veloConfig.edge_config;
             }
 
             const result = await NodeBuilderAPI.addVeloDevice(requestPayload);

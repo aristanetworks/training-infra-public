@@ -2043,6 +2043,8 @@ async def add_velo_device(request):
     connections = data.get('connections', [])
     interface_ips = data.get('interface_ips', {})
     gateway_config = data.get('gateway_config', {})  # Gateway-specific: vco, activation_code, eth0/eth1 config
+    edge_config = data.get('edge_config', {})  # Edge-specific: vco, activation_code, GE1-GE8 interface config
+    orchestrator_config = data.get('orchestrator_config', {})  # Orchestrator-specific: eth0/eth1 network config
 
     if not name:
         return web.json_response({'error': 'Device name is required'}, status=400)
@@ -2121,7 +2123,9 @@ async def add_velo_device(request):
                 # Create the VeloCloud device VM
                 result = create_velo_device(
                     name, device_type, mgmt_ip, connections, interface_ips,
-                    gateway_config=gateway_config if device_type.lower() == 'gateway' else None
+                    gateway_config=gateway_config if device_type.lower() == 'gateway' else None,
+                    edge_config=edge_config if device_type.lower() == 'edge' else None,
+                    orchestrator_config=orchestrator_config if device_type.lower() == 'orchestrator' else None
                 )
 
                 # Build neighbors list for topology diagram connections

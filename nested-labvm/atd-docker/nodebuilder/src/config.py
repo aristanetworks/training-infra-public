@@ -245,7 +245,7 @@ VELO_ORCHESTRATOR_ENABLED = True
 
 # VM specifications
 VELO_EDGE_CPU = 2
-VELO_EDGE_RAM_MB = 2048
+VELO_EDGE_RAM_MB = 8192  # 8GB required for 2 vCPU Edge (per VeloCloud specs)
 VELO_GATEWAY_CPU = 4
 VELO_GATEWAY_RAM_MB = 16384  # 16GB required for Gateway (per VeloCloud specs)
 VELO_ORCHESTRATOR_CPU = 4
