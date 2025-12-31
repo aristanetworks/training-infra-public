@@ -17,6 +17,29 @@ from xml.sax.saxutils import escape as xml_escape
 
 logger = logging.getLogger('nodebuilder.interface_manager')
 
+# Regex pattern for valid bridge names - only alphanumeric, underscore, and hyphen
+# This prevents command injection via malicious bridge names
+VALID_BRIDGE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,15}$')
+
+
+def validate_bridge_name(bridge_name: str) -> bool:
+    """
+    Validate that a bridge name contains only safe characters.
+
+    Security: Prevents command injection by ensuring bridge names
+    only contain alphanumeric characters, underscores, and hyphens.
+
+    Args:
+        bridge_name: Name to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not bridge_name:
+        return False
+    return bool(VALID_BRIDGE_NAME_PATTERN.match(bridge_name))
+
+
 from validation import get_all_nodes
 from config import (
     get_topo_build_path,
@@ -657,7 +680,17 @@ def create_ovs_bridge(bridge_name: str) -> Dict:
 
     Returns:
         Dict with status and bridge name
+
+    Raises:
+        ValueError: If bridge name contains invalid characters
     """
+    # Security: Validate bridge name before passing to subprocess
+    if not validate_bridge_name(bridge_name):
+        raise ValueError(
+            f"Invalid bridge name '{bridge_name}': must be 1-15 alphanumeric "
+            "characters, underscores, or hyphens"
+        )
+
     try:
         # Check if bridge already exists
         result = subprocess.run(
@@ -717,7 +750,17 @@ def delete_ovs_bridge(bridge_name: str) -> Dict:
 
     Returns:
         Dict with status
+
+    Raises:
+        ValueError: If bridge name contains invalid characters
     """
+    # Security: Validate bridge name before passing to subprocess
+    if not validate_bridge_name(bridge_name):
+        raise ValueError(
+            f"Invalid bridge name '{bridge_name}': must be 1-15 alphanumeric "
+            "characters, underscores, or hyphens"
+        )
+
     try:
         result = subprocess.run(
             ['ovs-vsctl', 'del-br', bridge_name],

@@ -30,7 +30,8 @@ def _validate_path(path: str) -> bool:
     """
     Validate that a path is within allowed directories.
 
-    Security: Prevents path traversal attacks.
+    Security: Prevents path traversal attacks by resolving symlinks
+    and using commonpath comparison instead of string prefix matching.
 
     Args:
         path: Path to validate
@@ -38,8 +39,23 @@ def _validate_path(path: str) -> bool:
     Returns:
         True if path is allowed
     """
-    abs_path = os.path.abspath(path)
-    return any(abs_path.startswith(prefix) for prefix in ALLOWED_PATH_PREFIXES)
+    # Resolve symlinks and normalize the path to prevent traversal
+    real_path = os.path.realpath(path)
+
+    for prefix in ALLOWED_PATH_PREFIXES:
+        # Ensure prefix is also resolved
+        real_prefix = os.path.realpath(prefix)
+        try:
+            # commonpath returns the longest common sub-path
+            # If the common path equals the prefix, then real_path is under prefix
+            common = os.path.commonpath([real_path, real_prefix])
+            if common == real_prefix:
+                return True
+        except ValueError:
+            # Raised when paths are on different drives (Windows) or incompatible
+            continue
+
+    return False
 
 
 def get_empty_user_nodes() -> Dict:
