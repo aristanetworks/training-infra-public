@@ -1,64 +1,41 @@
 #cloud-config
 # VeloCloud Gateway Cloud-Init Template
 #
-# PLACEHOLDER: This template provides basic configuration for VeloCloud Gateway.
-# VeloCloud Gateway serves as a data plane hub for Edge traffic and requires
-# VCO registration in production, but this is configured for standalone training.
+# Gateway serves as data plane hub for Edge traffic aggregation.
+# Requires VCO registration with activation key for production use.
 #
 # Variables replaced at runtime:
-#   {hostname}      - VM hostname
-#   {password}      - User password
-#   {mgmt_ip}       - Management IP address (eth0)
-#   {gateway}       - Default gateway
-#   {transport1_ip} - Transport interface 1 IP with CIDR (eth1) - optional
-#   {transport2_ip} - Transport interface 2 IP with CIDR (eth2) - optional
+#   {hostname}         - VM hostname (RFC 1123 compliant)
+#   {password}         - Console password for vcadmin user
+#   {vco}              - VeloCloud Orchestrator address (FQDN or IP)
+#   {activation_code}  - Gateway activation key from VCO
 #
-# Interface mapping:
-#   eth0 - Management interface (vmgmt bridge)
-#   eth1 - Transport interface 1 (primary uplink)
-#   eth2 - Transport interface 2 (secondary uplink)
+# Network variables (configured via separate network-config):
+#   {eth0_ip}          - Public/internet-facing IP with CIDR (e.g., 192.168.0.50/24)
+#   {eth0_gateway}     - Default gateway for eth0
+#   {eth1_ip}          - Handoff/Management VRF IP with CIDR
+#   {eth1_gateway}     - Gateway for eth1 (optional, for MGMT VRF routing)
 #
-# Note: VeloCloud Gateway images may not fully support standard cloud-init.
-# This template will be refined based on actual image capabilities.
+# Interface mapping (per VeloCloud Gateway specs):
+#   eth0 - Public/internet-facing interface (primary, untagged)
+#          Used for VCO communication and Edge VCMP tunnels
+#   eth1 - Handoff/private interface (connects to PE router)
+#          Supports VLAN tagging (802.1Q, QinQ) for customer handoff
+#
+# Firewall requirements (if Gateway behind firewall/NAT):
+#   - Outbound: TCP/443 to Orchestrator
+#   - Inbound: UDP/2426 (VCMP), UDP/4500, UDP/500, IP/50 (ESP if no NAT)
+#
+# Default credentials: vcadmin / {password}
 
-# Set hostname
 hostname: {hostname}
-manage_etc_hosts: true
+password: {password}
+chpasswd: {expire: False}
+ssh_pwauth: True
+ssh_authorized_keys: []
 
-# Create admin user
-users:
-  - name: arista
-    groups: [sudo, wheel]
-    shell: /bin/bash
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock_passwd: false
-
-# Set password
-chpasswd:
-  expire: false
-  users:
-    - name: arista
-      password: {password}
-      type: text
-    - name: root
-      password: {password}
-      type: text
-
-# Network configuration
-write_files:
-  - path: /etc/network/interfaces.d/eth0
-    content: |
-      auto eth0
-      iface eth0 inet static
-        address {mgmt_ip}
-        netmask 255.255.255.0
-        gateway {gateway}
-    permissions: '0644'
-
-runcmd:
-  # Basic network setup
-  - ip link set eth0 up
-  - ip link set eth1 up
-  - ip link set eth2 up
-  # Signal completion
-  - touch /var/lib/cloud/instance/velocloud-gateway-init-complete
+velocloud:
+  vcg:
+    vco: {vco}
+    activation_code: {activation_code}
+    vco_ignore_cert_errors: true

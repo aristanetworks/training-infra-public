@@ -170,7 +170,8 @@ def generate_velo_cloud_init(
     mgmt_ip: str,
     gateway: str = '192.168.0.1',
     password: Optional[str] = None,
-    interface_ips: Optional[Dict[str, str]] = None
+    interface_ips: Optional[Dict[str, str]] = None,
+    gateway_config: Optional[Dict[str, str]] = None
 ) -> str:
     """
     Generate a cloud-init ISO for VeloCloud device provisioning.
@@ -183,6 +184,13 @@ def generate_velo_cloud_init(
         password: User password (defaults to ACCESS_INFO.yaml)
         interface_ips: Optional dict of interface IPs with CIDR
                        e.g., {'wan1': '10.1.1.1/24', 'lan': '10.2.2.1/24'}
+        gateway_config: Optional dict for Gateway-specific config:
+                        - vco: VeloCloud Orchestrator address
+                        - activation_code: Gateway activation key
+                        - eth0_ip: Public interface IP with CIDR
+                        - eth0_gateway: Default gateway for eth0
+                        - eth1_ip: Handoff interface IP with CIDR
+                        - eth1_gateway: Gateway for eth1
 
     Returns:
         Path to the generated ISO file
@@ -223,6 +231,29 @@ def generate_velo_cloud_init(
                 placeholder = '{' + f'{iface}_ip' + '}'
                 user_data = user_data.replace(placeholder, ip)
 
+        # Handle Gateway-specific configuration
+        if device_type_lower == 'gateway' and gateway_config:
+            vco = gateway_config.get('vco', 'orchestrator.velocloud.net')
+            activation_code = gateway_config.get('activation_code', 'XXXX-XXXX-XXXX-XXXX')
+            user_data = user_data.replace('{vco}', vco)
+            user_data = user_data.replace('{activation_code}', activation_code)
+
+            # Generate network-config for Gateway (Netplan v2 format)
+            eth0_ip = gateway_config.get('eth0_ip', f'{mgmt_ip}/24')
+            eth0_gateway = gateway_config.get('eth0_gateway', gateway)
+            eth1_ip = gateway_config.get('eth1_ip', '')
+            eth1_gateway = gateway_config.get('eth1_gateway', '')
+
+            network_config = _generate_gateway_network_config(
+                eth0_ip, eth0_gateway, eth1_ip, eth1_gateway
+            )
+            with open(os.path.join(temp_dir, 'network-config'), 'w') as f:
+                f.write(network_config)
+        elif device_type_lower == 'gateway':
+            # Provide defaults for Gateway if no config specified
+            user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
+            user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
+
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:
             f.write(user_data)
@@ -261,6 +292,51 @@ local-hostname: {hostname}
     finally:
         # Clean up temp directory
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _generate_gateway_network_config(
+    eth0_ip: str,
+    eth0_gateway: str,
+    eth1_ip: str = '',
+    eth1_gateway: str = ''
+) -> str:
+    """
+    Generate Netplan v2 network-config for VeloCloud Gateway.
+
+    eth0: Public/internet-facing interface (primary, metric 1)
+    eth1: Handoff interface to PE router (secondary, metric 13)
+    """
+    # Start with eth0 (required)
+    config = f"""version: 2
+ethernets:
+  eth0:
+    addresses:
+      - {eth0_ip}
+    gateway4: {eth0_gateway}
+    nameservers:
+      addresses:
+        - 8.8.8.8
+        - 8.8.4.4
+      search: []
+    routes:
+      - to: 0.0.0.0/0
+        via: {eth0_gateway}
+        metric: 1"""
+
+    # Add eth1 if configured (handoff interface)
+    if eth1_ip:
+        config += f"""
+  eth1:
+    addresses:
+      - {eth1_ip}"""
+        if eth1_gateway:
+            config += f"""
+    routes:
+      - to: 0.0.0.0/0
+        via: {eth1_gateway}
+        metric: 13"""
+
+    return config
 
 
 def _get_fallback_template(device_type: str) -> str:
@@ -516,7 +592,8 @@ def create_velo_device(
     device_type: str,
     mgmt_ip: str,
     connections: Optional[List[Dict]] = None,
-    interface_ips: Optional[Dict[str, str]] = None
+    interface_ips: Optional[Dict[str, str]] = None,
+    gateway_config: Optional[Dict[str, str]] = None
 ) -> Dict:
     """
     Create a complete VeloCloud device VM.
@@ -527,6 +604,13 @@ def create_velo_device(
         mgmt_ip: Management IP address (from available pool)
         connections: Optional list of connection configs with 'target_device' and 'local_port'
         interface_ips: Optional dict of interface IPs with CIDR
+        gateway_config: Optional dict for Gateway-specific config:
+                        - vco: VeloCloud Orchestrator address
+                        - activation_code: Gateway activation key
+                        - eth0_ip: Public interface IP with CIDR
+                        - eth0_gateway: Default gateway for eth0
+                        - eth1_ip: Handoff interface IP with CIDR
+                        - eth1_gateway: Gateway for eth1
 
     Returns:
         Dict with creation status and details
@@ -565,7 +649,8 @@ def create_velo_device(
         logger.info(f"Generating cloud-init ISO for {name}")
         cidata_path = generate_velo_cloud_init(
             device_type_lower, name, mgmt_ip,
-            interface_ips=interface_ips
+            interface_ips=interface_ips,
+            gateway_config=gateway_config
         )
         created_resources.append(('cidata', cidata_path))
 

@@ -2534,6 +2534,66 @@
     border-radius: 6px;
 }
 
+/* Gateway Configuration Step Styles */
+.wizard-step-gateway-config .config-section {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.wizard-step-gateway-config .config-section h4 {
+    color: #c084fc;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.wizard-step-gateway-config .section-desc {
+    font-size: 12px;
+    color: #888;
+    margin: 0 0 12px 0;
+}
+
+.wizard-step-gateway-config .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.wizard-step-gateway-config .form-hint {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.wizard-step-gateway-config .form-group {
+    margin-bottom: 0;
+}
+
+.wizard-step-gateway-config .form-input {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    width: 100%;
+    font-size: 14px;
+}
+
+.wizard-step-gateway-config .form-input:focus {
+    border-color: #a855f7;
+    outline: none;
+}
+
+.wizard-step-gateway-config .form-input::placeholder {
+    color: #666;
+}
+
 /* Responsive adjustments for device type grid */
 @media (max-width: 700px) {
     .device-type-grid {

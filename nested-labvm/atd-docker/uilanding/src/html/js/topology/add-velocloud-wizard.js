@@ -45,10 +45,11 @@ class AddVelocloudWizard {
             description: 'Data plane hub for Edge traffic aggregation',
             icon: '🔀',
             interfaces: [
-                { key: 'transport1', label: 'Transport1', description: 'Primary transport', required: false },
-                { key: 'transport2', label: 'Transport2', description: 'Secondary transport', required: false }
+                { key: 'eth0', label: 'Public (eth0)', description: 'Internet-facing interface for VCO and VCMP', required: true },
+                { key: 'eth1', label: 'Handoff (eth1)', description: 'PE router handoff for customer traffic', required: false }
             ],
-            deviceType: 'velo_gateway'
+            deviceType: 'velo_gateway',
+            requiresGatewayConfig: true  // Flag for Gateway-specific configuration
         },
         orchestrator: {
             label: 'VeloCloud Orchestrator',
@@ -72,7 +73,15 @@ class AddVelocloudWizard {
             device_type: '',
             name: '',
             mgmt_ip: '',
-            interfaces: {}  // Will be populated based on device type
+            interfaces: {},  // Will be populated based on device type
+            gateway_config: {  // Gateway-specific configuration
+                vco: '',
+                activation_code: '',
+                eth0_ip: '',
+                eth0_gateway: '',
+                eth1_ip: '',
+                eth1_gateway: ''
+            }
         };
 
         // Cached data from API
@@ -120,7 +129,15 @@ class AddVelocloudWizard {
             device_type: '',
             name: '',
             mgmt_ip: '',
-            interfaces: {}
+            interfaces: {},
+            gateway_config: {
+                vco: '',
+                activation_code: '',
+                eth0_ip: '',
+                eth0_gateway: '',
+                eth1_ip: '',
+                eth1_gateway: ''
+            }
         };
         this.nameValid = false;
         this.nameError = '';
@@ -606,6 +623,12 @@ class AddVelocloudWizard {
     renderInterfacesStep(content) {
         const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
 
+        // Gateway has special configuration requirements
+        if (typeConfig.requiresGatewayConfig) {
+            this.renderGatewayConfigStep(content);
+            return;
+        }
+
         content.innerHTML = `
             <div class="wizard-step wizard-step-interfaces">
                 <h3>Configure Interfaces</h3>
@@ -711,6 +734,136 @@ class AddVelocloudWizard {
     }
 
     /**
+     * Step 4 (Gateway): VeloCloud Gateway-specific Configuration
+     * Collects VCO registration and network interface details
+     */
+    renderGatewayConfigStep(content) {
+        const gc = this.veloConfig.gateway_config;
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-gateway-config">
+                <h3>Gateway Configuration</h3>
+                <p class="step-description">Configure the VeloCloud Gateway network and orchestrator settings.</p>
+
+                <!-- VCO Registration Section -->
+                <div class="config-section">
+                    <h4>Orchestrator Registration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gateway-vco">VCO Address</label>
+                            <input type="text" id="gateway-vco" class="form-input"
+                                   placeholder="orchestrator.example.com"
+                                   value="${this.escapeHtml(gc.vco)}">
+                            <small class="form-hint">VeloCloud Orchestrator hostname or IP</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gateway-activation">Activation Code</label>
+                            <input type="text" id="gateway-activation" class="form-input"
+                                   placeholder="XXXX-XXXX-XXXX-XXXX"
+                                   value="${this.escapeHtml(gc.activation_code)}">
+                            <small class="form-hint">Gateway activation key from VCO</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- eth0 - Public Interface -->
+                <div class="config-section">
+                    <h4>eth0 - Public Interface (Internet-facing)</h4>
+                    <p class="section-desc">Primary interface for VCO communication and Edge VCMP tunnels.</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gateway-eth0-ip">IP Address (CIDR)</label>
+                            <input type="text" id="gateway-eth0-ip" class="form-input"
+                                   placeholder="192.168.0.50/24"
+                                   value="${this.escapeHtml(gc.eth0_ip)}">
+                            <div id="gateway-eth0-validation" class="validation-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gateway-eth0-gw">Gateway</label>
+                            <input type="text" id="gateway-eth0-gw" class="form-input"
+                                   placeholder="192.168.0.1"
+                                   value="${this.escapeHtml(gc.eth0_gateway)}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- eth1 - Handoff Interface -->
+                <div class="config-section">
+                    <h4>eth1 - Handoff Interface (Optional)</h4>
+                    <p class="section-desc">PE router connection for customer traffic handoff. Supports VLAN tagging.</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gateway-eth1-ip">IP Address (CIDR)</label>
+                            <input type="text" id="gateway-eth1-ip" class="form-input"
+                                   placeholder="10.0.0.1/24 (optional)"
+                                   value="${this.escapeHtml(gc.eth1_ip)}">
+                            <div id="gateway-eth1-validation" class="validation-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gateway-eth1-gw">Gateway</label>
+                            <input type="text" id="gateway-eth1-gw" class="form-input"
+                                   placeholder="10.0.0.254 (optional)"
+                                   value="${this.escapeHtml(gc.eth1_gateway)}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="velocloud-interface-note">
+                    <p><strong>Note:</strong> Gateway uses default credentials: <code>vcadmin</code> / <code>[lab password]</code></p>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners for all Gateway config fields
+        const vcoInput = content.querySelector('#gateway-vco');
+        const activationInput = content.querySelector('#gateway-activation');
+        const eth0IpInput = content.querySelector('#gateway-eth0-ip');
+        const eth0GwInput = content.querySelector('#gateway-eth0-gw');
+        const eth1IpInput = content.querySelector('#gateway-eth1-ip');
+        const eth1GwInput = content.querySelector('#gateway-eth1-gw');
+        const eth0Validation = content.querySelector('#gateway-eth0-validation');
+        const eth1Validation = content.querySelector('#gateway-eth1-validation');
+
+        vcoInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.vco = e.target.value.trim();
+        });
+
+        activationInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.activation_code = e.target.value.trim();
+        });
+
+        eth0IpInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.eth0_ip = e.target.value.trim();
+            if (e.target.value.trim()) {
+                this.validateCidrIp(e.target.value.trim(), eth0Validation);
+            } else {
+                eth0Validation.className = 'validation-message';
+                eth0Validation.textContent = '';
+            }
+            this.updateNextButtonState();
+        });
+
+        eth0GwInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.eth0_gateway = e.target.value.trim();
+        });
+
+        eth1IpInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.eth1_ip = e.target.value.trim();
+            if (e.target.value.trim()) {
+                this.validateCidrIp(e.target.value.trim(), eth1Validation);
+            } else {
+                eth1Validation.className = 'validation-message';
+                eth1Validation.textContent = '';
+            }
+            this.updateNextButtonState();
+        });
+
+        eth1GwInput.addEventListener('input', (e) => {
+            this.veloConfig.gateway_config.eth1_gateway = e.target.value.trim();
+        });
+    }
+
+    /**
      * Count how many interfaces are already configured to use the same device
      */
     countSameDeviceInterfaces(deviceName, excludeInterface) {
@@ -800,6 +953,7 @@ class AddVelocloudWizard {
                     </table>
                 </div>
 
+                ${typeConfig.requiresGatewayConfig ? this.renderGatewayReviewSection() : `
                 <div class="review-section">
                     <h4>Data Interfaces</h4>
                     ${configuredInterfaces.length > 0 ? `
@@ -821,16 +975,62 @@ class AddVelocloudWizard {
                         <p class="no-interfaces-configured">No data interfaces configured. Interfaces will be created but left unconfigured.</p>
                     `}
                 </div>
+                `}
 
                 <div class="review-notes">
                     <h4>What happens next:</h4>
                     <ul>
                         <li>A new ${typeConfig.label} VM will be created with the specified configuration</li>
                         <li>The device will boot and be accessible via SSH within ~90 seconds</li>
-                        <li>Device is configured for standalone training mode</li>
-                        <li>Default login: arista / arista</li>
+                        ${typeConfig.requiresGatewayConfig ?
+                            '<li>Gateway will attempt to register with the configured VCO</li><li>Default login: vcadmin / [lab password]</li>' :
+                            '<li>Device is configured for standalone training mode</li><li>Default login: arista / arista</li>'}
                     </ul>
                 </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Gateway-specific review section
+     */
+    renderGatewayReviewSection() {
+        const gc = this.veloConfig.gateway_config;
+
+        return `
+            <div class="review-section">
+                <h4>Orchestrator Registration</h4>
+                <table class="review-table">
+                    <tr>
+                        <th>VCO Address</th>
+                        <td>${gc.vco ? this.escapeHtml(gc.vco) : '<em>Not configured</em>'}</td>
+                    </tr>
+                    <tr>
+                        <th>Activation Code</th>
+                        <td>${gc.activation_code ? this.escapeHtml(gc.activation_code) : '<em>Not configured</em>'}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="review-section">
+                <h4>Network Interfaces</h4>
+                <table class="review-table">
+                    <tr>
+                        <th>Interface</th>
+                        <th>IP Address</th>
+                        <th>Gateway</th>
+                    </tr>
+                    <tr>
+                        <td>eth0 (Public)</td>
+                        <td>${gc.eth0_ip ? this.escapeHtml(gc.eth0_ip) : '<em>Not configured</em>'}</td>
+                        <td>${gc.eth0_gateway ? this.escapeHtml(gc.eth0_gateway) : '<em>Not configured</em>'}</td>
+                    </tr>
+                    <tr>
+                        <td>eth1 (Handoff)</td>
+                        <td>${gc.eth1_ip ? this.escapeHtml(gc.eth1_ip) : '<em>Not configured</em>'}</td>
+                        <td>${gc.eth1_gateway ? this.escapeHtml(gc.eth1_gateway) : '<em>Not configured</em>'}</td>
+                    </tr>
+                </table>
             </div>
         `;
     }
@@ -872,6 +1072,16 @@ class AddVelocloudWizard {
      */
     validateAllInterfaceIps() {
         const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        // For Gateway, validate gateway_config IPs instead
+        if (typeConfig.requiresGatewayConfig) {
+            const gc = this.veloConfig.gateway_config;
+            if (gc.eth0_ip && !this.isValidCidr(gc.eth0_ip)) return false;
+            if (gc.eth1_ip && !this.isValidCidr(gc.eth1_ip)) return false;
+            return true;
+        }
+
+        // Standard interface validation for Edge/Orchestrator
         for (const iface of typeConfig.interfaces) {
             const ip = this.veloConfig.interfaces[iface.key]?.ip;
             if (ip && !this.isValidCidr(ip)) {
@@ -958,12 +1168,20 @@ class AddVelocloudWizard {
                 }
             });
 
-            const result = await NodeBuilderAPI.addVeloDevice({
+            // Build request payload
+            const requestPayload = {
                 name: this.veloConfig.name,
                 device_type: this.veloConfig.device_type,
                 mgmt_ip: this.veloConfig.mgmt_ip,
                 interfaces: interfaceConfig
-            });
+            };
+
+            // Add gateway_config for Gateway devices
+            if (this.veloConfig.device_type === 'gateway') {
+                requestPayload.gateway_config = this.veloConfig.gateway_config;
+            }
+
+            const result = await NodeBuilderAPI.addVeloDevice(requestPayload);
 
             this.logMessage(log, 'Device created successfully!', 'success');
             this.logMessage(log, `VM: ${result.device?.name || this.veloConfig.name}`);
