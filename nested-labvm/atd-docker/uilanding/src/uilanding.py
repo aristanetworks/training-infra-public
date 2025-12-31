@@ -2182,6 +2182,10 @@ class InterfaceStatsAPIHandler(BaseHandler):
             return stats
 
         except pyeapi.eapilib.ConnectionError as e:
+            # Preserve auth failure info for upstream handler to detect 'unconfigured' status
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str:
+                raise ValueError(f"Unauthorized: Cannot authenticate to {device_name} ({device_ip}): {e}")
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
@@ -2417,7 +2421,17 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
 
-        except pyeapi.eapilib.ConnectionError:
+        except pyeapi.eapilib.ConnectionError as e:
+            # pyeapi raises ConnectionError for auth failures with "Unauthorized" message
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)',
+                    'last_check': datetime.now().isoformat()
+                }
             return {
                 'device': device_name,
                 'ip': device_ip,
@@ -2427,7 +2441,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
         except Exception as e:
             error_str = str(e)
-            # Check for authentication failures - device is up but not configured
+            # Fallback check for authentication failures from other exception types
             if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
                 return {
                     'device': device_name,
@@ -2540,6 +2554,10 @@ class RunningConfigAPIHandler(BaseHandler):
             }
 
         except pyeapi.eapilib.ConnectionError as e:
+            # Preserve auth failure info for upstream handler to detect 'unconfigured' status
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str:
+                raise ValueError(f"Unauthorized: Cannot authenticate to {device_name} ({device_ip}): {e}")
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
