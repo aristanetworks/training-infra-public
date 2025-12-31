@@ -7,22 +7,14 @@
 #   {inside_ip}   - Inside interface IP with CIDR (eth1)
 #   {outside_ip}  - Outside interface IP with CIDR (eth2)
 #   {gateway}     - Default gateway (192.168.0.1)
-#   {password}    - User password (from ACCESS_INFO.yaml)
 #
 # Interface mapping:
 #   eth0 - Management interface (vmgmt bridge)
 #   eth1 - Inside interface (connects to inside network)
 #   eth2 - Outside interface (connects to outside network)
-
-# VyOS cloud-init password format (NOT standard chpasswd - VyOS uses its own)
-# 'password' sets the default vyos user password
-# 'users' with 'passwd' creates additional users
-# Note: VyOS ignores standard chpasswd section
-password: {password}
-
-users:
-  - name: arista
-    passwd: {password}
+#
+# Login credentials: Uses default VyOS credentials (vyos/vyos)
+# Cloud-init password changes don't work reliably with VyOS images
 
 # VyOS-specific configuration commands
 vyos_config_commands:
@@ -50,13 +42,6 @@ vyos_config_commands:
   # Enable SSH service
   - set service ssh port 22
   - set service ssh listen-address 0.0.0.0
-
-  # Set vyos user password (default user)
-  - set system login user vyos authentication plaintext-password {password}
-
-  # Create arista user with admin privileges
-  - set system login user arista authentication plaintext-password {password}
-  - set system login user arista level admin
 
   # Set default gateway to management network
   - set protocols static route 0.0.0.0/0 next-hop {gateway}

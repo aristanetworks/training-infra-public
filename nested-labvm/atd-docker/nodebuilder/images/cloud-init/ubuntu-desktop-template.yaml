@@ -82,8 +82,8 @@ runcmd:
   - systemctl enable x11vnc
   - systemctl enable lightdm
   - systemctl set-default graphical.target
-  # Install and enable LLDP daemon for visibility in 'show lldp neighbors' on switches
-  - apt-get update && apt-get install -y lldpd
+  # Enable LLDP daemon for visibility in 'show lldp neighbors' on switches
+  # (lldpd is pre-installed in the base image - no internet access at runtime)
   - systemctl enable lldpd
   - systemctl start lldpd
   # Configure LXDE session for the user
