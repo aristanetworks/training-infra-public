@@ -4,3 +4,8 @@
 atd-public.code-workspace
 __pycache__/
 *.pyc
+
+# Node.js
+node_modules/
+package-lock.json
+*.tmp.map

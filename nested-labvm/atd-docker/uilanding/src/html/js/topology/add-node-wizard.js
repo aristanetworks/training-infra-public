@@ -194,17 +194,48 @@ class AddNodeWizard {
     /**
      * Load available IPs and target devices from API
      * Uses NodeBuilderAPI shared service for consistent caching and error handling
+     * Includes data validation and retry capability
      */
     async loadAvailableData() {
         const content = this.overlay.querySelector('.wizard-content');
         content.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>Loading available resources...</p></div>';
 
         try {
+            // Clear cache before loading to ensure fresh data
+            // This helps when wizard previously failed due to stale cache
+            NodeBuilderAPI.invalidateCache('available-ips');
+            NodeBuilderAPI.invalidateCache('target-devices');
+            NodeBuilderAPI.invalidateCache('existing-nodes');
+
             // Use shared API service for parallel fetch with caching
             const [data, deviceTypesResp] = await Promise.all([
                 NodeBuilderAPI.loadWizardData(),
-                fetch('/td-api/device-types').then(r => r.ok ? r.json() : {})
+                NodeBuilderAPI.fetchWithRetry('/td-api/device-types').then(r => r.ok ? r.json() : {})
             ]);
+
+            // Validate data structure
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid response from server: expected data object');
+            }
+
+            // Validate availableIps
+            if (!Array.isArray(data.availableIps)) {
+                console.warn('[AddNodeWizard] Invalid availableIps data, using empty array');
+                data.availableIps = [];
+            }
+
+            // Validate targetDevices
+            if (!Array.isArray(data.targetDevices)) {
+                console.warn('[AddNodeWizard] Invalid targetDevices data, using empty array');
+                data.targetDevices = [];
+            }
+
+            // Validate existingNodes
+            if (!Array.isArray(data.existingNodes)) {
+                console.warn('[AddNodeWizard] Invalid existingNodes data, using empty array');
+                data.existingNodes = [];
+            }
+
             this.availableIps = data.availableIps;
             this.targetDevices = data.targetDevices;
             this.existingNodes = data.existingNodes;
@@ -218,8 +249,14 @@ class AddNodeWizard {
                     <h3>Failed to Load Resources</h3>
                     <p>${this.escapeHtml(error.message)}</p>
                     <p class="error-hint">Make sure the nodebuilder service is running.</p>
+                    <button class="wizard-btn wizard-btn-primary wizard-retry-btn">Retry</button>
                 </div>
             `;
+            // Add retry handler
+            const retryBtn = content.querySelector('.wizard-retry-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => this.loadAvailableData());
+            }
             return;
         }
 
@@ -230,8 +267,14 @@ class AddNodeWizard {
                     <div class="error-icon">&#9888;</div>
                     <h3>No Available IP Addresses</h3>
                     <p>All IPs from the DHCP pool are currently in use.</p>
+                    <button class="wizard-btn wizard-btn-secondary wizard-retry-btn">Refresh</button>
                 </div>
             `;
+            // Add refresh handler
+            const retryBtn = content.querySelector('.wizard-retry-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => this.loadAvailableData());
+            }
             return;
         }
     }

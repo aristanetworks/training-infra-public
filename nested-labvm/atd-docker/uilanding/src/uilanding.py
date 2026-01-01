@@ -451,18 +451,21 @@ _USER_NODES_MTIME = 0
 _USER_HOSTS_MTIME = 0
 # Track user_firewalls.yaml modification time for cache invalidation
 _USER_FIREWALLS_MTIME = 0
+# Track user_velo.yaml modification time for cache invalidation
+_USER_VELO_MTIME = 0
 
 
 def invalidate_devices_cache():
     """
     Invalidate the devices cache.
-    Called when user nodes/hosts/firewalls are added/removed to ensure fresh data.
+    Called when user nodes/hosts/firewalls/velo devices are added/removed to ensure fresh data.
     """
-    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME, _USER_VELO_MTIME
     _ALL_DEVICES_CACHE = None
     _USER_NODES_MTIME = 0
     _USER_HOSTS_MTIME = 0
     _USER_FIREWALLS_MTIME = 0
+    _USER_VELO_MTIME = 0
     pS("Devices cache invalidated")
 
 
@@ -558,12 +561,13 @@ def get_all_devices():
     Device names are normalized to consistent capitalization.
     Cache is auto-invalidated when any user file changes.
     """
-    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME, _USER_VELO_MTIME
 
     # Check if any user file has been modified since last cache
     user_nodes_path = '/etc/atd/user_nodes.yaml'
     user_hosts_path = '/etc/atd/user_hosts.yaml'
     user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+    user_velo_path = '/etc/atd/user_velo.yaml'
 
     try:
         if os.path.exists(user_nodes_path):
@@ -589,6 +593,15 @@ def get_all_devices():
             if current_mtime > _USER_FIREWALLS_MTIME:
                 _ALL_DEVICES_CACHE = None
                 _USER_FIREWALLS_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_velo_path):
+            current_mtime = os.path.getmtime(user_velo_path)
+            if current_mtime > _USER_VELO_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_VELO_MTIME = current_mtime
     except OSError:
         pass
 
@@ -683,6 +696,33 @@ def get_all_devices():
                 pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls into device list")
     except Exception as e:
         pS(f"Warning: Error loading user_firewalls.yaml for devices: {e}")
+
+    # Merge user-added VeloCloud devices from user_velo.yaml
+    try:
+        if os.path.exists(user_velo_path):
+            with open(user_velo_path, 'r') as f:
+                velo_data = YAML().load(f)
+            if velo_data and 'devices' in velo_data and velo_data['devices']:
+                for velo_entry in velo_data['devices']:
+                    if isinstance(velo_entry, dict):
+                        for name, info in velo_entry.items():
+                            ip = info.get('mgmt_ip', '')
+                            if ip == 'N/A':
+                                ip = ''
+                            device_type = info.get('device_type', 'edge')
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': f'velo_{device_type}',
+                                'vm_name': name,
+                                'device_category': 'velocloud',
+                                # VeloCloud Orchestrator supports web UI access
+                                'supports_webui': device_type.lower() == 'orchestrator'
+                            }
+                pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_velo.yaml for devices: {e}")
 
     _ALL_DEVICES_CACHE = devices
     pS(f"Cached {len(devices)} devices from topo_build.yml + user files")
@@ -1908,6 +1948,7 @@ class DevicesAPIHandler(BaseHandler):
             user_nodes_group = []
             user_hosts_group = []
             user_firewalls_group = []
+            user_velocloud_group = []
 
             for device_name, device_info in nodes.items():
                 is_user_added = device_info.get('user_added', False)
@@ -1920,6 +1961,8 @@ class DevicesAPIHandler(BaseHandler):
                 vm_name = device_info.get('vm_name', device_name)
                 # Linux hosts support noVNC desktop access
                 supports_novnc = device_info.get('supports_novnc', False)
+                # VeloCloud Orchestrator supports web UI access
+                supports_webui = device_info.get('supports_webui', False)
 
                 device_entry = {
                     'name': device_name,
@@ -1928,6 +1971,7 @@ class DevicesAPIHandler(BaseHandler):
                     'userAdded': is_user_added,
                     'supportsConsole': supports_console,
                     'supportsNoVnc': supports_novnc,
+                    'supportsWebUI': supports_webui,
                 }
 
                 if is_user_added:
@@ -1936,6 +1980,8 @@ class DevicesAPIHandler(BaseHandler):
                         user_hosts_group.append(device_entry)
                     elif device_category == 'firewall':
                         user_firewalls_group.append(device_entry)
+                    elif device_category == 'velocloud':
+                        user_velocloud_group.append(device_entry)
                     else:
                         user_nodes_group.append(device_entry)
                 else:
@@ -1988,6 +2034,13 @@ class DevicesAPIHandler(BaseHandler):
                 result.append({
                     'group': 'Firewalls',
                     'devices': sorted(user_firewalls_group, key=lambda x: x['name'])
+                })
+
+            # Add VeloCloud group if there are any (VeloCloud Edge/Gateway/Orchestrator)
+            if user_velocloud_group:
+                result.append({
+                    'group': 'VeloCloud',
+                    'devices': sorted(user_velocloud_group, key=lambda x: x['name'])
                 })
 
             self.write(json.dumps({

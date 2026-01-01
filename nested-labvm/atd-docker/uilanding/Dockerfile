@@ -1,3 +1,22 @@
+# Stage 1: Build stage - minify JS and CSS
+FROM node:20-slim AS builder
+
+WORKDIR /build
+
+# Copy package files and install dependencies
+COPY package.json ./
+RUN npm install
+
+# Copy source files and build script
+COPY src/ ./src/
+COPY build.sh ./
+RUN chmod +x build.sh
+
+# Run minification (set DOCKER_BUILD to enable in-place minification)
+ENV DOCKER_BUILD=1
+RUN ./build.sh
+
+# Stage 2: Production image
 FROM python:3.9
 
 # Install system dependencies
@@ -23,7 +42,8 @@ RUN apt-get update && \
     apt-get install -qy curl && \
     curl -sSL https://get.docker.com/ | sh
 
-COPY ./src/html /opt/topo/html/
+# Copy minified HTML/JS/CSS from builder stage
+COPY --from=builder /build/src/html /opt/topo/html/
 
 # Copy Python modules to site-packages
 COPY ./src/device_types.py /usr/local/bin/device_types.py

@@ -159,10 +159,21 @@ class AddClusterWizard {
         const content = this.overlay.querySelector('.wizard-content');
 
         try {
+            // Clear cache before loading to ensure fresh data
+            NodeBuilderAPI.invalidateCache('available-ips');
+            NodeBuilderAPI.invalidateCache('target-devices');
+            NodeBuilderAPI.invalidateCache('cluster-templates');
+
             const data = await NodeBuilderAPI.loadClusterData();
-            this.templates = data.templates;
-            this.targetDevices = data.targetDevices;
-            this.availableIps = data.availableIps;
+
+            // Validate data structure
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid response from server: expected data object');
+            }
+
+            this.templates = Array.isArray(data.templates) ? data.templates : [];
+            this.targetDevices = Array.isArray(data.targetDevices) ? data.targetDevices : [];
+            this.availableIps = Array.isArray(data.availableIps) ? data.availableIps : [];
 
             // Render the form
             this.renderForm();
@@ -175,8 +186,14 @@ class AddClusterWizard {
                     <h3>Failed to Load Data</h3>
                     <p>${this.escapeHtml(error.message)}</p>
                     <p class="error-hint">Make sure the nodebuilder service is running.</p>
+                    <button class="wizard-btn wizard-btn-primary wizard-retry-btn">Retry</button>
                 </div>
             `;
+            // Add retry handler
+            const retryBtn = content.querySelector('.wizard-retry-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => this.loadData());
+            }
         }
     }
 

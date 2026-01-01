@@ -18,6 +18,8 @@ import os
 import subprocess
 from typing import Dict, List, Optional
 
+from ruamel.yaml import YAML
+
 from interface_manager import (
     delete_ovs_bridge,
     detach_interface_from_vm,
@@ -1215,18 +1217,61 @@ class ResourceManager:
             results['errors'].append(f"Failed to list VMs: {e}")
             return results
 
-        # Find zombie VMs (in libvirt but not in persistence)
-        # We only care about VMs that look like user-created ones
-        # User VMs typically match persistence names
-        for vm_name in vm_names:
-            vm_lower = vm_name.lower()
-            # Skip system VMs (usually topology VMs from topo_build.yml)
-            # User VMs would be in our persistence files
-            if vm_lower not in persisted_names:
-                # Check if this is a candidate zombie (not a topo VM)
-                # We can't easily distinguish without checking topo_build.yml
-                # For now, we look for VMs with 'status: creating' stuck
-                pass
+        # Find zombie VMs (in libvirt but not in any known source)
+        # A zombie is a VM that exists in libvirt but isn't in:
+        # - topo_build.yml (original topology devices)
+        # - user_nodes.yaml, user_hosts.yaml, user_firewalls.yaml, user_velo.yaml
+        # These are typically VMs where creation succeeded but persistence save failed
+        try:
+            from persistence import list_user_velo_devices
+            from config import USER_VELO_PATH, TOPO_BUILD_PATH
+
+            # Get topology VM names from topo_build.yml
+            topology_names = set()
+            if os.path.exists(TOPO_BUILD_PATH):
+                try:
+                    yaml = YAML()
+                    with open(TOPO_BUILD_PATH, 'r') as f:
+                        topo_data = yaml.load(f)
+                    if topo_data and 'nodes' in topo_data:
+                        for node in topo_data['nodes']:
+                            if isinstance(node, dict):
+                                for name in node.keys():
+                                    topology_names.add(name.lower())
+                except Exception as e:
+                    self.logger.warning(f"Could not load topology names: {e}")
+
+            # Get VeloCloud device names
+            velo_names = set()
+            try:
+                velo_devices = list_user_velo_devices(USER_VELO_PATH)
+                for device_entry in velo_devices:
+                    if isinstance(device_entry, dict):
+                        for name in device_entry.keys():
+                            velo_names.add(name.lower())
+            except Exception as e:
+                self.logger.warning(f"Could not load VeloCloud names: {e}")
+
+            # All known VM names
+            all_known_names = persisted_names | topology_names | velo_names
+
+            # Find VMs that exist in libvirt but aren't in any known source
+            for vm_name in vm_names:
+                vm_lower = vm_name.lower()
+                if vm_lower not in all_known_names:
+                    # This is a potential zombie VM
+                    # Get VM state for more info
+                    vm_state = self.get_vm_state(vm_name)
+                    results['zombie_vms'].append({
+                        'name': vm_name,
+                        'type': 'unknown',
+                        'state': vm_state,
+                        'reason': 'VM exists in libvirt but not in any persistence file or topology'
+                    })
+
+        except Exception as e:
+            self.logger.error(f"Error detecting zombie VMs: {e}")
+            results['errors'].append(f"Zombie VM detection failed: {e}")
 
         # Find orphan entries (in persistence but not in libvirt)
         for node_entry in nodes_data.get('nodes', []):
@@ -1334,6 +1379,36 @@ class ResourceManager:
                                 })
             except Exception as e:
                 results['errors'].append(f"Bridge scan failed: {e}")
+
+        # Clean up orphaned interface slots for devices that no longer exist
+        # This removes stale entries where the target device has been deleted
+        # NOTE: We do NOT age out valid orphaned slots because they preserve
+        # PCI slot ordering - removing them would cause interface renumbering on reboot
+        try:
+            from orphaned_interfaces import cleanup_invalid_orphaned_slots, analyze_orphaned_slot_health
+
+            # Remove slots for devices that no longer exist in libvirt
+            invalid_slots = cleanup_invalid_orphaned_slots(dry_run=dry_run)
+            results['invalid_orphaned_slots'] = invalid_slots
+            if invalid_slots.get('removed_count', 0) > 0:
+                if not dry_run:
+                    results['fixed'].append(
+                        f"Removed {invalid_slots['removed_count']} invalid orphaned slots"
+                    )
+                self.logger.info(
+                    f"Cleaned up {invalid_slots['removed_count']} invalid orphaned slots "
+                    f"(devices: {invalid_slots.get('devices_cleaned', [])})"
+                )
+
+            # Analyze slot health (warnings only - do not auto-remove valid slots)
+            health = analyze_orphaned_slot_health()
+            results['orphaned_slot_health'] = health
+            if health.get('warnings'):
+                for warning in health['warnings']:
+                    self.logger.info(f"Orphaned slot health: {warning}")
+        except Exception as e:
+            self.logger.error(f"Failed to process orphaned slots: {e}")
+            results['errors'].append(f"Orphaned slot processing failed: {e}")
 
         self.logger.info(
             f"Reconciliation complete: orphan_entries={len(results['orphan_entries'])}, "

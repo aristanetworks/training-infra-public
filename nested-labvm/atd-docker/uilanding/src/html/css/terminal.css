@@ -11,6 +11,7 @@
 :root {
   --console-blue: #4c5cae;
   --novnc-purple: #9b59b6;
+  --webui-cyan: #0891b2;  /* VeloCloud Orchestrator Web UI */
 }
 
 /* ============================================
@@ -298,6 +299,12 @@ body.terminal-page {
   z-index: 3;
 }
 
+.device-item .status-dots .status-dot.webui {
+  left: 15px;
+  background: transparent;
+  z-index: 4;
+}
+
 .device-item.ssh-connected .status-dots .status-dot.ssh,
 .device-item.both-connected .status-dots .status-dot.ssh {
   background: var(--neon-green);
@@ -312,9 +319,10 @@ body.terminal-page {
   background: var(--novnc-purple, #9b59b6);
 }
 
-/* Console icon button */
+/* Console, Desktop, and Web UI icon buttons */
 .device-item .console-icon,
-.device-item .desktop-icon {
+.device-item .desktop-icon,
+.device-item .webui-icon {
   width: 20px;
   height: 20px;
   display: flex;
@@ -339,6 +347,11 @@ body.terminal-page {
   background: rgba(120, 216, 44, 0.2);
 }
 
+.device-item .webui-icon:hover {
+  color: var(--webui-cyan, #0891b2);
+  background: rgba(8, 145, 178, 0.2);
+}
+
 .device-item.console-connected .console-icon,
 .device-item.both-connected .console-icon {
   color: var(--console-blue);
@@ -347,6 +360,11 @@ body.terminal-page {
 .device-item.novnc-connected .desktop-icon,
 .device-item.multi-connected .desktop-icon {
   color: var(--neon-green);
+}
+
+/* Web UI icon (VeloCloud Orchestrator) always uses accent color */
+.device-item .webui-icon {
+  color: var(--webui-cyan, #0891b2);
 }
 
 .device-item .device-name {

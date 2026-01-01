@@ -14,8 +14,65 @@ class NodeBuilderAPI {
     // Request tracking for race condition prevention
     static validationRequestId = 0;
 
+    // Retry configuration
+    static DEFAULT_TIMEOUT_MS = 15000; // 15 second timeout per request
+    static MAX_RETRIES = 3;
+    static INITIAL_RETRY_DELAY_MS = 500;
+
+    /**
+     * Fetch with timeout support
+     * Wraps fetch with an AbortController timeout
+     */
+    static async fetchWithTimeout(url, options = {}, timeoutMs = this.DEFAULT_TIMEOUT_MS) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    /**
+     * Fetch with retry and exponential backoff
+     * Retries failed requests with increasing delays
+     */
+    static async fetchWithRetry(url, options = {}, maxRetries = this.MAX_RETRIES) {
+        let lastError;
+        let delay = this.INITIAL_RETRY_DELAY_MS;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const response = await this.fetchWithTimeout(url, options);
+                return response;
+            } catch (error) {
+                lastError = error;
+                console.warn(`[NodeBuilderAPI] Attempt ${attempt}/${maxRetries} failed for ${url}:`, error.message);
+
+                if (attempt < maxRetries) {
+                    // Wait before retrying with exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Double the delay for next retry
+                }
+            }
+        }
+
+        throw new Error(`Failed after ${maxRetries} attempts: ${lastError.message}`);
+    }
+
     /**
      * Fetch with caching support
+     * Now uses fetchWithRetry for reliability
      */
     static async fetchWithCache(key, fetchFn) {
         const cached = this.cache.get(key);
@@ -74,7 +131,7 @@ class NodeBuilderAPI {
      */
     static async getAvailableIps() {
         return this.fetchWithCache('available-ips', async () => {
-            const response = await fetch('/td-api/nodes/available-ips');
+            const response = await this.fetchWithRetry('/td-api/nodes/available-ips');
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.error || 'Failed to fetch available IPs');
@@ -89,7 +146,7 @@ class NodeBuilderAPI {
      */
     static async getTargetDevices() {
         return this.fetchWithCache('target-devices', async () => {
-            const response = await fetch('/td-api/nodes/target-devices');
+            const response = await this.fetchWithRetry('/td-api/nodes/target-devices');
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.error || 'Failed to fetch target devices');
@@ -104,7 +161,7 @@ class NodeBuilderAPI {
      */
     static async getExistingNodes() {
         return this.fetchWithCache('existing-nodes', async () => {
-            const response = await fetch('/td-api/nodes/existing-nodes');
+            const response = await this.fetchWithRetry('/td-api/nodes/existing-nodes');
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.error || 'Failed to fetch existing nodes');
@@ -119,7 +176,7 @@ class NodeBuilderAPI {
      */
     static async getClusterTemplates() {
         return this.fetchWithCache('cluster-templates', async () => {
-            const response = await fetch('/td-api/nodes/cluster-templates');
+            const response = await this.fetchWithRetry('/td-api/nodes/cluster-templates');
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.error || 'Failed to fetch cluster templates');
@@ -267,12 +324,17 @@ class NodeBuilderAPI {
      * Check user nodes status
      */
     static async getUserNodesStatus() {
-        const response = await fetch('/td-api/nodes/user-nodes-status');
-        if (!response.ok) {
-            console.warn('[NodeBuilderAPI] Failed to check user nodes status');
+        try {
+            const response = await this.fetchWithRetry('/td-api/nodes/user-nodes-status');
+            if (!response.ok) {
+                console.warn('[NodeBuilderAPI] Failed to check user nodes status');
+                return { has_user_nodes: false, needs_restore: false };
+            }
+            return await response.json();
+        } catch (error) {
+            console.warn('[NodeBuilderAPI] Failed to check user nodes status:', error.message);
             return { has_user_nodes: false, needs_restore: false };
         }
-        return await response.json();
     }
 
     /**
@@ -381,7 +443,7 @@ class NodeBuilderAPI {
      * Get host status (count and availability)
      */
     static async getHostStatus() {
-        const response = await fetch('/td-api/nodes/host-status');
+        const response = await this.fetchWithRetry('/td-api/nodes/host-status');
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Failed to fetch host status');
@@ -465,7 +527,7 @@ class NodeBuilderAPI {
      * Get firewall status (count and availability)
      */
     static async getFirewallStatus() {
-        const response = await fetch('/td-api/nodes/firewall-status');
+        const response = await this.fetchWithRetry('/td-api/nodes/firewall-status');
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Failed to fetch firewall status');
@@ -555,7 +617,7 @@ class NodeBuilderAPI {
      * Get VeloCloud device status (count and availability)
      */
     static async getVeloStatus() {
-        const response = await fetch('/td-api/nodes/velo-status');
+        const response = await this.fetchWithRetry('/td-api/nodes/velo-status');
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Failed to fetch VeloCloud status');
@@ -570,7 +632,7 @@ class NodeBuilderAPI {
         const url = deviceType
             ? `/td-api/nodes/velo-devices?device_type=${encodeURIComponent(deviceType)}`
             : '/td-api/nodes/velo-devices';
-        const response = await fetch(url);
+        const response = await this.fetchWithRetry(url);
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Failed to fetch VeloCloud devices');

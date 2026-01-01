@@ -166,7 +166,21 @@ def generate_veos_xml(
 
     Returns:
         XML string
+
+    Raises:
+        ValueError: If too many connections would cause PCI slot exhaustion
     """
+    from config import MAX_PCI_DATA_INTERFACES
+
+    # Validate PCI slot capacity
+    # Each vEOS VM has limited PCI slots. USB controller is at slot 0x06, function 0x7.
+    # Exceeding this limit would cause VM boot failure with cryptic errors.
+    if len(connections) > MAX_PCI_DATA_INTERFACES:
+        raise ValueError(
+            f"Too many connections ({len(connections)}): maximum is {MAX_PCI_DATA_INTERFACES} "
+            f"before PCI slot exhaustion. Reduce connections or split across multiple VMs."
+        )
+
     # Parse the base XML with fixed CPU/RAM from config
     root = ET.fromstring(VEOS_BASE_XML.format(ram=VEOS_RAM_MB, cpu=VEOS_CPU))
 

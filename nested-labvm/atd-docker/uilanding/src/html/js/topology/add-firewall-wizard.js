@@ -216,10 +216,20 @@ class AddFirewallWizard {
         content.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>Loading available resources...</p></div>';
 
         try {
+            // Clear cache before loading to ensure fresh data
+            NodeBuilderAPI.invalidateCache('available-ips');
+            NodeBuilderAPI.invalidateCache('target-devices');
+
             const data = await NodeBuilderAPI.loadFirewallWizardData();
-            this.firewallStatus = data.firewallStatus;
-            this.availableIps = data.availableIps;
-            this.targetDevices = data.targetDevices;
+
+            // Validate data structure
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid response from server: expected data object');
+            }
+
+            this.firewallStatus = data.firewallStatus || { current_count: 0, max_allowed: 1, can_add_more: true };
+            this.availableIps = Array.isArray(data.availableIps) ? data.availableIps : [];
+            this.targetDevices = Array.isArray(data.targetDevices) ? data.targetDevices : [];
 
         } catch (error) {
             console.error('[AddFirewallWizard] Error loading wizard data:', error);
@@ -229,8 +239,14 @@ class AddFirewallWizard {
                     <h3>Failed to Load Resources</h3>
                     <p>${this.escapeHtml(error.message)}</p>
                     <p class="error-hint">Make sure the nodebuilder service is running.</p>
+                    <button class="wizard-btn wizard-btn-primary wizard-retry-btn">Retry</button>
                 </div>
             `;
+            // Add retry handler
+            const retryBtn = content.querySelector('.wizard-retry-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => this.loadAvailableData());
+            }
             return;
         }
 

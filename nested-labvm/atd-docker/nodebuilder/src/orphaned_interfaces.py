@@ -645,22 +645,28 @@ def validate_orphaned_slots(
 
 
 def cleanup_invalid_orphaned_slots(
-    path: str = DEFAULT_ORPHANED_INTERFACES_PATH
+    path: str = DEFAULT_ORPHANED_INTERFACES_PATH,
+    dry_run: bool = False
 ) -> Dict:
     """
     Remove orphaned slots that reference non-existent devices or interfaces.
 
     Args:
         path: Path to orphaned_interfaces.yaml
+        dry_run: If True, only report issues without removing slots
 
     Returns:
-        Dict with cleanup results
+        Dict with cleanup results including:
+        - removed_count: Number of slots removed (or would be removed in dry_run)
+        - devices_cleaned: List of devices that had slots removed
+        - errors: List of error messages
     """
     validation = validate_orphaned_slots(path)
 
     result = {
-        'slots_removed': 0,
-        'devices_removed': [],
+        'removed_count': 0,
+        'devices_cleaned': [],
+        'would_remove': [],  # For dry_run mode
         'errors': []
     }
 
@@ -668,12 +674,120 @@ def cleanup_invalid_orphaned_slots(
     for issue in validation.get('issues', []):
         if issue.get('type') == 'device_not_found':
             device = issue.get('device')
-            try:
-                count = clear_orphaned_slots_for_device(device, path)
-                result['slots_removed'] += count
-                result['devices_removed'].append(device)
-            except Exception as e:
-                result['errors'].append(f"Failed to clear {device}: {e}")
+            slot_count = issue.get('slots', 0)
+
+            if dry_run:
+                result['would_remove'].append({
+                    'device': device,
+                    'slots': slot_count
+                })
+                result['removed_count'] += slot_count
+                result['devices_cleaned'].append(device)
+            else:
+                try:
+                    count = clear_orphaned_slots_for_device(device, path)
+                    result['removed_count'] += count
+                    result['devices_cleaned'].append(device)
+                except Exception as e:
+                    result['errors'].append(f"Failed to clear {device}: {e}")
+
+    return result
+
+
+def analyze_orphaned_slot_health(
+    path: str = DEFAULT_ORPHANED_INTERFACES_PATH,
+    max_age_days: Optional[int] = None,
+    max_per_device: Optional[int] = None
+) -> Dict:
+    """
+    Analyze orphaned slot health and report potential issues.
+
+    IMPORTANT: Orphaned slots preserve PCI slot ordering on target devices.
+    We do NOT automatically remove valid slots because that would cause
+    interface renumbering on the next reboot, breaking network connectivity.
+
+    This function only REPORTS issues, it does not remove slots.
+    To remove slots, use:
+    - cleanup_invalid_orphaned_slots(): for slots on non-existent devices
+    - clear_all_orphaned_slots(): for full reset
+
+    Args:
+        path: Path to orphaned_interfaces.yaml
+        max_age_days: Age threshold for warnings (default from config)
+        max_per_device: Count threshold for warnings (default from config)
+
+    Returns:
+        Dict with health analysis including warnings
+    """
+    from datetime import timedelta
+    from config import ORPHANED_SLOT_MAX_AGE_DAYS, ORPHANED_SLOT_MAX_PER_DEVICE
+
+    # Use config defaults if not specified
+    if max_age_days is None:
+        max_age_days = ORPHANED_SLOT_MAX_AGE_DAYS
+    if max_per_device is None:
+        max_per_device = ORPHANED_SLOT_MAX_PER_DEVICE
+
+    data = load_orphaned_interfaces(path)
+    orphaned = data.get('orphaned_interfaces', {})
+
+    result = {
+        'total_slots': 0,
+        'total_devices': len(orphaned),
+        'old_slots': [],        # Slots older than threshold (warning only)
+        'high_count_devices': [],  # Devices with many slots (warning only)
+        'warnings': []
+    }
+
+    now = datetime.now(timezone.utc)
+    max_age = timedelta(days=max_age_days)
+
+    for device_key, slots in orphaned.items():
+        result['total_slots'] += len(slots)
+
+        # Check for old slots (warning only - do not remove!)
+        for slot in slots:
+            orphaned_at_str = slot.get('orphaned_at')
+            if orphaned_at_str:
+                try:
+                    orphaned_at = datetime.fromisoformat(orphaned_at_str)
+                    if orphaned_at.tzinfo is None:
+                        orphaned_at = orphaned_at.replace(tzinfo=timezone.utc)
+                    age = now - orphaned_at
+                    if age > max_age:
+                        result['old_slots'].append({
+                            'device': device_key,
+                            'slot_number': slot.get('slot_number'),
+                            'age_days': age.days
+                        })
+                except (ValueError, TypeError):
+                    pass
+
+        # Check for high slot count per device (warning only)
+        if len(slots) > max_per_device:
+            result['high_count_devices'].append({
+                'device': device_key,
+                'slot_count': len(slots),
+                'threshold': max_per_device
+            })
+
+    # Generate human-readable warnings
+    if result['old_slots']:
+        result['warnings'].append(
+            f"{len(result['old_slots'])} orphaned slot(s) are older than {max_age_days} days. "
+            f"This is informational only - slots are preserved to prevent interface renumbering."
+        )
+
+    if result['high_count_devices']:
+        devices = [d['device'] for d in result['high_count_devices']]
+        result['warnings'].append(
+            f"{len(result['high_count_devices'])} device(s) have many orphaned slots: {devices}. "
+            f"Consider running a full reset if this causes performance issues."
+        )
+
+    if result['warnings']:
+        for warning in result['warnings']:
+            logger.info(f"Orphaned slot health: {warning}")
 
     return result
 

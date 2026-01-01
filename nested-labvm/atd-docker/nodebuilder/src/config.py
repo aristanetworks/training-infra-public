@@ -290,6 +290,13 @@ ENABLE_SLOT_PRESERVATION = os.getenv(
     'ENABLE_SLOT_PRESERVATION', 'true'
 ).lower() == 'true'
 
+# Orphaned slot aging policy limits
+# Maximum age in days before orphaned slots are automatically cleaned up
+ORPHANED_SLOT_MAX_AGE_DAYS = int(os.getenv('ORPHANED_SLOT_MAX_AGE_DAYS', '30'))
+
+# Maximum number of orphaned slots per device before oldest are pruned
+ORPHANED_SLOT_MAX_PER_DEVICE = int(os.getenv('ORPHANED_SLOT_MAX_PER_DEVICE', '20'))
+
 # Cloud-init templates directory
 CLOUD_INIT_TEMPLATES_PATH = os.getenv(
     'CLOUD_INIT_TEMPLATES_PATH',
@@ -457,6 +464,11 @@ PCI_SLOT_MGMT_INTERFACE = ('0x03', '0x0')
 # Data interface slots for Linux hosts and firewalls
 PCI_SLOT_DATA_INTERFACE_1 = ('0x04', '0x0')  # eth1 / inside interface
 PCI_SLOT_DATA_INTERFACE_2 = ('0x05', '0x0')  # eth2 / outside interface
+
+# Maximum data interfaces before PCI slot collision with USB controller
+# Slot 3: funcs 1-7 (7), Slot 4: funcs 0-7 (8), Slot 5: funcs 0-7 (8), Slot 6: funcs 0-6 (7)
+# Total = 30, but slot 6 func 7 is USB controller, so max is 29
+MAX_PCI_DATA_INTERFACES = 29
 
 
 # =============================================================================

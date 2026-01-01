@@ -110,15 +110,17 @@ const TerminalManager = {
         deviceEl.dataset.vmName = device.vmName || device.name;  // Original VM name for virsh
         deviceEl.dataset.supportsConsole = device.supportsConsole ? 'true' : 'false';
         deviceEl.dataset.supportsNoVnc = device.supportsNoVnc ? 'true' : 'false';
+        deviceEl.dataset.supportsWebUI = device.supportsWebUI ? 'true' : 'false';
         deviceEl.tabIndex = 0;
 
         // Build HTML with stacked status dots and action icons
-        // Show dots for available connection types: SSH (all), Console (if supported), noVNC (if supported)
+        // Show dots for available connection types: SSH (all), Console (if supported), noVNC (if supported), Web UI (if supported)
         let html = `
           <span class="status-dots" aria-hidden="true">
             <span class="status-dot ssh" title="SSH"></span>
             ${device.supportsConsole ? '<span class="status-dot console" title="Console"></span>' : ''}
             ${device.supportsNoVnc ? '<span class="status-dot novnc" title="Desktop"></span>' : ''}
+            ${device.supportsWebUI ? '<span class="status-dot webui" title="Web UI"></span>' : ''}
           </span>
           <span class="device-name">${device.name}</span>
           <span class="device-ip">${device.ip}</span>
@@ -134,6 +136,11 @@ const TerminalManager = {
           html += `<span class="console-icon" title="Open Serial Console" aria-label="Open serial console for ${device.name}">&#9000;</span>`;
         }
 
+        // Add Web UI icon for VeloCloud Orchestrator
+        if (device.supportsWebUI) {
+          html += `<span class="webui-icon" title="Open Web UI" aria-label="Open web UI for ${device.name}">&#127760;</span>`;
+        }
+
         deviceEl.innerHTML = html;
 
         // Left-click on device name area
@@ -142,7 +149,8 @@ const TerminalManager = {
         const openTerminalHandler = (e) => {
           // Don't trigger if clicking on action icons
           if (e.target.classList.contains('console-icon') ||
-              e.target.classList.contains('desktop-icon')) return;
+              e.target.classList.contains('desktop-icon') ||
+              e.target.classList.contains('webui-icon')) return;
 
           if (device.supportsNoVnc) {
             // Linux hosts: open desktop by default
@@ -176,6 +184,18 @@ const TerminalManager = {
               // Use vmName for console (original name for virsh)
               const vmName = device.vmName || device.name;
               this.openTerminal(device.name, device.ip, 'console', vmName);
+            });
+          }
+        }
+
+        // Click on webui icon opens VCO web UI in new tab
+        if (device.supportsWebUI) {
+          const webuiIcon = deviceEl.querySelector('.webui-icon');
+          if (webuiIcon) {
+            webuiIcon.addEventListener('click', (e) => {
+              e.stopPropagation();
+              // Open VCO web UI in a new browser tab
+              window.open('/vco/', '_blank');
             });
           }
         }
@@ -534,6 +554,16 @@ const TerminalManager = {
       `;
     }
 
+    // Add Web UI option if supported (VeloCloud Orchestrator)
+    if (device.supportsWebUI) {
+      menuHTML += `
+        <div class="menu-item webui-action" data-action="webui" role="menuitem">
+          <span class="menu-icon" aria-hidden="true">&#127760;</span>
+          Open Web UI
+        </div>
+      `;
+    }
+
     menuHTML += `
       <div class="menu-divider" role="separator"></div>
       <div class="menu-item" data-action="highlight" role="menuitem">
@@ -598,6 +628,10 @@ const TerminalManager = {
       case 'novnc':
         // Open noVNC desktop for Linux hosts
         this.openTerminal(device.name, device.ip, 'novnc', device.vmName);
+        break;
+      case 'webui':
+        // Open VCO web UI in new tab
+        window.open('/vco/', '_blank');
         break;
       case 'highlight':
         this.highlightOnDiagram(device.name);

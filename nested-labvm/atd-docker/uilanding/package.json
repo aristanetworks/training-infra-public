@@ -1,0 +1,13 @@
+{
+  "name": "uilanding-frontend",
+  "version": "1.0.0",
+  "description": "UILanding frontend build tools for minification",
+  "private": true,
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "terser": "^5.31.0",
+    "csso-cli": "^4.0.2"
+  }
+}

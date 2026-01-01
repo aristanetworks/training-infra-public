@@ -22,6 +22,7 @@
 #
 # Default credentials: root / {password}
 
+hostname: {hostname}
 password: {password}
 chpasswd: {expire: False}
 ssh_pwauth: True

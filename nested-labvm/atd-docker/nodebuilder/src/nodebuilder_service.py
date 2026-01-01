@@ -34,6 +34,7 @@ VeloCloud Endpoints:
 - GET  /velo-devices        - List all VeloCloud devices
 - POST /add-velo-device     - Create new VeloCloud device (Edge, Gateway, Orchestrator)
 - POST /delete-velo-device  - Delete a VeloCloud device
+- GET/POST/PUT/DELETE /vco-proxy/{path} - Proxy requests to VCO web UI
 """
 
 import logging
@@ -2591,6 +2592,134 @@ async def validate_orphaned_slots(request):
         logger.error(f"Error validating orphaned slots: {e}", exc_info=True)
         return web.json_response({
             'success': False,
+            'error': sanitize_error(e)
+        }, status=500)
+
+
+# VeloCloud Orchestrator Web UI Proxy
+@routes.get('/vco-proxy')
+@routes.get('/vco-proxy/{path:.*}')
+async def vco_proxy_get(request):
+    """Proxy GET requests to VeloCloud Orchestrator web UI."""
+    return await _vco_proxy(request, 'GET')
+
+
+@routes.post('/vco-proxy')
+@routes.post('/vco-proxy/{path:.*}')
+async def vco_proxy_post(request):
+    """Proxy POST requests to VeloCloud Orchestrator web UI."""
+    return await _vco_proxy(request, 'POST')
+
+
+@routes.put('/vco-proxy/{path:.*}')
+async def vco_proxy_put(request):
+    """Proxy PUT requests to VeloCloud Orchestrator web UI."""
+    return await _vco_proxy(request, 'PUT')
+
+
+@routes.delete('/vco-proxy/{path:.*}')
+async def vco_proxy_delete(request):
+    """Proxy DELETE requests to VeloCloud Orchestrator web UI."""
+    return await _vco_proxy(request, 'DELETE')
+
+
+async def _vco_proxy(request, method: str):
+    """
+    Forward requests to VeloCloud Orchestrator.
+
+    Finds the VCO from user_velo.yaml, gets its management IP,
+    and proxies requests to https://<mgmt_ip>/<path>.
+    """
+    import aiohttp
+    import ssl
+    from persistence import list_user_velo_devices
+    from config import USER_VELO_PATH
+
+    try:
+        # Find the VCO from user_velo.yaml
+        devices = list_user_velo_devices(USER_VELO_PATH)
+        vco_ip = None
+
+        for device_entry in devices:
+            if isinstance(device_entry, dict):
+                for name, info in device_entry.items():
+                    if info.get('device_type', '').lower() == 'orchestrator':
+                        vco_ip = info.get('mgmt_ip')
+                        if vco_ip and vco_ip != 'N/A':
+                            break
+            if vco_ip:
+                break
+
+        if not vco_ip:
+            return web.json_response({
+                'error': 'No VeloCloud Orchestrator found. Please add one first.'
+            }, status=404)
+
+        # Get path from request
+        path = request.match_info.get('path', '')
+        query_string = request.query_string
+
+        # Build target URL
+        target_url = f"https://{vco_ip}/{path}"
+        if query_string:
+            target_url = f"{target_url}?{query_string}"
+
+        logger.info(f"VCO Proxy: {method} {target_url}")
+
+        # Create SSL context that doesn't verify certificates.
+        # SECURITY NOTE: This is acceptable for training environments where VCO uses
+        # self-signed certificates. In production, proper certificate validation should
+        # be used. The VCO is on an isolated lab network not exposed to the internet.
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        # Prepare headers (forward relevant ones)
+        headers = {}
+        for header in ['Content-Type', 'Accept', 'Authorization', 'Cookie']:
+            if header in request.headers:
+                headers[header] = request.headers[header]
+
+        # Get request body for POST/PUT
+        body = None
+        if method in ('POST', 'PUT'):
+            body = await request.read()
+
+        # Create connector with SSL context
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.request(
+                method,
+                target_url,
+                headers=headers,
+                data=body,
+                timeout=aiohttp.ClientTimeout(total=60)
+            ) as resp:
+                # Read response
+                content = await resp.read()
+
+                # Build response with same status and relevant headers
+                response = web.Response(
+                    body=content,
+                    status=resp.status
+                )
+
+                # Forward relevant response headers
+                for header in ['Content-Type', 'Set-Cookie', 'Location']:
+                    if header in resp.headers:
+                        response.headers[header] = resp.headers[header]
+
+                return response
+
+    except aiohttp.ClientError as e:
+        logger.error(f"VCO Proxy error: {e}")
+        return web.json_response({
+            'error': f'Failed to connect to VCO: {str(e)}'
+        }, status=502)
+    except Exception as e:
+        logger.error(f"VCO Proxy error: {e}", exc_info=True)
+        return web.json_response({
             'error': sanitize_error(e)
         }, status=500)
 
