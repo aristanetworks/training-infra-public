@@ -1035,7 +1035,7 @@ class AddNodeWizard {
             // All user nodes are running - show success briefly
             banner.innerHTML = `
                 <div class="restore-banner-content">
-                    <span class="restore-banner-icon success">&#10003;</span>
+                    <span class="restore-banner-icon success">&#10004;</span>
                     <span class="restore-banner-text">
                         ${status.nodes.length} user-added node${status.nodes.length !== 1 ? 's' : ''} running.
                     </span>
@@ -1106,7 +1106,7 @@ class AddNodeWizard {
                     <div class="restore-nodes-list">
                         ${status.nodes.map(node => `
                             <div class="restore-node-item ${node.running ? 'running' : 'stopped'}">
-                                <span class="node-status-icon">${node.running ? '&#10003;' : '&#9679;'}</span>
+                                <span class="node-status-icon">${node.running ? '&#10004;' : '&#9679;'}</span>
                                 <span class="node-name">${this.escapeHtml(node.name)}</span>
                                 <span class="node-ip">${this.escapeHtml(node.ip)}</span>
                                 <span class="node-state">${node.running ? 'Running' : 'Stopped'}</span>
@@ -1207,7 +1207,7 @@ class AddNodeWizard {
 
             content.innerHTML = `
                 <div class="restore-success">
-                    <div class="success-icon">&#10003;</div>
+                    <div class="success-icon">&#10004;</div>
                     <h3>Restore Complete</h3>
                     <p>${statusMessage}</p>
                 </div>

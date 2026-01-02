@@ -42,6 +42,8 @@ class BaseModal {
         this.overlay = null;
         this.modal = null;
         this.escapeHandler = null;
+        this.focusTrapHandler = null;
+        this.previouslyFocused = null;
         this.isVisible = false;
     }
 
@@ -137,12 +139,62 @@ class BaseModal {
     }
 
     /**
+     * Get all focusable elements within the modal
+     */
+    getFocusableElements() {
+        const focusableSelectors = [
+            'button:not([disabled])',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            'a[href]',
+            '[tabindex]:not([tabindex="-1"]):not([disabled])'
+        ].join(', ');
+
+        return this.modal.querySelectorAll(focusableSelectors);
+    }
+
+    /**
+     * Set up focus trap to keep focus within the modal
+     */
+    setupFocusTrap() {
+        this.focusTrapHandler = (e) => {
+            if (e.key !== 'Tab' || !this.isVisible) return;
+
+            const focusableElements = this.getFocusableElements();
+            if (focusableElements.length === 0) return;
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey) {
+                // Shift + Tab: if on first element, go to last
+                if (document.activeElement === firstElement) {
+                    e.preventDefault();
+                    lastElement.focus();
+                }
+            } else {
+                // Tab: if on last element, go to first
+                if (document.activeElement === lastElement) {
+                    e.preventDefault();
+                    firstElement.focus();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', this.focusTrapHandler);
+    }
+
+    /**
      * Show the modal
      */
     show() {
         if (!this.overlay) {
             this.create();
         }
+
+        // Store previously focused element to restore on close
+        this.previouslyFocused = document.activeElement;
 
         document.body.appendChild(this.overlay);
         this.isVisible = true;
@@ -152,10 +204,13 @@ class BaseModal {
             this.overlay.classList.add('atd-modal-overlay--visible');
         });
 
+        // Set up focus trap
+        this.setupFocusTrap();
+
         // Focus management - focus first interactive element
-        const firstFocusable = this.modal.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (firstFocusable) {
-            firstFocusable.focus();
+        const focusableElements = this.getFocusableElements();
+        if (focusableElements.length > 0) {
+            focusableElements[0].focus();
         }
     }
 
@@ -167,6 +222,18 @@ class BaseModal {
 
         this.overlay.classList.remove('atd-modal-overlay--visible');
         this.isVisible = false;
+
+        // Cleanup focus trap
+        if (this.focusTrapHandler) {
+            document.removeEventListener('keydown', this.focusTrapHandler);
+            this.focusTrapHandler = null;
+        }
+
+        // Restore focus to previously focused element
+        if (this.previouslyFocused && this.previouslyFocused.focus) {
+            this.previouslyFocused.focus();
+            this.previouslyFocused = null;
+        }
 
         // Wait for animation before removing
         setTimeout(() => {
@@ -185,8 +252,19 @@ class BaseModal {
             this.escapeHandler = null;
         }
 
+        if (this.focusTrapHandler) {
+            document.removeEventListener('keydown', this.focusTrapHandler);
+            this.focusTrapHandler = null;
+        }
+
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.remove();
+        }
+
+        // Restore focus if still tracked
+        if (this.previouslyFocused && this.previouslyFocused.focus) {
+            this.previouslyFocused.focus();
+            this.previouslyFocused = null;
         }
 
         this.overlay = null;

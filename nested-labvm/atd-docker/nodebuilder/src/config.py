@@ -427,23 +427,119 @@ def get_device_credentials() -> dict:
 
 
 # =============================================================================
+# Security Utilities
+# =============================================================================
+# Functions for safe handling of sensitive data in logging and error messages.
+
+# Sensitive field names to redact in logs
+SENSITIVE_FIELDS = frozenset([
+    'password', 'passwd', 'pw', 'secret', 'token', 'key',
+    'credential', 'auth', 'api_key', 'apikey', 'activation_code'
+])
+
+
+def redact_sensitive(text: str, replacement: str = '***REDACTED***') -> str:
+    """
+    Redact potentially sensitive data from a text string.
+
+    This function looks for patterns that might contain passwords or secrets
+    and replaces them with a redaction marker.
+
+    Args:
+        text: The text to redact
+        replacement: The replacement string for sensitive data
+
+    Returns:
+        Text with sensitive data redacted
+    """
+    import re
+
+    # Redact password patterns in cloud-init style: password: value
+    text = re.sub(
+        r'(password|passwd|pw|secret|token|key)\s*[:=]\s*[^\s\n]+',
+        f'\\1: {replacement}',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Redact activation codes (XXXX-XXXX-XXXX-XXXX pattern)
+    text = re.sub(
+        r'\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b',
+        replacement,
+        text
+    )
+
+    return text
+
+
+def redact_dict(data: dict, replacement: str = '***REDACTED***') -> dict:
+    """
+    Create a copy of a dictionary with sensitive fields redacted.
+
+    Useful for safe logging of configuration or request data.
+
+    Args:
+        data: Dictionary to redact
+        replacement: The replacement string for sensitive values
+
+    Returns:
+        New dictionary with sensitive values redacted
+    """
+    if not isinstance(data, dict):
+        return data
+
+    result = {}
+    for key, value in data.items():
+        key_lower = key.lower()
+        if any(sensitive in key_lower for sensitive in SENSITIVE_FIELDS):
+            result[key] = replacement
+        elif isinstance(value, dict):
+            result[key] = redact_dict(value, replacement)
+        elif isinstance(value, list):
+            result[key] = [
+                redact_dict(item, replacement) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            result[key] = value
+
+    return result
+
+
+def safe_error_message(error: Exception) -> str:
+    """
+    Create a safe error message that doesn't expose sensitive data.
+
+    Filters out any potential passwords or secrets from error messages.
+
+    Args:
+        error: The exception to create a message from
+
+    Returns:
+        Sanitized error message string
+    """
+    error_str = str(error)
+    return redact_sensitive(error_str)
+
+
+# =============================================================================
 # Timeout Configuration
 # =============================================================================
 # Centralized timeout values for subprocess calls and lock operations.
-# Adjust these based on system performance and network conditions.
+# Configurable via environment variables for different system performance profiles.
 
 # Short timeout for quick operations (VM state checks, interface queries)
-SUBPROCESS_TIMEOUT_SHORT = 10
+SUBPROCESS_TIMEOUT_SHORT = int(os.environ.get('NODEBUILDER_TIMEOUT_SHORT', 10))
 
 # Default timeout for most subprocess calls (virsh commands, OVS operations)
-SUBPROCESS_TIMEOUT_DEFAULT = 30
+SUBPROCESS_TIMEOUT_DEFAULT = int(os.environ.get('NODEBUILDER_TIMEOUT_DEFAULT', 30))
 
 # Long timeout for operations that may take time (VM start/stop, disk operations)
-SUBPROCESS_TIMEOUT_LONG = 60
+SUBPROCESS_TIMEOUT_LONG = int(os.environ.get('NODEBUILDER_TIMEOUT_LONG', 60))
 
 # Lock acquisition timeouts
-CREATION_LOCK_TIMEOUT = 120.0  # Lock for VM/cluster creation operations
-PORT_ALLOCATION_LOCK_TIMEOUT = 30.0  # Lock for port allocation
+CREATION_LOCK_TIMEOUT = float(os.environ.get('NODEBUILDER_CREATION_LOCK_TIMEOUT', 120.0))
+PORT_ALLOCATION_LOCK_TIMEOUT = float(os.environ.get('NODEBUILDER_PORT_LOCK_TIMEOUT', 30.0))
 
 
 # =============================================================================

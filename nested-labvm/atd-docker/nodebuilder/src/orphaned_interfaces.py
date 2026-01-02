@@ -21,6 +21,8 @@ from typing import Dict, List, Optional
 
 from ruamel.yaml import YAML
 
+from config import SUBPROCESS_TIMEOUT_SHORT
+
 logger = logging.getLogger('nodebuilder')
 
 # Default path - can be overridden via config
@@ -584,7 +586,7 @@ def validate_orphaned_slots(
             proc = subprocess.run(
                 ['virsh', 'dominfo', device_name],
                 capture_output=True,
-                timeout=10
+                timeout=SUBPROCESS_TIMEOUT_SHORT
             )
             if proc.returncode != 0:
                 result['valid'] = False
@@ -623,7 +625,7 @@ def validate_orphaned_slots(
                     ['virsh', 'domiflist', device_name],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=SUBPROCESS_TIMEOUT_SHORT
                 )
                 if proc.returncode == 0:
                     if mac.lower() not in proc.stdout.lower():

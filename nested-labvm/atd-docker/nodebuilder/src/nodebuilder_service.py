@@ -61,9 +61,10 @@ from config import (
     DEFAULT_NETWORK_LATENCY_MS
 )
 
-# Configure logging
+# Configure logging (level configurable via environment variable)
+LOG_LEVEL = os.environ.get('NODEBUILDER_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('nodebuilder')
@@ -979,7 +980,7 @@ async def add_cluster(request):
                     USER_NODES_PATH
                 )
             except ValueError as e:
-                return web.json_response({'error': str(e)}, status=400)
+                return web.json_response({'error': sanitize_error(e)}, status=400)
 
             # Log if prefix was modified
             if unique_prefix != name_prefix:
@@ -1534,10 +1535,10 @@ async def add_host(request):
         return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except ValueError as e:
         logger.warning(f"Validation error creating host {name}: {e}")
-        return web.json_response({'error': str(e)}, status=400)
+        return web.json_response({'error': sanitize_error(e)}, status=400)
     except FileNotFoundError as e:
         logger.error(f"Required file not found for host {name}: {e}")
-        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+        return web.json_response({'error': 'Required file not found'}, status=500)
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed for host {name}: {e}")
         return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
@@ -1825,10 +1826,10 @@ async def add_firewall(request):
         return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except ValueError as e:
         logger.warning(f"Validation error creating firewall {name}: {e}")
-        return web.json_response({'error': str(e)}, status=400)
+        return web.json_response({'error': sanitize_error(e)}, status=400)
     except FileNotFoundError as e:
         logger.error(f"Required file not found for firewall {name}: {e}")
-        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+        return web.json_response({'error': 'Required file not found'}, status=500)
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed for firewall {name}: {e}")
         return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
@@ -2179,10 +2180,10 @@ async def add_velo_device(request):
         return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
     except ValueError as e:
         logger.warning(f"Validation error creating VeloCloud device {name}: {e}")
-        return web.json_response({'error': str(e)}, status=400)
+        return web.json_response({'error': sanitize_error(e)}, status=400)
     except FileNotFoundError as e:
         logger.error(f"Required file not found for VeloCloud device {name}: {e}")
-        return web.json_response({'error': f'Required file not found: {e}'}, status=500)
+        return web.json_response({'error': 'Required file not found'}, status=500)
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed for VeloCloud device {name}: {e}")
         return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
