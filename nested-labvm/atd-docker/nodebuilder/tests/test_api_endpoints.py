@@ -153,11 +153,15 @@ class TestAddHostEndpoint:
 
 
 class TestAddFirewallEndpoint:
-    """Tests for add-firewall endpoint."""
+    """Tests for add-firewall endpoint.
+
+    Note: Interface IPs are no longer required - they are configured
+    directly in VyOS after boot.
+    """
 
     @pytest.mark.asyncio
-    async def test_add_firewall_missing_inside_ip(self, aiohttp_client):
-        """Test add-firewall rejects missing inside interface IP."""
+    async def test_add_firewall_missing_inside_device(self, aiohttp_client):
+        """Test add-firewall rejects missing inside interface target device."""
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
         from nodebuilder_service import create_app
@@ -166,8 +170,8 @@ class TestAddFirewallEndpoint:
         resp = await client.post('/add-firewall', json={
             'name': 'testfw',
             'mgmt_ip': '192.168.0.50',
-            'inside_interface': {},  # Missing IP
-            'outside_interface': {'ip': '10.2.2.1/24'}
+            'inside_interface': {},  # Missing target_device
+            'outside_interface': {'target_device': 'spine1'}
         })
         assert resp.status == 400
         data = await resp.json()
@@ -175,8 +179,8 @@ class TestAddFirewallEndpoint:
         assert 'inside' in data['error'].lower()
 
     @pytest.mark.asyncio
-    async def test_add_firewall_invalid_interface_ip(self, aiohttp_client):
-        """Test add-firewall rejects invalid interface IP format."""
+    async def test_add_firewall_missing_outside_device(self, aiohttp_client):
+        """Test add-firewall rejects missing outside interface target device."""
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
         from nodebuilder_service import create_app
@@ -185,12 +189,13 @@ class TestAddFirewallEndpoint:
         resp = await client.post('/add-firewall', json={
             'name': 'testfw',
             'mgmt_ip': '192.168.0.50',
-            'inside_interface': {'ip': '10.1.1.1'},  # Missing CIDR prefix
-            'outside_interface': {'ip': '10.2.2.1/24'}
+            'inside_interface': {'target_device': 'leaf1'},
+            'outside_interface': {}  # Missing target_device
         })
         assert resp.status == 400
         data = await resp.json()
         assert 'error' in data
+        assert 'outside' in data['error'].lower()
 
 
 class TestReconcileEndpoint:

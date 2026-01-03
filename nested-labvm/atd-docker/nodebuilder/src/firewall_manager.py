@@ -116,26 +116,16 @@ def get_firewall_count() -> int:
     return count
 
 
-def generate_vyos_cloud_init(
-    hostname: str,
-    mgmt_ip: str,
-    inside_ip: str,
-    outside_ip: str,
-    gateway: str = '192.168.0.1'
-) -> str:
+def generate_vyos_cloud_init(hostname: str) -> str:
     """
     Generate a cloud-init ISO for VyOS provisioning.
 
     VyOS uses vyos_config_commands in cloud-init for configuration.
-    Uses default VyOS credentials (vyos/vyos) - cloud-init password
-    changes don't work reliably with VyOS images.
+    Only sets hostname - users configure interface IPs manually after boot.
+    Uses default VyOS credentials (vyos/arista from base image).
 
     Args:
         hostname: VM hostname
-        mgmt_ip: Management interface IP (without CIDR, /24 assumed)
-        inside_ip: Inside interface IP with CIDR (e.g., 10.1.1.1/24)
-        outside_ip: Outside interface IP with CIDR (e.g., 10.2.2.1/24)
-        gateway: Default gateway
 
     Returns:
         Path to the generated ISO file
@@ -151,34 +141,20 @@ def generate_vyos_cloud_init(
             with open(template_path, 'r') as f:
                 user_data = f.read()
         else:
-            # Fallback inline template
-            # Uses default VyOS credentials (vyos/vyos)
+            # Fallback inline template - minimal config
+            # Users will configure interface IPs manually after boot
+            # Login: vyos / arista (from base image)
             user_data = """#cloud-config
 vyos_config_commands:
   - set system host-name {hostname}
   - set system time-zone UTC
-  - set system name-server 8.8.8.8
-  - set system name-server 192.168.0.1
   - set system console device ttyS0 speed 115200
-  - set interfaces ethernet eth0 address {mgmt_ip}/24
-  - set interfaces ethernet eth0 description 'Management'
-  - set interfaces ethernet eth1 address {inside_ip}
-  - set interfaces ethernet eth1 description 'Inside'
-  - set interfaces ethernet eth2 address {outside_ip}
-  - set interfaces ethernet eth2 description 'Outside'
   - set service ssh port 22
-  - set service ssh listen-address 0.0.0.0
-  - set protocols static route 0.0.0.0/0 next-hop {gateway}
+  - set service lldp interface all
 """
 
-        # Replace placeholders
-        user_data = user_data.format(
-            hostname=hostname,
-            mgmt_ip=mgmt_ip,
-            inside_ip=inside_ip,
-            outside_ip=outside_ip,
-            gateway=gateway
-        )
+        # Replace placeholders (only hostname now)
+        user_data = user_data.format(hostname=hostname)
 
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:
@@ -377,11 +353,13 @@ def create_firewall(
     """
     Create a complete VyOS firewall VM.
 
+    Interface IPs are not configured via cloud-init - users configure
+    them manually in VyOS after boot.
+
     Args:
         name: Hostname for the new firewall
         mgmt_ip: Management IP address (from available pool)
         inside_interface: Inside interface config:
-            - ip: IP address with CIDR (e.g., "10.1.1.1/24")
             - target_device: Switch to connect to
             - target_port: Optional port on target switch
         outside_interface: Outside interface config (same structure)
@@ -398,14 +376,11 @@ def create_firewall(
             f"Maximum of {MAX_FIREWALLS_PER_TOPOLOGY} firewall per topology reached"
         )
 
-    # Validate required fields
-    inside_ip = inside_interface.get('ip')
-    outside_ip = outside_interface.get('ip')
-
-    if not inside_ip:
-        raise ValueError("Inside interface IP is required (with CIDR notation)")
-    if not outside_ip:
-        raise ValueError("Outside interface IP is required (with CIDR notation)")
+    # Validate required connection fields
+    if not inside_interface.get('target_device'):
+        raise ValueError("Inside interface target device is required")
+    if not outside_interface.get('target_device'):
+        raise ValueError("Outside interface target device is required")
 
     created_resources = []
 
@@ -415,14 +390,9 @@ def create_firewall(
         image_path = copy_firewall_base_image(name)
         created_resources.append(('image', image_path))
 
-        # Step 2: Generate cloud-init ISO
+        # Step 2: Generate cloud-init ISO (hostname only - IPs configured manually after boot)
         logger.info(f"Generating VyOS cloud-init ISO for {name}")
-        cidata_path = generate_vyos_cloud_init(
-            hostname=name,
-            mgmt_ip=mgmt_ip,
-            inside_ip=inside_ip,
-            outside_ip=outside_ip
-        )
+        cidata_path = generate_vyos_cloud_init(hostname=name)
         created_resources.append(('cidata', cidata_path))
 
         # Step 3: Process inside connection
@@ -444,8 +414,7 @@ def create_firewall(
                 'target_device': target_device,
                 'target_port': target_port,
                 'local_port': 'eth1',
-                'bridge': bridge_name,
-                'ip': inside_ip
+                'bridge': bridge_name
             }
 
         # Step 4: Process outside connection
@@ -467,8 +436,7 @@ def create_firewall(
                 'target_device': target_device,
                 'target_port': target_port,
                 'local_port': 'eth2',
-                'bridge': bridge_name,
-                'ip': outside_ip
+                'bridge': bridge_name
             }
 
         # Step 5: Generate VM XML
@@ -692,80 +660,32 @@ def edit_firewall(
     outside_interface: Optional[Dict] = None
 ) -> Dict:
     """
-    Edit firewall interface IPs.
+    Edit firewall configuration.
 
-    Note: This requires VM restart to apply cloud-init changes.
-    Connection changes (target device/port) are not supported via edit.
+    Note: Interface IPs are not managed via the API - users configure
+    them directly in VyOS. This endpoint is kept for API compatibility
+    but currently returns a no-op response.
 
     Args:
         name: Name of the firewall
-        inside_interface: New inside interface config (ip only)
-        outside_interface: New outside interface config (ip only)
+        inside_interface: Not used (IPs configured in VyOS)
+        outside_interface: Not used (IPs configured in VyOS)
 
     Returns:
-        Dict with edit status
+        Dict with status message
     """
-    # For now, editing firewall IPs requires recreating the cloud-init ISO
-    # and rebooting the VM. This is a simplified implementation.
-    logger.info(f"Editing VyOS firewall: {name}")
+    from persistence import get_user_firewall
 
-    # Get current config from persistence
-    from persistence import get_user_firewall, load_user_firewalls, save_user_firewalls
+    logger.info(f"Edit firewall called for: {name}")
 
+    # Verify firewall exists
     firewall = get_user_firewall(name, USER_FIREWALLS_PATH)
     if not firewall:
         raise ValueError(f"Firewall '{name}' not found")
 
-    fw_info = firewall.get(name, {})
-
-    # Update IPs if provided
-    current_inside_ip = fw_info.get('inside_interface', {}).get('ip', '')
-    current_outside_ip = fw_info.get('outside_interface', {}).get('ip', '')
-
-    new_inside_ip = inside_interface.get('ip') if inside_interface else current_inside_ip
-    new_outside_ip = outside_interface.get('ip') if outside_interface else current_outside_ip
-
-    if new_inside_ip == current_inside_ip and new_outside_ip == current_outside_ip:
-        return {
-            'status': 'no_changes',
-            'name': name
-        }
-
-    # Regenerate cloud-init ISO with new IPs
-    mgmt_ip = fw_info.get('mgmt_ip', '')
-    generate_vyos_cloud_init(
-        hostname=name,
-        mgmt_ip=mgmt_ip,
-        inside_ip=new_inside_ip,
-        outside_ip=new_outside_ip
-    )
-
-    # Update persistence
-    all_firewalls = load_user_firewalls(USER_FIREWALLS_PATH)
-    for fw_entry in all_firewalls.get('firewalls', []):
-        for fw_name, info in fw_entry.items():
-            if fw_name.lower() == name.lower():
-                if 'inside_interface' in info:
-                    info['inside_interface']['ip'] = new_inside_ip
-                if 'outside_interface' in info:
-                    info['outside_interface']['ip'] = new_outside_ip
-                break
-
-    save_user_firewalls(all_firewalls, USER_FIREWALLS_PATH)
-
-    # Reboot VM to apply changes
-    try:
-        subprocess.run(['virsh', 'reboot', name],
-                       capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
-    except Exception as e:
-        logger.warning(f"Failed to reboot firewall: {e}")
-
-    logger.info(f"Updated VyOS firewall: {name}")
-
+    # Interface IPs are configured directly in VyOS, not via cloud-init
     return {
-        'status': 'updated',
+        'status': 'no_changes',
         'name': name,
-        'inside_ip': new_inside_ip,
-        'outside_ip': new_outside_ip,
-        'note': 'Firewall is rebooting to apply changes'
+        'note': 'Interface IPs are configured directly in VyOS. SSH to the firewall to change IP addresses.'
     }

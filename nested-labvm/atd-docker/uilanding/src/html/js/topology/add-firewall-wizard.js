@@ -7,10 +7,11 @@
  * Wizard Flow:
  * 1. Enter hostname (validates uniqueness, shows limit)
  * 2. Select management IP address (from available pool)
- * 3. Configure inside interface (IP in CIDR, target switch/port)
- * 4. Configure outside interface (IP in CIDR, target switch/port)
+ * 3. Configure inside interface (select target switch/port)
+ * 4. Configure outside interface (select target switch/port)
  * 5. Review and confirm
  *
+ * Note: Interface IPs are configured manually in VyOS after boot.
  * Only available for KVM labs, disabled for container labs.
  *
  * Dependencies:
@@ -35,12 +36,10 @@ class AddFirewallWizard {
             name: '',
             mgmt_ip: '',
             inside_interface: {
-                ip: '',
                 target_device: '',
                 target_port: ''
             },
             outside_interface: {
-                ip: '',
                 target_device: '',
                 target_port: ''
             }
@@ -90,12 +89,10 @@ class AddFirewallWizard {
             name: '',
             mgmt_ip: '',
             inside_interface: {
-                ip: '',
                 target_device: '',
                 target_port: ''
             },
             outside_interface: {
-                ip: '',
                 target_device: '',
                 target_port: ''
             }
@@ -535,16 +532,7 @@ class AddFirewallWizard {
         content.innerHTML = `
             <div class="wizard-step wizard-step-interface">
                 <h3>Configure Inside Interface</h3>
-                <p class="step-description">Configure eth1, the inside/trusted interface. This typically connects to your internal network.</p>
-
-                <div class="form-group">
-                    <label for="inside-ip">Inside Interface IP (CIDR)</label>
-                    <input type="text" id="inside-ip" class="form-input"
-                           placeholder="e.g., 10.1.1.1/24"
-                           value="${this.escapeHtml(this.firewallConfig.inside_interface.ip)}">
-                    <p class="field-hint">Use CIDR notation (e.g., 10.1.1.1/24)</p>
-                    <div id="inside-ip-validation" class="validation-message"></div>
-                </div>
+                <p class="step-description">Select which switch to connect eth1 (inside/trusted interface) to.</p>
 
                 <div class="form-group">
                     <label for="inside-device">Target Switch</label>
@@ -564,31 +552,27 @@ class AddFirewallWizard {
                 <div class="interface-diagram">
                     <div class="diagram-box inside">
                         <span class="diagram-label">Inside Network</span>
-                        <span class="diagram-ip">${this.escapeHtml(this.firewallConfig.inside_interface.ip) || 'Configure IP'}</span>
                     </div>
                     <div class="diagram-arrow">&rarr;</div>
                     <div class="diagram-box firewall">
                         <span class="diagram-label">VyOS eth1</span>
                     </div>
                 </div>
+
+                <div class="config-note">
+                    <strong>Note:</strong> After boot, configure the interface IP in VyOS:
+                    <code>set interfaces ethernet eth1 address 10.x.x.x/24</code>
+                </div>
             </div>
         `;
 
-        const ipInput = content.querySelector('#inside-ip');
         const deviceSelect = content.querySelector('#inside-device');
         const portInput = content.querySelector('#inside-port');
-        const validationMsg = content.querySelector('#inside-ip-validation');
 
         // Set initial values
         if (this.firewallConfig.inside_interface.target_device) {
             deviceSelect.value = this.firewallConfig.inside_interface.target_device;
         }
-
-        ipInput.addEventListener('input', (e) => {
-            this.firewallConfig.inside_interface.ip = e.target.value.trim();
-            this.validateCidrIp(e.target.value.trim(), validationMsg);
-            this.updateNextButtonState();
-        });
 
         deviceSelect.addEventListener('change', (e) => {
             const selectedOption = e.target.selectedOptions[0];
@@ -636,16 +620,7 @@ class AddFirewallWizard {
         content.innerHTML = `
             <div class="wizard-step wizard-step-interface">
                 <h3>Configure Outside Interface</h3>
-                <p class="step-description">Configure eth2, the outside/untrusted interface. This typically connects to your external network or internet simulation.</p>
-
-                <div class="form-group">
-                    <label for="outside-ip">Outside Interface IP (CIDR)</label>
-                    <input type="text" id="outside-ip" class="form-input"
-                           placeholder="e.g., 10.2.2.1/24"
-                           value="${this.escapeHtml(this.firewallConfig.outside_interface.ip)}">
-                    <p class="field-hint">Use CIDR notation (e.g., 10.2.2.1/24)</p>
-                    <div id="outside-ip-validation" class="validation-message"></div>
-                </div>
+                <p class="step-description">Select which switch to connect eth2 (outside/untrusted interface) to.</p>
 
                 <div class="form-group">
                     <label for="outside-device">Target Switch</label>
@@ -670,27 +645,23 @@ class AddFirewallWizard {
                     <div class="diagram-arrow">&rarr;</div>
                     <div class="diagram-box outside">
                         <span class="diagram-label">Outside Network</span>
-                        <span class="diagram-ip">${this.escapeHtml(this.firewallConfig.outside_interface.ip) || 'Configure IP'}</span>
                     </div>
+                </div>
+
+                <div class="config-note">
+                    <strong>Note:</strong> After boot, configure the interface IP in VyOS:
+                    <code>set interfaces ethernet eth2 address 10.x.x.x/24</code>
                 </div>
             </div>
         `;
 
-        const ipInput = content.querySelector('#outside-ip');
         const deviceSelect = content.querySelector('#outside-device');
         const portInput = content.querySelector('#outside-port');
-        const validationMsg = content.querySelector('#outside-ip-validation');
 
         // Set initial values
         if (this.firewallConfig.outside_interface.target_device) {
             deviceSelect.value = this.firewallConfig.outside_interface.target_device;
         }
-
-        ipInput.addEventListener('input', (e) => {
-            this.firewallConfig.outside_interface.ip = e.target.value.trim();
-            this.validateCidrIp(e.target.value.trim(), validationMsg);
-            this.updateNextButtonState();
-        });
 
         deviceSelect.addEventListener('change', (e) => {
             const selectedOption = e.target.selectedOptions[0];
@@ -701,46 +672,6 @@ class AddFirewallWizard {
             this.firewallConfig.outside_interface.target_port = nextPort;
             this.updateNextButtonState();
         });
-    }
-
-    /**
-     * Validate CIDR IP format
-     */
-    validateCidrIp(value, validationEl) {
-        if (!value) {
-            validationEl.className = 'validation-message';
-            validationEl.textContent = '';
-            return false;
-        }
-
-        // Basic CIDR validation regex
-        const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-        if (!cidrRegex.test(value)) {
-            validationEl.className = 'validation-message error';
-            validationEl.textContent = 'Invalid format. Use CIDR notation (e.g., 10.1.1.1/24)';
-            return false;
-        }
-
-        // Validate IP octets and prefix length
-        const [ip, prefix] = value.split('/');
-        const octets = ip.split('.').map(Number);
-        const prefixLen = parseInt(prefix, 10);
-
-        if (octets.some(o => o < 0 || o > 255)) {
-            validationEl.className = 'validation-message error';
-            validationEl.textContent = 'Invalid IP address octets';
-            return false;
-        }
-
-        if (prefixLen < 1 || prefixLen > 32) {
-            validationEl.className = 'validation-message error';
-            validationEl.textContent = 'Prefix length must be between 1 and 32';
-            return false;
-        }
-
-        validationEl.className = 'validation-message success';
-        validationEl.textContent = 'Valid';
-        return true;
     }
 
     /**
@@ -774,12 +705,12 @@ class AddFirewallWizard {
                     <h4>Inside Interface (eth1)</h4>
                     <table class="review-table">
                         <tr>
-                            <th>IP Address</th>
-                            <td>${this.escapeHtml(this.firewallConfig.inside_interface.ip)}</td>
-                        </tr>
-                        <tr>
                             <th>Connected To</th>
                             <td>${this.escapeHtml(this.firewallConfig.inside_interface.target_device)} (${this.escapeHtml(this.firewallConfig.inside_interface.target_port)})</td>
+                        </tr>
+                        <tr>
+                            <th>IP Address</th>
+                            <td><em>Configure in VyOS after boot</em></td>
                         </tr>
                     </table>
                 </div>
@@ -788,12 +719,12 @@ class AddFirewallWizard {
                     <h4>Outside Interface (eth2)</h4>
                     <table class="review-table">
                         <tr>
-                            <th>IP Address</th>
-                            <td>${this.escapeHtml(this.firewallConfig.outside_interface.ip)}</td>
-                        </tr>
-                        <tr>
                             <th>Connected To</th>
                             <td>${this.escapeHtml(this.firewallConfig.outside_interface.target_device)} (${this.escapeHtml(this.firewallConfig.outside_interface.target_port)})</td>
+                        </tr>
+                        <tr>
+                            <th>IP Address</th>
+                            <td><em>Configure in VyOS after boot</em></td>
                         </tr>
                     </table>
                 </div>
@@ -801,9 +732,9 @@ class AddFirewallWizard {
                 <div class="review-notes">
                     <h4>What happens next:</h4>
                     <ul>
-                        <li>A new VyOS VM will be created with the specified configuration</li>
+                        <li>A new VyOS VM will be created and connected to the selected switches</li>
                         <li>The firewall will boot and be accessible via SSH within ~90 seconds</li>
-                        <li>No firewall rules are configured by default - you configure policies</li>
+                        <li>Configure interface IPs and firewall rules after login</li>
                         <li>Default login: arista / arista</li>
                     </ul>
                 </div>
@@ -828,14 +759,12 @@ class AddFirewallWizard {
                 canProceed = this.firewallConfig.mgmt_ip !== '';
                 break;
             case 3:
-                canProceed = this.firewallConfig.inside_interface.ip !== '' &&
-                            this.firewallConfig.inside_interface.target_device !== '' &&
-                            this.isValidCidr(this.firewallConfig.inside_interface.ip);
+                // Only require target device selection (IP configured manually after boot)
+                canProceed = this.firewallConfig.inside_interface.target_device !== '';
                 break;
             case 4:
-                canProceed = this.firewallConfig.outside_interface.ip !== '' &&
-                            this.firewallConfig.outside_interface.target_device !== '' &&
-                            this.isValidCidr(this.firewallConfig.outside_interface.ip);
+                // Only require target device selection (IP configured manually after boot)
+                canProceed = this.firewallConfig.outside_interface.target_device !== '';
                 break;
             case 5:
                 canProceed = !this.isSubmitting;
@@ -843,21 +772,6 @@ class AddFirewallWizard {
         }
 
         nextBtn.disabled = !canProceed || this.isSubmitting;
-    }
-
-    /**
-     * Check if a string is valid CIDR notation
-     */
-    isValidCidr(value) {
-        if (!value) return false;
-        const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-        if (!cidrRegex.test(value)) return false;
-
-        const [ip, prefix] = value.split('/');
-        const octets = ip.split('.').map(Number);
-        const prefixLen = parseInt(prefix, 10);
-
-        return !octets.some(o => o < 0 || o > 255) && prefixLen >= 1 && prefixLen <= 32;
     }
 
     /**
@@ -946,8 +860,11 @@ class AddFirewallWizard {
                     <p>It will be ready for SSH access within ~90 seconds.</p>
                     <div class="success-details">
                         <p>Management IP: <code>${this.escapeHtml(this.firewallConfig.mgmt_ip)}</code></p>
-                        <p>Inside: <code>${this.escapeHtml(this.firewallConfig.inside_interface.ip)}</code></p>
-                        <p>Outside: <code>${this.escapeHtml(this.firewallConfig.outside_interface.ip)}</code></p>
+                        <p>eth1 (inside): connected to ${this.escapeHtml(this.firewallConfig.inside_interface.target_device)}</p>
+                        <p>eth2 (outside): connected to ${this.escapeHtml(this.firewallConfig.outside_interface.target_device)}</p>
+                    </div>
+                    <div class="config-note" style="margin-top: 1rem;">
+                        <strong>Next step:</strong> Configure interface IPs in VyOS after boot.
                     </div>
 
                     ${rebootTargets.length > 0 ? rebootManager.renderRebootSection(rebootTargets) : ''}

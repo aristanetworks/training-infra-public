@@ -3,48 +3,37 @@
 #
 # Variables replaced at runtime:
 #   {hostname}    - VM hostname
-#   {mgmt_ip}     - Management IP (eth0)
-#   {inside_ip}   - Inside interface IP with CIDR (eth1)
-#   {outside_ip}  - Outside interface IP with CIDR (eth2)
-#   {gateway}     - Default gateway (192.168.0.1)
 #
-# Interface mapping:
-#   eth0 - Management interface (vmgmt bridge)
+# Interface mapping (configured by user after boot):
+#   eth0 - Management interface (vmgmt bridge, 192.168.0.x)
 #   eth1 - Inside interface (connects to inside network)
 #   eth2 - Outside interface (connects to outside network)
 #
-# Login credentials: Uses default VyOS credentials (vyos/vyos)
-# Cloud-init password changes don't work reliably with VyOS images
+# Login credentials: vyos / arista (from base image)
+# Users will configure interface IPs manually after boot
 
 # VyOS-specific configuration commands
 vyos_config_commands:
   # System configuration
   - set system host-name {hostname}
   - set system time-zone UTC
-  - set system name-server 8.8.8.8
-  - set system name-server 192.168.0.1
 
   # Serial console configuration for virsh console access
   - set system console device ttyS0 speed 115200
 
-  # Management interface (eth0)
-  - set interfaces ethernet eth0 address {mgmt_ip}/24
-  - set interfaces ethernet eth0 description 'Management'
-
-  # Inside interface (eth1)
-  - set interfaces ethernet eth1 address {inside_ip}
-  - set interfaces ethernet eth1 description 'Inside'
-
-  # Outside interface (eth2)
-  - set interfaces ethernet eth2 address {outside_ip}
-  - set interfaces ethernet eth2 description 'Outside'
-
   # Enable SSH service
   - set service ssh port 22
-  - set service ssh listen-address 0.0.0.0
 
-  # Set default gateway to management network
-  - set protocols static route 0.0.0.0/0 next-hop {gateway}
+  # Enable LLDP on all interfaces for neighbor discovery
+  - set service lldp interface all
 
-# Note: No firewall rules configured by default
-# Students will configure stateful firewall rules as part of training exercises
+# Note: Interface IP addresses are NOT configured by cloud-init
+# Students will configure interface IPs and firewall rules manually
+# Example commands after login:
+#   configure
+#   set interfaces ethernet eth0 address 192.168.0.x/24
+#   set interfaces ethernet eth1 address 10.1.1.1/24
+#   set interfaces ethernet eth2 address 10.2.2.1/24
+#   set protocols static route 0.0.0.0/0 next-hop 192.168.0.1
+#   commit
+#   save

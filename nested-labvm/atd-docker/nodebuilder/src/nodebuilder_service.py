@@ -1706,18 +1706,11 @@ async def add_firewall(request):
         return web.json_response({'error': 'Firewall name is required'}, status=400)
     if not mgmt_ip:
         return web.json_response({'error': 'Management IP is required'}, status=400)
-    if not inside_interface.get('ip'):
-        return web.json_response({'error': 'Inside interface IP is required'}, status=400)
-    if not outside_interface.get('ip'):
-        return web.json_response({'error': 'Outside interface IP is required'}, status=400)
-
-    # Validate interface IPs (CIDR format) - can do before lock
-    for iface_name, iface in [('inside', inside_interface), ('outside', outside_interface)]:
-        valid, error = validate_cidr_ip(iface.get('ip', ''))
-        if not valid:
-            return web.json_response({
-                'error': f'{iface_name.capitalize()} interface: {error}'
-            }, status=400)
+    # Validate target devices are specified (IPs are configured in VyOS after boot)
+    if not inside_interface.get('target_device'):
+        return web.json_response({'error': 'Inside interface target device is required'}, status=400)
+    if not outside_interface.get('target_device'):
+        return web.json_response({'error': 'Outside interface target device is required'}, status=400)
 
     try:
         # Acquire creation lock to prevent concurrent creates from racing
