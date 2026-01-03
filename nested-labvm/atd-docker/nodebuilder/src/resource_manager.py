@@ -228,7 +228,20 @@ class ResourceManager:
             node_info: Node info dict containing neighbors
 
         Returns:
-            List of dicts describing processed interfaces
+            List of dicts describing processed interfaces, each with:
+            - target_device: str - The device the interface was on
+            - target_port: str - The port name (e.g., 'Ethernet5')
+            - bridge: str - The OVS bridge name
+            - mac: str - The MAC address of the interface
+            - status: str - One of:
+                - 'slot_preserved': Slot recorded for reuse (no reboot needed)
+                - 'detached': Interface detached (slot preservation disabled)
+                - 'detached_fallback': Interface detached due to port extraction
+                  or recording failure (reboot may be needed)
+                - 'not_found': No interface found on target device
+                - 'failed': Processing error occurred
+            - interface_detached: bool - True if interface was detached
+            - reason: str - (optional) Reason for fallback if applicable
         """
         from interface_manager import extract_port_number
 
@@ -237,12 +250,24 @@ class ResourceManager:
         processed = []
         neighbors = node_info.get('neighbors', [])
 
-        # Check if slot preservation is enabled
+        # Check if slot preservation is enabled and import orphan manager
         try:
             from config import ENABLE_SLOT_PRESERVATION
             slot_preservation_enabled = ENABLE_SLOT_PRESERVATION
         except ImportError:
             slot_preservation_enabled = False
+
+        # Import orphan recording function once if needed
+        record_orphaned_slot = None
+        if slot_preservation_enabled:
+            try:
+                from orphaned_interfaces import record_orphaned_slot
+            except ImportError:
+                self.logger.warning(
+                    "Could not import orphaned_interfaces module, "
+                    "falling back to detach mode"
+                )
+                slot_preservation_enabled = False
 
         for neighbor in neighbors:
             target_device = neighbor.get('neighborDevice', '')
@@ -265,66 +290,81 @@ class ResourceManager:
                             break
 
                     if mac_found:
+                        status = None
+                        interface_detached = False
+                        reason = None
+
                         if slot_preservation_enabled:
-                            # Record orphaned slot instead of detaching
+                            # Try to record orphaned slot instead of detaching
                             port_num = extract_port_number(target_port)
                             if port_num:
-                                from orphaned_interfaces import record_orphaned_slot
-                                self.logger.info(
-                                    f"Recording orphaned slot: {target_device}:{target_port} "
-                                    f"(MAC {mac_found}, bridge {bridge_name})"
-                                )
-                                record_orphaned_slot(
-                                    target_device=target_device,
-                                    slot_number=port_num,
-                                    mac_address=mac_found,
-                                    old_bridge=bridge_name,
-                                    original_connection=neighbor
-                                )
-                                processed.append({
-                                    'target_device': target_device,
-                                    'target_port': target_port,
-                                    'bridge': bridge_name,
-                                    'mac': mac_found,
-                                    'status': 'slot_preserved'
-                                })
+                                try:
+                                    self.logger.info(
+                                        f"Recording orphaned slot: {target_device}:{target_port} "
+                                        f"(MAC {mac_found}, bridge {bridge_name})"
+                                    )
+                                    record_orphaned_slot(
+                                        target_device=target_device,
+                                        slot_number=port_num,
+                                        mac_address=mac_found,
+                                        old_bridge=bridge_name,
+                                        original_connection=neighbor
+                                    )
+                                    status = 'slot_preserved'
+                                except Exception as e:
+                                    # Recording failed - fall back to detach
+                                    self.logger.warning(
+                                        f"Failed to record orphaned slot for "
+                                        f"{target_device}:{target_port}: {e}. "
+                                        f"Falling back to detach."
+                                    )
+                                    detach_interface_from_vm(target_device, mac_found)
+                                    status = 'detached_fallback'
+                                    interface_detached = True
+                                    reason = 'recording_failed'
                             else:
-                                # Fallback: detach interface to avoid zombie
+                                # Port number extraction failed - fall back to detach
                                 self.logger.warning(
-                                    f"Could not extract port number from {target_port}, "
-                                    f"falling back to detach"
+                                    f"Could not extract port number from {target_port} "
+                                    f"on {target_device}. Slot preservation requires "
+                                    f"numeric port identifiers. Falling back to detach "
+                                    f"(interface may renumber on reboot)."
                                 )
-                                result = detach_interface_from_vm(target_device, mac_found)
-                                processed.append({
-                                    'target_device': target_device,
-                                    'target_port': target_port,
-                                    'bridge': bridge_name,
-                                    'mac': mac_found,
-                                    'status': 'detached_fallback'
-                                })
-                                continue  # Skip the else block below
+                                detach_interface_from_vm(target_device, mac_found)
+                                status = 'detached_fallback'
+                                interface_detached = True
+                                reason = 'port_extraction_failed'
                         else:
                             # Slot preservation disabled - detach interface
                             result = detach_interface_from_vm(target_device, mac_found)
-                            processed.append({
-                                'target_device': target_device,
-                                'target_port': target_port,
-                                'bridge': bridge_name,
-                                'mac': mac_found,
-                                'status': result.get('status', 'detached')
-                            })
+                            status = result.get('status', 'detached')
+                            interface_detached = True
                             self.logger.info(
                                 f"Detached interface from {target_device} "
                                 f"(bridge: {bridge_name}, mac: {mac_found})"
                             )
+
+                        entry = {
+                            'target_device': target_device,
+                            'target_port': target_port,
+                            'bridge': bridge_name,
+                            'mac': mac_found,
+                            'status': status,
+                            'interface_detached': interface_detached
+                        }
+                        if reason:
+                            entry['reason'] = reason
+                        processed.append(entry)
                     else:
+                        # No interface attached - nothing to preserve or detach
                         self.logger.info(
                             f"No interface found on {target_device} for bridge {bridge_name}"
                         )
                         processed.append({
                             'target_device': target_device,
                             'bridge': bridge_name,
-                            'status': 'not_found'
+                            'status': 'not_found',
+                            'interface_detached': False
                         })
                 except Exception as e:
                     self.logger.warning(
@@ -334,6 +374,7 @@ class ResourceManager:
                         'target_device': target_device,
                         'bridge': bridge_name,
                         'status': 'failed',
+                        'interface_detached': False,
                         'error': str(e)
                     })
 
@@ -442,18 +483,30 @@ class ResourceManager:
         # Overall status
         results['status'] = 'completed' if not results['errors'] else 'completed_with_errors'
 
-        # Count slots preserved (from step 2)
+        # Count slot preservation metrics (from step 2)
         slots_preserved = 0
+        slots_detached_fallback = 0
+        interfaces_detached = 0
         for step in results['steps']:
             if step.get('step') == 'detach_interfaces':
                 for item in step.get('detached', []):
-                    if item.get('status') == 'slot_preserved':
+                    status = item.get('status')
+                    if status == 'slot_preserved':
                         slots_preserved += 1
+                    elif status == 'detached_fallback':
+                        slots_detached_fallback += 1
+                        interfaces_detached += 1
+                    elif item.get('interface_detached'):
+                        interfaces_detached += 1
+
         results['slots_preserved'] = slots_preserved
+        results['slots_detached_fallback'] = slots_detached_fallback
+        results['interfaces_detached'] = interfaces_detached
 
         self.logger.info(
             f"Node deletion complete: {vm_name} "
-            f"(errors: {len(results['errors'])}, slots_preserved: {slots_preserved})"
+            f"(errors: {len(results['errors'])}, slots_preserved: {slots_preserved}, "
+            f"fallbacks: {slots_detached_fallback})"
         )
 
         return results
@@ -1058,11 +1111,14 @@ class ResourceManager:
 
         Returns:
             Dict with cleanup status:
-            - slot_preserved: bool (True if slot was recorded for reuse)
-            - interface_detached: bool (always False with slot preservation)
-            - bridge_deleted: bool
-            - target_device: str or None (None with slot preservation - no reboot needed)
-            - errors: list of error messages
+            - slot_preserved: bool - True if slot was recorded for reuse
+            - interface_detached: bool - True if interface was detached
+            - bridge_deleted: bool - True if OVS bridge was deleted
+            - target_device: str or None - Device that needs reboot if detached
+            - reason: str or None - Reason for fallback if applicable:
+                - 'port_extraction_failed': Could not parse port number
+                - 'recording_failed': Failed to record orphaned slot
+            - errors: list - Error messages encountered
         """
         from interface_manager import extract_port_number
 
@@ -1071,6 +1127,7 @@ class ResourceManager:
             'interface_detached': False,
             'bridge_deleted': False,
             'target_device': None,
+            'reason': None,
             'errors': []
         }
 
@@ -1102,30 +1159,44 @@ class ResourceManager:
                             # Extract port number from target_port (e.g., "Ethernet5" -> 5)
                             port_num = extract_port_number(target_port)
                             if port_num:
-                                from orphaned_interfaces import record_orphaned_slot
-                                self.logger.info(
-                                    f"{log_prefix}Recording orphaned slot: {target_device}:{target_port} "
-                                    f"(MAC {mac}, bridge {bridge_name})"
-                                )
-                                record_orphaned_slot(
-                                    target_device=target_device,
-                                    slot_number=port_num,
-                                    mac_address=mac,
-                                    old_bridge=bridge_name,
-                                    original_connection=connection
-                                )
-                                result['slot_preserved'] = True
-                                # No reboot needed - slot is preserved
+                                try:
+                                    from orphaned_interfaces import record_orphaned_slot
+                                    self.logger.info(
+                                        f"{log_prefix}Recording orphaned slot: {target_device}:{target_port} "
+                                        f"(MAC {mac}, bridge {bridge_name})"
+                                    )
+                                    record_orphaned_slot(
+                                        target_device=target_device,
+                                        slot_number=port_num,
+                                        mac_address=mac,
+                                        old_bridge=bridge_name,
+                                        original_connection=connection
+                                    )
+                                    result['slot_preserved'] = True
+                                    # No reboot needed - slot is preserved
+                                except Exception as e:
+                                    # Recording failed - fall back to detach
+                                    self.logger.warning(
+                                        f"{log_prefix}Failed to record orphaned slot for "
+                                        f"{target_device}:{target_port}: {e}. "
+                                        f"Falling back to detach."
+                                    )
+                                    detach_interface_from_vm(target_device, mac)
+                                    result['interface_detached'] = True
+                                    result['target_device'] = target_device
+                                    result['reason'] = 'recording_failed'
                             else:
                                 # Fallback: detach interface to avoid zombie
                                 self.logger.warning(
-                                    f"{log_prefix}Could not extract port number from {target_port}, "
-                                    f"falling back to detach"
+                                    f"{log_prefix}Could not extract port number from {target_port} "
+                                    f"on {target_device}. Slot preservation requires "
+                                    f"numeric port identifiers. Falling back to detach "
+                                    f"(interface may renumber on reboot)."
                                 )
                                 detach_interface_from_vm(target_device, mac)
                                 result['interface_detached'] = True
                                 result['target_device'] = target_device
-                                result['detach_fallback'] = True
+                                result['reason'] = 'port_extraction_failed'
                         break
 
                 if not interface_found:
