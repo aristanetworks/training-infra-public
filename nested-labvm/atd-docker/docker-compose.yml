@@ -169,9 +169,6 @@ services:
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
-    # Allow nginx to resolve atd-nodebuilder (runs on host network, not in Docker DNS)
-    extra_hosts:
-      - "atd-nodebuilder:host-gateway"
     volumes:
       - nginx_log:/var/log/nginx:rw
       - /etc/atd:/etc/atd:ro
