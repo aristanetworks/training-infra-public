@@ -9,3 +9,6 @@ __pycache__/
 node_modules/
 package-lock.json
 *.tmp.map
+
+# Nodebuilder documentation (uploaded to Google Drive)
+nested-labvm/atd-docker/nodebuilder/docs/

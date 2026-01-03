@@ -649,9 +649,12 @@ def create_host(
         }
 
     except Exception as e:
-        # Rollback on failure
+        # Rollback on failure - track all failures for diagnostics
         logger.error(f"Error creating host {name}: {e}")
-        logger.info(f"Rolling back creation of {name}")
+        logger.info(f"Rolling back creation of {name} ({len(created_resources)} resources to clean up)")
+
+        rollback_failures = []
+        rollback_success = []
 
         for resource_type, resource_id in reversed(created_resources):
             try:
@@ -667,12 +670,31 @@ def create_host(
                     if os.path.exists(resource_id):
                         os.remove(resource_id)
                 elif resource_type == 'bridge':
+                    # Note: We clean up bridges but NOT orphaned interfaces
+                    # Orphaned interfaces are preserved for interface slot ordering
                     delete_ovs_bridge(resource_id)
                 elif resource_type == 'xml':
                     if os.path.exists(resource_id):
                         os.remove(resource_id)
+                rollback_success.append(f"{resource_type}:{resource_id}")
             except Exception as cleanup_error:
+                rollback_failures.append({
+                    'resource_type': resource_type,
+                    'resource_id': resource_id,
+                    'error': str(cleanup_error)
+                })
                 logger.warning(f"Rollback failed for {resource_type}:{resource_id}: {cleanup_error}")
+
+        # Log rollback summary
+        if rollback_failures:
+            logger.error(
+                f"Rollback incomplete for {name}: {len(rollback_failures)} failure(s), "
+                f"{len(rollback_success)} success(es). "
+                f"Failed resources may need manual cleanup: "
+                f"{[f['resource_type']+'='+f['resource_id'] for f in rollback_failures]}"
+            )
+        else:
+            logger.info(f"Rollback complete for {name}: {len(rollback_success)} resource(s) cleaned up")
 
         raise
 

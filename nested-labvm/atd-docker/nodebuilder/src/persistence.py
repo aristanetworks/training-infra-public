@@ -84,7 +84,15 @@ def load_user_nodes(path: str = DEFAULT_USER_NODES_PATH) -> Dict:
 
     Returns:
         Dict with user nodes data
+
+    Raises:
+        ValueError: If path is outside allowed directories
     """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
     yaml = YAML()
     yaml.preserve_quotes = True
 
@@ -532,7 +540,15 @@ def load_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> Dict:
 
     Returns:
         Dict with user hosts data
+
+    Raises:
+        ValueError: If path is outside allowed directories
     """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
     yaml = YAML()
     yaml.preserve_quotes = True
 
@@ -734,7 +750,15 @@ def load_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> Dict:
 
     Returns:
         Dict with user firewalls data
+
+    Raises:
+        ValueError: If path is outside allowed directories
     """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
     yaml = YAML()
     yaml.preserve_quotes = True
 
@@ -936,7 +960,15 @@ def load_user_velo(path: str = DEFAULT_USER_VELO_PATH) -> Dict:
 
     Returns:
         Dict with user VeloCloud devices data
+
+    Raises:
+        ValueError: If path is outside allowed directories
     """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
     yaml = YAML()
     yaml.preserve_quotes = True
 
