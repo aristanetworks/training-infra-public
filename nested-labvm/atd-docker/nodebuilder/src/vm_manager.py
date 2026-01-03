@@ -34,6 +34,7 @@ from config import (
     SUBPROCESS_TIMEOUT_DEFAULT,
     SUBPROCESS_TIMEOUT_LONG
 )
+from resource_manager import ResourceTransaction
 
 logger = logging.getLogger('nodebuilder')
 
@@ -87,68 +88,6 @@ VEOS_BASE_XML = """<?xml version="1.0" encoding="UTF-8"?>
   <seclabel type='none'/>
 </domain>
 """
-
-
-class NodeCreationTransaction:
-    """
-    Context manager for atomic node creation with automatic rollback on failure.
-
-    Tracks created resources and cleans them up if an exception occurs.
-    """
-
-    def __init__(self, node_name: str):
-        self.node_name = node_name
-        self.created_resources = []
-        self.logger = logging.getLogger('nodebuilder')
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            self.logger.error(f"Error creating node {self.node_name}: {exc_val}")
-            self.rollback()
-        return False  # Re-raise exception
-
-    def add_resource(self, resource_type: str, resource_id: str):
-        """Track a created resource for potential rollback."""
-        self.created_resources.append((resource_type, resource_id))
-
-    def rollback(self):
-        """Clean up all created resources in reverse order."""
-        self.logger.info(f"Rolling back creation of {self.node_name}")
-
-        for resource_type, resource_id in reversed(self.created_resources):
-            try:
-                self.logger.info(f"Rolling back {resource_type}: {resource_id}")
-
-                if resource_type == 'vm':
-                    # Destroy running VM
-                    subprocess.run(
-                        ['virsh', 'destroy', resource_id],
-                        capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT
-                    )
-                    # Undefine VM
-                    subprocess.run(
-                        ['virsh', 'undefine', resource_id],
-                        capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT
-                    )
-
-                elif resource_type == 'image':
-                    if os.path.exists(resource_id):
-                        os.remove(resource_id)
-
-                elif resource_type == 'bridge':
-                    delete_ovs_bridge(resource_id)
-
-                elif resource_type == 'xml':
-                    if os.path.exists(resource_id):
-                        os.remove(resource_id)
-
-            except Exception as e:
-                self.logger.warning(
-                    f"Rollback failed for {resource_type}:{resource_id}: {e}"
-                )
 
 
 def generate_veos_xml(
@@ -433,7 +372,7 @@ def create_veos_node(
     """
     logger.info(f"Creating vEOS node: {name} (IP: {ip}, MAC: {mac})")
 
-    with NodeCreationTransaction(name) as txn:
+    with ResourceTransaction(name, device_type='node') as txn:
         # Step 1: Copy base image
         logger.info(f"Copying base image for {name}")
         image_path = copy_base_image(name)

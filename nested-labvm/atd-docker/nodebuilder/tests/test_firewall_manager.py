@@ -549,7 +549,9 @@ class TestRollbackTracking:
                                             stderr='definition failed'
                                         )
 
-                                        with patch('firewall_manager.delete_ovs_bridge', side_effect=track_delete):
+                                        # Patch delete_ovs_bridge in resource_manager since rollback
+                                        # now uses ResourceTransaction which is in that module
+                                        with patch('resource_manager.delete_ovs_bridge', side_effect=track_delete):
                                             with pytest.raises(RuntimeError):
                                                 create_firewall(
                                                     name='test-fw',
@@ -562,9 +564,9 @@ class TestRollbackTracking:
                                                     }
                                                 )
 
-                        # Verify both bridges were attempted to be deleted
-                        assert 'inside-bridge' in deleted_bridges
-                        assert 'outside-bridge' in deleted_bridges
+                                            # Verify both bridges were attempted to be deleted
+                                            assert 'inside-bridge' in deleted_bridges
+                                            assert 'outside-bridge' in deleted_bridges
 
 
 class TestSlotReuse:

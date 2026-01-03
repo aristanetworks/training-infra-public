@@ -36,6 +36,158 @@ from config import (
 logger = logging.getLogger('nodebuilder')
 
 
+class ResourceTransaction:
+    """
+    Context manager for atomic resource creation with automatic rollback on failure.
+
+    Tracks created resources and cleans them up if an exception occurs.
+    Provides detailed rollback tracking with success/failure reporting.
+
+    Supported resource types:
+    - 'vm': Virtual machine (virsh destroy + undefine)
+    - 'image': Disk image file (os.remove)
+    - 'cidata': Cloud-init ISO file (os.remove)
+    - 'bridge': OVS bridge (delete_ovs_bridge)
+    - 'xml': XML definition file (os.remove)
+
+    Usage:
+        with ResourceTransaction('my-device') as txn:
+            txn.add_resource('image', '/path/to/disk.qcow2')
+            # ... create resources ...
+            txn.add_resource('vm', 'my-device')
+            # If exception occurs, all resources are rolled back
+    """
+
+    def __init__(self, device_name: str, device_type: str = 'device'):
+        """
+        Initialize a new resource transaction.
+
+        Args:
+            device_name: Name of the device being created (for logging)
+            device_type: Type of device ('node', 'host', 'firewall', 'velo')
+        """
+        self.device_name = device_name
+        self.device_type = device_type
+        self.created_resources: List[tuple] = []
+        self.logger = logging.getLogger('nodebuilder')
+        self.rollback_results: Dict = {
+            'success': [],
+            'failed': []
+        }
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.logger.error(
+                f"Error creating {self.device_type} '{self.device_name}': {exc_val}"
+            )
+            self.rollback()
+        return False  # Re-raise exception
+
+    def add_resource(self, resource_type: str, resource_id: str):
+        """
+        Track a created resource for potential rollback.
+
+        Args:
+            resource_type: Type of resource ('vm', 'image', 'cidata', 'bridge', 'xml')
+            resource_id: Identifier (VM name, file path, or bridge name)
+        """
+        self.created_resources.append((resource_type, resource_id))
+        self.logger.debug(
+            f"[{self.device_name}] Tracked resource: {resource_type}={resource_id}"
+        )
+
+    def rollback(self) -> Dict:
+        """
+        Clean up all created resources in reverse order.
+
+        Returns:
+            Dict with 'success' and 'failed' lists of rolled back resources
+        """
+        self.logger.info(
+            f"Rolling back creation of {self.device_type} '{self.device_name}' "
+            f"({len(self.created_resources)} resources to clean up)"
+        )
+
+        self.rollback_results = {'success': [], 'failed': []}
+
+        for resource_type, resource_id in reversed(self.created_resources):
+            try:
+                self.logger.info(f"Rolling back {resource_type}: {resource_id}")
+                self._cleanup_resource(resource_type, resource_id)
+                self.rollback_results['success'].append(
+                    f"{resource_type}:{resource_id}"
+                )
+            except Exception as e:
+                self.rollback_results['failed'].append({
+                    'resource_type': resource_type,
+                    'resource_id': resource_id,
+                    'error': str(e)
+                })
+                self.logger.warning(
+                    f"Rollback failed for {resource_type}:{resource_id}: {e}"
+                )
+
+        # Log rollback summary
+        if self.rollback_results['failed']:
+            failed = self.rollback_results['failed']
+            self.logger.error(
+                f"Rollback incomplete for {self.device_name}: "
+                f"{len(failed)} failure(s), "
+                f"{len(self.rollback_results['success'])} success(es). "
+                f"Failed resources may need manual cleanup: "
+                f"{[f['resource_type']+'='+f['resource_id'] for f in failed]}"
+            )
+        else:
+            self.logger.info(
+                f"Rollback complete for {self.device_name}: "
+                f"{len(self.rollback_results['success'])} resource(s) cleaned up"
+            )
+
+        return self.rollback_results
+
+    def _cleanup_resource(self, resource_type: str, resource_id: str):
+        """
+        Clean up a single resource based on its type.
+
+        Args:
+            resource_type: Type of resource
+            resource_id: Identifier for the resource
+
+        Raises:
+            Exception: If cleanup fails
+        """
+        if resource_type == 'vm':
+            # Destroy running VM (ignore errors - may not be running)
+            subprocess.run(
+                ['virsh', 'destroy', resource_id],
+                capture_output=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            # Undefine VM
+            subprocess.run(
+                ['virsh', 'undefine', resource_id],
+                capture_output=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+
+        elif resource_type in ('image', 'cidata', 'xml'):
+            if os.path.exists(resource_id):
+                os.remove(resource_id)
+
+        elif resource_type == 'bridge':
+            # Note: We clean up bridges but NOT orphaned interfaces
+            # Orphaned interfaces are preserved for interface slot ordering
+            delete_ovs_bridge(resource_id)
+
+        else:
+            self.logger.warning(
+                f"Unknown resource type '{resource_type}' for {resource_id}"
+            )
+
+
 class ResourceManager:
     """
     Centralized manager for node-related resource lifecycle.

@@ -40,6 +40,7 @@ from interface_manager import (
     update_interface_bridge,
     extract_port_number
 )
+from resource_manager import ResourceTransaction
 
 logger = logging.getLogger('nodebuilder')
 
@@ -540,18 +541,16 @@ def create_host(
     # noVNC connects to mgmt_ip:5900 for desktop access
     x11vnc_port = 5900
 
-    created_resources = []
-
-    try:
+    with ResourceTransaction(name, device_type='host') as txn:
         # Step 1: Copy base image
         logger.info(f"Copying base image for {name}")
         image_path = copy_host_base_image(name)
-        created_resources.append(('image', image_path))
+        txn.add_resource('image', image_path)
 
         # Step 2: Generate cloud-init ISO
         logger.info(f"Generating cloud-init ISO for {name}")
         cidata_path = generate_cloud_init_iso(name, mgmt_ip, data_ip=data_ip)
-        created_resources.append(('cidata', cidata_path))
+        txn.add_resource('cidata', cidata_path)
 
         # Step 3: Process connection if specified
         processed_connection = None
@@ -569,7 +568,7 @@ def create_host(
             # Create OVS bridge
             logger.info(f"Creating OVS bridge: {bridge_name}")
             create_ovs_bridge(bridge_name)
-            created_resources.append(('bridge', bridge_name))
+            txn.add_resource('bridge', bridge_name)
 
             processed_connection = {
                 'target_device': target_device,
@@ -586,7 +585,7 @@ def create_host(
         xml_path = f'/tmp/{name}.xml'
         with open(xml_path, 'w') as f:
             f.write(xml_content)
-        created_resources.append(('xml', xml_path))
+        txn.add_resource('xml', xml_path)
 
         # Step 5: Define the VM
         logger.info(f"Defining VM {name}")
@@ -598,7 +597,7 @@ def create_host(
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to define VM: {result.stderr}")
-        created_resources.append(('vm', name))
+        txn.add_resource('vm', name)
 
         # Step 6: Start the VM
         logger.info(f"Starting VM {name}")
@@ -647,56 +646,6 @@ def create_host(
             'targets_reused_slots': targets_reused_slots,
             'targets_need_reboot': targets_need_reboot
         }
-
-    except Exception as e:
-        # Rollback on failure - track all failures for diagnostics
-        logger.error(f"Error creating host {name}: {e}")
-        logger.info(f"Rolling back creation of {name} ({len(created_resources)} resources to clean up)")
-
-        rollback_failures = []
-        rollback_success = []
-
-        for resource_type, resource_id in reversed(created_resources):
-            try:
-                if resource_type == 'vm':
-                    subprocess.run(['virsh', 'destroy', resource_id],
-                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
-                    subprocess.run(['virsh', 'undefine', resource_id],
-                                   capture_output=True, timeout=SUBPROCESS_TIMEOUT_DEFAULT)
-                elif resource_type == 'image':
-                    if os.path.exists(resource_id):
-                        os.remove(resource_id)
-                elif resource_type == 'cidata':
-                    if os.path.exists(resource_id):
-                        os.remove(resource_id)
-                elif resource_type == 'bridge':
-                    # Note: We clean up bridges but NOT orphaned interfaces
-                    # Orphaned interfaces are preserved for interface slot ordering
-                    delete_ovs_bridge(resource_id)
-                elif resource_type == 'xml':
-                    if os.path.exists(resource_id):
-                        os.remove(resource_id)
-                rollback_success.append(f"{resource_type}:{resource_id}")
-            except Exception as cleanup_error:
-                rollback_failures.append({
-                    'resource_type': resource_type,
-                    'resource_id': resource_id,
-                    'error': str(cleanup_error)
-                })
-                logger.warning(f"Rollback failed for {resource_type}:{resource_id}: {cleanup_error}")
-
-        # Log rollback summary
-        if rollback_failures:
-            logger.error(
-                f"Rollback incomplete for {name}: {len(rollback_failures)} failure(s), "
-                f"{len(rollback_success)} success(es). "
-                f"Failed resources may need manual cleanup: "
-                f"{[f['resource_type']+'='+f['resource_id'] for f in rollback_failures]}"
-            )
-        else:
-            logger.info(f"Rollback complete for {name}: {len(rollback_success)} resource(s) cleaned up")
-
-        raise
 
 
 def delete_host(name: str) -> Dict:
