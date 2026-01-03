@@ -40,6 +40,7 @@ from interface_manager import (
     update_interface_bridge,
     extract_port_number
 )
+from connection_manager import process_connection_for_creation
 from resource_manager import ResourceTransaction
 
 logger = logging.getLogger('nodebuilder')
@@ -555,27 +556,14 @@ def create_host(
         # Step 3: Process connection if specified
         processed_connection = None
         if connection and connection.get('target_device'):
-            target_device = connection['target_device']
-            target_port = connection.get('target_port') or find_next_available_port(target_device)
-            local_port = 'eth1'  # Hosts have single data interface
-
-            # Generate bridge name
-            bridge_name = generate_bridge_name(
-                name, local_port,
-                target_device, target_port
+            # Hosts have single data interface (eth1)
+            processed_connection = process_connection_for_creation(
+                source_device=name,
+                local_port='eth1',
+                target_device=connection['target_device'],
+                target_port=connection.get('target_port'),
+                txn=txn
             )
-
-            # Create OVS bridge
-            logger.info(f"Creating OVS bridge: {bridge_name}")
-            create_ovs_bridge(bridge_name)
-            txn.add_resource('bridge', bridge_name)
-
-            processed_connection = {
-                'target_device': target_device,
-                'target_port': target_port,
-                'local_port': local_port,
-                'bridge': bridge_name
-            }
 
         # Step 4: Generate VM XML
         logger.info(f"Generating VM XML for {name}")

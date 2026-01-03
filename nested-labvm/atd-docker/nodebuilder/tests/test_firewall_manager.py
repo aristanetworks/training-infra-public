@@ -346,11 +346,12 @@ class TestCreateFirewall:
                     with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
                         mock_cloudinit.return_value = cidata_path
 
-                        with patch('firewall_manager.generate_bridge_name') as mock_bridge:
+                        # Patch in connection_manager since process_connection_for_creation is there
+                        with patch('connection_manager.generate_bridge_name') as mock_bridge:
                             mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
 
-                            with patch('firewall_manager.create_ovs_bridge'):
-                                with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
+                            with patch('connection_manager.create_ovs_bridge'):
+                                with patch('connection_manager.find_next_available_port', return_value='Ethernet5'):
                                     with patch('subprocess.run') as mock_run:
                                         # virsh define fails
                                         mock_run.return_value = Mock(
@@ -359,7 +360,7 @@ class TestCreateFirewall:
                                             stderr='definition failed'
                                         )
 
-                                        with patch('firewall_manager.delete_ovs_bridge'):
+                                        with patch('resource_manager.delete_ovs_bridge'):
                                             with pytest.raises(RuntimeError, match="Failed to define"):
                                                 create_firewall(
                                                     name='test-fw',
@@ -537,11 +538,12 @@ class TestRollbackTracking:
                     with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
                         mock_cloudinit.return_value = cidata_path
 
-                        with patch('firewall_manager.generate_bridge_name') as mock_bridge:
+                        # Patch in connection_manager since process_connection_for_creation is there
+                        with patch('connection_manager.generate_bridge_name') as mock_bridge:
                             mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
 
-                            with patch('firewall_manager.create_ovs_bridge'):
-                                with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
+                            with patch('connection_manager.create_ovs_bridge'):
+                                with patch('connection_manager.find_next_available_port', return_value='Ethernet5'):
                                     with patch('subprocess.run') as mock_run:
                                         mock_run.return_value = Mock(
                                             returncode=1,

@@ -25,6 +25,7 @@ from interface_manager import (
     update_interface_bridge,
     extract_port_number
 )
+from connection_manager import process_connection_for_creation
 from config import (
     LIBVIRT_IMAGES_PATH,
     VEOS_BASE_IMAGE_PATH,
@@ -383,32 +384,19 @@ def create_veos_node(
         local_port_counter = 1
 
         for conn in connections:
-            target_device = conn['target_device']
-
-            # Get next available port on target device
-            target_port = find_next_available_port(target_device)
-
             # Local port for new node (contiguous from Ethernet1)
             local_port = f"Ethernet{local_port_counter}"
             local_port_counter += 1
 
-            # Generate bridge name
-            bridge_name = generate_bridge_name(
-                name, local_port,
-                target_device, target_port
+            # Process connection using shared helper
+            processed_conn = process_connection_for_creation(
+                source_device=name,
+                local_port=local_port,
+                target_device=conn['target_device'],
+                target_port=conn.get('target_port'),
+                txn=txn
             )
-
-            # Create the OVS bridge
-            logger.info(f"Creating OVS bridge: {bridge_name}")
-            create_ovs_bridge(bridge_name)
-            txn.add_resource('bridge', bridge_name)
-
-            processed_connections.append({
-                'target_device': target_device,
-                'target_port': target_port,
-                'local_port': local_port,
-                'bridge': bridge_name
-            })
+            processed_connections.append(processed_conn)
 
         # Step 3: Generate VM XML
         logger.info(f"Generating VM XML for {name}")

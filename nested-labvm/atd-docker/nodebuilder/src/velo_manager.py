@@ -47,6 +47,7 @@ from interface_manager import (
     generate_bridge_name,
     find_next_available_port
 )
+from connection_manager import process_connection_for_creation
 from resource_manager import ResourceTransaction
 
 logger = logging.getLogger('nodebuilder')
@@ -811,26 +812,17 @@ def create_velo_device(
             for conn in connections:
                 target_device = conn.get('target_device')
                 if target_device:
-                    target_port = conn.get('target_port') or find_next_available_port(target_device)
+                    # VeloCloud local port from connection or default to 'wan1'
                     local_port = conn.get('local_port', 'wan1')
 
-                    # Generate bridge name
-                    bridge_name = generate_bridge_name(
-                        name, local_port,
-                        target_device, target_port
+                    processed_conn = process_connection_for_creation(
+                        source_device=name,
+                        local_port=local_port,
+                        target_device=target_device,
+                        target_port=conn.get('target_port'),
+                        txn=txn
                     )
-
-                    # Create OVS bridge
-                    logger.info(f"Creating OVS bridge: {bridge_name}")
-                    create_ovs_bridge(bridge_name)
-                    txn.add_resource('bridge', bridge_name)
-
-                    processed_connections.append({
-                        'target_device': target_device,
-                        'target_port': target_port,
-                        'local_port': local_port,
-                        'bridge': bridge_name
-                    })
+                    processed_connections.append(processed_conn)
 
         # Step 4: Generate VM XML
         # Pass disk_paths for orchestrator's multiple disks

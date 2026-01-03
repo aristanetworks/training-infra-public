@@ -37,6 +37,59 @@ from config import ENABLE_SLOT_PRESERVATION
 logger = logging.getLogger('nodebuilder')
 
 
+def process_connection_for_creation(
+    source_device: str,
+    local_port: str,
+    target_device: str,
+    target_port: Optional[str] = None,
+    txn: Optional['ResourceTransaction'] = None
+) -> Dict:
+    """
+    Process a single connection during device creation.
+
+    Creates OVS bridge and returns connection details for XML generation.
+    This is the common pattern used by all device managers when creating
+    new VMs (vEOS, hosts, firewalls, VeloCloud devices).
+
+    The source interface is typically defined in the VM XML rather than
+    being attached separately, so we only create the bridge here.
+
+    Args:
+        source_device: Name of the device being created
+        local_port: Local port/interface name on source device
+        target_device: Name of the target device to connect to
+        target_port: Target port (if None, finds next available)
+        txn: ResourceTransaction to track the bridge for rollback (optional)
+
+    Returns:
+        Dict with keys: target_device, target_port, local_port, bridge
+    """
+    # Get target port if not specified
+    if not target_port:
+        target_port = find_next_available_port(target_device)
+
+    # Generate bridge name using standard naming convention
+    bridge_name = generate_bridge_name(
+        source_device, local_port,
+        target_device, target_port
+    )
+
+    # Create the OVS bridge
+    logger.info(f"Creating OVS bridge: {bridge_name}")
+    create_ovs_bridge(bridge_name)
+
+    # Track for rollback if transaction provided
+    if txn:
+        txn.add_resource('bridge', bridge_name)
+
+    return {
+        'target_device': target_device,
+        'target_port': target_port,
+        'local_port': local_port,
+        'bridge': bridge_name
+    }
+
+
 @dataclass
 class Connection:
     """

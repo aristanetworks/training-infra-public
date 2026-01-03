@@ -38,6 +38,7 @@ from interface_manager import (
     update_interface_bridge,
     extract_port_number
 )
+from connection_manager import process_connection_for_creation
 from resource_manager import ResourceTransaction
 
 logger = logging.getLogger('nodebuilder')
@@ -395,49 +396,27 @@ def create_firewall(
         cidata_path = generate_vyos_cloud_init(hostname=name)
         txn.add_resource('cidata', cidata_path)
 
-        # Step 3: Process inside connection
+        # Step 3: Process inside connection (eth1)
         inside_conn = None
         if inside_interface.get('target_device'):
-            target_device = inside_interface['target_device']
-            target_port = inside_interface.get('target_port') or find_next_available_port(target_device)
-
-            bridge_name = generate_bridge_name(
-                name, 'eth1',
-                target_device, target_port
+            inside_conn = process_connection_for_creation(
+                source_device=name,
+                local_port='eth1',
+                target_device=inside_interface['target_device'],
+                target_port=inside_interface.get('target_port'),
+                txn=txn
             )
 
-            logger.info(f"Creating inside OVS bridge: {bridge_name}")
-            create_ovs_bridge(bridge_name)
-            txn.add_resource('bridge', bridge_name)
-
-            inside_conn = {
-                'target_device': target_device,
-                'target_port': target_port,
-                'local_port': 'eth1',
-                'bridge': bridge_name
-            }
-
-        # Step 4: Process outside connection
+        # Step 4: Process outside connection (eth2)
         outside_conn = None
         if outside_interface.get('target_device'):
-            target_device = outside_interface['target_device']
-            target_port = outside_interface.get('target_port') or find_next_available_port(target_device)
-
-            bridge_name = generate_bridge_name(
-                name, 'eth2',
-                target_device, target_port
+            outside_conn = process_connection_for_creation(
+                source_device=name,
+                local_port='eth2',
+                target_device=outside_interface['target_device'],
+                target_port=outside_interface.get('target_port'),
+                txn=txn
             )
-
-            logger.info(f"Creating outside OVS bridge: {bridge_name}")
-            create_ovs_bridge(bridge_name)
-            txn.add_resource('bridge', bridge_name)
-
-            outside_conn = {
-                'target_device': target_device,
-                'target_port': target_port,
-                'local_port': 'eth2',
-                'bridge': bridge_name
-            }
 
         # Step 5: Generate VM XML
         logger.info(f"Generating VM XML for {name}")

@@ -530,18 +530,19 @@ class TestRollbackTracking:
                     with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
                         mock_cloudinit.return_value = cidata_path
 
-                        with patch('host_manager.generate_bridge_name', return_value=bridge_name):
-                            with patch('host_manager.create_ovs_bridge'):
-                                with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
+                        # Patch in connection_manager since process_connection_for_creation is there
+                        with patch('connection_manager.generate_bridge_name', return_value=bridge_name):
+                            with patch('connection_manager.create_ovs_bridge'):
+                                with patch('connection_manager.find_next_available_port', return_value='Ethernet5'):
                                     with patch('subprocess.run') as mock_run:
-                                        # First call succeeds (for bridge), then VM define fails
+                                        # VM define fails
                                         mock_run.side_effect = [
                                             Mock(returncode=1, stdout='', stderr='definition failed'),
                                             Mock(returncode=0, stdout='', stderr=''),  # virsh destroy
                                             Mock(returncode=0, stdout='', stderr=''),  # virsh undefine
                                         ]
 
-                                        with patch('host_manager.delete_ovs_bridge'):
+                                        with patch('resource_manager.delete_ovs_bridge'):
                                             with pytest.raises(RuntimeError):
                                                 create_host(
                                                     name='test-host',
