@@ -13,19 +13,20 @@
 # Users will configure interface IPs manually after boot
 
 # VyOS-specific configuration commands
+# Note: Values must be in single quotes per VyOS cloud-init requirements
 vyos_config_commands:
   # System configuration
-  - set system host-name {hostname}
-  - set system time-zone UTC
+  - set system host-name '{hostname}'
+  - set system time-zone 'UTC'
 
   # Serial console configuration for virsh console access
-  - set system console device ttyS0 speed 115200
+  - set system console device ttyS0 speed '115200'
 
   # Enable SSH service
-  - set service ssh port 22
+  - set service ssh port '22'
 
   # Enable LLDP on all interfaces for neighbor discovery
-  - set service lldp interface all
+  - set service lldp interface 'all'
 
 # Note: Interface IP addresses are NOT configured by cloud-init
 # Students will configure interface IPs and firewall rules manually

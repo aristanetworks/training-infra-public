@@ -518,6 +518,8 @@ class CaptureManager:
 
         Handles multiple formats:
         1. 'x' separator: 'fw1xet1' -> ('fw1', 'et1'), 'bo1x7' -> ('bo1', '7')
+           Note: Only matches 'x' with digit before and digit/'e' after
+           to avoid matching 'x' in device names like 'mux1'
         2. 'eth' prefix: 'client1eth1' -> ('client1', 'eth1')
         3. 'et' prefix: 'sp1et1' -> ('sp1', 'et1'), 'le1Et5' -> ('le1', 'Et5')
         4. Full names: 'leaf3Et3' -> ('leaf3', 'Et3')
@@ -525,10 +527,17 @@ class CaptureManager:
         """
         lower = part.lower()
 
-        # Check for 'x' separator first (nodebuilder format)
-        if 'x' in part:
-            x_idx = part.index('x')
-            return part[:x_idx], part[x_idx + 1:]
+        # Check for 'x' separator (nodebuilder format)
+        # The separator 'x' should have a digit before it (device code ends with number)
+        # and either a digit or 'e' after it (port code starts with number or 'et/eth')
+        # This avoids matching 'x' that's part of device name (e.g., 'mux1' -> 'mu1')
+        for i, c in enumerate(lower):
+            if c == 'x' and i > 0 and i < len(part) - 1:
+                prev_char = lower[i - 1]
+                next_char = lower[i + 1]
+                # Valid separator: digit before, digit or 'e' (for et/eth) after
+                if prev_char.isdigit() and (next_char.isdigit() or next_char == 'e'):
+                    return part[:i], part[i + 1:]
 
         # Look for 'eth' (longer prefix, for Linux hosts)
         eth_idx = lower.find('eth')

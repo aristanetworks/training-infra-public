@@ -144,13 +144,14 @@ def generate_vyos_cloud_init(hostname: str) -> str:
             # Fallback inline template - minimal config
             # Users will configure interface IPs manually after boot
             # Login: vyos / arista (from base image)
+            # Note: Values must be in single quotes per VyOS cloud-init requirements
             user_data = """#cloud-config
 vyos_config_commands:
-  - set system host-name {hostname}
-  - set system time-zone UTC
-  - set system console device ttyS0 speed 115200
-  - set service ssh port 22
-  - set service lldp interface all
+  - set system host-name '{hostname}'
+  - set system time-zone 'UTC'
+  - set system console device ttyS0 speed '115200'
+  - set service ssh port '22'
+  - set service lldp interface 'all'
 """
 
         # Replace placeholders (only hostname now)

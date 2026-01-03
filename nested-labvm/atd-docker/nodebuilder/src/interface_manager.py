@@ -787,7 +787,8 @@ def delete_ovs_bridge(bridge_name: str) -> Dict:
 def attach_interface_to_vm(
     vm_name: str,
     bridge_name: str,
-    mac: Optional[str] = None
+    mac: Optional[str] = None,
+    target_port: Optional[str] = None
 ) -> Dict:
     """
     Attach a new network interface to a VM using OVS bridge.
@@ -798,10 +799,15 @@ def attach_interface_to_vm(
     If the VM is running, applies immediately with --live --config.
     If the VM is not running, uses --config only (takes effect on next boot).
 
+    Note: The target_port parameter is accepted for API compatibility but
+    not used for PCI address specification. vEOS uses a complex slot+function
+    packing scheme that libvirt manages automatically.
+
     Args:
         vm_name: Name of the VM
         bridge_name: Name of the OVS bridge to connect to
         mac: Optional MAC address for the interface
+        target_port: Optional target port name (unused, for API compatibility)
 
     Returns:
         Dict with status and details

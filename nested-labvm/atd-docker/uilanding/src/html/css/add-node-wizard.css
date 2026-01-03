@@ -436,6 +436,8 @@
 
 .add-connection-row .form-select {
     flex: 1;
+    width: auto;  /* Override width: 100% to allow flex to control size */
+    min-width: 0;  /* Prevent flex item from overflowing */
 }
 
 .add-connection-row .add-connection-btn {

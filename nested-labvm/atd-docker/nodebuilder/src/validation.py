@@ -221,10 +221,15 @@ def get_mac_for_ip(ip: str, dnsmasq_path: str) -> Optional[str]:
 
 # Security: Reserved names that cannot be used for devices
 # Includes system bridge names, common shell commands, and special identifiers
+# Also includes phantom host names (host5-8) that exist in some topology neighbor
+# lists but don't have actual node definitions - these are reserved interface slots
 RESERVED_NAMES = frozenset([
     'all', 'default', 'none', 'null', 'localhost', 'host',
     'vmgmt', 'br0', 'docker0', 'virbr0', 'lo', 'eth0',
     'root', 'admin', 'system', 'test', 'true', 'false',
+    # Phantom hosts - exist in neighbor lists but not as actual nodes
+    # These reserve interface slots on leaf switches (e.g., leaf1:Ethernet8)
+    'host5', 'host6', 'host7', 'host8',
 ])
 
 
