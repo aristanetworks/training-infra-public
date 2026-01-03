@@ -525,14 +525,12 @@ class TestGetVeloStatus:
         from velo_manager import get_velo_status
 
         with patch('velo_manager.get_velo_config') as mock_config:
+            # Use nested structure matching actual get_velo_config() return value
             mock_config.return_value = {
                 'enabled': True,
-                'edge_enabled': True,
-                'gateway_enabled': True,
-                'orchestrator_enabled': True,
-                'max_edge': 3,
-                'max_gateway': 2,
-                'max_orchestrator': 1
+                'edge': {'enabled': True, 'max_count': 3, 'cpu': 2, 'ram_mb': 8192},
+                'gateway': {'enabled': True, 'max_count': 2, 'cpu': 4, 'ram_mb': 16384},
+                'orchestrator': {'enabled': True, 'max_count': 1, 'cpu': 4, 'ram_mb': 8192}
             }
 
             with patch('velo_manager.get_velo_device_count') as mock_count:

@@ -1045,21 +1045,21 @@ def get_velo_status() -> Dict:
         'enabled': velo_config.get('enabled', False),
         'devices': {
             'edge': {
-                'enabled': velo_config.get('edge_enabled', False),
+                'enabled': velo_config.get('edge', {}).get('enabled', False),
                 'count': get_velo_device_count('edge'),
-                'max': velo_config.get('max_edge', MAX_VELO_EDGE_PER_TOPOLOGY),
+                'max': velo_config.get('edge', {}).get('max_count', MAX_VELO_EDGE_PER_TOPOLOGY),
                 'available': 0
             },
             'gateway': {
-                'enabled': velo_config.get('gateway_enabled', False),
+                'enabled': velo_config.get('gateway', {}).get('enabled', False),
                 'count': get_velo_device_count('gateway'),
-                'max': velo_config.get('max_gateway', MAX_VELO_GATEWAY_PER_TOPOLOGY),
+                'max': velo_config.get('gateway', {}).get('max_count', MAX_VELO_GATEWAY_PER_TOPOLOGY),
                 'available': 0
             },
             'orchestrator': {
-                'enabled': velo_config.get('orchestrator_enabled', False),
+                'enabled': velo_config.get('orchestrator', {}).get('enabled', False),
                 'count': get_velo_device_count('orchestrator'),
-                'max': velo_config.get('max_orchestrator', MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY),
+                'max': velo_config.get('orchestrator', {}).get('max_count', MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY),
                 'available': 0
             }
         },
