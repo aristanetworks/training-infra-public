@@ -171,7 +171,8 @@ def get_used_ips(topo_build_path: str, user_nodes_path: str) -> Set[str]:
 def get_available_ips(
     dnsmasq_path: str,
     topo_build_path: str,
-    user_nodes_path: str
+    user_nodes_path: str,
+    min_last_octet: int = 10
 ) -> List[Dict]:
     """
     Get list of available IPs from dnsmasq that are not in use
@@ -180,6 +181,9 @@ def get_available_ips(
         dnsmasq_path: Path to dnsmasq config
         topo_build_path: Path to topo_build.yml
         user_nodes_path: Path to user_nodes.yaml
+        min_last_octet: Minimum value for the last octet (default 10).
+            IPs with last octet below this are reserved for infrastructure
+            (e.g., CVP uses low IPs like .5)
 
     Returns:
         List of available IP entries with 'ip', 'mac', 'hostname'
@@ -190,11 +194,22 @@ def get_available_ips(
     # Get IPs already in use
     used_ips = get_used_ips(topo_build_path, user_nodes_path)
 
-    # Filter to only available IPs
-    available = [
-        entry for entry in dnsmasq_entries
-        if entry['ip'] not in used_ips
-    ]
+    # Filter to only available IPs, excluding reserved low IPs
+    available = []
+    for entry in dnsmasq_entries:
+        ip = entry['ip']
+        # Skip IPs already in use
+        if ip in used_ips:
+            continue
+        # Skip reserved low IPs (infrastructure like CVP)
+        try:
+            last_octet = int(ip.split('.')[-1])
+            if last_octet < min_last_octet:
+                continue
+        except (ValueError, IndexError):
+            # If we can't parse the IP, skip it
+            continue
+        available.append(entry)
 
     return available
 

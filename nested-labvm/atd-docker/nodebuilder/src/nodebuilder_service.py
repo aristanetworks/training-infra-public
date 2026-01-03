@@ -298,7 +298,8 @@ async def validate_node(request):
     topo_build_path = get_topo_build_path()
 
     # Validate name (check against ALL device types: nodes, hosts, firewalls)
-    name = data.get('name', '')
+    # Normalize to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     name_valid, name_error = validate_device_name(
         name, topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
     )
@@ -333,7 +334,8 @@ async def add_node(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     ip = data.get('ip', '')
     device_type = data.get('device_type', DEFAULT_DEVICE_TYPE)  # Device type for diagram positioning
     connections = data.get('connections', [])
@@ -573,7 +575,8 @@ async def delete_node(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
 
     if not name:
         return web.json_response({'error': 'Device name is required'}, status=400)
@@ -653,7 +656,8 @@ async def edit_node(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     add_connections = data.get('add_connections', [])
     remove_connections = data.get('remove_connections', [])
 
@@ -931,7 +935,9 @@ async def add_cluster(request):
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
     template_id = data.get('template_id', '')
-    name_prefix = data.get('name_prefix', '')
+    # Normalize prefix to lowercase to ensure consistent VM naming
+    # (libvirt may be case-insensitive, causes issues with deletion)
+    name_prefix = data.get('name_prefix', '').lower()
     external_connections = data.get('external_connections', [])
     ip_assignments = data.get('ip_assignments', {})
     impairments = data.get('impairments', {})
@@ -1424,7 +1430,8 @@ async def add_host(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     ip = data.get('ip', '')
     connection = data.get('connection')
     data_ip = data.get('data_ip')
@@ -1563,7 +1570,8 @@ async def delete_host_endpoint(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
 
     if not name:
         return web.json_response({'error': 'Host name is required'}, status=400)
@@ -1697,7 +1705,8 @@ async def add_firewall(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     mgmt_ip = data.get('mgmt_ip', '')
     inside_interface = data.get('inside_interface', {})
     outside_interface = data.get('outside_interface', {})
@@ -1853,7 +1862,8 @@ async def edit_firewall_endpoint(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     inside_interface = data.get('inside_interface')
     outside_interface = data.get('outside_interface')
 
@@ -1910,7 +1920,8 @@ async def delete_firewall_endpoint(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
 
     if not name:
         return web.json_response({'error': 'Firewall name is required'}, status=400)
@@ -2032,7 +2043,8 @@ async def add_velo_device(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
     device_type = data.get('device_type', '')
     mgmt_ip = data.get('mgmt_ip', '')
     connections = data.get('connections', [])
@@ -2201,7 +2213,8 @@ async def delete_velo_device_endpoint(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name', '')
+    # Normalize name to lowercase for consistent VM naming
+    name = data.get('name', '').lower()
 
     if not name:
         return web.json_response({'error': 'Device name is required'}, status=400)
