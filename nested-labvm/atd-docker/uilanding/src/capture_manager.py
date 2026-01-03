@@ -468,13 +468,19 @@ class CaptureManager:
         """
         Parse OVS bridge name to extract device and port info.
 
-        Bridge naming convention: {dev1-short}{port1}-{dev2-short}{port2}
-        Examples:
-          sp1et1-le1et1 -> spine1:Ethernet1 <-> leaf1:Ethernet1
-          client1eth1-sp4et9 -> client1:eth1 <-> spine4:Ethernet9
-          fw1eth1-le1et5 -> fw1:eth1 <-> leaf1:Ethernet5
+        Supports multiple bridge naming conventions:
 
-        Supports both uppercase and lowercase port prefixes (Et, et, eth).
+        1. Nodebuilder format (with 'x' separator):
+           fw1xet1-bo1x7 -> fw1:eth1 <-> borderleaf1:Ethernet7
+
+        2. Legacy nodebuilder format (no separator):
+           fw1et1-bo17 -> fw1:eth1 <-> borderleaf1:Ethernet7
+
+        3. kvmbuilder format (full names):
+           leaf3Et3-leaf1Et3 -> leaf3:Ethernet3 <-> leaf1:Ethernet3
+
+        4. Mixed port prefixes:
+           sp1et1-le1et1, client1eth1-sp4et9
         """
         result = {
             "source_device": "",
@@ -493,7 +499,6 @@ class CaptureManager:
                 tgt = parts[1]
 
                 # Parse each part to find device/port boundary
-                # Look for port prefixes: 'et', 'Et', 'eth' (case-insensitive)
                 src_device, src_port = self._split_device_port(src)
                 tgt_device, tgt_port = self._split_device_port(tgt)
 
@@ -511,25 +516,56 @@ class CaptureManager:
         """
         Split a device+port string into (device, port).
 
-        Looks for port prefixes 'eth' or 'et' (case-insensitive).
-        Examples:
-          'sp1et1' -> ('sp1', 'et1')
-          'client1eth1' -> ('client1', 'eth1')
-          'le1Et5' -> ('le1', 'Et5')
+        Handles multiple formats:
+        1. 'x' separator: 'fw1xet1' -> ('fw1', 'et1'), 'bo1x7' -> ('bo1', '7')
+        2. 'eth' prefix: 'client1eth1' -> ('client1', 'eth1')
+        3. 'et' prefix: 'sp1et1' -> ('sp1', 'et1'), 'le1Et5' -> ('le1', 'Et5')
+        4. Full names: 'leaf3Et3' -> ('leaf3', 'Et3')
+        5. No separator (legacy): 'bo17' -> ('bo1', '7') via heuristic
         """
         lower = part.lower()
 
-        # Look for 'eth' first (longer prefix, for Linux hosts)
+        # Check for 'x' separator first (nodebuilder format)
+        if 'x' in part:
+            x_idx = part.index('x')
+            return part[:x_idx], part[x_idx + 1:]
+
+        # Look for 'eth' (longer prefix, for Linux hosts)
         eth_idx = lower.find('eth')
         if eth_idx > 0:
             return part[:eth_idx], part[eth_idx:]
 
-        # Then look for 'et' (for Ethernet)
+        # Look for 'et' (for Ethernet)
         et_idx = lower.find('et')
         if et_idx > 0:
             return part[:et_idx], part[et_idx:]
 
-        # No port prefix found - return empty port
+        # No separator or prefix found - try heuristic for legacy nodebuilder format
+        # Format is {2-letter-prefix}{device-number}{port-number}
+        # Example: 'bo17' -> 'bo' (prefix) + '1' (device) + '7' (port)
+        # Heuristic: assume last 1-2 digits are port number for single-digit ports
+        if len(part) >= 3:
+            # Find where letters end
+            letter_end = 0
+            for i, c in enumerate(part):
+                if c.isdigit():
+                    letter_end = i
+                    break
+
+            if letter_end > 0 and letter_end < len(part):
+                prefix = part[:letter_end]  # e.g., 'bo'
+                numbers = part[letter_end:]  # e.g., '17'
+
+                # For numbers like '17', assume last digit is port
+                # For numbers like '112', assume last 2 digits are port
+                if len(numbers) >= 2:
+                    # Check if this could be device1 + port12 or device11 + port2
+                    # Prefer single-digit ports as they're more common
+                    device_num = numbers[:-1]  # All but last digit
+                    port_num = numbers[-1]     # Last digit
+                    return prefix + device_num, port_num
+
+        # Fallback: return whole part as device with empty port
         return part, ""
 
     def _is_bridge_capturing(self, bridge_name: str) -> bool:

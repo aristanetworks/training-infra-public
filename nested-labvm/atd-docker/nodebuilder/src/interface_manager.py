@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import subprocess
+import time
 from typing import Dict, List, Optional, Tuple
 from xml.sax.saxutils import escape as xml_escape
 
@@ -657,7 +658,10 @@ def generate_bridge_name(
     dev2_info = parse_device_name(device2.lower())
     port2_info = parse_device_name(port2.lower())
 
-    bridge_name = f"{dev1_info['code']}{port1_info['code']}-{dev2_info['code']}{port2_info['code']}"
+    # Use 'x' as separator between device code and port code for better parsing
+    # Format: {dev1_code}x{port1_code}-{dev2_code}x{port2_code}
+    # Example: fw1xet1-bo1x7 (fw1 eth1 to borderleaf1 Ethernet7)
+    bridge_name = f"{dev1_info['code']}x{port1_info['code']}-{dev2_info['code']}x{port2_info['code']}"
 
     # OVS/Linux has 15 char limit for interface names
     MAX_BRIDGE_LEN = 15
@@ -845,52 +849,103 @@ def attach_interface_to_vm(
 
         # For running VMs, we need to manually add the interface to OVS
         # virsh attach-device --live doesn't reliably add to OVS bridges
+        vnet_interface = None
         if vm_is_running:
             # Find the newly created vnet interface by checking domiflist
-            domiflist_result = subprocess.run(
-                ['virsh', 'domiflist', vm_name],
-                capture_output=True,
-                text=True,
-                timeout=SUBPROCESS_TIMEOUT_DEFAULT
-            )
+            # Retry a few times as the interface may take a moment to appear
+            import time
+            max_retries = 3
+            retry_delay = 0.5  # seconds
 
-            if domiflist_result.returncode == 0:
+            for attempt in range(max_retries):
+                domiflist_result = subprocess.run(
+                    ['virsh', 'domiflist', vm_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+
+                if domiflist_result.returncode != 0:
+                    logger.warning(
+                        f"domiflist failed for {vm_name}: {domiflist_result.stderr}"
+                    )
+                    break
+
+                # Log the full domiflist output for debugging
+                logger.debug(f"domiflist output for {vm_name}:\n{domiflist_result.stdout}")
+
                 # Parse domiflist output to find interface connected to our bridge
                 for line in domiflist_result.stdout.strip().split('\n'):
                     parts = line.split()
                     if len(parts) >= 3 and parts[2] == bridge_name:
                         vnet_interface = parts[0]
-                        # Check if this interface is already in OVS
-                        check_port = subprocess.run(
-                            ['ovs-vsctl', 'port-to-br', vnet_interface],
-                            capture_output=True,
-                            text=True
+                        logger.info(
+                            f"Found interface {vnet_interface} connected to {bridge_name} on {vm_name}"
                         )
-                        if check_port.returncode != 0:
-                            # Interface not in OVS, add it manually
-                            logger.info(f"Adding {vnet_interface} to OVS bridge {bridge_name}")
-                            add_result = subprocess.run(
-                                ['ovs-vsctl', 'add-port', bridge_name, vnet_interface],
-                                capture_output=True,
-                                text=True,
-                                timeout=SUBPROCESS_TIMEOUT_DEFAULT
-                            )
-                            if add_result.returncode != 0:
-                                # This is a critical failure - interface attached but not in OVS
-                                # The network connection won't work
-                                raise RuntimeError(
-                                    f"Failed to add {vnet_interface} to OVS bridge {bridge_name}: "
-                                    f"{add_result.stderr}. Interface attached to VM but not connected to bridge."
-                                )
-                            else:
-                                logger.info(f"Successfully added {vnet_interface} to {bridge_name}")
                         break
+
+                if vnet_interface:
+                    break
+
+                # Interface not found yet, wait and retry
+                if attempt < max_retries - 1:
+                    logger.debug(
+                        f"Interface for bridge {bridge_name} not found on {vm_name}, "
+                        f"retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(retry_delay)
+
+            if not vnet_interface:
+                # Log warning with all interfaces we did see
+                interfaces_seen = []
+                for line in domiflist_result.stdout.strip().split('\n')[1:]:  # Skip header
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        interfaces_seen.append(f"{parts[0]}:{parts[2]}")
+                logger.warning(
+                    f"Could not find interface for bridge {bridge_name} on {vm_name}. "
+                    f"Interfaces seen: {interfaces_seen}. "
+                    f"Interface may need VM reboot to activate."
+                )
+
+            # If we found the interface, add it to OVS if not already there
+            if vnet_interface:
+                # Check if this interface is already in OVS
+                check_port = subprocess.run(
+                    ['ovs-vsctl', 'port-to-br', vnet_interface],
+                    capture_output=True,
+                    text=True
+                )
+                if check_port.returncode != 0:
+                    # Interface not in OVS, add it manually
+                    logger.info(f"Adding {vnet_interface} to OVS bridge {bridge_name}")
+                    add_result = subprocess.run(
+                        ['ovs-vsctl', 'add-port', bridge_name, vnet_interface],
+                        capture_output=True,
+                        text=True,
+                        timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                    )
+                    if add_result.returncode != 0:
+                        # This is a critical failure - interface attached but not in OVS
+                        # The network connection won't work
+                        raise RuntimeError(
+                            f"Failed to add {vnet_interface} to OVS bridge {bridge_name}: "
+                            f"{add_result.stderr}. Interface attached to VM but not connected to bridge."
+                        )
+                    else:
+                        logger.info(f"Successfully added {vnet_interface} to {bridge_name}")
+                else:
+                    logger.debug(
+                        f"Interface {vnet_interface} already in OVS bridge "
+                        f"{check_port.stdout.strip()}"
+                    )
 
         return {
             'status': 'attached' if vm_is_running else 'configured',
             'vm': vm_name,
             'bridge': bridge_name,
-            'immediate': vm_is_running
+            'immediate': vm_is_running,
+            'vnet_interface': vnet_interface
         }
 
     except subprocess.TimeoutExpired:

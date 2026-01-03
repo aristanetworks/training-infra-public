@@ -2940,6 +2940,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
             # Convert port codes to full names
             # - Et1/et1 -> Ethernet1 (EOS switches)
             # - eth1 stays as eth1 (Linux hosts/firewalls)
+            # - Bare numbers like '7' -> Ethernet7 (nodebuilder format)
             src_port = bridge.get('source_port', '')
             tgt_port = bridge.get('target_port', '')
 
@@ -2950,12 +2951,18 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 # EOS Ethernet port
                 port_num = src_port[2:]
                 bridge['source_port_name'] = f'Ethernet{port_num}'
+            elif src_port.isdigit():
+                # Bare port number (nodebuilder format)
+                bridge['source_port_name'] = f'Ethernet{src_port}'
 
             if tgt_port.lower().startswith('eth'):
                 bridge['target_port_name'] = tgt_port
             elif tgt_port.lower().startswith('et'):
                 port_num = tgt_port[2:]
                 bridge['target_port_name'] = f'Ethernet{port_num}'
+            elif tgt_port.isdigit():
+                # Bare port number (nodebuilder format)
+                bridge['target_port_name'] = f'Ethernet{tgt_port}'
 
         return bridges
 
