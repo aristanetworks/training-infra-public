@@ -226,13 +226,13 @@ NEW_JS_SIZE=$(find "${HTML_DIR}/js" -name "*.min.js" -exec cat {} + 2>/dev/null 
 NEW_CSS_SIZE=$(find "${HTML_DIR}/css" -name "*.min.css" -exec cat {} + 2>/dev/null | wc -c)
 
 echo "Size comparison (regular scripts only):"
-printf "  Original JS:  %.1fKB\n" $(echo "scale=1; ${ORIG_JS_SIZE}/1024" | bc)
-printf "  Minified JS:  %.1fKB\n" $(echo "scale=1; ${NEW_JS_SIZE}/1024" | bc)
-printf "  Original CSS: %.1fKB\n" $(echo "scale=1; ${ORIG_CSS_SIZE}/1024" | bc)
-printf "  Minified CSS: %.1fKB\n" $(echo "scale=1; ${NEW_CSS_SIZE}/1024" | bc)
+printf "  Original JS:  %.1fKB\n" $(awk "BEGIN {printf \"%.1f\", ${ORIG_JS_SIZE}/1024}")
+printf "  Minified JS:  %.1fKB\n" $(awk "BEGIN {printf \"%.1f\", ${NEW_JS_SIZE}/1024}")
+printf "  Original CSS: %.1fKB\n" $(awk "BEGIN {printf \"%.1f\", ${ORIG_CSS_SIZE}/1024}")
+printf "  Minified CSS: %.1fKB\n" $(awk "BEGIN {printf \"%.1f\", ${NEW_CSS_SIZE}/1024}")
 
 if [ "$ORIG_JS_SIZE" -gt 0 ]; then
-    JS_SAVINGS=$(echo "scale=0; (1 - ${NEW_JS_SIZE}/${ORIG_JS_SIZE}) * 100" | bc)
+    JS_SAVINGS=$(awk "BEGIN {printf \"%.0f\", (1 - ${NEW_JS_SIZE}/${ORIG_JS_SIZE}) * 100}")
     echo ""
     echo "  JS size reduction: ~${JS_SAVINGS}%"
 fi
