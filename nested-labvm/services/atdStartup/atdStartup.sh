@@ -51,7 +51,7 @@ rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/util
 # Install required Python packages
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing required Python packages..."
 cloud_log "Installing required Python packages"
-pip3 install --upgrade --ignore-installed google-cloud-logging cvprac 2>/dev/null || echo "Warning: Failed to install Python packages"
+pip3 install --upgrade --ignore-installed google-cloud-logging cvprac ruamel.yaml 2>/dev/null || echo "Warning: Failed to install Python packages"
 
 # Run the Python ATD Startup script
 echo ""
