@@ -6,6 +6,8 @@ Handles:
 - Finding available ports on VMs
 - Creating OVS bridges
 - Attaching interfaces to VMs
+
+Bridge naming and parsing is delegated to bridge_utils.py (single source of truth).
 """
 
 import logging
@@ -15,6 +17,18 @@ import subprocess
 import time
 from typing import Dict, List, Optional, Tuple
 from xml.sax.saxutils import escape as xml_escape
+
+# Import bridge utilities - single source of truth for bridge naming
+# Re-export for API compatibility with modules that import from interface_manager
+from bridge_utils import (
+    parse_device_name,
+    generate_bridge_name,
+    parse_bridge_name,
+    split_device_port,
+    expand_device_code,
+    expand_port_code,
+    DEVICE_ABBREVIATIONS,
+)
 
 logger = logging.getLogger('nodebuilder.interface_manager')
 
@@ -56,79 +70,7 @@ from config import (
 )
 
 
-def parse_device_name(dev_name: str) -> Dict:
-    """
-    Parse a device name into a short code for bridge naming.
-
-    Based on kvm-topo-builder.py parseNames() function.
-
-    Examples:
-        spine1 -> sp1
-        leaf1 -> le1
-        borderleaf1 -> bo1
-        Ethernet3 -> 3
-        host1 -> ho1
-
-    Args:
-        dev_name: Device or port name
-
-    Returns:
-        Dict with 'name' (original) and 'code' (short code)
-    """
-    alpha = ''
-    numer = ''
-    split_len = 2
-    dev_dc = False
-    dev_core = False
-    tmp_dev_name = ""
-
-    # Handle DC suffix (e.g., spine1-dc1)
-    if '-dc' in dev_name.lower() and 'dci' not in dev_name.lower():
-        _tmp = dev_name.split('-')
-        tmp_dev_name = _tmp[0]
-        if len(_tmp) > 1 and 'dc' in _tmp[1].lower():
-            dev_dc = _tmp[1]
-        for char in tmp_dev_name:
-            if char.isalpha():
-                alpha += char
-            elif char.isdigit():
-                numer += char
-    # Handle CORE suffix (e.g., leaf1-core)
-    elif '-core' in dev_name.lower():
-        _tmp = dev_name.split('-')
-        tmp_dev_name = _tmp[0]
-        if len(_tmp) > 1:
-            dev_core = _tmp[1]
-        for char in tmp_dev_name:
-            if char.isalpha():
-                alpha += char
-            elif char.isdigit():
-                numer += char
-    else:
-        for char in dev_name:
-            if char.isalpha():
-                alpha += char
-            elif char.isdigit():
-                numer += char
-
-    # For Ethernet ports, just use the number
-    if 'ethernet' in dev_name.lower():
-        dev_short = ''
-    else:
-        dev_short = alpha[:split_len].lower()
-
-    # Handle DC/CORE codes
-    if dev_dc:
-        dev_code = dev_dc.lower().replace('c', '')
-    elif dev_core:
-        dev_code = dev_core.lower().replace('ore', '')
-    else:
-        dev_code = ""
-
-    return {
-        'name': dev_name,
-        'code': dev_short + numer + dev_code,
-    }
+# Note: parse_device_name is imported from bridge_utils (single source of truth)
 
 
 def get_vm_interfaces(vm_name: str) -> List[Dict]:
@@ -622,57 +564,7 @@ def get_target_devices_with_ports() -> List[Dict]:
     return devices
 
 
-def generate_bridge_name(
-    device1: str,
-    port1: str,
-    device2: str,
-    port2: str
-) -> str:
-    """
-    Generate OVS bridge name following kvmbuilder conventions.
-
-    Format: {dev1_code}{port1_num}-{dev2_code}{port2_num}
-    Example: sp11-le13 (spine1 Ethernet1 to leaf1 Ethernet3)
-
-    Note: Device names are normalized to lowercase to ensure consistent
-    bridge names regardless of input case (Spine1 vs spine1).
-
-    Bridge names are limited to 15 characters (OVS/Linux interface limit).
-    If the generated name exceeds this, it will be truncated with a hash suffix
-    to maintain uniqueness.
-
-    Args:
-        device1: First device name
-        port1: First port name
-        device2: Second device name
-        port2: Second port name
-
-    Returns:
-        Bridge name string (always lowercase, max 15 chars)
-    """
-    import hashlib
-
-    # Normalize to lowercase for consistent bridge names
-    dev1_info = parse_device_name(device1.lower())
-    port1_info = parse_device_name(port1.lower())
-    dev2_info = parse_device_name(device2.lower())
-    port2_info = parse_device_name(port2.lower())
-
-    # Use 'x' as separator between device code and port code for better parsing
-    # Format: {dev1_code}x{port1_code}-{dev2_code}x{port2_code}
-    # Example: fw1xet1-bo1x7 (fw1 eth1 to borderleaf1 Ethernet7)
-    bridge_name = f"{dev1_info['code']}x{port1_info['code']}-{dev2_info['code']}x{port2_info['code']}"
-
-    # OVS/Linux has 15 char limit for interface names
-    MAX_BRIDGE_LEN = 15
-    if len(bridge_name) > MAX_BRIDGE_LEN:
-        # Truncate and add hash suffix for uniqueness
-        full_name = bridge_name
-        hash_suffix = hashlib.md5(full_name.encode()).hexdigest()[:4]
-        bridge_name = bridge_name[:MAX_BRIDGE_LEN - 5] + '-' + hash_suffix
-        logger.debug(f"Bridge name truncated: {full_name} -> {bridge_name}")
-
-    return bridge_name
+# Note: generate_bridge_name is imported from bridge_utils (single source of truth)
 
 
 def create_ovs_bridge(bridge_name: str) -> Dict:

@@ -35,6 +35,11 @@ VeloCloud Endpoints:
 - POST /add-velo-device     - Create new VeloCloud device (Edge, Gateway, Orchestrator)
 - POST /delete-velo-device  - Delete a VeloCloud device
 - GET/POST/PUT/DELETE /vco-proxy/{path} - Proxy requests to VCO web UI
+
+Bridge Utilities Endpoints (Single Source of Truth):
+- GET  /bridge/parse/{name} - Parse a bridge name to device/port info
+- POST /bridge/parse        - Batch parse multiple bridge names
+- GET  /bridge/abbreviations - Get device abbreviation mapping
 """
 
 import logging
@@ -2336,6 +2341,163 @@ async def bridge_status(request):
 
     except Exception as e:
         logger.error(f"Error getting bridge status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# =============================================================================
+# Bridge Parsing API - Single Source of Truth for Bridge Name Parsing
+# =============================================================================
+# These endpoints expose bridge_utils.py functionality to other services
+# (captureservice, uilanding) so they don't need duplicate parsing logic.
+
+
+@routes.get('/bridge/parse/{bridge_name}')
+async def parse_bridge_name_endpoint(request):
+    """
+    Parse a bridge name to extract device and port information.
+
+    This endpoint exposes the bridge_utils.parse_bridge_name() function
+    as an API for other services (captureservice, uilanding) to use.
+
+    Path Parameters:
+        bridge_name: OVS bridge name (e.g., 'le5x1-sp4x9')
+
+    Returns:
+        JSON with parsed device/port information:
+        {
+            "bridge_name": "le5x1-sp4x9",
+            "source_device": "le5",
+            "source_port": "1",
+            "source_device_name": "leaf5",
+            "source_port_name": "Ethernet1",
+            "target_device": "sp4",
+            "target_port": "9",
+            "target_device_name": "spine4",
+            "target_port_name": "Ethernet9"
+        }
+    """
+    from bridge_utils import parse_bridge_name
+
+    bridge_name = request.match_info.get('bridge_name', '')
+
+    if not bridge_name:
+        return web.json_response({'error': 'Bridge name is required'}, status=400)
+
+    try:
+        result = parse_bridge_name(bridge_name)
+        result['bridge_name'] = bridge_name
+        return web.json_response(result)
+
+    except Exception as e:
+        logger.error(f"Error parsing bridge name '{bridge_name}': {e}")
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/bridge/parse')
+async def parse_bridge_names_batch(request):
+    """
+    Parse multiple bridge names in a single request.
+
+    This batch endpoint is more efficient when parsing many bridge names
+    (e.g., for the capture panel which may have dozens of links).
+
+    Request Body:
+        {
+            "bridge_names": ["le5x1-sp4x9", "fi1x1-bo1x5", ...]
+        }
+
+    Returns:
+        JSON with parsed results for each bridge:
+        {
+            "results": {
+                "le5x1-sp4x9": {
+                    "source_device_name": "leaf5",
+                    "source_port_name": "Ethernet1",
+                    ...
+                },
+                "fi1x1-bo1x5": {
+                    ...
+                }
+            }
+        }
+    """
+    from bridge_utils import parse_bridge_name
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({'error': 'Invalid JSON'}, status=400)
+
+    bridge_names = data.get('bridge_names', [])
+
+    if not bridge_names:
+        return web.json_response({'error': 'bridge_names array is required'}, status=400)
+
+    if not isinstance(bridge_names, list):
+        return web.json_response({'error': 'bridge_names must be an array'}, status=400)
+
+    # Limit batch size to prevent abuse
+    MAX_BATCH_SIZE = 100
+    if len(bridge_names) > MAX_BATCH_SIZE:
+        return web.json_response(
+            {'error': f'Maximum batch size is {MAX_BATCH_SIZE}'},
+            status=400
+        )
+
+    try:
+        results = {}
+        for bridge_name in bridge_names:
+            if isinstance(bridge_name, str) and bridge_name:
+                results[bridge_name] = parse_bridge_name(bridge_name)
+
+        return web.json_response({'results': results})
+
+    except Exception as e:
+        logger.error(f"Error in batch bridge parsing: {e}")
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/bridge/abbreviations')
+async def get_device_abbreviations(request):
+    """
+    Get the canonical device abbreviation mapping.
+
+    This endpoint returns the DEVICE_ABBREVIATIONS dictionary from
+    bridge_utils.py - the single source of truth for device abbreviations.
+
+    Useful for:
+    - Debugging bridge name issues
+    - Documentation
+    - Client-side validation
+
+    Returns:
+        JSON with abbreviation mapping:
+        {
+            "abbreviations": {
+                "sp": "spine",
+                "le": "leaf",
+                "bo": "borderleaf",
+                ...
+            },
+            "legacy": ["bl", "gw", "fw"]
+        }
+    """
+    from bridge_utils import get_abbreviation_mapping, is_legacy_abbreviation
+
+    try:
+        abbreviations = get_abbreviation_mapping()
+
+        # Separate legacy abbreviations for clarity
+        legacy = [abbrev for abbrev in abbreviations if is_legacy_abbreviation(abbrev)]
+
+        return web.json_response({
+            'abbreviations': abbreviations,
+            'legacy': legacy,
+            'note': 'Legacy abbreviations are supported for parsing but not generated'
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting abbreviations: {e}")
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 

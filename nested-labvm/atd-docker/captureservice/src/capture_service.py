@@ -1052,8 +1052,9 @@ class CaptureManager:
         return bridges
 
     # Mapping of 2-letter abbreviations to full device type names
-    # IMPORTANT: These must match what parse_device_name() in nodebuilder generates
-    # parse_device_name() takes the first 2 letters of the device type name
+    # IMPORTANT: The canonical source of truth is nodebuilder/src/bridge_utils.py
+    # This copy exists for performance (avoids API calls) but MUST stay in sync.
+    # Run tests/test_bridge_consistency.py to verify consistency.
     DEVICE_ABBREVIATIONS = {
         'sp': 'spine',
         'le': 'leaf',
@@ -1079,6 +1080,7 @@ class CaptureManager:
         # Legacy kvmbuilder mappings (may use different abbreviations)
         'bl': 'borderleaf',  # Legacy: some old bridges use 'bl'
         'gw': 'gateway',     # Legacy: some old bridges use 'gw'
+        'fw': 'firewall',    # Legacy: some old bridges use 'fw'
     }
 
     def _parse_bridge_name(self, bridge_name: str) -> Dict:
