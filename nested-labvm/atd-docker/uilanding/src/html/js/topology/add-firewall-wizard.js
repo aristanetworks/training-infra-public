@@ -29,11 +29,14 @@ class AddFirewallWizard {
         this.topologyManager = topologyManager;
         this.overlay = null;
         this.currentStep = 1;
-        this.totalSteps = 5;
+        this.totalSteps = 4;  // Reduced: no name entry step
+
+        // Fixed firewall name (only 1 firewall allowed per topology)
+        this.FIXED_NAME = 'fw1';
 
         // Wizard state
         this.firewallConfig = {
-            name: '',
+            name: 'fw1',  // Fixed name
             mgmt_ip: '',
             inside_interface: {
                 target_device: '',
@@ -50,17 +53,10 @@ class AddFirewallWizard {
         this.availableIps = [];
         this.targetDevices = [];
 
-        // Validation state
-        this.nameValid = false;
-        this.nameError = '';
-
         this.isSubmitting = false;
 
         // Event handler references for cleanup
         this.escapeHandler = null;
-
-        // Track validation request for race condition prevention
-        this.pendingValidationRequestId = 0;
     }
 
     /**
@@ -86,7 +82,7 @@ class AddFirewallWizard {
         // Reset state
         this.currentStep = 1;
         this.firewallConfig = {
-            name: '',
+            name: this.FIXED_NAME,  // Fixed name
             mgmt_ip: '',
             inside_interface: {
                 target_device: '',
@@ -97,8 +93,6 @@ class AddFirewallWizard {
                 target_port: ''
             }
         };
-        this.nameValid = false;
-        this.nameError = '';
         this.isSubmitting = false;
 
         // Create overlay
@@ -144,26 +138,21 @@ class AddFirewallWizard {
                     <div class="progress-steps">
                         <div class="progress-step active" data-step="1">
                             <span class="step-number">1</span>
-                            <span class="step-label">Name</span>
+                            <span class="step-label">Mgmt IP</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="2">
                             <span class="step-number">2</span>
-                            <span class="step-label">Mgmt IP</span>
+                            <span class="step-label">Inside</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="3">
                             <span class="step-number">3</span>
-                            <span class="step-label">Inside</span>
+                            <span class="step-label">Outside</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="4">
                             <span class="step-number">4</span>
-                            <span class="step-label">Outside</span>
-                        </div>
-                        <div class="progress-connector"></div>
-                        <div class="progress-step" data-step="5">
-                            <span class="step-number">5</span>
                             <span class="step-label">Review</span>
                         </div>
                     </div>
@@ -303,21 +292,18 @@ class AddFirewallWizard {
             nextBtn.classList.remove('wizard-btn-create');
         }
 
-        // Render step content
+        // Render step content (name is fixed, so step 1 is now Mgmt IP)
         switch (this.currentStep) {
             case 1:
-                this.renderNameStep(content);
-                break;
-            case 2:
                 this.renderMgmtIpStep(content);
                 break;
-            case 3:
+            case 2:
                 this.renderInsideInterfaceStep(content);
                 break;
-            case 4:
+            case 3:
                 this.renderOutsideInterfaceStep(content);
                 break;
-            case 5:
+            case 4:
                 this.renderReviewStep(content);
                 break;
         }
@@ -326,147 +312,7 @@ class AddFirewallWizard {
     }
 
     /**
-     * Step 1: Firewall Name Entry
-     */
-    renderNameStep(content) {
-        const currentCount = this.firewallStatus?.current_count || 0;
-        const maxAllowed = this.firewallStatus?.max_allowed || AddFirewallWizard.MAX_FIREWALLS;
-
-        content.innerHTML = `
-            <div class="wizard-step wizard-step-name">
-                <h3>Enter Firewall Name</h3>
-                <p class="step-description">Choose a unique name for the VyOS firewall. Names must start with a letter and contain only letters, numbers, dashes, and underscores.</p>
-
-                <div class="host-limit-badge firewall-limit-badge">
-                    <span class="limit-count">${currentCount}/${maxAllowed}</span>
-                    <span class="limit-label">firewall used</span>
-                </div>
-
-                <div class="form-group">
-                    <label for="firewall-name">Firewall Name</label>
-                    <input type="text"
-                           id="firewall-name"
-                           class="form-input"
-                           placeholder="e.g., fw1, firewall, edge-fw"
-                           value="${this.escapeHtml(this.firewallConfig.name)}"
-                           maxlength="${AddFirewallWizard.MAX_NAME_LENGTH}"
-                           autocomplete="off"
-                           aria-describedby="firewall-name-validation"
-                           aria-invalid="${this.nameError ? 'true' : 'false'}">
-                    <div id="firewall-name-validation"
-                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
-                         role="alert"
-                         aria-live="polite">
-                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
-                    </div>
-                </div>
-
-                <div class="host-info-box firewall-info-box">
-                    <h4>VyOS Firewall Details</h4>
-                    <ul>
-                        <li>VyOS 1.4 Community Edition</li>
-                        <li>3 interfaces: Management, Inside, Outside</li>
-                        <li>Full routing, NAT, and firewall capabilities</li>
-                        <li>Access via SSH or serial console</li>
-                        <li>Default credentials: arista / arista</li>
-                    </ul>
-                </div>
-            </div>
-        `;
-
-        const input = content.querySelector('#firewall-name');
-        input.focus();
-
-        // Validate on input with debounce
-        let debounceTimer;
-        input.addEventListener('input', (e) => {
-            this.firewallConfig.name = e.target.value.trim();
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => this.validateName(), AddFirewallWizard.NAME_VALIDATION_DEBOUNCE_MS);
-        });
-
-        // Validate on enter key
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && this.nameValid) {
-                this.nextStep();
-            }
-        });
-    }
-
-    /**
-     * Validate firewall name via API
-     */
-    async validateName() {
-        const name = this.firewallConfig.name;
-        const validationMsg = this.overlay.querySelector('.validation-message');
-
-        if (!name) {
-            this.nameValid = false;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Quick client-side validation
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
-            this.nameValid = false;
-            this.nameError = 'Name must start with a letter and contain only letters, numbers, dashes, and underscores';
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        if (name.length > AddFirewallWizard.MAX_NAME_LENGTH) {
-            this.nameValid = false;
-            this.nameError = `Name must be ${AddFirewallWizard.MAX_NAME_LENGTH} characters or less`;
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Server-side validation using shared API
-        const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
-        this.pendingValidationRequestId = expectedRequestId;
-        this.pendingValidationName = name;
-
-        try {
-            const result = await NodeBuilderAPI.validateNode(name);
-
-            // Check for race conditions
-            if (result.requestId !== this.pendingValidationRequestId ||
-                result.validatedName !== this.pendingValidationName) {
-                return;
-            }
-
-            if (result.valid) {
-                this.nameValid = true;
-                this.nameError = '';
-                validationMsg.className = 'validation-message success';
-                validationMsg.textContent = 'Name is available';
-            } else {
-                this.nameValid = false;
-                this.nameError = result.errors?.[0] || 'Invalid name';
-                validationMsg.className = 'validation-message error';
-                validationMsg.textContent = this.nameError;
-            }
-        } catch (error) {
-            console.error('[AddFirewallWizard] Error validating name:', error);
-            // Allow proceeding on validation error
-            this.nameValid = true;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-        }
-
-        this.updateNextButtonState();
-    }
-
-    /**
-     * Step 2: Management IP Address Selection
+     * Step 1: Management IP Address Selection
      */
     renderMgmtIpStep(content) {
         const ipOptions = this.availableIps.map(entry => `
@@ -751,22 +597,20 @@ class AddFirewallWizard {
 
         let canProceed = false;
 
+        // Step mapping (name is fixed): 1=MgmtIP, 2=Inside, 3=Outside, 4=Review
         switch (this.currentStep) {
             case 1:
-                canProceed = this.nameValid && this.firewallConfig.name.length > 0;
-                break;
-            case 2:
                 canProceed = this.firewallConfig.mgmt_ip !== '';
                 break;
-            case 3:
+            case 2:
                 // Only require target device selection (IP configured manually after boot)
                 canProceed = this.firewallConfig.inside_interface.target_device !== '';
                 break;
-            case 4:
+            case 3:
                 // Only require target device selection (IP configured manually after boot)
                 canProceed = this.firewallConfig.outside_interface.target_device !== '';
                 break;
-            case 5:
+            case 4:
                 canProceed = !this.isSubmitting;
                 break;
         }

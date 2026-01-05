@@ -91,7 +91,7 @@ class AddVelocloudWizard {
         this.topologyManager = topologyManager;
         this.overlay = null;
         this.currentStep = 1;
-        this.totalSteps = 5;
+        this.totalSteps = 4;  // Reduced: no name entry step (auto-generated)
 
         // Wizard state
         this.veloConfig = {
@@ -124,17 +124,31 @@ class AddVelocloudWizard {
         this.availableIps = [];
         this.targetDevices = [];
 
-        // Validation state
-        this.nameValid = false;
-        this.nameError = '';
-
         this.isSubmitting = false;
 
         // Event handler references for cleanup
         this.escapeHandler = null;
+    }
 
-        // Track validation request for race condition prevention
-        this.pendingValidationRequestId = 0;
+    /**
+     * Generate the next available name for a device type
+     * Names follow pattern: edge1, edge2, gateway1, orchestrator1, etc.
+     */
+    generateNextName(deviceType) {
+        // Map device type to prefix
+        const prefixMap = {
+            'edge': 'edge',
+            'gateway': 'gateway',
+            'orchestrator': 'orchestrator'
+        };
+
+        const prefix = prefixMap[deviceType] || deviceType;
+        const counts = this.veloStatus?.counts || {};
+        const existingCount = counts[deviceType] || 0;
+
+        // Start from existingCount + 1 and find first available
+        // In practice, with low limits (1-2 per type), this is usually just existingCount + 1
+        return `${prefix}${existingCount + 1}`;
     }
 
     /**
@@ -184,8 +198,6 @@ class AddVelocloudWizard {
                 interfaces: {}
             }
         };
-        this.nameValid = false;
-        this.nameError = '';
         this.isSubmitting = false;
 
         // Create overlay
@@ -236,21 +248,16 @@ class AddVelocloudWizard {
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="2">
                             <span class="step-number">2</span>
-                            <span class="step-label">Name</span>
+                            <span class="step-label">Mgmt IP</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="3">
                             <span class="step-number">3</span>
-                            <span class="step-label">Mgmt IP</span>
+                            <span class="step-label">Interfaces</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="4">
                             <span class="step-number">4</span>
-                            <span class="step-label">Interfaces</span>
-                        </div>
-                        <div class="progress-connector"></div>
-                        <div class="progress-step" data-step="5">
-                            <span class="step-number">5</span>
                             <span class="step-label">Review</span>
                         </div>
                     </div>
@@ -390,21 +397,18 @@ class AddVelocloudWizard {
             nextBtn.classList.remove('wizard-btn-create');
         }
 
-        // Render step content
+        // Render step content (name is auto-generated, so step 1 is Type, step 2 is Mgmt IP)
         switch (this.currentStep) {
             case 1:
                 this.renderDeviceTypeStep(content);
                 break;
             case 2:
-                this.renderNameStep(content);
-                break;
-            case 3:
                 this.renderMgmtIpStep(content);
                 break;
-            case 4:
+            case 3:
                 this.renderInterfacesStep(content);
                 break;
-            case 5:
+            case 4:
                 this.renderReviewStep(content);
                 break;
         }
@@ -464,6 +468,9 @@ class AddVelocloudWizard {
                 card.classList.add('selected');
                 this.veloConfig.device_type = card.dataset.type;
 
+                // Auto-generate name based on device type and existing count
+                this.veloConfig.name = this.generateNextName(card.dataset.type);
+
                 // Initialize interfaces for the selected type
                 const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
                 this.veloConfig.interfaces = {};
@@ -481,149 +488,7 @@ class AddVelocloudWizard {
     }
 
     /**
-     * Step 2: Device Name Entry
-     */
-    renderNameStep(content) {
-        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
-        const counts = this.veloStatus.counts || {};
-        const limits = this.veloStatus.limits || {};
-        const currentCount = counts[this.veloConfig.device_type] || 0;
-        const maxAllowed = limits[this.veloConfig.device_type] || 1;
-
-        content.innerHTML = `
-            <div class="wizard-step wizard-step-name">
-                <h3>Enter Device Name</h3>
-                <p class="step-description">Choose a unique name for the ${typeConfig.label}. Names must start with a letter and contain only letters, numbers, dashes, and underscores.</p>
-
-                <div class="host-limit-badge velocloud-limit-badge">
-                    <span class="limit-count">${currentCount}/${maxAllowed}</span>
-                    <span class="limit-label">${typeConfig.label.toLowerCase()} used</span>
-                </div>
-
-                <div class="form-group">
-                    <label for="velocloud-name">Device Name</label>
-                    <input type="text"
-                           id="velocloud-name"
-                           class="form-input"
-                           placeholder="e.g., ${this.veloConfig.device_type}1, sdwan-${this.veloConfig.device_type}"
-                           value="${this.escapeHtml(this.veloConfig.name)}"
-                           maxlength="${AddVelocloudWizard.MAX_NAME_LENGTH}"
-                           autocomplete="off"
-                           aria-describedby="velocloud-name-validation"
-                           aria-invalid="${this.nameError ? 'true' : 'false'}">
-                    <div id="velocloud-name-validation"
-                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
-                         role="alert"
-                         aria-live="polite">
-                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
-                    </div>
-                </div>
-
-                <div class="velocloud-info-box">
-                    <h4>${typeConfig.label} Details</h4>
-                    <ul>
-                        <li>Device Type: ${typeConfig.label}</li>
-                        <li>Interfaces: Management + ${typeConfig.interfaces.map(i => i.label).join(', ')}</li>
-                        <li>Access via SSH or serial console</li>
-                        <li>Default credentials: arista / arista</li>
-                    </ul>
-                </div>
-            </div>
-        `;
-
-        const input = content.querySelector('#velocloud-name');
-        input.focus();
-
-        // Validate on input with debounce
-        let debounceTimer;
-        input.addEventListener('input', (e) => {
-            this.veloConfig.name = e.target.value.trim();
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => this.validateName(), AddVelocloudWizard.NAME_VALIDATION_DEBOUNCE_MS);
-        });
-
-        // Validate on enter key
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && this.nameValid) {
-                this.nextStep();
-            }
-        });
-    }
-
-    /**
-     * Validate device name via API
-     */
-    async validateName() {
-        const name = this.veloConfig.name;
-        const validationMsg = this.overlay.querySelector('.validation-message');
-
-        if (!name) {
-            this.nameValid = false;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Quick client-side validation
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
-            this.nameValid = false;
-            this.nameError = 'Name must start with a letter and contain only letters, numbers, dashes, and underscores';
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        if (name.length > AddVelocloudWizard.MAX_NAME_LENGTH) {
-            this.nameValid = false;
-            this.nameError = `Name must be ${AddVelocloudWizard.MAX_NAME_LENGTH} characters or less`;
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Server-side validation using shared API
-        const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
-        this.pendingValidationRequestId = expectedRequestId;
-        this.pendingValidationName = name;
-
-        try {
-            const result = await NodeBuilderAPI.validateNode(name);
-
-            // Check for race conditions
-            if (result.requestId !== this.pendingValidationRequestId ||
-                result.validatedName !== this.pendingValidationName) {
-                return;
-            }
-
-            if (result.valid) {
-                this.nameValid = true;
-                this.nameError = '';
-                validationMsg.className = 'validation-message success';
-                validationMsg.textContent = 'Name is available';
-            } else {
-                this.nameValid = false;
-                this.nameError = result.errors?.[0] || 'Invalid name';
-                validationMsg.className = 'validation-message error';
-                validationMsg.textContent = this.nameError;
-            }
-        } catch (error) {
-            console.error('[AddVelocloudWizard] Error validating name:', error);
-            // Allow proceeding on validation error
-            this.nameValid = true;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-        }
-
-        this.updateNextButtonState();
-    }
-
-    /**
-     * Step 3: Management IP Selection
+     * Step 2: Management IP Selection
      */
     renderMgmtIpStep(content) {
         const ipOptions = this.availableIps.map(entry => `
@@ -1548,22 +1413,20 @@ class AddVelocloudWizard {
 
         let canProceed = false;
 
+        // Step mapping (name is auto-generated): 1=Type, 2=MgmtIP, 3=Interfaces, 4=Review
         switch (this.currentStep) {
             case 1:
                 canProceed = this.veloConfig.device_type !== '';
                 break;
             case 2:
-                canProceed = this.nameValid && this.veloConfig.name.length > 0;
-                break;
-            case 3:
                 canProceed = this.veloConfig.mgmt_ip !== '';
                 break;
-            case 4:
+            case 3:
                 // All interfaces are optional, so always allow proceeding
                 // Just validate any filled-in IPs
                 canProceed = this.validateAllInterfaceIps();
                 break;
-            case 5:
+            case 4:
                 canProceed = !this.isSubmitting;
                 break;
         }

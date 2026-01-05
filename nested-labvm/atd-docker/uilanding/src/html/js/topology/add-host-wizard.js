@@ -3,12 +3,12 @@
  *
  * Multi-step wizard for dynamically adding Linux desktop VMs to running KVM labs.
  * Linux hosts provide a lightweight Debian LXDE desktop accessible via noVNC.
+ * Hostnames are auto-generated as 'client1', 'client2' (max 2 hosts per topology).
  *
  * Wizard Flow:
- * 1. Enter hostname (validates uniqueness, shows limit)
- * 2. Select management IP address (from available pool)
- * 3. Configure network connection (optional - select target switch/port)
- * 4. Review and confirm
+ * 1. Select management IP address (from available pool)
+ * 2. Configure network connection (optional - select target switch/port)
+ * 3. Review and confirm
  *
  * Only available for KVM labs, disabled for container labs.
  *
@@ -19,19 +19,17 @@
 
 class AddHostWizard {
     // Configuration constants
-    static MAX_NAME_LENGTH = 32;
-    static NAME_VALIDATION_DEBOUNCE_MS = 300;
     static MAX_HOSTS = 2;
 
     constructor(topologyManager) {
         this.topologyManager = topologyManager;
         this.overlay = null;
         this.currentStep = 1;
-        this.totalSteps = 4;
+        this.totalSteps = 3;  // Reduced: no name entry step
 
-        // Wizard state
+        // Wizard state (name will be auto-generated: client1, client2)
         this.hostConfig = {
-            name: '',
+            name: '',  // Will be set dynamically based on existing hosts
             ip: '',
             data_ip: '',
             connection: null
@@ -42,17 +40,31 @@ class AddHostWizard {
         this.availableIps = [];
         this.targetDevices = [];
 
-        // Validation state
-        this.nameValid = false;
-        this.nameError = '';
-
         this.isSubmitting = false;
 
         // Event handler references for cleanup
         this.escapeHandler = null;
+    }
 
-        // Track validation request for race condition prevention
-        this.pendingValidationRequestId = 0;
+    /**
+     * Generate the next available client name (client1 or client2)
+     * Fills gaps - if client1 is deleted but client2 exists, returns client1
+     */
+    generateNextClientName() {
+        // Get list of existing host names from the API response
+        const existingHosts = this.hostStatus?.hosts || [];
+        const existingNames = existingHosts.map(h => h.name);
+
+        // Find the first available slot (client1 or client2)
+        for (let i = 1; i <= AddHostWizard.MAX_HOSTS; i++) {
+            const candidateName = `client${i}`;
+            if (!existingNames.includes(candidateName)) {
+                return candidateName;
+            }
+        }
+
+        // Fallback (should not reach here if can_add_more check works)
+        return `client${(this.hostStatus?.current_count || 0) + 1}`;
     }
 
     /**
@@ -78,13 +90,11 @@ class AddHostWizard {
         // Reset state
         this.currentStep = 1;
         this.hostConfig = {
-            name: '',
+            name: '',  // Will be set after loading API data
             ip: '',
             data_ip: '',
             connection: null
         };
-        this.nameValid = false;
-        this.nameError = '';
         this.isSubmitting = false;
 
         // Create overlay
@@ -92,6 +102,9 @@ class AddHostWizard {
 
         // Load data from API
         await this.loadAvailableData();
+
+        // Set auto-generated name after loading host status
+        this.hostConfig.name = this.generateNextClientName();
 
         // Render first step
         this.renderStep();
@@ -130,21 +143,16 @@ class AddHostWizard {
                     <div class="progress-steps">
                         <div class="progress-step active" data-step="1">
                             <span class="step-number">1</span>
-                            <span class="step-label">Name</span>
+                            <span class="step-label">IP Address</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="2">
                             <span class="step-number">2</span>
-                            <span class="step-label">IP Address</span>
+                            <span class="step-label">Connection</span>
                         </div>
                         <div class="progress-connector"></div>
                         <div class="progress-step" data-step="3">
                             <span class="step-number">3</span>
-                            <span class="step-label">Connection</span>
-                        </div>
-                        <div class="progress-connector"></div>
-                        <div class="progress-step" data-step="4">
-                            <span class="step-number">4</span>
                             <span class="step-label">Review</span>
                         </div>
                     </div>
@@ -284,18 +292,15 @@ class AddHostWizard {
             nextBtn.classList.remove('wizard-btn-create');
         }
 
-        // Render step content
+        // Render step content (no name step - name is auto-generated)
         switch (this.currentStep) {
             case 1:
-                this.renderNameStep(content);
-                break;
-            case 2:
                 this.renderIpStep(content);
                 break;
-            case 3:
+            case 2:
                 this.renderConnectionStep(content);
                 break;
-            case 4:
+            case 3:
                 this.renderReviewStep(content);
                 break;
         }
@@ -304,146 +309,7 @@ class AddHostWizard {
     }
 
     /**
-     * Step 1: Hostname Entry
-     */
-    renderNameStep(content) {
-        const currentCount = this.hostStatus?.current_count || 0;
-        const maxAllowed = this.hostStatus?.max_allowed || AddHostWizard.MAX_HOSTS;
-
-        content.innerHTML = `
-            <div class="wizard-step wizard-step-name">
-                <h3>Enter Hostname</h3>
-                <p class="step-description">Choose a unique name for the Linux desktop host. Names must start with a letter and contain only letters, numbers, dashes, and underscores.</p>
-
-                <div class="host-limit-badge">
-                    <span class="limit-count">${currentCount}/${maxAllowed}</span>
-                    <span class="limit-label">hosts used</span>
-                </div>
-
-                <div class="form-group">
-                    <label for="host-name">Hostname</label>
-                    <input type="text"
-                           id="host-name"
-                           class="form-input"
-                           placeholder="e.g., desktop1, workstation, client1"
-                           value="${this.escapeHtml(this.hostConfig.name)}"
-                           maxlength="${AddHostWizard.MAX_NAME_LENGTH}"
-                           autocomplete="off"
-                           aria-describedby="host-name-validation"
-                           aria-invalid="${this.nameError ? 'true' : 'false'}">
-                    <div id="host-name-validation"
-                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
-                         role="alert"
-                         aria-live="polite">
-                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
-                    </div>
-                </div>
-
-                <div class="host-info-box">
-                    <h4>Linux Host Details</h4>
-                    <ul>
-                        <li>Debian 12 with LXDE desktop</li>
-                        <li>Access via noVNC (browser-based desktop)</li>
-                        <li>Pre-installed: Firefox, iperf3, tcpdump, mtr</li>
-                        <li>Default credentials: arista / arista</li>
-                    </ul>
-                </div>
-            </div>
-        `;
-
-        const input = content.querySelector('#host-name');
-        input.focus();
-
-        // Validate on input with debounce
-        let debounceTimer;
-        input.addEventListener('input', (e) => {
-            this.hostConfig.name = e.target.value.trim();
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => this.validateName(), AddHostWizard.NAME_VALIDATION_DEBOUNCE_MS);
-        });
-
-        // Validate on enter key
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && this.nameValid) {
-                this.nextStep();
-            }
-        });
-    }
-
-    /**
-     * Validate hostname via API
-     */
-    async validateName() {
-        const name = this.hostConfig.name;
-        const validationMsg = this.overlay.querySelector('.validation-message');
-
-        if (!name) {
-            this.nameValid = false;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Quick client-side validation
-        if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
-            this.nameValid = false;
-            this.nameError = 'Name must start with a letter and contain only letters, numbers, dashes, and underscores';
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        if (name.length > AddHostWizard.MAX_NAME_LENGTH) {
-            this.nameValid = false;
-            this.nameError = `Name must be ${AddHostWizard.MAX_NAME_LENGTH} characters or less`;
-            validationMsg.className = 'validation-message error';
-            validationMsg.textContent = this.nameError;
-            this.updateNextButtonState();
-            return;
-        }
-
-        // Server-side validation using shared API
-        const expectedRequestId = NodeBuilderAPI.getValidationRequestId() + 1;
-        this.pendingValidationRequestId = expectedRequestId;
-        this.pendingValidationName = name;
-
-        try {
-            const result = await NodeBuilderAPI.validateNode(name);
-
-            // Check for race conditions
-            if (result.requestId !== this.pendingValidationRequestId ||
-                result.validatedName !== this.pendingValidationName) {
-                return;
-            }
-
-            if (result.valid) {
-                this.nameValid = true;
-                this.nameError = '';
-                validationMsg.className = 'validation-message success';
-                validationMsg.textContent = 'Name is available';
-            } else {
-                this.nameValid = false;
-                this.nameError = result.errors?.[0] || 'Invalid name';
-                validationMsg.className = 'validation-message error';
-                validationMsg.textContent = this.nameError;
-            }
-        } catch (error) {
-            console.error('[AddHostWizard] Error validating name:', error);
-            // Allow proceeding on validation error
-            this.nameValid = true;
-            this.nameError = '';
-            validationMsg.className = 'validation-message';
-            validationMsg.textContent = '';
-        }
-
-        this.updateNextButtonState();
-    }
-
-    /**
-     * Step 2: Management IP Address Selection
+     * Step 1: Management IP Address Selection
      */
     renderIpStep(content) {
         const ipOptions = this.availableIps.map(entry => `
@@ -655,18 +521,17 @@ class AddHostWizard {
 
         let canProceed = false;
 
+        // Step mapping (no name step - name is auto-generated):
+        // 1 = IP Address, 2 = Connection, 3 = Review
         switch (this.currentStep) {
             case 1:
-                canProceed = this.nameValid && this.hostConfig.name.length > 0;
-                break;
-            case 2:
                 canProceed = this.hostConfig.ip !== '';
                 break;
-            case 3:
+            case 2:
                 // Connection is optional
                 canProceed = true;
                 break;
-            case 4:
+            case 3:
                 canProceed = !this.isSubmitting;
                 break;
         }
