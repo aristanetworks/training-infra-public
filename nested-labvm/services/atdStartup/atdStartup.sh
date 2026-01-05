@@ -45,8 +45,10 @@ cloud_log "ATD Startup script initiated"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Syncing Python scripts and utilities..."
 cloud_log "Syncing Python scripts and utilities"
 mkdir -p /usr/local/lib/atd-services/utils
+mkdir -p /opt/atd/scripts
 rsync -av /opt/atd/nested-labvm/services/atdStartup/atdStartup.py /usr/local/bin/ 2>/dev/null || true
 rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/utils/ 2>/dev/null || true
+rsync -av /opt/atd/nested-labvm/services/topology_converter_v2.py /opt/atd/scripts/ 2>/dev/null || true
 
 # Install required Python packages
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing required Python packages..."
