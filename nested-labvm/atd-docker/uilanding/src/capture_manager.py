@@ -464,6 +464,122 @@ class CaptureManager:
 
         return bridges
 
+    # Mapping of 2-letter abbreviations to full device type names
+    # IMPORTANT: These must match what parse_device_name() in interface_manager.py generates
+    # parse_device_name() takes the first 2 letters of the device type name
+    DEVICE_ABBREVIATIONS = {
+        'sp': 'spine',
+        'le': 'leaf',
+        'bo': 'borderleaf',
+        'ho': 'host',
+        'fi': 'firewall',   # 'fi' = first 2 letters of 'firewall', NOT 'fw'
+        've': 'vce',        # VeloCloud Edge (first 2 letters)
+        'vc': 'vcg',        # VeloCloud Gateway (if named 'vcg')
+        'vo': 'vco',        # VeloCloud Orchestrator (if named 'vco')
+        'cl': 'client',
+        'co': 'core',
+        'pe': 'pe',
+        'ce': 'ce',
+        'dc': 'dci',
+        'rr': 'rr',
+        'ga': 'gateway',    # 'ga' = first 2 letters of 'gateway', NOT 'gw'
+        'ro': 'router',
+        'is': 'isp',
+        'in': 'internet',
+        'me': 'memleaf',    # Memory leaf devices
+        'cu': 'customer',
+        'oo': 'oob',        # Out-of-band management
+    }
+
+    def _expand_device_code(self, code: str) -> str:
+        """
+        Expand abbreviated device code to full device name.
+
+        Examples:
+            le5 -> leaf5
+            sp4 -> spine4
+            bo1 -> borderleaf1
+            ho2 -> host2
+            fw1 -> firewall1
+        """
+        if not code:
+            return code
+
+        # Extract prefix and number
+        prefix = ''
+        number = ''
+        for char in code:
+            if char.isalpha():
+                prefix += char
+            elif char.isdigit():
+                number += char
+
+        # Look up the full name
+        prefix_lower = prefix.lower()
+        if prefix_lower in self.DEVICE_ABBREVIATIONS:
+            full_prefix = self.DEVICE_ABBREVIATIONS[prefix_lower]
+            return f"{full_prefix}{number}"
+
+        # If not found in mapping, return as-is (might already be full name)
+        return code
+
+    def _expand_port_code(self, code: str) -> str:
+        """
+        Expand abbreviated port code to full port name.
+
+        Examples:
+            1 -> Ethernet1
+            et5 -> Ethernet5
+            eth1 -> eth1 (Linux host interface, keep as-is)
+            wan1 -> wan1 (VeloCloud interface - but comes in as 'wa1')
+            wa1 -> wan1 (VeloCloud WAN port, abbreviated by parse_device_name)
+            la1 -> lan1 (VeloCloud LAN port, abbreviated by parse_device_name)
+
+        Note: parse_device_name() in interface_manager.py takes first 2 letters
+        of port names, so 'wan1' becomes 'wa1' and 'lan1' becomes 'la1'.
+        """
+        if not code:
+            return code
+
+        code_lower = code.lower()
+
+        # If it starts with 'eth' (Linux host interface), keep as-is
+        if code_lower.startswith('eth'):
+            return code
+
+        # Full VeloCloud port names (wan1, lan1) - keep as-is
+        if code_lower.startswith('wan') or code_lower.startswith('lan'):
+            return code
+
+        # Abbreviated VeloCloud WAN port: wa1 -> wan1
+        # parse_device_name takes first 2 letters, so 'wan1' -> 'wa1'
+        if code_lower.startswith('wa') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"wan{number}"
+            return code
+
+        # Abbreviated VeloCloud LAN port: la1 -> lan1
+        if code_lower.startswith('la') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"lan{number}"
+            return code
+
+        # If it starts with 'et' (Ethernet abbreviation), extract number
+        if code_lower.startswith('et'):
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"Ethernet{number}"
+            return code
+
+        # If it's just a number, it's an Ethernet port
+        if code.isdigit():
+            return f"Ethernet{code}"
+
+        # Default: return as-is
+        return code
+
     def _parse_bridge_name(self, bridge_name: str) -> Dict:
         """
         Parse OVS bridge name to extract device and port info.
@@ -481,12 +597,19 @@ class CaptureManager:
 
         4. Mixed port prefixes:
            sp1et1-le1et1, client1eth1-sp4et9
+
+        Returns dict with both abbreviated (source_device, source_port) and
+        full names (source_device_name, source_port_name) for display.
         """
         result = {
             "source_device": "",
             "source_port": "",
             "target_device": "",
-            "target_port": ""
+            "target_port": "",
+            "source_device_name": "",
+            "source_port_name": "",
+            "target_device_name": "",
+            "target_port_name": ""
         }
 
         if '-' not in bridge_name:
@@ -502,13 +625,20 @@ class CaptureManager:
                 src_device, src_port = self._split_device_port(src)
                 tgt_device, tgt_port = self._split_device_port(tgt)
 
+                # Store abbreviated codes
                 result["source_device"] = src_device
                 result["source_port"] = src_port
                 result["target_device"] = tgt_device
                 result["target_port"] = tgt_port
 
-        except Exception:
-            pass
+                # Expand to full names for display
+                result["source_device_name"] = self._expand_device_code(src_device)
+                result["source_port_name"] = self._expand_port_code(src_port)
+                result["target_device_name"] = self._expand_device_code(tgt_device)
+                result["target_port_name"] = self._expand_port_code(tgt_port)
+
+        except Exception as e:
+            print(f"[CaptureManager] Failed to parse bridge name '{bridge_name}': {e}")
 
         return result
 
@@ -529,14 +659,18 @@ class CaptureManager:
 
         # Check for 'x' separator (nodebuilder format)
         # The separator 'x' should have a digit before it (device code ends with number)
-        # and either a digit or 'e' after it (port code starts with number or 'et/eth')
+        # and valid port prefix after:
+        # - digit (e.g., le5x1 for Ethernet1)
+        # - 'e' (e.g., fi1xet1 for eth port)
+        # - 'w' (e.g., ve1xwa1 for VeloCloud WAN)
+        # - 'l' (e.g., ve1xla1 for VeloCloud LAN)
         # This avoids matching 'x' that's part of device name (e.g., 'mux1' -> 'mu1')
         for i, c in enumerate(lower):
             if c == 'x' and i > 0 and i < len(part) - 1:
                 prev_char = lower[i - 1]
                 next_char = lower[i + 1]
-                # Valid separator: digit before, digit or 'e' (for et/eth) after
-                if prev_char.isdigit() and (next_char.isdigit() or next_char == 'e'):
+                # Valid separator: digit before, digit or port prefix letter after
+                if prev_char.isdigit() and (next_char.isdigit() or next_char in 'ewl'):
                     return part[:i], part[i + 1:]
 
         # Look for 'eth' (longer prefix, for Linux hosts)

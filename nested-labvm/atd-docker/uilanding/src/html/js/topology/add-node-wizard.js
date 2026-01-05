@@ -33,7 +33,7 @@ class AddNodeWizard {
             name: '',
             ip: '',
             mac: '',
-            device_type: 'host',  // Default to host
+            device_type: 'leaf',  // Default to leaf for vEOS nodes
             connections: []
         };
 
@@ -83,7 +83,7 @@ class AddNodeWizard {
             name: '',
             ip: '',
             mac: '',
-            device_type: 'host',
+            device_type: 'leaf',  // Default to leaf for vEOS nodes
             connections: []
         };
         this.nameValid = false;
@@ -329,42 +329,47 @@ class AddNodeWizard {
     }
 
     /**
-     * Step 1: Device Name Entry
+     * Step 1: Device Type and Name Selection
+     * Name is auto-generated based on device type to ensure consistent naming
+     * for bridge name parsing in capture panel and other features.
      */
     renderNameStep(content) {
         // Build device type options from loaded data
         const deviceTypeOptions = this.buildDeviceTypeOptions();
 
+        // Auto-generate initial name based on default device type
+        if (!this.nodeConfig.name) {
+            this.nodeConfig.name = this.getNextAvailableName(this.nodeConfig.device_type);
+        }
+
         content.innerHTML = `
             <div class="wizard-step wizard-step-name">
-                <h3>Enter Device Name</h3>
-                <p class="step-description">Choose a unique name for the new vEOS device. Names must start with a letter and contain only letters, numbers, dashes, and underscores.</p>
-
-                <div class="form-group">
-                    <label for="node-name">Device Name</label>
-                    <input type="text"
-                           id="node-name"
-                           class="form-input"
-                           placeholder="e.g., leaf5, spine3, borderleaf1"
-                           value="${this.escapeHtml(this.nodeConfig.name)}"
-                           maxlength="${AddNodeWizard.MAX_NAME_LENGTH}"
-                           autocomplete="off"
-                           aria-describedby="node-name-validation"
-                           aria-invalid="${this.nameError ? 'true' : 'false'}">
-                    <div id="node-name-validation"
-                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
-                         role="alert"
-                         aria-live="polite">
-                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
-                    </div>
-                </div>
+                <h3>Select Device Type</h3>
+                <p class="step-description">Select the device type for the new vEOS switch. The name will be automatically assigned based on the type.</p>
 
                 <div class="form-group">
                     <label for="device-type">Device Type</label>
                     <select id="device-type" class="form-input">
                         ${deviceTypeOptions}
                     </select>
-                    <p class="field-hint">Device type determines diagram placement tier.</p>
+                    <p class="field-hint">Device type determines diagram placement and naming.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="node-name">Device Name (auto-assigned)</label>
+                    <input type="text"
+                           id="node-name"
+                           class="form-input"
+                           value="${this.escapeHtml(this.nodeConfig.name)}"
+                           readonly
+                           aria-describedby="node-name-validation">
+                    <div id="node-name-validation"
+                         class="validation-message ${this.nameError ? 'error' : this.nameValid ? 'success' : ''}"
+                         role="alert"
+                         aria-live="polite">
+                        ${this.nameError || (this.nameValid ? 'Name is available' : '')}
+                    </div>
+                    <p class="field-hint">Name is auto-generated. You can set a custom hostname via EOS configuration after creation.</p>
                 </div>
 
                 <div class="existing-nodes-hint">
@@ -375,19 +380,16 @@ class AddNodeWizard {
 
         const input = content.querySelector('#node-name');
         const deviceTypeSelect = content.querySelector('#device-type');
-        input.focus();
+        deviceTypeSelect.focus();
 
-        // Handle device type selection
+        // Handle device type selection - auto-generate name
         deviceTypeSelect.addEventListener('change', (e) => {
             this.nodeConfig.device_type = e.target.value;
-        });
-
-        // Validate on input with debounce
-        let debounceTimer;
-        input.addEventListener('input', (e) => {
-            this.nodeConfig.name = e.target.value.trim();
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => this.validateName(), AddNodeWizard.NAME_VALIDATION_DEBOUNCE_MS);
+            // Auto-generate name based on selected type
+            this.nodeConfig.name = this.getNextAvailableName(e.target.value);
+            input.value = this.nodeConfig.name;
+            // Validate the auto-generated name
+            this.validateName();
         });
 
         // Validate on enter key
@@ -396,6 +398,53 @@ class AddNodeWizard {
                 this.nextStep();
             }
         });
+
+        // Validate initial name
+        this.validateName();
+    }
+
+    /**
+     * Get the next available name for a device type.
+     * Scans existing nodes and finds the next sequential number.
+     * e.g., if leaf1, leaf2, leaf3 exist, returns "leaf4"
+     */
+    getNextAvailableName(deviceType) {
+        if (!deviceType) {
+            return '';
+        }
+
+        const typeLower = deviceType.toLowerCase();
+
+        // Find all existing nodes of this type
+        const existingNumbers = [];
+        for (const node of this.existingNodes) {
+            const nodeName = (node.name || Object.keys(node)[0] || '').toLowerCase();
+            // Check if node name starts with this device type
+            if (nodeName.startsWith(typeLower)) {
+                // Extract the number suffix
+                const suffix = nodeName.substring(typeLower.length);
+                const num = parseInt(suffix, 10);
+                if (!isNaN(num)) {
+                    existingNumbers.push(num);
+                }
+            }
+        }
+
+        // Find the next available number
+        let nextNum = 1;
+        if (existingNumbers.length > 0) {
+            existingNumbers.sort((a, b) => a - b);
+            // Find first gap or use max + 1
+            for (const num of existingNumbers) {
+                if (num === nextNum) {
+                    nextNum++;
+                } else if (num > nextNum) {
+                    break; // Found a gap
+                }
+            }
+        }
+
+        return `${deviceType}${nextNum}`;
     }
 
     /**
