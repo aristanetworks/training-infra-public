@@ -26,6 +26,25 @@ class AddVelocloudWizard {
     static MAX_NAME_LENGTH = 32;
     static NAME_VALIDATION_DEBOUNCE_MS = 300;
 
+    // Interface name mappings (frontend -> backend)
+    // Gateway: eth0/eth1 in UI map to transport1/transport2 in VM
+    static GATEWAY_INTERFACE_MAP = {
+        'eth0': 'transport1',
+        'eth1': 'transport2'
+    };
+
+    // Edge: GE1-GE8 in UI map to wan1-3/lan in VM
+    static EDGE_INTERFACE_MAP = {
+        'GE1': 'wan1',
+        'GE2': 'wan2',
+        'GE3': 'wan3',
+        'GE4': 'lan',
+        'GE5': 'lan',
+        'GE6': 'lan',
+        'GE7': 'lan',
+        'GE8': 'lan'
+    };
+
     // Device type configurations
     static DEVICE_TYPES = {
         edge: {
@@ -86,12 +105,17 @@ class AddVelocloudWizard {
                 eth0_ip: '',
                 eth0_gateway: '',
                 eth1_ip: '',
-                eth1_gateway: ''
+                eth1_gateway: '',
+                // Connection fields for topology integration
+                eth0_target_device: '',
+                eth0_target_port: '',
+                eth1_target_device: '',
+                eth1_target_port: ''
             },
             edge_config: {  // Edge-specific configuration
                 vco: '',
                 activation_code: '',
-                interfaces: {}  // GE1-GE8 interface config (type, ip, netmask, gateway)
+                interfaces: {}  // GE1-GE8 interface config (type, ip, netmask, gateway, target_device, target_port)
             }
         };
 
@@ -147,7 +171,12 @@ class AddVelocloudWizard {
                 eth0_ip: '',
                 eth0_gateway: '',
                 eth1_ip: '',
-                eth1_gateway: ''
+                eth1_gateway: '',
+                // Connection fields for topology integration
+                eth0_target_device: '',
+                eth0_target_port: '',
+                eth1_target_device: '',
+                eth1_target_port: ''
             },
             edge_config: {
                 vco: '',
@@ -823,6 +852,28 @@ class AddVelocloudWizard {
                                    value="${this.escapeHtml(gc.eth0_gateway)}">
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gateway-eth0-device">Connect to Switch</label>
+                            <select id="gateway-eth0-device" class="form-select">
+                                <option value="">Not connected</option>
+                                ${this.targetDevices.map(device => `
+                                    <option value="${this.escapeHtml(device.name)}"
+                                            data-next-port="${this.escapeHtml(device.next_available_port)}"
+                                            ${gc.eth0_target_device === device.name ? 'selected' : ''}>
+                                        ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <small class="form-hint">Connect to a switch for internet simulation</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gateway-eth0-port">Target Port</label>
+                            <input type="text" id="gateway-eth0-port" class="form-input"
+                                   placeholder="Auto-selected" readonly
+                                   value="${this.escapeHtml(gc.eth0_target_port)}">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- eth1 - Handoff Interface -->
@@ -842,6 +893,28 @@ class AddVelocloudWizard {
                             <input type="text" id="gateway-eth1-gw" class="form-input"
                                    placeholder="10.0.0.254 (optional)"
                                    value="${this.escapeHtml(gc.eth1_gateway)}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gateway-eth1-device">Connect to Switch</label>
+                            <select id="gateway-eth1-device" class="form-select">
+                                <option value="">Not connected</option>
+                                ${this.targetDevices.map(device => `
+                                    <option value="${this.escapeHtml(device.name)}"
+                                            data-next-port="${this.escapeHtml(device.next_available_port)}"
+                                            ${gc.eth1_target_device === device.name ? 'selected' : ''}>
+                                        ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <small class="form-hint">Connect to a PE router for handoff</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gateway-eth1-port">Target Port</label>
+                            <input type="text" id="gateway-eth1-port" class="form-input"
+                                   placeholder="Auto-selected" readonly
+                                   value="${this.escapeHtml(gc.eth1_target_port)}">
                         </div>
                     </div>
                 </div>
@@ -899,6 +972,56 @@ class AddVelocloudWizard {
         eth1GwInput.addEventListener('input', (e) => {
             this.veloConfig.gateway_config.eth1_gateway = e.target.value.trim();
         });
+
+        // Connection event listeners for eth0
+        const eth0DeviceSelect = content.querySelector('#gateway-eth0-device');
+        const eth0PortInput = content.querySelector('#gateway-eth0-port');
+
+        eth0DeviceSelect.addEventListener('change', (e) => {
+            const selectedOption = e.target.selectedOptions[0];
+            const nextPort = selectedOption?.dataset.nextPort || '';
+
+            // Calculate actual port considering other interfaces using same device
+            let actualPort = nextPort;
+            if (e.target.value) {
+                const sameDeviceCount = this.countSameDeviceGatewayInterfaces(e.target.value, 'eth0');
+                if (sameDeviceCount > 0 && nextPort) {
+                    const portNum = parseInt(nextPort.replace(/\D/g, ''), 10);
+                    if (!isNaN(portNum)) {
+                        actualPort = `Ethernet${portNum + sameDeviceCount}`;
+                    }
+                }
+            }
+
+            eth0PortInput.value = actualPort;
+            this.veloConfig.gateway_config.eth0_target_device = e.target.value;
+            this.veloConfig.gateway_config.eth0_target_port = actualPort;
+        });
+
+        // Connection event listeners for eth1
+        const eth1DeviceSelect = content.querySelector('#gateway-eth1-device');
+        const eth1PortInput = content.querySelector('#gateway-eth1-port');
+
+        eth1DeviceSelect.addEventListener('change', (e) => {
+            const selectedOption = e.target.selectedOptions[0];
+            const nextPort = selectedOption?.dataset.nextPort || '';
+
+            // Calculate actual port considering other interfaces using same device
+            let actualPort = nextPort;
+            if (e.target.value) {
+                const sameDeviceCount = this.countSameDeviceGatewayInterfaces(e.target.value, 'eth1');
+                if (sameDeviceCount > 0 && nextPort) {
+                    const portNum = parseInt(nextPort.replace(/\D/g, ''), 10);
+                    if (!isNaN(portNum)) {
+                        actualPort = `Ethernet${portNum + sameDeviceCount}`;
+                    }
+                }
+            }
+
+            eth1PortInput.value = actualPort;
+            this.veloConfig.gateway_config.eth1_target_device = e.target.value;
+            this.veloConfig.gateway_config.eth1_target_port = actualPort;
+        });
     }
 
     /**
@@ -943,31 +1066,52 @@ class AddVelocloudWizard {
                 <!-- WAN Interfaces (GE3-GE8) -->
                 <div class="config-section">
                     <h4>WAN Interfaces (GE3-GE8)</h4>
-                    <p class="section-desc">Configure WAN ports for internet/MPLS uplinks. Leave blank for DHCP.</p>
-                    <div class="edge-interfaces-grid">
+                    <p class="section-desc">Configure WAN ports for internet/MPLS uplinks. Connect to topology switches.</p>
+                    <div class="edge-interfaces-grid edge-interfaces-grid--with-connections">
+                        <div class="edge-interface-header">
+                            <span>Port</span>
+                            <span>Type</span>
+                            <span>IP</span>
+                            <span>Netmask</span>
+                            <span>Gateway</span>
+                            <span>Connect To</span>
+                            <span>Port</span>
+                        </div>
                         ${wanInterfaces.map(iface => {
                             const ifConfig = ec.interfaces[iface.key] || {};
                             return `
                                 <div class="edge-interface-row" data-interface="${iface.key}">
                                     <div class="interface-label">${iface.key}</div>
-                                    <div class="interface-fields">
-                                        <select class="form-select interface-type" data-interface="${iface.key}">
-                                            <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
-                                            <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
-                                        </select>
-                                        <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
-                                               placeholder="IP (e.g., 10.1.1.1)"
-                                               value="${this.escapeHtml(ifConfig.ip || '')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                        <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
-                                               placeholder="Netmask"
-                                               value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                        <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
-                                               placeholder="Gateway"
-                                               value="${this.escapeHtml(ifConfig.gateway || '')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                    </div>
+                                    <select class="form-select interface-type" data-interface="${iface.key}">
+                                        <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
+                                        <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
+                                    </select>
+                                    <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
+                                           placeholder="IP"
+                                           value="${this.escapeHtml(ifConfig.ip || '')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
+                                           placeholder="Netmask"
+                                           value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
+                                           placeholder="Gateway"
+                                           value="${this.escapeHtml(ifConfig.gateway || '')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <select class="form-select interface-target-device" data-interface="${iface.key}">
+                                        <option value="">None</option>
+                                        ${this.targetDevices.map(device => `
+                                            <option value="${this.escapeHtml(device.name)}"
+                                                    data-next-port="${this.escapeHtml(device.next_available_port)}"
+                                                    ${ifConfig.target_device === device.name ? 'selected' : ''}>
+                                                ${this.escapeHtml(device.name)}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                    <input type="text" class="form-input interface-target-port" data-interface="${iface.key}"
+                                           placeholder="Auto"
+                                           value="${this.escapeHtml(ifConfig.target_port || '')}"
+                                           readonly>
                                 </div>
                             `;
                         }).join('')}
@@ -978,30 +1122,51 @@ class AddVelocloudWizard {
                 <div class="config-section">
                     <h4>LAN Interfaces (GE1-GE2) - Optional</h4>
                     <p class="section-desc">Configure LAN ports for internal network connections.</p>
-                    <div class="edge-interfaces-grid">
+                    <div class="edge-interfaces-grid edge-interfaces-grid--with-connections">
+                        <div class="edge-interface-header">
+                            <span>Port</span>
+                            <span>Type</span>
+                            <span>IP</span>
+                            <span>Netmask</span>
+                            <span>Gateway</span>
+                            <span>Connect To</span>
+                            <span>Port</span>
+                        </div>
                         ${lanInterfaces.map(iface => {
                             const ifConfig = ec.interfaces[iface.key] || {};
                             return `
                                 <div class="edge-interface-row" data-interface="${iface.key}">
                                     <div class="interface-label">${iface.key}</div>
-                                    <div class="interface-fields">
-                                        <select class="form-select interface-type" data-interface="${iface.key}">
-                                            <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
-                                            <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
-                                        </select>
-                                        <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
-                                               placeholder="IP (e.g., 192.168.1.1)"
-                                               value="${this.escapeHtml(ifConfig.ip || '')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                        <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
-                                               placeholder="Netmask"
-                                               value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                        <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
-                                               placeholder="Gateway"
-                                               value="${this.escapeHtml(ifConfig.gateway || '')}"
-                                               ${ifConfig.type !== 'static' ? 'disabled' : ''}>
-                                    </div>
+                                    <select class="form-select interface-type" data-interface="${iface.key}">
+                                        <option value="dhcp" ${ifConfig.type !== 'static' ? 'selected' : ''}>DHCP</option>
+                                        <option value="static" ${ifConfig.type === 'static' ? 'selected' : ''}>Static</option>
+                                    </select>
+                                    <input type="text" class="form-input interface-ip" data-interface="${iface.key}"
+                                           placeholder="IP"
+                                           value="${this.escapeHtml(ifConfig.ip || '')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <input type="text" class="form-input interface-netmask" data-interface="${iface.key}"
+                                           placeholder="Netmask"
+                                           value="${this.escapeHtml(ifConfig.netmask || '255.255.255.0')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <input type="text" class="form-input interface-gateway" data-interface="${iface.key}"
+                                           placeholder="Gateway"
+                                           value="${this.escapeHtml(ifConfig.gateway || '')}"
+                                           ${ifConfig.type !== 'static' ? 'disabled' : ''}>
+                                    <select class="form-select interface-target-device" data-interface="${iface.key}">
+                                        <option value="">None</option>
+                                        ${this.targetDevices.map(device => `
+                                            <option value="${this.escapeHtml(device.name)}"
+                                                    data-next-port="${this.escapeHtml(device.next_available_port)}"
+                                                    ${ifConfig.target_device === device.name ? 'selected' : ''}>
+                                                ${this.escapeHtml(device.name)}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                    <input type="text" class="form-input interface-target-port" data-interface="${iface.key}"
+                                           placeholder="Auto"
+                                           value="${this.escapeHtml(ifConfig.target_port || '')}"
+                                           readonly>
                                 </div>
                             `;
                         }).join('')}
@@ -1033,10 +1198,16 @@ class AddVelocloudWizard {
             const ipInput = row.querySelector('.interface-ip');
             const netmaskInput = row.querySelector('.interface-netmask');
             const gatewayInput = row.querySelector('.interface-gateway');
+            const targetDeviceSelect = row.querySelector('.interface-target-device');
+            const targetPortInput = row.querySelector('.interface-target-port');
 
             // Initialize interface config if not exists
             if (!this.veloConfig.edge_config.interfaces[ifaceKey]) {
-                this.veloConfig.edge_config.interfaces[ifaceKey] = { type: 'dhcp' };
+                this.veloConfig.edge_config.interfaces[ifaceKey] = {
+                    type: 'dhcp',
+                    target_device: '',
+                    target_port: ''
+                };
             }
 
             typeSelect.addEventListener('change', (e) => {
@@ -1069,11 +1240,34 @@ class AddVelocloudWizard {
             gatewayInput.addEventListener('input', (e) => {
                 this.veloConfig.edge_config.interfaces[ifaceKey].gateway = e.target.value.trim();
             });
+
+            // Connection event listener for target device
+            targetDeviceSelect.addEventListener('change', (e) => {
+                const selectedOption = e.target.selectedOptions[0];
+                const nextPort = selectedOption?.dataset.nextPort || '';
+
+                // Calculate actual port considering other interfaces using same device
+                let actualPort = nextPort;
+                if (e.target.value) {
+                    const sameDeviceCount = this.countSameDeviceEdgeInterfaces(e.target.value, ifaceKey);
+                    if (sameDeviceCount > 0 && nextPort) {
+                        const portNum = parseInt(nextPort.replace(/\D/g, ''), 10);
+                        if (!isNaN(portNum)) {
+                            actualPort = `Ethernet${portNum + sameDeviceCount}`;
+                        }
+                    }
+                }
+
+                targetPortInput.value = actualPort;
+                this.veloConfig.edge_config.interfaces[ifaceKey].target_device = e.target.value;
+                this.veloConfig.edge_config.interfaces[ifaceKey].target_port = actualPort;
+            });
         });
     }
 
     /**
      * Count how many interfaces are already configured to use the same device
+     * Used by Orchestrator interface configuration
      */
     countSameDeviceInterfaces(deviceName, excludeInterface) {
         let count = 0;
@@ -1082,6 +1276,37 @@ class AddVelocloudWizard {
                 count++;
             }
         });
+        return count;
+    }
+
+    /**
+     * Count how many Gateway interfaces are already configured to use the same device
+     * Used by Gateway interface configuration for port auto-calculation
+     */
+    countSameDeviceGatewayInterfaces(deviceName, excludeInterface) {
+        const gc = this.veloConfig.gateway_config;
+        let count = 0;
+        if (excludeInterface !== 'eth0' && gc.eth0_target_device === deviceName) {
+            count++;
+        }
+        if (excludeInterface !== 'eth1' && gc.eth1_target_device === deviceName) {
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * Count how many Edge interfaces are already configured to use the same device
+     * Used by Edge interface configuration for port auto-calculation
+     */
+    countSameDeviceEdgeInterfaces(deviceName, excludeInterface) {
+        const interfaces = this.veloConfig.edge_config.interfaces || {};
+        let count = 0;
+        for (const [key, config] of Object.entries(interfaces)) {
+            if (key !== excludeInterface && config.target_device === deviceName) {
+                count++;
+            }
+        }
         return count;
     }
 
@@ -1233,16 +1458,23 @@ class AddVelocloudWizard {
                         <th>Interface</th>
                         <th>IP Address</th>
                         <th>Gateway</th>
+                        <th>Connected To</th>
                     </tr>
                     <tr>
                         <td>eth0 (Public)</td>
                         <td>${gc.eth0_ip ? this.escapeHtml(gc.eth0_ip) : '<em>Not configured</em>'}</td>
                         <td>${gc.eth0_gateway ? this.escapeHtml(gc.eth0_gateway) : '<em>Not configured</em>'}</td>
+                        <td>${gc.eth0_target_device ?
+                            `${this.escapeHtml(gc.eth0_target_device)} (${this.escapeHtml(gc.eth0_target_port)})` :
+                            '<em>Not connected</em>'}</td>
                     </tr>
                     <tr>
                         <td>eth1 (Handoff)</td>
                         <td>${gc.eth1_ip ? this.escapeHtml(gc.eth1_ip) : '<em>Not configured</em>'}</td>
                         <td>${gc.eth1_gateway ? this.escapeHtml(gc.eth1_gateway) : '<em>Not configured</em>'}</td>
+                        <td>${gc.eth1_target_device ?
+                            `${this.escapeHtml(gc.eth1_target_device)} (${this.escapeHtml(gc.eth1_target_port)})` :
+                            '<em>Not connected</em>'}</td>
                     </tr>
                 </table>
             </div>
@@ -1255,9 +1487,9 @@ class AddVelocloudWizard {
     renderEdgeReviewSection() {
         const ec = this.veloConfig.edge_config;
 
-        // Build configured interfaces list
+        // Build configured interfaces list - include interfaces with static IP OR connections
         const configuredInterfaces = Object.entries(ec.interfaces || {})
-            .filter(([key, config]) => config.type === 'static' && config.ip)
+            .filter(([key, config]) => (config.type === 'static' && config.ip) || config.target_device)
             .map(([key, config]) => ({ key, ...config }));
 
         return `
@@ -1285,19 +1517,23 @@ class AddVelocloudWizard {
                             <th>IP Address</th>
                             <th>Netmask</th>
                             <th>Gateway</th>
+                            <th>Connected To</th>
                         </tr>
                         ${configuredInterfaces.map(iface => `
                             <tr>
                                 <td>${this.escapeHtml(iface.key)}</td>
-                                <td>Static</td>
-                                <td>${this.escapeHtml(iface.ip)}</td>
-                                <td>${this.escapeHtml(iface.netmask || '255.255.255.0')}</td>
+                                <td>${iface.type === 'static' ? 'Static' : 'DHCP'}</td>
+                                <td>${iface.ip ? this.escapeHtml(iface.ip) : '<em>DHCP</em>'}</td>
+                                <td>${iface.netmask ? this.escapeHtml(iface.netmask) : '255.255.255.0'}</td>
                                 <td>${iface.gateway ? this.escapeHtml(iface.gateway) : '<em>None</em>'}</td>
+                                <td>${iface.target_device ?
+                                    `${this.escapeHtml(iface.target_device)} (${this.escapeHtml(iface.target_port)})` :
+                                    '<em>Not connected</em>'}</td>
                             </tr>
                         `).join('')}
                     </table>
                 ` : `
-                    <p class="no-interfaces-configured">All interfaces configured for DHCP (default VeloCloud Edge behavior).</p>
+                    <p class="no-interfaces-configured">All interfaces configured for DHCP with no topology connections.</p>
                 `}
             </div>
         `;
@@ -1467,14 +1703,55 @@ class AddVelocloudWizard {
                 interfaces: interfaceConfig
             };
 
-            // Add gateway_config for Gateway devices
+            // Add gateway_config and connections for Gateway devices
             if (this.veloConfig.device_type === 'gateway') {
                 requestPayload.gateway_config = this.veloConfig.gateway_config;
+
+                // Build connections array for Gateway
+                const connections = [];
+                const gc = this.veloConfig.gateway_config;
+
+                if (gc.eth0_target_device) {
+                    connections.push({
+                        target_device: gc.eth0_target_device,
+                        local_port: AddVelocloudWizard.GATEWAY_INTERFACE_MAP['eth0'],  // 'transport1'
+                        target_port: gc.eth0_target_port
+                    });
+                }
+                if (gc.eth1_target_device) {
+                    connections.push({
+                        target_device: gc.eth1_target_device,
+                        local_port: AddVelocloudWizard.GATEWAY_INTERFACE_MAP['eth1'],  // 'transport2'
+                        target_port: gc.eth1_target_port
+                    });
+                }
+
+                if (connections.length > 0) {
+                    requestPayload.connections = connections;
+                }
             }
 
-            // Add edge_config for Edge devices
+            // Add edge_config and connections for Edge devices
             if (this.veloConfig.device_type === 'edge') {
                 requestPayload.edge_config = this.veloConfig.edge_config;
+
+                // Build connections array for Edge
+                const connections = [];
+                const ec = this.veloConfig.edge_config;
+
+                for (const [ifaceKey, config] of Object.entries(ec.interfaces || {})) {
+                    if (config.target_device) {
+                        connections.push({
+                            target_device: config.target_device,
+                            local_port: AddVelocloudWizard.EDGE_INTERFACE_MAP[ifaceKey] || 'lan',
+                            target_port: config.target_port
+                        });
+                    }
+                }
+
+                if (connections.length > 0) {
+                    requestPayload.connections = connections;
+                }
             }
 
             const result = await NodeBuilderAPI.addVeloDevice(requestPayload);

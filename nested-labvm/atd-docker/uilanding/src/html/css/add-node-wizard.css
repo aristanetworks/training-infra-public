@@ -2671,6 +2671,33 @@
     gap: 8px;
 }
 
+/* Edge interface grid header */
+.wizard-step-edge-config .edge-interface-header {
+    display: grid;
+    grid-template-columns: 45px 70px 90px 100px 90px 110px 70px;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #252525;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Edge interface grid with connections - 7 column layout */
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .edge-interface-row {
+    display: grid;
+    grid-template-columns: 45px 70px 90px 100px 90px 110px 70px;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 8px;
+    background: #1e1e1e;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
 .wizard-step-edge-config .edge-interface-row {
     display: grid;
     grid-template-columns: 60px 1fr;
@@ -2686,6 +2713,24 @@
     font-weight: 600;
     color: #38bdf8;
     font-size: 13px;
+}
+
+/* Compact form elements for the new grid layout */
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .form-select,
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .form-input {
+    padding: 5px 6px;
+    font-size: 11px;
+    min-width: 0;
+}
+
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .interface-target-device {
+    font-size: 11px;
+}
+
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .interface-target-port {
+    font-size: 11px;
+    background: #222;
+    color: #aaa;
 }
 
 .wizard-step-edge-config .interface-fields {
