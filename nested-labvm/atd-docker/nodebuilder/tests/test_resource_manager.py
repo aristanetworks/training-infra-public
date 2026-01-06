@@ -291,6 +291,74 @@ class TestDeleteVMWithCleanup:
                 assert not os.path.exists(cidata_path)
 
 
+class TestIsUserCreatedBridge:
+    """Tests for _is_user_created_bridge method.
+
+    Critical for preventing deletion of original topology bridges.
+    Nodebuilder bridges use 'x' separator, kvmbuilder bridges don't.
+    """
+
+    @pytest.fixture
+    def resource_mgr(self):
+        return ResourceManager()
+
+    # Nodebuilder bridges (SHOULD match - contain 'x')
+    def test_nodebuilder_veos_bridge(self, resource_mgr):
+        """Test nodebuilder vEOS bridge with 'x' separator."""
+        assert resource_mgr._is_user_created_bridge('le5x1-sp4x9') is True
+
+    def test_nodebuilder_host_bridge(self, resource_mgr):
+        """Test nodebuilder host bridge."""
+        assert resource_mgr._is_user_created_bridge('cl1xet1-le3x5') is True
+
+    def test_nodebuilder_firewall_bridge(self, resource_mgr):
+        """Test nodebuilder firewall bridge."""
+        assert resource_mgr._is_user_created_bridge('fw1xet1-sp1x12') is True
+
+    def test_nodebuilder_borderleaf_bridge(self, resource_mgr):
+        """Test nodebuilder borderleaf bridge."""
+        assert resource_mgr._is_user_created_bridge('bo3x1-sp2x9') is True
+
+    def test_nodebuilder_short_names(self, resource_mgr):
+        """Test nodebuilder bridges with short device names."""
+        assert resource_mgr._is_user_created_bridge('sp1x3-le2x4') is True
+
+    # Original kvmbuilder bridges (should NOT match - no 'x')
+    def test_kvmbuilder_spine_leaf(self, resource_mgr):
+        """Test kvmbuilder spine-to-leaf bridge is protected."""
+        assert resource_mgr._is_user_created_bridge('sp13-le13') is False
+
+    def test_kvmbuilder_leaf_leaf_mlag(self, resource_mgr):
+        """Test kvmbuilder leaf-to-leaf MLAG bridge is protected."""
+        assert resource_mgr._is_user_created_bridge('le11-le21') is False
+
+    def test_kvmbuilder_leaf_host(self, resource_mgr):
+        """Test kvmbuilder leaf-to-host bridge is protected."""
+        assert resource_mgr._is_user_created_bridge('le17-ho11') is False
+
+    def test_kvmbuilder_spine_borderleaf(self, resource_mgr):
+        """Test kvmbuilder spine-to-borderleaf bridge is protected."""
+        assert resource_mgr._is_user_created_bridge('sp25-bo14') is False
+
+    def test_kvmbuilder_various_patterns(self, resource_mgr):
+        """Test various kvmbuilder bridge patterns are all protected."""
+        kvmbuilder_bridges = [
+            'sp13-le13', 'sp14-le23', 'sp15-le33', 'sp16-le43',
+            'le11-le21', 'le12-le22', 'le31-le41', 'le32-le42',
+            'le17-ho11', 'le19-ho21', 'le27-ho12', 'le29-ho22',
+        ]
+        for bridge in kvmbuilder_bridges:
+            assert resource_mgr._is_user_created_bridge(bridge) is False, \
+                f"Bridge {bridge} should be protected (kvmbuilder)"
+
+    # System bridges (should NOT match)
+    def test_system_bridges_not_matched(self, resource_mgr):
+        """Test system bridges don't match user pattern."""
+        system_bridges = ['oob_mgmt', 'br0', 'br1', 'br-mgmt', 'vmgmt']
+        for bridge in system_bridges:
+            assert resource_mgr._is_user_created_bridge(bridge) is False
+
+
 class TestSingleton:
     """Tests for singleton pattern."""
 

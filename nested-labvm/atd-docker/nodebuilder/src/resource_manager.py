@@ -1006,35 +1006,34 @@ class ResourceManager:
 
     def _is_user_created_bridge(self, bridge_name: str) -> bool:
         """
-        Determine if a bridge was created for user-added nodes.
+        Determine if a bridge was created by nodebuilder for user-added nodes.
 
-        User bridges follow the pattern: {shortname}{port}-{shortname}{port}
-        e.g., sp11-le13 (spine1:Ethernet1 to leaf1:Ethernet3)
+        Nodebuilder bridges ALWAYS use 'x' as separator between device code and port:
+        Format: {dev_code}x{port_code}-{dev_code}x{port_code}
+        Examples: le5x1-sp4x9, cl1xet1-le3x5, fw1xet1-sp1x12
 
-        Original topology bridges use full names or different patterns.
+        Original topology bridges (created by kvmbuilder) do NOT use 'x':
+        Examples: sp13-le13, le11-le21, le17-ho11
+
+        This distinction ensures we NEVER delete original topology bridges.
 
         Args:
             bridge_name: Name of the OVS bridge
 
         Returns:
-            True if this appears to be a user-created bridge
+            True if this is a nodebuilder-created bridge (contains 'x')
         """
         import re
 
-        # User bridge pattern: 2-3 letter prefix + number + hyphen + 2-3 letter prefix + number
-        # Examples: sp11-le13, le12-ho11, fw11-le15, fw1et1-sp112
-        # Also match firewall patterns: fw1et1-sp112, fw1et2-bo110
-        user_bridge_patterns = [
-            r'^[a-z]{2,3}\d+-[a-z]{2,3}\d+$',  # Standard: sp11-le13
-            r'^[a-z]{2,3}\d+et\d+-[a-z]{2,3}\d+$',  # With et: fw1et1-sp112
-            r'^[a-z]{2,3}\d+-[a-z]{2,3}x\d+$',  # With x: sp27-bo14 -> sp2x7
-            r'^[a-z]{2,3}x\d+-[a-z]{2,3}\d+$',  # Reversed x
-        ]
+        # Nodebuilder bridge pattern: MUST contain 'x' separator
+        # Format: {code}x{port}-{code}x{port}
+        # Examples: le5x1-sp4x9, cl1xet1-le3x5, fw1xet1-sp1x12, bo3x1-sp2x9
+        #
+        # Original kvmbuilder bridges do NOT have 'x': sp13-le13, le11-le21
+        # By requiring 'x', we protect all original topology bridges
+        nodebuilder_pattern = r'^[a-z]{2,4}\d*x[a-z0-9]+-[a-z]{2,4}\d*x[a-z0-9]+$'
 
-        for pattern in user_bridge_patterns:
-            if re.match(pattern, bridge_name):
-                return True
-        return False
+        return bool(re.match(nodebuilder_pattern, bridge_name))
 
     def _get_expected_bridges_from_persistence(self) -> set:
         """
