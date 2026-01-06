@@ -112,16 +112,16 @@ services:
 
   labguides-v2:
     container_name: atd-labguides-v2
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
+    # image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
+    image: us.gcr.io/atd-testdrivetraining-dev/labguides-v3:5984989e
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - /etc/atd:/etc/atd:ro
-      - /opt/atd:/opt/atd:ro
-      - /opt/labguides/web/:/html/:rw
-      - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
-      - /home/arista/arista-dir/menus/:/menus/:rw
+      - /opt/labguides/web/:/app/html/:rw
+      - /etc/atd/ACCESS_INFO.yaml:/app/ACCESS_INFO.yaml:ro
+      - /home/arista/arista-dir/menus/:/app/menus/:rw
+      - /opt/templates/grading:/app/grading:rw
     networks:
       - atd_nginx
 
