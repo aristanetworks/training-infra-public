@@ -256,10 +256,9 @@ MAX_VELO_EDGE_PER_TOPOLOGY = 2
 MAX_VELO_GATEWAY_PER_TOPOLOGY = 1
 MAX_VELO_ORCHESTRATOR_PER_TOPOLOGY = 1
 
-# Base image paths
+# Base image paths (Edge and Gateway use single disk, Orchestrator uses 4 disks)
 VELO_EDGE_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-edge-base.qcow2'
 VELO_GATEWAY_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-gateway-base.qcow2'
-VELO_ORCHESTRATOR_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/velo/base/velocloud-orchestrator-base.qcow2'
 
 # VeloCloud Orchestrator has multiple disk images (rootfs + 3 storage disks)
 VELO_ORCHESTRATOR_DISKS = [
@@ -365,9 +364,8 @@ GCP_HOST_IMAGE_PATH = 'hosts/ubuntu-desktop-base.qcow2'
 GCP_FIREWALL_IMAGE_PATH = 'firewall/vyos-base.qcow2'
 GCP_VELO_EDGE_IMAGE_PATH = 'velo/velocloud-edge-base.qcow2'
 GCP_VELO_GATEWAY_IMAGE_PATH = 'velo/velocloud-gateway-base.qcow2'
-GCP_VELO_ORCHESTRATOR_IMAGE_PATH = 'velo/velocloud-orchestrator-base.qcow2'
 
-# GCP paths for Orchestrator's multiple disk images
+# GCP paths for Orchestrator's multiple disk images (orchestrator uses 4 separate disks)
 GCP_VELO_ORCHESTRATOR_DISK_PATHS = [
     'velo/orchestrator/rootfs.qcow2',
     'velo/orchestrator/store.qcow2',
@@ -394,7 +392,7 @@ def log_gcp_config():
     logger.info(f"  Firewall image: {bucket}/{GCP_FIREWALL_IMAGE_PATH}")
     logger.info(f"  VeloCloud Edge image: {bucket}/{GCP_VELO_EDGE_IMAGE_PATH}")
     logger.info(f"  VeloCloud Gateway image: {bucket}/{GCP_VELO_GATEWAY_IMAGE_PATH}")
-    logger.info(f"  VeloCloud Orchestrator image: {bucket}/{GCP_VELO_ORCHESTRATOR_IMAGE_PATH}")
+    logger.info(f"  VeloCloud Orchestrator disks: {bucket}/velo/orchestrator/ (4 disk images)")
 
 
 def get_device_credentials() -> dict:
@@ -680,20 +678,31 @@ def get_velo_config() -> dict:
 
 def get_velo_base_image_path(device_type: str, auto_download: bool = True) -> str:
     """
-    Get base image path for VeloCloud device type.
+    Get base image path for VeloCloud Edge or Gateway.
     Downloads from GCP if not found locally.
 
+    Note: For Orchestrator, use get_velo_orchestrator_disk_paths() instead
+    as it requires 4 separate disk images.
+
     Args:
-        device_type: 'edge', 'gateway', or 'orchestrator'
+        device_type: 'edge' or 'gateway' (not 'orchestrator')
         auto_download: If True, download from GCP if missing
 
     Returns:
         Path to the base image (may not exist if download failed)
+
+    Raises:
+        ValueError: If device_type is 'orchestrator' or unknown
     """
+    if device_type == 'orchestrator':
+        raise ValueError(
+            "Orchestrator uses multiple disk images. "
+            "Use get_velo_orchestrator_disk_paths() instead."
+        )
+
     image_map = {
         'edge': (VELO_EDGE_BASE_IMAGE, GCP_VELO_EDGE_IMAGE_PATH),
         'gateway': (VELO_GATEWAY_BASE_IMAGE, GCP_VELO_GATEWAY_IMAGE_PATH),
-        'orchestrator': (VELO_ORCHESTRATOR_BASE_IMAGE, GCP_VELO_ORCHESTRATOR_IMAGE_PATH)
     }
 
     if device_type not in image_map:
