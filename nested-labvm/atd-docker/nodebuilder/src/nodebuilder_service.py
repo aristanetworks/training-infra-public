@@ -2893,10 +2893,36 @@ async def _vco_proxy(request, method: str):
         }, status=500)
 
 
+async def on_startup(app):
+    """Called when the aiohttp server starts.
+
+    Initiates background image pre-staging to reduce wait times
+    when users create devices.
+    """
+    from image_prestage import start_background_prestaging
+
+    logger.info("Nodebuilder startup: Initiating background image pre-staging")
+    await start_background_prestaging()
+
+
+async def on_cleanup(app):
+    """Called when the aiohttp server is shutting down.
+
+    Cancels any in-progress image downloads gracefully.
+    """
+    from image_prestage import cancel_prestaging
+
+    await cancel_prestaging()
+
+
 def create_app():
     """Create and configure the application"""
     app = web.Application()
     app.add_routes(routes)
+
+    # Register lifecycle hooks for background image pre-staging
+    app.on_startup.append(on_startup)
+    app.on_cleanup.append(on_cleanup)
 
     # Security: No CORS headers needed - this service is only accessed
     # via the uilanding proxy (NodeBuilderProxyHandler), not directly from browsers.
