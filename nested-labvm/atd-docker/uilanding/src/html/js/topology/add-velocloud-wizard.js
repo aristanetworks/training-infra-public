@@ -34,12 +34,13 @@ class AddVelocloudWizard {
     };
 
     // Edge: GE1-GE8 in UI map to wan1-3/lan in VM
+    // GE1-GE2 are LAN ports, GE3-GE5 are WAN ports (wan1-3), GE6-GE8 fall back to lan
     static EDGE_INTERFACE_MAP = {
-        'GE1': 'wan1',
-        'GE2': 'wan2',
-        'GE3': 'wan3',
-        'GE4': 'lan',
-        'GE5': 'lan',
+        'GE1': 'lan',
+        'GE2': 'lan',
+        'GE3': 'wan1',
+        'GE4': 'wan2',
+        'GE5': 'wan3',
         'GE6': 'lan',
         'GE7': 'lan',
         'GE8': 'lan'
