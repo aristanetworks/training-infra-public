@@ -495,6 +495,8 @@ def validate_host_limit(user_hosts_path: str, max_hosts: int = 2) -> Tuple[bool,
     """
     Validate that the host limit has not been reached.
 
+    Only counts active hosts - excludes stale entries with 'creating' or 'failed' status.
+
     Args:
         user_hosts_path: Path to user_hosts.yaml
         max_hosts: Maximum allowed hosts per topology
@@ -505,7 +507,16 @@ def validate_host_limit(user_hosts_path: str, max_hosts: int = 2) -> Tuple[bool,
     from persistence import list_user_hosts
 
     current_hosts = list_user_hosts(user_hosts_path)
-    if len(current_hosts) >= max_hosts:
+
+    # Only count active hosts (those without status or with status='active')
+    active_count = 0
+    for host_entry in current_hosts:
+        for _, host_info in host_entry.items():
+            status = host_info.get('status')
+            if status is None or status == 'active':
+                active_count += 1
+
+    if active_count >= max_hosts:
         return False, f"Maximum of {max_hosts} Linux hosts per topology reached"
 
     return True, None
@@ -514,6 +525,8 @@ def validate_host_limit(user_hosts_path: str, max_hosts: int = 2) -> Tuple[bool,
 def validate_firewall_limit(user_firewalls_path: str, max_firewalls: int = 1) -> Tuple[bool, Optional[str]]:
     """
     Validate that the firewall limit has not been reached.
+
+    Only counts active firewalls - excludes stale entries with 'creating' or 'failed' status.
 
     Args:
         user_firewalls_path: Path to user_firewalls.yaml
@@ -525,7 +538,16 @@ def validate_firewall_limit(user_firewalls_path: str, max_firewalls: int = 1) ->
     from persistence import list_user_firewalls
 
     current_firewalls = list_user_firewalls(user_firewalls_path)
-    if len(current_firewalls) >= max_firewalls:
+
+    # Only count active firewalls (those without status or with status='active')
+    active_count = 0
+    for fw_entry in current_firewalls:
+        for _, fw_info in fw_entry.items():
+            status = fw_info.get('status')
+            if status is None or status == 'active':
+                active_count += 1
+
+    if active_count >= max_firewalls:
         return False, f"Maximum of {max_firewalls} firewall per topology reached"
 
     return True, None

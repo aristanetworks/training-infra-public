@@ -2897,10 +2897,40 @@ async def _vco_proxy(request, method: str):
 async def on_startup(app):
     """Called when the aiohttp server starts.
 
-    Initiates background image pre-staging to reduce wait times
-    when users create devices.
+    Performs startup cleanup and initiates background image pre-staging.
     """
     from image_prestage import start_background_prestaging
+    from persistence import (
+        cleanup_stale_user_hosts,
+        cleanup_stale_user_firewalls,
+        cleanup_stale_velo_devices
+    )
+    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH
+
+    # Clean up any stale device entries from crashed creations
+    # This prevents orphaned 'creating' entries from blocking new device creation
+    total_cleaned = 0
+
+    try:
+        cleaned = cleanup_stale_user_hosts(USER_HOSTS_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale hosts: {e}")
+
+    try:
+        cleaned = cleanup_stale_user_firewalls(USER_FIREWALLS_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale firewalls: {e}")
+
+    try:
+        cleaned = cleanup_stale_velo_devices(USER_VELO_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale VeloCloud devices: {e}")
+
+    if total_cleaned > 0:
+        logger.info(f"Nodebuilder startup: Cleaned up {total_cleaned} stale device entry/entries")
 
     logger.info("Nodebuilder startup: Initiating background image pre-staging")
     await start_background_prestaging()

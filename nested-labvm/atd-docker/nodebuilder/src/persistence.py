@@ -724,6 +724,47 @@ def list_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> List[Dict]:
     return data.get('hosts') or []
 
 
+def cleanup_stale_user_hosts(path: str = DEFAULT_USER_HOSTS_PATH) -> int:
+    """
+    Remove stale host entries with 'creating' or 'failed' status.
+
+    These entries are orphaned from crashed or failed creations that
+    didn't properly clean up. Called on service startup.
+
+    Args:
+        path: Path to user_hosts.yaml
+
+    Returns:
+        Number of stale entries removed
+    """
+    data = load_user_hosts(path)
+    original_count = len(data.get('hosts') or [])
+
+    stale_statuses = {'creating', 'failed'}
+    cleaned_hosts = []
+    removed_names = []
+
+    for host_entry in data.get('hosts') or []:
+        keep = True
+        for host_name, host_info in host_entry.items():
+            status = host_info.get('status')
+            if status in stale_statuses:
+                keep = False
+                removed_names.append(host_name)
+                break
+        if keep:
+            cleaned_hosts.append(host_entry)
+
+    removed_count = original_count - len(cleaned_hosts)
+
+    if removed_count > 0:
+        data['hosts'] = cleaned_hosts
+        save_user_hosts(data, path)
+        logger.info(f"Cleaned up {removed_count} stale host(s): {removed_names}")
+
+    return removed_count
+
+
 # ============================================================================
 # User Firewalls Persistence (VyOS VMs)
 # ============================================================================
@@ -934,6 +975,47 @@ def list_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> List[Dict]:
     return data.get('firewalls') or []
 
 
+def cleanup_stale_user_firewalls(path: str = DEFAULT_USER_FIREWALLS_PATH) -> int:
+    """
+    Remove stale firewall entries with 'creating' or 'failed' status.
+
+    These entries are orphaned from crashed or failed creations that
+    didn't properly clean up. Called on service startup.
+
+    Args:
+        path: Path to user_firewalls.yaml
+
+    Returns:
+        Number of stale entries removed
+    """
+    data = load_user_firewalls(path)
+    original_count = len(data.get('firewalls') or [])
+
+    stale_statuses = {'creating', 'failed'}
+    cleaned_firewalls = []
+    removed_names = []
+
+    for fw_entry in data.get('firewalls') or []:
+        keep = True
+        for fw_name, fw_info in fw_entry.items():
+            status = fw_info.get('status')
+            if status in stale_statuses:
+                keep = False
+                removed_names.append(fw_name)
+                break
+        if keep:
+            cleaned_firewalls.append(fw_entry)
+
+    removed_count = original_count - len(cleaned_firewalls)
+
+    if removed_count > 0:
+        data['firewalls'] = cleaned_firewalls
+        save_user_firewalls(data, path)
+        logger.info(f"Cleaned up {removed_count} stale firewall(s): {removed_names}")
+
+    return removed_count
+
+
 # ============================================================================
 # User VeloCloud Devices Persistence (Edge, Gateway, Orchestrator)
 # ============================================================================
@@ -1137,9 +1219,54 @@ def get_velo_device_count(path: str = DEFAULT_USER_VELO_PATH) -> int:
     return len(list_user_velo_devices(path))
 
 
+def cleanup_stale_velo_devices(path: str = DEFAULT_USER_VELO_PATH) -> int:
+    """
+    Remove stale VeloCloud device entries with 'creating' or 'failed' status.
+
+    These entries are orphaned from crashed or failed creations that
+    didn't properly clean up. Called on service startup.
+
+    Args:
+        path: Path to user_velo.yaml
+
+    Returns:
+        Number of stale entries removed
+    """
+    data = load_user_velo(path)
+    original_count = len(data.get('devices') or [])
+
+    # Filter out devices with stale status
+    stale_statuses = {'creating', 'failed'}
+    cleaned_devices = []
+    removed_names = []
+
+    for device_entry in data.get('devices') or []:
+        keep = True
+        for device_name, device_info in device_entry.items():
+            status = device_info.get('status')
+            if status in stale_statuses:
+                keep = False
+                removed_names.append(device_name)
+                break
+        if keep:
+            cleaned_devices.append(device_entry)
+
+    removed_count = original_count - len(cleaned_devices)
+
+    if removed_count > 0:
+        data['devices'] = cleaned_devices
+        save_user_velo(data, path)
+        logger.info(
+            f"Cleaned up {removed_count} stale VeloCloud device(s): {removed_names}"
+        )
+
+    return removed_count
+
+
 def get_velo_device_count_by_type(
     device_type: str,
-    path: str = DEFAULT_USER_VELO_PATH
+    path: str = DEFAULT_USER_VELO_PATH,
+    include_pending: bool = False
 ) -> int:
     """
     Get count of user-added VeloCloud devices by type.
@@ -1147,6 +1274,9 @@ def get_velo_device_count_by_type(
     Args:
         device_type: 'edge', 'gateway', or 'orchestrator'
         path: Path to user_velo.yaml
+        include_pending: If True, include devices with 'creating' or 'failed' status.
+                         If False (default), only count active devices.
+                         This prevents stale entries from blocking new device creation.
 
     Returns:
         Number of devices of the specified type
@@ -1157,6 +1287,14 @@ def get_velo_device_count_by_type(
     for device_entry in devices:
         for _, device_info in device_entry.items():
             if device_info.get('device_type', '').lower() == device_type.lower():
-                count += 1
+                # Only count active devices by default
+                # Active devices have no 'status' field (removed on success)
+                # Pending devices have status='creating' or status='failed'
+                if include_pending:
+                    count += 1
+                else:
+                    status = device_info.get('status')
+                    if status is None or status == 'active':
+                        count += 1
 
     return count
