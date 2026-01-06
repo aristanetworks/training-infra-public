@@ -25,6 +25,9 @@ export class EventManager {
         this.isCeosLab = this.eosType === 'container-labs';
         console.log('[EventManager] EOS type:', this.eosType, 'isCeosLab:', this.isCeosLab);
 
+        // VeloCloud feature availability (set by TopologyManager after fetching status)
+        this.veloEnabled = false;
+
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
@@ -885,8 +888,9 @@ export class EventManager {
                 },
                 disabled: this.isCeosLab
             },
-            {
-                label: this.isCeosLab ? 'Add VeloCloud Device (KVM only)' : 'Add VeloCloud Device',
+            // VeloCloud device option - only visible if VeloCloud is enabled for this topology
+            ...(this.veloEnabled ? [{
+                label: 'Add VeloCloud Device',
                 action: () => {
                     this.hideContextMenu();
                     if (window.addVelocloudWizard) {
@@ -896,7 +900,7 @@ export class EventManager {
                     }
                 },
                 disabled: this.isCeosLab
-            },
+            }] : []),
             {
                 type: 'separator'
             },

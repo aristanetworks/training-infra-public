@@ -6,6 +6,7 @@ Provides a consistent view of ALL devices across all sources:
 - User-added vEOS nodes (user_nodes.yaml)
 - User-added Linux hosts (user_hosts.yaml)
 - User-added VyOS firewalls (user_firewalls.yaml)
+- User-added VeloCloud devices (user_velo.yaml)
 
 This module standardizes the data format and provides a single source of truth
 for topology queries, making it easier to extend with new device types.
@@ -24,6 +25,9 @@ class DeviceType(Enum):
     VEOS = 'veos'
     LINUX_HOST = 'linux_host'
     FIREWALL = 'firewall'
+    VELO_EDGE = 'velo_edge'
+    VELO_GATEWAY = 'velo_gateway'
+    VELO_ORCHESTRATOR = 'velo_orchestrator'
 
 
 class DeviceCategory(Enum):
@@ -31,6 +35,7 @@ class DeviceCategory(Enum):
     NODE = 'node'          # Network devices (vEOS)
     HOST = 'host'          # End-user hosts (Linux desktop)
     FIREWALL = 'firewall'  # Security devices (VyOS)
+    SDWAN = 'sdwan'        # SD-WAN devices (VeloCloud)
 
 
 @dataclass
@@ -61,7 +66,8 @@ def get_unified_topology(
     topo_build_path: str,
     user_nodes_path: str,
     user_hosts_path: str,
-    user_firewalls_path: str
+    user_firewalls_path: str,
+    user_velo_path: str = None
 ) -> Dict:
     """
     Get complete unified topology with ALL device types.
@@ -71,6 +77,7 @@ def get_unified_topology(
         user_nodes_path: Path to user_nodes.yaml
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
+        user_velo_path: Path to user_velo.yaml (optional for backwards compatibility)
 
     Returns:
         Dict with:
@@ -79,7 +86,7 @@ def get_unified_topology(
         - connections: List of all connections
     """
     from validation import get_topo_nodes, get_user_nodes
-    from persistence import load_user_hosts, load_user_firewalls
+    from persistence import load_user_hosts, load_user_firewalls, load_user_velo
 
     devices = []
     connections = []
@@ -242,6 +249,60 @@ def get_unified_topology(
     except Exception as e:
         logger.warning(f"Error loading user firewalls: {e}")
 
+    # 5. Load user-added VeloCloud devices (Edge, Gateway, Orchestrator)
+    if user_velo_path:
+        try:
+            velo_data = load_user_velo(user_velo_path)
+            for velo_entry in velo_data.get('devices', []) or []:
+                for velo_name, velo_info in velo_entry.items():
+                    # Map device_type to DeviceType enum
+                    velo_device_type = velo_info.get('device_type', 'edge').lower()
+                    device_type_map = {
+                        'edge': DeviceType.VELO_EDGE.value,
+                        'gateway': DeviceType.VELO_GATEWAY.value,
+                        'orchestrator': DeviceType.VELO_ORCHESTRATOR.value
+                    }
+                    mapped_type = device_type_map.get(velo_device_type, DeviceType.VELO_EDGE.value)
+
+                    # Build neighbor list from connections
+                    neighbors = []
+                    for conn in velo_info.get('connections', []) or []:
+                        if conn.get('target_device'):
+                            neighbors.append({
+                                'port': conn.get('local_port', ''),
+                                'neighborDevice': conn.get('target_device'),
+                                'neighborPort': conn.get('target_port', '')
+                            })
+
+                    device = UnifiedDevice(
+                        name=velo_name,
+                        ip=velo_info.get('mgmt_ip', ''),
+                        device_type=mapped_type,
+                        device_category=DeviceCategory.SDWAN.value,
+                        user_added=True,
+                        status=velo_info.get('status', 'active'),
+                        neighbors=neighbors if neighbors else None,
+                        extra={
+                            'velo_device_type': velo_device_type,
+                            'interface_ips': velo_info.get('interface_ips', {}),
+                            'source': 'user_velo'
+                        }
+                    )
+                    devices.append(device.to_dict())
+
+                    # Extract connections
+                    for conn in velo_info.get('connections', []) or []:
+                        if conn.get('target_device'):
+                            connections.append({
+                                'source_device': velo_name,
+                                'source_port': conn.get('local_port', ''),
+                                'target_device': conn.get('target_device'),
+                                'target_port': conn.get('target_port', ''),
+                                'source_type': mapped_type
+                            })
+        except Exception as e:
+            logger.warning(f"Error loading user VeloCloud devices: {e}")
+
     # Build summary
     summary = {
         'total_devices': len(devices),
@@ -249,6 +310,7 @@ def get_unified_topology(
         'user_nodes': len([d for d in devices if d['user_added'] and d['device_type'] == DeviceType.VEOS.value]),
         'user_hosts': len([d for d in devices if d['device_type'] == DeviceType.LINUX_HOST.value]),
         'user_firewalls': len([d for d in devices if d['device_type'] == DeviceType.FIREWALL.value]),
+        'user_velocloud': len([d for d in devices if d['device_category'] == DeviceCategory.SDWAN.value]),
         'total_connections': len(connections),
         'orphaned_connections': len([c for c in connections if c.get('orphaned')])
     }
@@ -265,7 +327,8 @@ def get_device_by_name(
     topo_build_path: str,
     user_nodes_path: str,
     user_hosts_path: str,
-    user_firewalls_path: str
+    user_firewalls_path: str,
+    user_velo_path: str = None
 ) -> Optional[Dict]:
     """
     Get a specific device by name from the unified topology.
@@ -276,12 +339,14 @@ def get_device_by_name(
         user_nodes_path: Path to user_nodes.yaml
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
+        user_velo_path: Path to user_velo.yaml (optional)
 
     Returns:
         Device dict if found, None otherwise
     """
     topology = get_unified_topology(
-        topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path
+        topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path,
+        user_velo_path
     )
 
     name_lower = name.lower()
@@ -296,16 +361,25 @@ def get_all_device_names_unified(
     topo_build_path: str,
     user_nodes_path: str,
     user_hosts_path: str,
-    user_firewalls_path: str
+    user_firewalls_path: str,
+    user_velo_path: str = None
 ) -> Set[str]:
     """
     Get all device names from unified topology.
+
+    Args:
+        topo_build_path: Path to topo_build.yml
+        user_nodes_path: Path to user_nodes.yaml
+        user_hosts_path: Path to user_hosts.yaml
+        user_firewalls_path: Path to user_firewalls.yaml
+        user_velo_path: Path to user_velo.yaml (optional)
 
     Returns:
         Set of device names (lowercase for case-insensitive comparison)
     """
     topology = get_unified_topology(
-        topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path
+        topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path,
+        user_velo_path
     )
 
     return {device['name'].lower() for device in topology['devices']}

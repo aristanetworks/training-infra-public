@@ -165,6 +165,19 @@ export class TopologyManager {
                 console.log('[TopologyManager] AddVelocloudWizard initialized');
             }
 
+            // Check VeloCloud feature availability and update EventManager
+            // This controls visibility of the "Add VeloCloud Device" menu option
+            if (this.eventManager && this.topologyData.metadata?.eos_type === 'veos' && window.NodeBuilderAPI) {
+                try {
+                    const veloStatus = await window.NodeBuilderAPI.getVeloStatus();
+                    this.eventManager.veloEnabled = veloStatus?.enabled || false;
+                    console.log('[TopologyManager] VeloCloud enabled:', this.eventManager.veloEnabled);
+                } catch (error) {
+                    console.log('[TopologyManager] VeloCloud status check failed (feature likely disabled):', error.message);
+                    this.eventManager.veloEnabled = false;
+                }
+            }
+
             // Initialize OrphanedSlotsMonitor for tracking orphaned interface slots (KVM labs only)
             // This monitors for interface slots preserved from deleted devices
             if (this.topologyData.metadata?.eos_type === 'veos') {

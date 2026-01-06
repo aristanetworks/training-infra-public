@@ -831,8 +831,9 @@ def validate_velo_device_type_enabled(device_type: str) -> Tuple[bool, Optional[
     config = get_velo_config()
     device_type_lower = device_type.lower()
 
-    type_enabled_key = f"{device_type_lower}_enabled"
-    if not config.get(type_enabled_key, False):
+    # Config structure is nested: config['edge']['enabled'], config['gateway']['enabled'], etc.
+    device_config = config.get(device_type_lower, {})
+    if not device_config.get('enabled', False):
         type_name = device_type_lower.capitalize()
         return False, f"VeloCloud {type_name} devices are not enabled for this topology"
 

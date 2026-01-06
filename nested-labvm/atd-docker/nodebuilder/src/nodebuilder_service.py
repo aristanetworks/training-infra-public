@@ -230,14 +230,15 @@ async def unified_topology(request):
     """
     from unified_topology import get_unified_topology, DeviceType
     from config import (
-        USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+        USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH,
         get_topo_build_path
     )
 
     try:
         topo_build_path = get_topo_build_path()
         topology = get_unified_topology(
-            topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            topo_build_path, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+            USER_VELO_PATH
         )
 
         # Apply filters if specified
