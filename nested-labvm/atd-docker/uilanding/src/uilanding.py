@@ -3572,7 +3572,7 @@ class NodeBuilderProxyHandler(BaseHandler):
 
     async def _proxy_request(self, method, path, body=None):
         """Proxy request to nodebuilder service."""
-        from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+        from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPClientError
 
         http_client = AsyncHTTPClient()
         url = f"/{path}" if path else ""
@@ -3580,38 +3580,45 @@ class NodeBuilderProxyHandler(BaseHandler):
         # Longer timeout for operations that may take a while
         timeout = 180 if 'reset-all' in path or 'cleanup' in path else 60
 
+        async def try_fetch(base_url):
+            """Attempt to fetch from a URL, returning (response, error)."""
+            request = HTTPRequest(
+                f"{base_url}{url}",
+                method=method,
+                body=body if method == 'POST' else None,
+                headers={"Content-Type": "application/json"} if body else {},
+                request_timeout=timeout
+            )
+            try:
+                response = await http_client.fetch(request, raise_error=False)
+                return response, None
+            except Exception as e:
+                return None, e
+
         try:
             # Try primary URL first (Docker Desktop)
-            try:
-                request = HTTPRequest(
-                    f"{self.NODEBUILDER_URL}{url}",
-                    method=method,
-                    body=body if method == 'POST' else None,
-                    headers={"Content-Type": "application/json"} if body else {},
-                    request_timeout=timeout
-                )
-                response = await http_client.fetch(request)
+            response, error = await try_fetch(self.NODEBUILDER_URL)
+
+            if error:
+                # Connection error - try fallback
+                pS(f"[NodeBuilderProxy] Primary connection failed: {error}, trying fallback...")
+                response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
+
+            if error:
+                # Both failed to connect
+                pS(f"[NodeBuilderProxy] Fallback also failed: {error}")
+                self.set_status(503)
+                self.write(json.dumps({
+                    'error': 'Nodebuilder service unavailable',
+                    'detail': str(error)
+                }))
+                return
+
+            # Forward the response (including non-2xx status codes like 400)
+            self.set_status(response.code)
+            if response.body:
                 self.write(response.body)
-            except Exception as e:
-                pS(f"[NodeBuilderProxy] Primary failed: {e}, trying fallback...")
-                # Try fallback URL (Linux Docker)
-                try:
-                    request = HTTPRequest(
-                        f"{self.NODEBUILDER_URL_FALLBACK}{url}",
-                        method=method,
-                        body=body if method == 'POST' else None,
-                        headers={"Content-Type": "application/json"} if body else {},
-                        request_timeout=timeout
-                    )
-                    response = await http_client.fetch(request)
-                    self.write(response.body)
-                except Exception as e2:
-                    pS(f"[NodeBuilderProxy] Fallback also failed: {e2}")
-                    self.set_status(503)
-                    self.write(json.dumps({
-                        'error': 'Nodebuilder service unavailable',
-                        'detail': str(e2)
-                    }))
+
         except Exception as e:
             pS(f"[NodeBuilderProxy] Error: {e}")
             traceback.print_exc()

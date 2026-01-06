@@ -81,10 +81,11 @@ class AddVelocloudWizard {
             description: 'Management and control plane (VCO)',
             icon: '🎛️',
             interfaces: [
-                { key: 'eth0', label: 'eth0 (Mgmt)', description: 'Management interface - admin/web access', required: false },
+                // eth0 is management - uses mgmt_ip from step 2, no switch connection needed
                 { key: 'eth1', label: 'eth1 (Data)', description: 'Data interface - Edge/Gateway connectivity', required: false }
             ],
-            deviceType: 'velo_orchestrator'
+            deviceType: 'velo_orchestrator',
+            requiresOrchestratorConfig: true  // Flag for Orchestrator-specific configuration
         }
     };
 
@@ -559,6 +560,12 @@ class AddVelocloudWizard {
         // Edge has special configuration requirements (VCO + GE interface config)
         if (typeConfig.requiresEdgeConfig) {
             this.renderEdgeConfigStep(content);
+            return;
+        }
+
+        // Orchestrator has simplified configuration (eth0 uses mgmt_ip from step 2)
+        if (typeConfig.requiresOrchestratorConfig) {
+            this.renderOrchestratorConfigStep(content);
             return;
         }
 
@@ -1132,6 +1139,115 @@ class AddVelocloudWizard {
     }
 
     /**
+     * Step 4 (Orchestrator): VeloCloud Orchestrator-specific Configuration
+     * Simplified config: eth0 uses mgmt_ip from step 2, only eth1 needs switch connection
+     */
+    renderOrchestratorConfigStep(content) {
+        const eth1Config = this.veloConfig.interfaces['eth1'] || { ip: '', target_device: '', target_port: '' };
+
+        content.innerHTML = `
+            <div class="wizard-step wizard-step-orchestrator-config">
+                <h3>Orchestrator Network Configuration</h3>
+                <p class="step-description">Configure the VeloCloud Orchestrator network interfaces.</p>
+
+                <!-- eth0 - Management Interface (auto-configured) -->
+                <div class="config-section">
+                    <h4>eth0 - Management Interface</h4>
+                    <p class="section-desc">This interface is automatically configured using the management IP selected in Step 2.</p>
+                    <div class="orchestrator-mgmt-summary">
+                        <table class="review-table">
+                            <tr>
+                                <th>Interface</th>
+                                <td>eth0 (Management)</td>
+                            </tr>
+                            <tr>
+                                <th>IP Address</th>
+                                <td><code>${this.escapeHtml(this.veloConfig.mgmt_ip)}</code></td>
+                            </tr>
+                            <tr>
+                                <th>Purpose</th>
+                                <td>SSH access, Web UI access</td>
+                            </tr>
+                            <tr>
+                                <th>Network Connection</th>
+                                <td>Connected to management network (no switch required)</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- eth1 - Data Interface -->
+                <div class="config-section">
+                    <h4>eth1 - Data Interface (Optional)</h4>
+                    <p class="section-desc">Connect to a topology switch for Edge/Gateway connectivity.</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="orch-eth1-ip">IP Address (CIDR)</label>
+                            <input type="text" id="orch-eth1-ip" class="form-input"
+                                   placeholder="e.g., 10.1.1.1/24 (optional)"
+                                   value="${this.escapeHtml(eth1Config.ip)}">
+                            <div id="orch-eth1-validation" class="validation-message"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="orch-eth1-device">Connect to Switch</label>
+                            <select id="orch-eth1-device" class="form-select">
+                                <option value="">Not connected</option>
+                                ${this.targetDevices.map(device => `
+                                    <option value="${this.escapeHtml(device.name)}"
+                                            data-next-port="${this.escapeHtml(device.next_available_port)}"
+                                            ${eth1Config.target_device === device.name ? 'selected' : ''}>
+                                        ${this.escapeHtml(device.name)} (next: ${this.escapeHtml(device.next_available_port)})
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <small class="form-hint">Connect to a switch for Edge/Gateway communication</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="orch-eth1-port">Target Port</label>
+                            <input type="text" id="orch-eth1-port" class="form-input"
+                                   placeholder="Auto-selected" readonly
+                                   value="${this.escapeHtml(eth1Config.target_port)}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="velocloud-interface-note">
+                    <p><strong>Note:</strong> Orchestrator uses default credentials: <code>vcadmin</code> / <code>[lab password]</code></p>
+                    <p>Web UI will be available at <code>https://${this.escapeHtml(this.veloConfig.mgmt_ip)}/</code> once the device boots.</p>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        const eth1IpInput = content.querySelector('#orch-eth1-ip');
+        const eth1Validation = content.querySelector('#orch-eth1-validation');
+        const eth1DeviceSelect = content.querySelector('#orch-eth1-device');
+        const eth1PortInput = content.querySelector('#orch-eth1-port');
+
+        eth1IpInput.addEventListener('input', (e) => {
+            this.veloConfig.interfaces['eth1'].ip = e.target.value.trim();
+            if (e.target.value.trim()) {
+                this.validateCidrIp(e.target.value.trim(), eth1Validation);
+            } else {
+                eth1Validation.className = 'validation-message';
+                eth1Validation.textContent = '';
+            }
+            this.updateNextButtonState();
+        });
+
+        eth1DeviceSelect.addEventListener('change', (e) => {
+            const selectedOption = e.target.selectedOptions[0];
+            const nextPort = selectedOption?.dataset.nextPort || '';
+
+            eth1PortInput.value = nextPort;
+            this.veloConfig.interfaces['eth1'].target_device = e.target.value;
+            this.veloConfig.interfaces['eth1'].target_port = nextPort;
+        });
+    }
+
+    /**
      * Count how many interfaces are already configured to use the same device
      * Used by Orchestrator interface configuration
      */
@@ -1254,7 +1370,8 @@ class AddVelocloudWizard {
                 </div>
 
                 ${typeConfig.requiresGatewayConfig ? this.renderGatewayReviewSection() :
-                  typeConfig.requiresEdgeConfig ? this.renderEdgeReviewSection() : `
+                  typeConfig.requiresEdgeConfig ? this.renderEdgeReviewSection() :
+                  typeConfig.requiresOrchestratorConfig ? this.renderOrchestratorReviewSection() : `
                 <div class="review-section">
                     <h4>Data Interfaces</h4>
                     ${configuredInterfaces.length > 0 ? `
@@ -1401,6 +1518,41 @@ class AddVelocloudWizard {
                 ` : `
                     <p class="no-interfaces-configured">All interfaces configured for DHCP with no topology connections.</p>
                 `}
+            </div>
+        `;
+    }
+
+    /**
+     * Render Orchestrator-specific review section
+     */
+    renderOrchestratorReviewSection() {
+        const eth1Config = this.veloConfig.interfaces['eth1'] || {};
+
+        return `
+            <div class="review-section">
+                <h4>Network Interfaces</h4>
+                <table class="review-table">
+                    <tr>
+                        <th>Interface</th>
+                        <th>IP Address</th>
+                        <th>Purpose</th>
+                        <th>Connected To</th>
+                    </tr>
+                    <tr>
+                        <td>eth0 (Management)</td>
+                        <td>${this.escapeHtml(this.veloConfig.mgmt_ip)}</td>
+                        <td>SSH / Web UI access</td>
+                        <td>Management network</td>
+                    </tr>
+                    <tr>
+                        <td>eth1 (Data)</td>
+                        <td>${eth1Config.ip ? this.escapeHtml(eth1Config.ip) : '<em>Not configured</em>'}</td>
+                        <td>Edge/Gateway connectivity</td>
+                        <td>${eth1Config.target_device ?
+                            `${this.escapeHtml(eth1Config.target_device)} (${this.escapeHtml(eth1Config.target_port)})` :
+                            '<em>Not connected</em>'}</td>
+                    </tr>
+                </table>
             </div>
         `;
     }
