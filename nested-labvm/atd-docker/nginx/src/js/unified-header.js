@@ -84,67 +84,6 @@
                 width: auto;
             }
 
-            .menu-divider {
-                width: 1px;
-                height: 30px;
-                background: rgba(251, 181, 0, 0.3);
-                margin: 0 10px;
-                flex-shrink: 0;
-            }
-
-            .menu-items {
-                display: flex;
-                gap: 6px;
-                overflow-x: auto;
-                scrollbar-width: thin;
-                scrollbar-color: #fbb500 transparent;
-            }
-
-            .menu-items::-webkit-scrollbar {
-                height: 4px;
-            }
-
-            .menu-items::-webkit-scrollbar-thumb {
-                background: #fbb500;
-                border-radius: 2px;
-            }
-
-            .menu-item {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                padding: 8px 14px;
-                background: transparent;
-                border: 2px solid #fbb500;
-                border-radius: 6px;
-                color: rgba(255, 255, 255, 0.9);
-                text-decoration: none;
-                font-size: 13px;
-                font-weight: 500;
-                white-space: nowrap;
-                transition: all 0.2s;
-                flex-shrink: 0;
-                height: 38px;
-                box-sizing: border-box;
-            }
-
-            .menu-item:hover {
-                background: rgba(251, 181, 0, 0.15);
-                border-color: #fbb500;
-                color: #fff;
-            }
-
-            .menu-item.active {
-                background: #fbb500;
-                border-color: #fbb500;
-                color: #04152a;
-                font-weight: 600;
-            }
-
-            .menu-item-icon {
-                font-size: 14px;
-            }
-
             /* Center Section - Timer & Credentials */
             .header-center {
                 display: flex;
@@ -157,15 +96,15 @@
 
             .credentials-widget {
                 background: transparent;
-                border: 2px solid #fbb500;
-                border-radius: 6px;
-                padding: 0 14px;
+                border: 1px solid #fbb500;
+                border-radius: 0;
+                padding: 6px 14px;
                 display: flex;
                 align-items: center;
                 gap: 12px;
-                height: 38px;
+                height: 32px;
                 box-sizing: border-box;
-                font-size: 12px;
+                font-size: 11px;
             }
 
             .credential-item {
@@ -195,13 +134,13 @@
 
             .timer-widget {
                 background: transparent;
-                border: 2px solid #fbb500;
-                border-radius: 6px;
-                padding: 0 14px;
+                border: 1px solid #fbb500;
+                border-radius: 0;
+                padding: 6px 14px;
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                height: 38px;
+                height: 32px;
                 box-sizing: border-box;
             }
 
@@ -245,12 +184,12 @@
             }
 
             .labguides-toggle {
-                padding: 0 14px;
+                padding: 6px 14px;
                 background: transparent;
-                border: 2px solid #fbb500;
-                border-radius: 6px;
+                border: 1px solid #fbb500;
+                border-radius: 0;
                 color: #fbb500;
-                font-size: 13px;
+                font-size: 11px;
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
@@ -259,7 +198,7 @@
                 align-items: center;
                 gap: 8px;
                 transition: all 0.2s;
-                height: 38px;
+                height: 32px;
                 box-sizing: border-box;
             }
 
@@ -476,10 +415,6 @@
                     justify-content: center;
                 }
 
-                .menu-divider {
-                    display: none;
-                }
-
                 .labguides-panel {
                     width: 100%;
                     right: -100%;
@@ -499,10 +434,6 @@
                     <a href="/" class="arista-logo">
                         <img src="/images/arista.svg" alt="Arista" class="arista-logo-img">
                     </a>
-                    <div class="menu-divider"></div>
-                    <div class="menu-items" id="menuItems">
-                        <!-- Menu items will be loaded dynamically -->
-                    </div>
                 </div>
 
                 <div class="header-center">
@@ -553,7 +484,6 @@
     }
 
     function initializeHeader() {
-        loadMenuItems();
         loadCredentials();
         initializeTimer();
         initializeLabGuides();
@@ -588,47 +518,6 @@
             console.error('[UnifiedHeader] Failed to load credentials:', error);
             // Keep default values (arista/arista)
         }
-    }
-
-    async function loadMenuItems() {
-        // Standard menu items for all lab types
-        const menuItems = [
-            { name: 'Home', url: '/', icon: '🏠' },
-            { name: 'Lab Guides', url: '/labguides', icon: '📖' },
-            { name: 'Terminal', url: '/terminal', icon: '💻' },
-            { name: 'Switch Access', url: '/ssh/host/192.168.0.1', icon: '🔌' },
-            { name: 'CVP', url: '/cv', icon: '📊' },
-            { name: 'Programmability IDE', url: '/coder/', icon: '⚙️' },
-            { name: 'WebUI', url: '/firefox/', icon: '🌐' }
-        ];
-        renderMenuItems(menuItems);
-    }
-
-    function renderMenuItems(items) {
-        const container = document.getElementById('menuItems');
-        if (!container) return;
-
-        const currentPath = window.location.pathname;
-
-        items.forEach(item => {
-            const a = document.createElement('a');
-            a.href = item.url;
-            a.className = 'menu-item';
-            a.target = '_blank';  // Open in new tab
-            a.rel = 'noopener';   // Security best practice
-
-            // Mark current page as active
-            if (currentPath === item.url || currentPath.startsWith(item.url + '/')) {
-                a.classList.add('active');
-            }
-
-            a.innerHTML = `
-                <span class="menu-item-icon">${item.icon || '•'}</span>
-                <span>${item.name}</span>
-            `;
-
-            container.appendChild(a);
-        });
     }
 
     function initializeTimer() {
