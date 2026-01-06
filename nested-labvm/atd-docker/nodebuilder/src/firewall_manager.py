@@ -385,6 +385,16 @@ def create_firewall(
     if not outside_interface.get('target_device'):
         raise ValueError("Outside interface target device is required")
 
+    # Check if VM already exists in libvirt (orphaned from failed delete)
+    from resource_manager import get_resource_manager
+    resource_mgr = get_resource_manager()
+    if resource_mgr.vm_exists(name):
+        raise RuntimeError(
+            f"VM '{name}' already exists in libvirt. This may be an orphaned VM "
+            f"from a previous failed deletion. Please manually run 'virsh undefine {name}' "
+            f"to clean it up."
+        )
+
     with ResourceTransaction(name, device_type='firewall') as txn:
         # Step 1: Copy base image
         logger.info(f"Copying base VyOS image for {name}")

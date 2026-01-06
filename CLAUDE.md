@@ -59,6 +59,91 @@ Core services defined in `nested-labvm/atd-docker/docker-compose.yml`:
 - **webui** - Firefox browser container
 - **vtepinfo** - VXLAN VTEP information service
 - **uptime** - System uptime monitoring
+- **nodebuilder** - Dynamic node management service (port 8090)
+
+### Nodebuilder Service (nested-labvm/atd-docker/nodebuilder/)
+
+The nodebuilder service provides a REST API for dynamically adding VMs to running KVM-based labs. It runs on port 8090 with host network mode for libvirt access.
+
+**Core Capabilities:**
+- Add/edit/delete vEOS switches with ZTP via dnsmasq
+- Add/delete Linux desktop hosts with noVNC access
+- Add/edit/delete VyOS firewalls
+- Cluster templates for multi-node deployments
+- Restore user nodes after topology reboot
+- Full reset to original topology
+
+**Python Modules:**
+- `nodebuilder_service.py` - REST API endpoints (aiohttp)
+- `vm_manager.py` - VM lifecycle (create, start, stop, delete)
+- `host_manager.py` - Linux host creation with cloud-init
+- `firewall_manager.py` - VyOS firewall creation with cloud-init
+- `resource_manager.py` - Bridge and interface cleanup
+- `connection_manager.py` - OVS bridge management
+- `interface_manager.py` - Port allocation and attachment
+- `persistence.py` - YAML state management
+- `validation.py` - Input validation and limits
+- `novnc_manager.py` - VNC token management
+- `cluster_templates.py` - Multi-node templates
+
+**API Endpoints:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/health` | Health check |
+| GET | `/available-ips` | List unused IPs from dnsmasq |
+| GET | `/existing-nodes` | All topology nodes |
+| GET | `/target-devices` | Connection targets with available ports |
+| GET | `/user-nodes-status` | Status for restore button |
+| POST | `/validate-node` | Pre-creation validation |
+| POST | `/add-node` | Create vEOS VM |
+| POST | `/edit-node` | Modify vEOS connections |
+| POST | `/delete-node` | Remove vEOS node |
+| POST | `/restore-user-nodes` | Start all user VMs after reboot |
+| POST | `/reset-all-user-nodes` | Full reset to original topology |
+| GET | `/cluster-templates` | Available cluster templates |
+| POST | `/add-cluster` | Create node cluster |
+| POST | `/save-config` | Save running config via eAPI |
+| POST | `/reboot-devices` | Reboot VMs via virsh |
+| GET | `/host-status` | Linux host count and availability |
+| POST | `/add-host` | Create Linux desktop VM |
+| POST | `/delete-host` | Remove Linux host |
+| GET | `/novnc-token/{name}` | VNC access token |
+| GET | `/firewall-status` | Firewall count and availability |
+| POST | `/add-firewall` | Create VyOS firewall VM |
+| POST | `/edit-firewall` | Change firewall interface IPs |
+| POST | `/delete-firewall` | Remove firewall |
+
+**Persistence Files:**
+- `/home/arista/arista-dir/apps/nodebuilder/user_nodes.yaml` - User-added vEOS nodes
+- `/home/arista/arista-dir/apps/nodebuilder/user_hosts.yaml` - User-added Linux hosts
+- `/home/arista/arista-dir/apps/nodebuilder/user_firewalls.yaml` - User-added VyOS firewalls
+
+**Base VM Images:**
+- `ubuntu-desktop.qcow2` - Ubuntu with LXDE desktop for Linux hosts
+- `vyos-1.4.qcow2` - VyOS Community Edition for firewalls
+- Images stored in GCP bucket and cached locally
+
+### Device Type Classification (uilanding/src/device_types.py)
+
+Centralized device type system used by topology visualization and terminal page:
+
+**Categories:**
+- `provider` - External network (internet, isp)
+- `core` - Backbone devices (core, dci, p, rr)
+- `edge` - Edge/aggregation (borderleaf, pe, ce, gw, router, firewall)
+- `fabric` - DC fabric (spine, leaf, memleaf)
+- `endpoint` - End devices (host, linux_host, customer, oob)
+
+**Classification Methods:**
+- Pattern-based: Device type inferred from name (e.g., 'leaf1' → 'leaf')
+- Explicit: Device type set via `device_type` field (for user-added nodes)
+
+**Key Methods:**
+- `DeviceTypeConfig.classify_device(name)` - Get type from name
+- `DeviceTypeConfig.get_tier(type)` - Vertical position (0=top, 9=bottom)
+- `DeviceTypeConfig.get_category(type)` - Category grouping
+- `DeviceTypeConfig.is_user_defined(type)` - Check if explicit-only type
 
 ### LabVM Services (nested-labvm/services/)
 
@@ -277,8 +362,10 @@ Multiple auth mechanisms supported:
 
 ## Branch Strategy
 
-Current branch: `nested/2025.1`
 Main branch for PRs: `nested-release`
+
+**Feature Branches:**
+- `feature/add-nodes` - Dynamic node management (vEOS, Linux hosts, VyOS firewalls)
 
 ## Exam Guard Feature
 

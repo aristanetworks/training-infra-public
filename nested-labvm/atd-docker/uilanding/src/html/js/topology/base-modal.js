@@ -19,6 +19,16 @@ class BaseModal {
         XLARGE: 'xlarge'     // max-width: 900px
     };
 
+    // Header themes for different modal types
+    static HEADER_THEMES = {
+        DEFAULT: '',          // Default gray gradient
+        EDIT: 'edit',         // Teal/cyan gradient
+        DANGER: 'danger',     // Bright red gradient
+        WARNING: 'warning',   // Orange gradient
+        SUCCESS: 'success',   // Green gradient
+        INFO: 'info'          // Blue gradient
+    };
+
     /**
      * Create a new modal
      * @param {Object} options - Modal configuration
@@ -29,6 +39,7 @@ class BaseModal {
      * @param {boolean} options.closeOnOverlay - Close when clicking overlay (default: true)
      * @param {boolean} options.closeOnEscape - Close when pressing Escape (default: true)
      * @param {string} options.className - Additional CSS class names
+     * @param {string} options.headerTheme - Header color theme: 'edit', 'danger', 'warning', 'success', 'info'
      */
     constructor(options = {}) {
         this.id = options.id || `modal-${Date.now()}`;
@@ -38,6 +49,7 @@ class BaseModal {
         this.closeOnOverlay = options.closeOnOverlay !== false;
         this.closeOnEscape = options.closeOnEscape !== false;
         this.className = options.className || '';
+        this.headerTheme = options.headerTheme || '';
 
         this.overlay = null;
         this.modal = null;
@@ -77,9 +89,14 @@ class BaseModal {
             this.modal.classList.add(...this.className.split(' '));
         }
 
+        // Build header class with optional theme
+        const headerClass = this.headerTheme
+            ? `atd-modal__header atd-modal__header--${this.headerTheme}`
+            : 'atd-modal__header';
+
         // Build modal structure
         this.modal.innerHTML = `
-            <div class="atd-modal__header">
+            <div class="${headerClass}">
                 <h2 class="atd-modal__title">${this.escapeHtml(this.title)}</h2>
                 <button class="atd-modal__close" title="Close" aria-label="Close modal">&times;</button>
             </div>

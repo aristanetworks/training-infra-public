@@ -241,48 +241,53 @@ class TestCreateFirewall:
 
         os.makedirs(os.path.join(temp_dir, 'firewall'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('firewall_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('firewall_manager.get_firewall_count', return_value=0):
-                with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
 
-                    with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
+                        with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('firewall_manager.generate_bridge_name') as mock_bridge:
-                                mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
+                                with patch('firewall_manager.generate_bridge_name') as mock_bridge:
+                                    mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
 
-                                with patch('firewall_manager.create_ovs_bridge'):
-                                    with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            mock_attach.return_value = Mock(
-                                                reused_slot=False,
-                                                target_device='leaf1'
-                                            )
-
-                                            with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
-                                                mock_mutex.return_value = ([], ['leaf1', 'spine1'])
-
-                                                result = create_firewall(
-                                                    name='test-fw',
-                                                    mgmt_ip='192.168.0.50',
-                                                    inside_interface={
-                                                        'target_device': 'leaf1'
-                                                    },
-                                                    outside_interface={
-                                                        'target_device': 'spine1'
-                                                    }
+                                    with patch('firewall_manager.create_ovs_bridge'):
+                                        with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                mock_attach.return_value = Mock(
+                                                    reused_slot=False,
+                                                    target_device='leaf1'
                                                 )
 
-                                                assert result['status'] == 'created'
-                                                assert result['name'] == 'test-fw'
-                                                assert result['mgmt_ip'] == '192.168.0.50'
-                                                # IPs are no longer in the result
-                                                assert result['inside_interface']['target_device'] == 'leaf1'
-                                                assert result['outside_interface']['target_device'] == 'spine1'
+                                                with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
+                                                    mock_mutex.return_value = ([], ['leaf1', 'spine1'])
+
+                                                    result = create_firewall(
+                                                        name='test-fw',
+                                                        mgmt_ip='192.168.0.50',
+                                                        inside_interface={
+                                                            'target_device': 'leaf1'
+                                                        },
+                                                        outside_interface={
+                                                            'target_device': 'spine1'
+                                                        }
+                                                    )
+
+                                                    assert result['status'] == 'created'
+                                                    assert result['name'] == 'test-fw'
+                                                    assert result['mgmt_ip'] == '192.168.0.50'
+                                                    # IPs are no longer in the result
+                                                    assert result['inside_interface']['target_device'] == 'leaf1'
+                                                    assert result['outside_interface']['target_device'] == 'spine1'
 
     def test_create_firewall_missing_inside_device(self):
         """Test creation fails when inside target device is missing."""
@@ -580,46 +585,51 @@ class TestSlotReuse:
 
         os.makedirs(os.path.join(temp_dir, 'firewall'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('firewall_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('firewall_manager.get_firewall_count', return_value=0):
-                with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
 
-                    with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
+                        with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('firewall_manager.generate_bridge_name') as mock_bridge:
-                                mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
+                                with patch('firewall_manager.generate_bridge_name') as mock_bridge:
+                                    mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
 
-                                with patch('firewall_manager.create_ovs_bridge'):
-                                    with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            # Both interfaces don't reuse slots
-                                            mock_attach.side_effect = [
-                                                Mock(reused_slot=False, target_device='leaf1'),
-                                                Mock(reused_slot=False, target_device='spine1')
-                                            ]
+                                    with patch('firewall_manager.create_ovs_bridge'):
+                                        with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                # Both interfaces don't reuse slots
+                                                mock_attach.side_effect = [
+                                                    Mock(reused_slot=False, target_device='leaf1'),
+                                                    Mock(reused_slot=False, target_device='spine1')
+                                                ]
 
-                                            with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
-                                                mock_mutex.return_value = ([], ['leaf1', 'spine1'])
+                                                with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
+                                                    mock_mutex.return_value = ([], ['leaf1', 'spine1'])
 
-                                                result = create_firewall(
-                                                    name='test-fw',
-                                                    mgmt_ip='192.168.0.50',
-                                                    inside_interface={
-                                                        'target_device': 'leaf1'
-                                                    },
-                                                    outside_interface={
-                                                        'target_device': 'spine1'
-                                                    }
-                                                )
+                                                    result = create_firewall(
+                                                        name='test-fw',
+                                                        mgmt_ip='192.168.0.50',
+                                                        inside_interface={
+                                                            'target_device': 'leaf1'
+                                                        },
+                                                        outside_interface={
+                                                            'target_device': 'spine1'
+                                                        }
+                                                    )
 
-                                                assert result['targets_reused_slots'] == []
-                                                assert 'leaf1' in result['targets_need_reboot']
-                                                assert 'spine1' in result['targets_need_reboot']
+                                                    assert result['targets_reused_slots'] == []
+                                                    assert 'leaf1' in result['targets_need_reboot']
+                                                    assert 'spine1' in result['targets_need_reboot']
 
     def test_firewall_mutual_exclusivity_applied(self, temp_dir):
         """Test that mutual exclusivity removes duplicates correctly."""
@@ -627,46 +637,51 @@ class TestSlotReuse:
 
         os.makedirs(os.path.join(temp_dir, 'firewall'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('firewall_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('firewall_manager.get_firewall_count', return_value=0):
-                with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('firewall_manager.copy_firewall_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/firewall/test-fw.qcow2'
 
-                    with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
+                        with patch('firewall_manager.generate_vyos_cloud_init') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/firewall/test-fw-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('firewall_manager.generate_bridge_name') as mock_bridge:
-                                mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
+                                with patch('firewall_manager.generate_bridge_name') as mock_bridge:
+                                    mock_bridge.side_effect = ['inside-bridge', 'outside-bridge']
 
-                                with patch('firewall_manager.create_ovs_bridge'):
-                                    with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            # Same device for both interfaces, one reuses slot, one doesn't
-                                            mock_attach.side_effect = [
-                                                Mock(reused_slot=True, target_device='leaf1'),  # Inside
-                                                Mock(reused_slot=False, target_device='leaf1')  # Outside
-                                            ]
+                                    with patch('firewall_manager.create_ovs_bridge'):
+                                        with patch('firewall_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                # Same device for both interfaces, one reuses slot, one doesn't
+                                                mock_attach.side_effect = [
+                                                    Mock(reused_slot=True, target_device='leaf1'),  # Inside
+                                                    Mock(reused_slot=False, target_device='leaf1')  # Outside
+                                                ]
 
-                                            with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
-                                                # Device needs reboot because one interface didn't reuse
-                                                mock_mutex.return_value = ([], ['leaf1'])
+                                                with patch('slot_reuse.apply_mutual_exclusivity') as mock_mutex:
+                                                    # Device needs reboot because one interface didn't reuse
+                                                    mock_mutex.return_value = ([], ['leaf1'])
 
-                                                result = create_firewall(
-                                                    name='test-fw',
-                                                    mgmt_ip='192.168.0.50',
-                                                    inside_interface={
-                                                        'target_device': 'leaf1',
-                                                        'target_port': 'Ethernet5'
-                                                    },
-                                                    outside_interface={
-                                                        'target_device': 'leaf1',
-                                                        'target_port': 'Ethernet6'
-                                                    }
-                                                )
+                                                    result = create_firewall(
+                                                        name='test-fw',
+                                                        mgmt_ip='192.168.0.50',
+                                                        inside_interface={
+                                                            'target_device': 'leaf1',
+                                                            'target_port': 'Ethernet5'
+                                                        },
+                                                        outside_interface={
+                                                            'target_device': 'leaf1',
+                                                            'target_port': 'Ethernet6'
+                                                        }
+                                                    )
 
-                                                # Device should only appear in need_reboot, not reused_slots
-                                                assert result['targets_reused_slots'] == []
-                                                assert result['targets_need_reboot'] == ['leaf1']
+                                                    # Device should only appear in need_reboot, not reused_slots
+                                                    assert result['targets_reused_slots'] == []
+                                                    assert result['targets_need_reboot'] == ['leaf1']

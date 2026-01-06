@@ -445,3 +445,185 @@
         min-width: 100px;
     }
 }
+
+/* ===========================================
+   Form Elements
+   =========================================== */
+
+.atd-modal__select {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+    width: 100%;
+}
+
+.atd-modal--dark .atd-modal__select {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+}
+
+.atd-modal--dark .atd-modal__select:hover:not(:disabled) {
+    border-color: #666;
+}
+
+.atd-modal--dark .atd-modal__select:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.atd-modal--light .atd-modal__select {
+    background: #fff;
+    border: 1px solid #ccc;
+    color: #333;
+}
+
+.atd-modal--light .atd-modal__select:hover:not(:disabled) {
+    border-color: #999;
+}
+
+.atd-modal--light .atd-modal__select:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.atd-modal__input {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    width: 100%;
+}
+
+.atd-modal--dark .atd-modal__input {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+}
+
+.atd-modal--dark .atd-modal__input:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.atd-modal--light .atd-modal__input {
+    background: #fff;
+    border: 1px solid #ccc;
+    color: #333;
+}
+
+.atd-modal--light .atd-modal__input:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+/* Small button variant */
+.atd-modal__btn--small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* ===========================================
+   Edit Connections Dialog (Dark Theme)
+   =========================================== */
+
+.edit-connections-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.atd-modal--dark .edit-section h4 {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.atd-modal--dark .connections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.atd-modal--dark .connection-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.atd-modal--dark .connection-info {
+    color: #ddd;
+    font-size: 14px;
+}
+
+.atd-modal--dark .connection-info strong {
+    color: #fff;
+}
+
+.atd-modal--dark .no-connections {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+    background: #2a2a2a;
+    border-radius: 6px;
+}
+
+.atd-modal--dark .add-connection-form {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.atd-modal--dark .add-connection-form .atd-modal__select {
+    flex: 1;
+}
+
+/* ===========================================
+   Custom Header Themes
+   Higher specificity to override base header styles without !important
+   =========================================== */
+
+/* Edit modal header - teal/cyan gradient */
+.atd-modal--dark .atd-modal__header.atd-modal__header--edit,
+.atd-modal--light .atd-modal__header.atd-modal__header--edit {
+    background: linear-gradient(135deg, #1a5f5f 0%, #0d3d3d 100%);
+    border-bottom-color: #0d3d3d;
+}
+
+/* Reset/Danger modal header - bright red gradient */
+.atd-modal--dark .atd-modal__header.atd-modal__header--danger,
+.atd-modal--light .atd-modal__header.atd-modal__header--danger {
+    background: linear-gradient(135deg, #c0392b 0%, #8e2420 100%);
+    border-bottom-color: #8e2420;
+}
+
+/* Warning modal header - orange gradient */
+.atd-modal--dark .atd-modal__header.atd-modal__header--warning,
+.atd-modal--light .atd-modal__header.atd-modal__header--warning {
+    background: linear-gradient(135deg, #e67e22 0%, #c0601a 100%);
+    border-bottom-color: #c0601a;
+}
+
+/* Success modal header - green gradient */
+.atd-modal--dark .atd-modal__header.atd-modal__header--success,
+.atd-modal--light .atd-modal__header.atd-modal__header--success {
+    background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+    border-bottom-color: #1e8449;
+}
+
+/* Info modal header - blue gradient */
+.atd-modal--dark .atd-modal__header.atd-modal__header--info,
+.atd-modal--light .atd-modal__header.atd-modal__header--info {
+    background: linear-gradient(135deg, #2980b9 0%, #1a5276 100%);
+    border-bottom-color: #1a5276;
+}

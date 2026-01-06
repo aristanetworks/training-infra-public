@@ -538,6 +538,16 @@ def create_host(
             f"Maximum of {MAX_HOSTS_PER_TOPOLOGY} hosts per topology reached"
         )
 
+    # Check if VM already exists in libvirt (orphaned from failed delete)
+    from resource_manager import get_resource_manager
+    resource_mgr = get_resource_manager()
+    if resource_mgr.vm_exists(name):
+        raise RuntimeError(
+            f"VM '{name}' already exists in libvirt. This may be an orphaned VM "
+            f"from a previous failed deletion. Please manually run 'virsh undefine {name}' "
+            f"to clean it up."
+        )
+
     # x11vnc inside VM always uses port 5900
     # noVNC connects to mgmt_ip:5900 for desktop access
     x11vnc_port = 5900

@@ -1440,7 +1440,7 @@ class ResourceManager:
         except Exception as e:
             self.logger.warning(f"Failed to destroy VM {vm_name}: {e}")
 
-        # Step 2: Undefine VM
+        # Step 2: Undefine VM (CRITICAL - must succeed to remove from persistence)
         try:
             proc = subprocess.run(
                 ['virsh', 'undefine', vm_name],
@@ -1450,11 +1450,21 @@ class ResourceManager:
             )
             result['vm_undefined'] = proc.returncode == 0
             if proc.returncode != 0:
-                result['errors'].append(f"Undefine failed: {proc.stderr}")
+                error_msg = f"Failed to undefine VM '{vm_name}': {proc.stderr.strip()}"
+                self.logger.error(error_msg)
+                # This is a critical failure - VM still exists in libvirt
+                raise RuntimeError(error_msg)
+        except subprocess.TimeoutExpired as e:
+            error_msg = f"Timeout undefining VM '{vm_name}': {e}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        except RuntimeError:
+            # Re-raise our own RuntimeError
+            raise
         except Exception as e:
-            error_msg = f"Failed to undefine VM {vm_name}: {e}"
-            self.logger.warning(error_msg)
-            result['errors'].append(error_msg)
+            error_msg = f"Failed to undefine VM '{vm_name}': {e}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         # Step 3: Delete disk image
         disk_path = f'{LIBVIRT_IMAGES_PATH}/{disk_subdir}/{vm_name}.qcow2'

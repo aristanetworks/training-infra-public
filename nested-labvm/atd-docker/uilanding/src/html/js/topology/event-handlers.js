@@ -526,12 +526,13 @@ export class EventManager {
      * Includes reboot prompt for affected target devices.
      */
     async showEditConnectionsDialog(nodeName) {
-        // Create modal using BaseModal
+        // Create modal using BaseModal with edit header theme
         const modal = new BaseModal({
             id: 'edit-connections-modal',
             title: `Edit Connections - ${nodeName}`,
             theme: BaseModal.THEMES.DARK,
-            size: BaseModal.SIZES.MEDIUM
+            size: BaseModal.SIZES.MEDIUM,
+            headerTheme: BaseModal.HEADER_THEMES.EDIT
         });
 
         modal.show();
@@ -3009,12 +3010,13 @@ export class EventManager {
      * Requires checkbox confirmation before allowing reset
      */
     async showResetConfirmation() {
-        // Create modal using BaseModal
+        // Create modal using BaseModal with danger header theme
         const modal = new BaseModal({
             id: 'reset-all-modal',
             title: 'Reset All User Nodes',
             size: 'medium',
-            theme: 'dark'
+            theme: 'dark',
+            headerTheme: BaseModal.HEADER_THEMES.DANGER
         });
 
         modal.show();

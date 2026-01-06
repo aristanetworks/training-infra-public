@@ -332,37 +332,42 @@ class TestCreateVeloDevice:
         with open(source_image, 'w') as f:
             f.write('fake image')
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('velo_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('velo_manager.is_velo_enabled', return_value=True):
                 with patch('velo_manager.get_velo_device_count', return_value=0):
-                    with patch('velo_manager.copy_velo_base_image') as mock_copy:
-                        mock_copy.return_value = [{'path': f'{temp_dir}/velo/test-edge.qcow2', 'target': 'vda', 'name': 'primary'}]
+                    with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                        with patch('velo_manager.copy_velo_base_image') as mock_copy:
+                            mock_copy.return_value = [{'path': f'{temp_dir}/velo/test-edge.qcow2', 'target': 'vda', 'name': 'primary'}]
 
-                        with patch('velo_manager.generate_velo_cloud_init') as mock_cloudinit:
-                            mock_cloudinit.return_value = f'{temp_dir}/velo/test-edge-cidata.iso'
+                            with patch('velo_manager.generate_velo_cloud_init') as mock_cloudinit:
+                                mock_cloudinit.return_value = f'{temp_dir}/velo/test-edge-cidata.iso'
 
-                            with patch('subprocess.run') as mock_run:
-                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                                with patch('subprocess.run') as mock_run:
+                                    mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                                with patch('velo_manager.generate_bridge_name', return_value='test-bridge'):
-                                    with patch('velo_manager.create_ovs_bridge'):
-                                        with patch('velo_manager.find_next_available_port', return_value='Ethernet3'):
-                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                                mock_attach.return_value = Mock(
-                                                    reused_slot=False,
-                                                    target_device='spine1'
-                                                )
+                                    with patch('velo_manager.generate_bridge_name', return_value='test-bridge'):
+                                        with patch('velo_manager.create_ovs_bridge'):
+                                            with patch('velo_manager.find_next_available_port', return_value='Ethernet3'):
+                                                with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                    mock_attach.return_value = Mock(
+                                                        reused_slot=False,
+                                                        target_device='spine1'
+                                                    )
 
-                                                result = create_velo_device(
-                                                    name='test-edge',
-                                                    device_type='edge',
-                                                    mgmt_ip='192.168.0.50',
-                                                    connections=[{'target_device': 'spine1'}]
-                                                )
+                                                    result = create_velo_device(
+                                                        name='test-edge',
+                                                        device_type='edge',
+                                                        mgmt_ip='192.168.0.50',
+                                                        connections=[{'target_device': 'spine1'}]
+                                                    )
 
-                                                assert result['status'] == 'created'
-                                                assert result['name'] == 'test-edge'
-                                                assert result['device_type'] == 'edge'
+                                                    assert result['status'] == 'created'
+                                                    assert result['name'] == 'test-edge'
+                                                    assert result['device_type'] == 'edge'
 
     def test_create_exceeds_limit(self):
         """Test creation fails when limit exceeded."""

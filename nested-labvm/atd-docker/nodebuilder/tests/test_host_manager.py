@@ -264,35 +264,40 @@ class TestCreateHost:
         with open(source_image, 'w') as f:
             f.write('fake image')
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('host_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('host_manager.get_host_count', return_value=0):
-                with patch('host_manager.copy_host_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('host_manager.copy_host_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
 
-                    with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
+                        with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
-                                with patch('host_manager.create_ovs_bridge'):
-                                    with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            mock_attach.return_value = Mock(
-                                                reused_slot=False,
-                                                target_device='leaf1'
-                                            )
+                                with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
+                                    with patch('host_manager.create_ovs_bridge'):
+                                        with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                mock_attach.return_value = Mock(
+                                                    reused_slot=False,
+                                                    target_device='leaf1'
+                                                )
 
-                                            result = create_host(
-                                                name='test-host',
-                                                mgmt_ip='192.168.0.50',
-                                                connection={'target_device': 'leaf1'}
-                                            )
+                                                result = create_host(
+                                                    name='test-host',
+                                                    mgmt_ip='192.168.0.50',
+                                                    connection={'target_device': 'leaf1'}
+                                                )
 
-                                            assert result['status'] == 'created'
-                                            assert result['name'] == 'test-host'
-                                            assert result['mgmt_ip'] == '192.168.0.50'
+                                                assert result['status'] == 'created'
+                                                assert result['name'] == 'test-host'
+                                                assert result['mgmt_ip'] == '192.168.0.50'
 
     def test_create_host_with_data_ip(self, temp_dir):
         """Test host creation with data interface IP."""
@@ -300,35 +305,40 @@ class TestCreateHost:
 
         os.makedirs(os.path.join(temp_dir, 'hosts'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('host_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('host_manager.get_host_count', return_value=0):
-                with patch('host_manager.copy_host_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('host_manager.copy_host_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
 
-                    with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
+                        with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
-                                with patch('host_manager.create_ovs_bridge'):
-                                    with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            mock_attach.return_value = Mock(
-                                                reused_slot=True,
-                                                target_device='leaf1'
-                                            )
+                                with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
+                                    with patch('host_manager.create_ovs_bridge'):
+                                        with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                mock_attach.return_value = Mock(
+                                                    reused_slot=True,
+                                                    target_device='leaf1'
+                                                )
 
-                                            result = create_host(
-                                                name='test-host',
-                                                mgmt_ip='192.168.0.50',
-                                                connection={'target_device': 'leaf1'},
-                                                data_ip='10.1.1.100/24'
-                                            )
+                                                result = create_host(
+                                                    name='test-host',
+                                                    mgmt_ip='192.168.0.50',
+                                                    connection={'target_device': 'leaf1'},
+                                                    data_ip='10.1.1.100/24'
+                                                )
 
-                                            assert result['status'] == 'created'
-                                            assert result['data_ip'] == '10.1.1.100/24'
+                                                assert result['status'] == 'created'
+                                                assert result['data_ip'] == '10.1.1.100/24'
 
     def test_create_host_exceeds_limit(self):
         """Test creation fails when limit exceeded."""
@@ -563,35 +573,40 @@ class TestSlotReuse:
 
         os.makedirs(os.path.join(temp_dir, 'hosts'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('host_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('host_manager.get_host_count', return_value=0):
-                with patch('host_manager.copy_host_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('host_manager.copy_host_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
 
-                    with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
+                        with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
-                                with patch('host_manager.create_ovs_bridge'):
-                                    with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            # Simulate reusing a slot
-                                            mock_attach.return_value = Mock(
-                                                reused_slot=True,
-                                                target_device='leaf1'
-                                            )
+                                with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
+                                    with patch('host_manager.create_ovs_bridge'):
+                                        with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                # Simulate reusing a slot
+                                                mock_attach.return_value = Mock(
+                                                    reused_slot=True,
+                                                    target_device='leaf1'
+                                                )
 
-                                            result = create_host(
-                                                name='test-host',
-                                                mgmt_ip='192.168.0.50',
-                                                connection={'target_device': 'leaf1'}
-                                            )
+                                                result = create_host(
+                                                    name='test-host',
+                                                    mgmt_ip='192.168.0.50',
+                                                    connection={'target_device': 'leaf1'}
+                                                )
 
-                                            assert 'leaf1' in result['targets_reused_slots']
-                                            assert 'leaf1' not in result['targets_need_reboot']
+                                                assert 'leaf1' in result['targets_reused_slots']
+                                                assert 'leaf1' not in result['targets_need_reboot']
 
     def test_host_reports_need_reboot(self, temp_dir):
         """Test that host creation reports devices needing reboot."""
@@ -599,32 +614,37 @@ class TestSlotReuse:
 
         os.makedirs(os.path.join(temp_dir, 'hosts'), exist_ok=True)
 
+        # Mock get_resource_manager to return a mock with vm_exists=False
+        mock_resource_mgr = Mock()
+        mock_resource_mgr.vm_exists.return_value = False
+
         with patch('host_manager.LIBVIRT_IMAGES_PATH', temp_dir):
             with patch('host_manager.get_host_count', return_value=0):
-                with patch('host_manager.copy_host_base_image') as mock_copy:
-                    mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
+                with patch('resource_manager.get_resource_manager', return_value=mock_resource_mgr):
+                    with patch('host_manager.copy_host_base_image') as mock_copy:
+                        mock_copy.return_value = f'{temp_dir}/hosts/test-host.qcow2'
 
-                    with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
-                        mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
+                        with patch('host_manager.generate_cloud_init_iso') as mock_cloudinit:
+                            mock_cloudinit.return_value = f'{temp_dir}/hosts/test-host-cidata.iso'
 
-                        with patch('subprocess.run') as mock_run:
-                            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
+                            with patch('subprocess.run') as mock_run:
+                                mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
 
-                            with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
-                                with patch('host_manager.create_ovs_bridge'):
-                                    with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
-                                        with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
-                                            # Simulate NOT reusing a slot
-                                            mock_attach.return_value = Mock(
-                                                reused_slot=False,
-                                                target_device='leaf1'
-                                            )
+                                with patch('host_manager.generate_bridge_name', return_value='test-bridge'):
+                                    with patch('host_manager.create_ovs_bridge'):
+                                        with patch('host_manager.find_next_available_port', return_value='Ethernet5'):
+                                            with patch('slot_reuse.attach_interface_with_slot_reuse') as mock_attach:
+                                                # Simulate NOT reusing a slot
+                                                mock_attach.return_value = Mock(
+                                                    reused_slot=False,
+                                                    target_device='leaf1'
+                                                )
 
-                                            result = create_host(
-                                                name='test-host',
-                                                mgmt_ip='192.168.0.50',
-                                                connection={'target_device': 'leaf1'}
-                                            )
+                                                result = create_host(
+                                                    name='test-host',
+                                                    mgmt_ip='192.168.0.50',
+                                                    connection={'target_device': 'leaf1'}
+                                                )
 
-                                            assert 'leaf1' not in result['targets_reused_slots']
-                                            assert 'leaf1' in result['targets_need_reboot']
+                                                assert 'leaf1' not in result['targets_reused_slots']
+                                                assert 'leaf1' in result['targets_need_reboot']

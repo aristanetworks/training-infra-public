@@ -373,6 +373,16 @@ def create_veos_node(
     """
     logger.info(f"Creating vEOS node: {name} (IP: {ip}, MAC: {mac})")
 
+    # Check if VM already exists in libvirt (orphaned from failed delete)
+    from resource_manager import get_resource_manager
+    resource_mgr = get_resource_manager()
+    if resource_mgr.vm_exists(name):
+        raise RuntimeError(
+            f"VM '{name}' already exists in libvirt. This may be an orphaned VM "
+            f"from a previous failed deletion. Please manually run 'virsh undefine {name}' "
+            f"to clean it up."
+        )
+
     with ResourceTransaction(name, device_type='node') as txn:
         # Step 1: Copy base image
         logger.info(f"Copying base image for {name}")
