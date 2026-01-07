@@ -47,6 +47,7 @@ from interface_manager import (
     generate_bridge_name,
     find_next_available_port
 )
+from bridge_utils import generate_interface_target_name
 from connection_manager import process_connection_for_creation
 from resource_manager import ResourceTransaction
 
@@ -603,9 +604,10 @@ def generate_velo_xml(
 
     # Add management interface (eth0 -> vmgmt)
     # PCI slot 0x03 for mgmt
+    # Use generate_interface_target_name to ensure name fits 15-char Linux limit
     mgmt_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
     ET.SubElement(mgmt_int, 'source', attrib={'bridge': MGMT_BRIDGE})
-    ET.SubElement(mgmt_int, 'target', attrib={'dev': f'{name}_mgmt'})
+    ET.SubElement(mgmt_int, 'target', attrib={'dev': generate_interface_target_name(name, 'mgmt')})
     ET.SubElement(mgmt_int, 'model', attrib={'type': 'virtio'})
     ET.SubElement(mgmt_int, 'address', attrib={
         'type': 'pci',
@@ -625,7 +627,8 @@ def generate_velo_xml(
             if bridge:
                 data_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
                 ET.SubElement(data_int, 'source', attrib={'bridge': bridge})
-                ET.SubElement(data_int, 'target', attrib={'dev': f'{name}_{local_port}'})
+                # Use generate_interface_target_name to ensure name fits 15-char Linux limit
+                ET.SubElement(data_int, 'target', attrib={'dev': generate_interface_target_name(name, local_port)})
                 ET.SubElement(data_int, 'model', attrib={'type': 'virtio'})
                 ET.SubElement(data_int, 'virtualport', attrib={'type': 'openvswitch'})
                 ET.SubElement(data_int, 'address', attrib={

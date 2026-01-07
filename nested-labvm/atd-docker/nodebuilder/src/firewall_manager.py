@@ -38,6 +38,7 @@ from interface_manager import (
     update_interface_bridge,
     extract_port_number
 )
+from bridge_utils import generate_interface_target_name
 from connection_manager import process_connection_for_creation
 from resource_manager import ResourceTransaction
 
@@ -266,9 +267,10 @@ def generate_firewall_xml(
     ET.SubElement(cdrom, 'readonly')
 
     # Add eth0: Management interface (vmgmt bridge)
+    # Use generate_interface_target_name to ensure name fits 15-char Linux limit
     mgmt_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
     ET.SubElement(mgmt_int, 'source', attrib={'bridge': MGMT_BRIDGE})
-    ET.SubElement(mgmt_int, 'target', attrib={'dev': f'{name}_mgmt'})
+    ET.SubElement(mgmt_int, 'target', attrib={'dev': generate_interface_target_name(name, 'mgmt')})
     ET.SubElement(mgmt_int, 'model', attrib={'type': 'virtio'})
     ET.SubElement(mgmt_int, 'address', attrib={
         'type': 'pci',

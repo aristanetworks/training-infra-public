@@ -218,6 +218,72 @@ def generate_bridge_name(
     return bridge_name
 
 
+def generate_interface_target_name(vm_name: str, suffix: str) -> str:
+    """
+    Generate a safe interface target name for libvirt VM definitions.
+
+    Linux interface names are limited to 15 characters (IFNAMSIZ - 1).
+    This function ensures the generated name fits within that limit.
+
+    Format: {shortened_vm_name}_{suffix}
+    If too long, truncates vm_name and adds hash for uniqueness.
+
+    Examples:
+        ('leaf1', 'mgmt') -> 'leaf1_mgmt' (10 chars, OK)
+        ('orchestrator1', 'mgmt') -> 'orch1_m_a1b2' (12 chars, truncated)
+        ('edge1', 'transport1') -> 'edge1_t1' (8 chars, OK)
+
+    Args:
+        vm_name: Name of the VM
+        suffix: Interface suffix (e.g., 'mgmt', 'eth1', 'transport1')
+
+    Returns:
+        Interface target name (max 15 chars)
+    """
+    MAX_IFACE_LEN = 15
+
+    # Shorten common suffixes
+    suffix_map = {
+        'mgmt': 'm',
+        'management': 'm',
+        'transport1': 't1',
+        'transport2': 't2',
+        'ethernet1': 'e1',
+        'ethernet2': 'e2',
+        'ethernet3': 'e3',
+        'ethernet4': 'e4',
+        'ethernet5': 'e5',
+        'ethernet6': 'e6',
+        'ethernet7': 'e7',
+        'ethernet8': 'e8',
+    }
+
+    short_suffix = suffix_map.get(suffix.lower(), suffix.lower())
+
+    # Try full name first
+    full_name = f"{vm_name}_{short_suffix}"
+
+    if len(full_name) <= MAX_IFACE_LEN:
+        return full_name
+
+    # Need to truncate - use first part of vm_name + hash + suffix
+    # Format: {truncated_name}_{suffix}_{hash}
+    # Reserve space for: underscore + suffix + underscore + 4-char hash
+    hash_suffix = hashlib.md5(full_name.encode()).hexdigest()[:4]
+    suffix_part = f"_{short_suffix}_{hash_suffix}"
+    available_for_name = MAX_IFACE_LEN - len(suffix_part)
+
+    if available_for_name < 2:
+        # Extreme case - just use hash
+        return f"vm_{hash_suffix}"
+
+    truncated_name = vm_name[:available_for_name]
+    result = f"{truncated_name}{suffix_part}"
+
+    logger.debug(f"Interface target truncated: {full_name} -> {result}")
+    return result
+
+
 # =============================================================================
 # BRIDGE NAME PARSING
 # =============================================================================
