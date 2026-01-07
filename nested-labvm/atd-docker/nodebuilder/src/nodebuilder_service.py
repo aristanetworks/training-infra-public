@@ -2113,11 +2113,28 @@ async def add_velo_device(request):
                 return web.json_response({'error': error}, status=400)
 
             # Validate management IP is available
-            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
-            if not any(entry['ip'] == mgmt_ip for entry in available):
-                return web.json_response({
-                    'error': f'Management IP {mgmt_ip} is not available or already in use'
-                }, status=400)
+            # VeloCloud Orchestrator uses a fixed reserved IP (192.168.0.6)
+            # which is excluded from the normal available pool
+            from config import VELO_ORCHESTRATOR_MGMT_IP
+            if device_type.lower() == 'orchestrator' and mgmt_ip == VELO_ORCHESTRATOR_MGMT_IP:
+                # For orchestrator with fixed IP, just check it's not already in use
+                # by an existing orchestrator
+                from persistence import list_user_velo_devices
+                existing_velo = list_user_velo_devices(USER_VELO_PATH)
+                for velo_entry in existing_velo:
+                    if isinstance(velo_entry, dict):
+                        for _, info in velo_entry.items():
+                            if info.get('mgmt_ip') == mgmt_ip and info.get('status') == 'active':
+                                return web.json_response({
+                                    'error': f'Management IP {mgmt_ip} is already in use by another orchestrator'
+                                }, status=400)
+            else:
+                # Normal IP validation for edge/gateway devices
+                available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+                if not any(entry['ip'] == mgmt_ip for entry in available):
+                    return web.json_response({
+                        'error': f'Management IP {mgmt_ip} is not available or already in use'
+                    }, status=400)
 
             logger.info(f"Creating VeloCloud {device_type}: {name} (Mgmt IP: {mgmt_ip})")
 

@@ -276,6 +276,9 @@ VELO_EDGE_WAN_PORTS = ['eth1', 'eth2', 'eth3']
 VELO_EDGE_LAN_PORT = 'eth4'
 VELO_GATEWAY_TRANSPORT_PORTS = ['eth1', 'eth2']
 VELO_ORCHESTRATOR_DATA_PORT = 'eth1'
+# Fixed management IP for VeloCloud Orchestrator
+# Reserved in the 192.168.0.x management subnet (CVP uses .5)
+VELO_ORCHESTRATOR_MGMT_IP = '192.168.0.6'
 
 
 # Orphaned interfaces persistence (for interface slot preservation)
