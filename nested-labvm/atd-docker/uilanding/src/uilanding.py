@@ -1245,6 +1245,7 @@ class TopologyAPIHandler(BaseHandler):
     _user_nodes_mtime = 0
     _user_hosts_mtime = 0
     _user_firewalls_mtime = 0
+    _user_velo_mtime = 0
 
     @staticmethod
     def classify_device_type(device_name):
@@ -1677,6 +1678,44 @@ class TopologyAPIHandler(BaseHandler):
         except Exception as e:
             pS(f"Warning: Error loading user_firewalls.yaml: {e}")
 
+        # Merge user-added VeloCloud devices from user_velo.yaml
+        user_velo_path = '/etc/atd/user_velo.yaml'
+        try:
+            if os.path.exists(user_velo_path):
+                with open(user_velo_path, 'r') as f:
+                    velo_data = YAML().load(f)
+                if velo_data and 'devices' in velo_data and velo_data['devices']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert VeloCloud devices to node format for topology
+                    for velo_entry in velo_data['devices']:
+                        if isinstance(velo_entry, dict):
+                            for name, info in velo_entry.items():
+                                device_type = info.get('device_type', 'edge')
+                                # Create node entry with velo_* device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', 'N/A'),
+                                    'device_type': f'velo_{device_type}',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                # Add connections as neighbors for edge drawing
+                                connections = info.get('connections', [])
+                                for conn in connections:
+                                    target = conn.get('target_device', '')
+                                    if target:
+                                        node_info['neighbors'].append({
+                                            'neighborDevice': target,
+                                            'neighborPort': conn.get('target_port', ''),
+                                            'port': conn.get('local_port', '')
+                                        })
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices from {user_velo_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_velo.yaml: {e}")
+
         # Validate topo_data structure
         if topo_data is None:
             return {'error': 'Topology file is empty', 'error_type': 'empty_file'}
@@ -1873,10 +1912,12 @@ class TopologyAPIHandler(BaseHandler):
             user_nodes_path = '/etc/atd/user_nodes.yaml'
             user_hosts_path = '/etc/atd/user_hosts.yaml'
             user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+            user_velo_path = '/etc/atd/user_velo.yaml'
 
             user_nodes_mtime = os.path.getmtime(user_nodes_path) if os.path.exists(user_nodes_path) else 0
             user_hosts_mtime = os.path.getmtime(user_hosts_path) if os.path.exists(user_hosts_path) else 0
             user_firewalls_mtime = os.path.getmtime(user_firewalls_path) if os.path.exists(user_firewalls_path) else 0
+            user_velo_mtime = os.path.getmtime(user_velo_path) if os.path.exists(user_velo_path) else 0
 
             # Thread-safe cache check - invalidate if any user file changed
             with TopologyAPIHandler._cache_lock:
@@ -1885,7 +1926,8 @@ class TopologyAPIHandler(BaseHandler):
                     current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL and
                     user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime and
                     user_hosts_mtime <= TopologyAPIHandler._user_hosts_mtime and
-                    user_firewalls_mtime <= TopologyAPIHandler._user_firewalls_mtime
+                    user_firewalls_mtime <= TopologyAPIHandler._user_firewalls_mtime and
+                    user_velo_mtime <= TopologyAPIHandler._user_velo_mtime
                 )
                 if cache_valid:
                     self.write(json.dumps(TopologyAPIHandler._cache))
@@ -1916,6 +1958,7 @@ class TopologyAPIHandler(BaseHandler):
                 TopologyAPIHandler._user_nodes_mtime = user_nodes_mtime
                 TopologyAPIHandler._user_hosts_mtime = user_hosts_mtime
                 TopologyAPIHandler._user_firewalls_mtime = user_firewalls_mtime
+                TopologyAPIHandler._user_velo_mtime = user_velo_mtime
 
             self.write(json.dumps(topology_data))
 

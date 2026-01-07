@@ -666,15 +666,17 @@ class ResourceManager:
 
     def reset_all_user_nodes(self) -> Dict:
         """
-        Fully reset all user-added nodes, hosts, and firewalls.
+        Fully reset all user-added nodes, hosts, firewalls, and VeloCloud devices.
 
         This removes all user-added devices and restores the topology to its
         original state. Operations performed:
         1. Delete all user-added vEOS nodes
         2. Delete all user-added Linux hosts
         3. Delete all user-added VyOS firewalls
-        4. Clean up any orphaned OVS bridges
-        5. Clear persistence files
+        4. Delete all user-added VeloCloud devices
+        5. Clean up any orphaned OVS bridges
+        6. Clear persistence files
+        7. Clear orphaned interface slots
 
         Returns:
             Dict with detailed reset results
@@ -802,9 +804,54 @@ class ResourceManager:
                         'error': str(e)
                     })
 
-        # Phase 4: Clean up any orphaned OVS bridges (user-created)
+        # Phase 4: Delete all user-added VeloCloud devices
+        self.logger.info("Phase 4: Deleting user-added VeloCloud devices")
+        from persistence import list_user_velo_devices, remove_user_velo_device
+        from config import USER_VELO_PATH
+        from velo_manager import delete_velo_device
+
+        successfully_deleted_velo = []
+        results['velo_deleted'] = []
+
+        try:
+            velo_devices = list_user_velo_devices(USER_VELO_PATH)
+            for velo_entry in velo_devices:
+                if isinstance(velo_entry, dict):
+                    for velo_name, velo_info in velo_entry.items():
+                        try:
+                            # Track affected target devices
+                            for conn in velo_info.get('connections', []):
+                                target = conn.get('target_device', '')
+                                if target:
+                                    results['affected_devices'].add(target)
+
+                            # Delete the VeloCloud device
+                            delete_result = delete_velo_device(velo_name)
+                            delete_status = delete_result.get('status', 'unknown')
+                            results['velo_deleted'].append({
+                                'name': velo_name,
+                                'status': delete_status
+                            })
+                            if delete_status in ('deleted', 'success', 'completed'):
+                                successfully_deleted_velo.append(velo_name)
+                            self.logger.info(f"Deleted user VeloCloud device: {velo_name}")
+                        except Exception as e:
+                            self.logger.error(f"Failed to delete VeloCloud device {velo_name}: {e}")
+                            results['errors'].append({
+                                'type': 'velocloud',
+                                'name': velo_name,
+                                'error': str(e)
+                            })
+        except Exception as e:
+            self.logger.error(f"Failed to load VeloCloud devices: {e}")
+            results['errors'].append({
+                'type': 'velocloud_load',
+                'error': str(e)
+            })
+
+        # Phase 5: Clean up any orphaned OVS bridges (user-created)
         # Uses enhanced cleanup with port-count detection
-        self.logger.info("Phase 4: Cleaning up orphaned OVS bridges")
+        self.logger.info("Phase 5: Cleaning up orphaned OVS bridges")
         try:
             cleanup_result = self.cleanup_all_orphaned_bridges()
             results['bridges_cleaned'] = cleanup_result.get('deleted', [])
@@ -815,9 +862,9 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 5: Remove successfully deleted entries from persistence
+        # Phase 6: Remove successfully deleted entries from persistence
         # Only remove entries that were successfully deleted to prevent zombie VMs
-        self.logger.info("Phase 5: Updating persistence files (removing successfully deleted entries)")
+        self.logger.info("Phase 6: Updating persistence files (removing successfully deleted entries)")
         try:
             # Remove successfully deleted nodes from user_nodes.yaml
             for node_name in successfully_deleted_nodes:
@@ -840,9 +887,17 @@ class ResourceManager:
                 except Exception as e:
                     self.logger.warning(f"Failed to remove firewall {fw_name} from persistence: {e}")
 
+            # Remove successfully deleted VeloCloud devices from user_velo.yaml
+            for velo_name in successfully_deleted_velo:
+                try:
+                    remove_user_velo_device(velo_name, USER_VELO_PATH)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove VeloCloud device {velo_name} from persistence: {e}")
+
             self.logger.info(
                 f"Persistence updated: removed {len(successfully_deleted_nodes)} nodes, "
-                f"{len(successfully_deleted_hosts)} hosts, {len(successfully_deleted_firewalls)} firewalls"
+                f"{len(successfully_deleted_hosts)} hosts, {len(successfully_deleted_firewalls)} firewalls, "
+                f"{len(successfully_deleted_velo)} VeloCloud devices"
             )
         except Exception as e:
             self.logger.error(f"Failed to update persistence files: {e}")
@@ -851,10 +906,10 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 6: Clear orphaned interface slots
+        # Phase 7: Clear orphaned interface slots
         # When doing a full reset, we need to clear the orphaned slots registry
         # and optionally detach the orphaned interfaces from VMs
-        self.logger.info("Phase 6: Clearing orphaned interface slots")
+        self.logger.info("Phase 7: Clearing orphaned interface slots")
         try:
             from orphaned_interfaces import clear_all_orphaned_slots, list_all_orphaned_slots
             from interface_manager import detach_interface_from_vm
@@ -923,7 +978,8 @@ class ResourceManager:
         total_deleted = (
             len(results['nodes_deleted']) +
             len(results['hosts_deleted']) +
-            len(results['firewalls_deleted'])
+            len(results['firewalls_deleted']) +
+            len(results.get('velo_deleted', []))
         )
 
         results['status'] = 'completed' if not results['errors'] else 'completed_with_errors'
@@ -931,6 +987,7 @@ class ResourceManager:
             'nodes': len(results['nodes_deleted']),
             'hosts': len(results['hosts_deleted']),
             'firewalls': len(results['firewalls_deleted']),
+            'velocloud': len(results.get('velo_deleted', [])),
             'bridges': len(results['bridges_cleaned']),
             'orphaned_slots': results.get('orphaned_slots_cleared', 0),
             'orphaned_detach_failures': len(results.get('orphaned_detach_failures', [])),
