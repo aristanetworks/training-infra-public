@@ -3626,6 +3626,151 @@ class NodeBuilderProxyHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+# ===============================
+# VeloCloud Orchestrator Proxy Handler
+# ===============================
+
+class VcoProxyHandler(BaseHandler):
+    """
+    Proxy handler for VeloCloud Orchestrator web UI.
+
+    Proxies requests to the nodebuilder service which in turn
+    proxies to the actual VCO. Rewrites HTML content to fix
+    asset paths (VCO uses absolute paths like /assets/ but we
+    serve it under /vco/).
+    """
+
+    NODEBUILDER_URL = "http://host.docker.internal:8090"
+    NODEBUILDER_URL_FALLBACK = "http://172.17.0.1:8090"
+
+    async def get(self, path=''):
+        if not self.current_user:
+            self.set_status(401)
+            self.write("Authentication required")
+            return
+
+        await self._proxy_request('GET', path)
+
+    async def post(self, path=''):
+        if not self.current_user:
+            self.set_status(401)
+            self.write("Authentication required")
+            return
+
+        await self._proxy_request('POST', path, self.request.body)
+
+    async def put(self, path=''):
+        if not self.current_user:
+            self.set_status(401)
+            self.write("Authentication required")
+            return
+
+        await self._proxy_request('PUT', path, self.request.body)
+
+    async def delete(self, path=''):
+        if not self.current_user:
+            self.set_status(401)
+            self.write("Authentication required")
+            return
+
+        await self._proxy_request('DELETE', path)
+
+    async def _proxy_request(self, method, path, body=None):
+        """Proxy request to nodebuilder's vco-proxy endpoint."""
+        from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+
+        http_client = AsyncHTTPClient()
+
+        # Build the nodebuilder vco-proxy URL
+        vco_path = f"/vco-proxy/{path}" if path else "/vco-proxy/"
+        query_string = self.request.query
+        if query_string:
+            vco_path = f"{vco_path}?{query_string}"
+
+        # Forward relevant headers
+        headers = {}
+        for header in ['Content-Type', 'Accept', 'Cookie', 'Authorization']:
+            if self.request.headers.get(header):
+                headers[header] = self.request.headers.get(header)
+
+        async def try_fetch(base_url):
+            """Attempt to fetch from a URL."""
+            request = HTTPRequest(
+                f"{base_url}{vco_path}",
+                method=method,
+                body=body if method in ('POST', 'PUT') else None,
+                headers=headers,
+                request_timeout=60,
+                follow_redirects=False  # Handle redirects ourselves
+            )
+            try:
+                response = await http_client.fetch(request, raise_error=False)
+                return response, None
+            except Exception as e:
+                return None, e
+
+        try:
+            # Try primary URL first
+            response, error = await try_fetch(self.NODEBUILDER_URL)
+
+            if error:
+                pS(f"[VcoProxy] Primary failed: {error}, trying fallback...")
+                response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
+
+            if error:
+                pS(f"[VcoProxy] Both URLs failed: {error}")
+                self.set_status(503)
+                self.write("VCO service unavailable")
+                return
+
+            # Set response status
+            self.set_status(response.code)
+
+            # Forward response headers
+            for header in ['Content-Type', 'Set-Cookie', 'Cache-Control']:
+                if response.headers.get(header):
+                    self.set_header(header, response.headers.get(header))
+
+            # Handle redirects - rewrite Location header
+            if response.headers.get('Location'):
+                location = response.headers.get('Location')
+                # Rewrite absolute VCO paths to go through our proxy
+                if location.startswith('/') and not location.startswith('/vco'):
+                    location = f"/vco{location}"
+                self.set_header('Location', location)
+
+            # Get response body
+            content = response.body
+
+            # If this is HTML, rewrite asset paths
+            content_type = response.headers.get('Content-Type', '')
+            if content and 'text/html' in content_type:
+                try:
+                    html = content.decode('utf-8', errors='replace')
+                    # Rewrite absolute paths to assets/branding
+                    html = html.replace('"/assets/', '"/vco/assets/')
+                    html = html.replace("'/assets/", "'/vco/assets/")
+                    html = html.replace('"/branding/', '"/vco/branding/')
+                    html = html.replace("'/branding/", "'/vco/branding/")
+                    # Also handle src= and href= without quotes
+                    html = html.replace('src=/assets/', 'src=/vco/assets/')
+                    html = html.replace('href=/assets/', 'href=/vco/assets/')
+                    html = html.replace('src=/branding/', 'src=/vco/branding/')
+                    html = html.replace('href=/branding/', 'href=/vco/branding/')
+                    content = html.encode('utf-8')
+                except Exception as e:
+                    pS(f"[VcoProxy] HTML rewrite error: {e}")
+
+            if content:
+                self.write(content)
+
+        except Exception as e:
+            pS(f"[VcoProxy] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(f"Proxy error: {e}")
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -3684,6 +3829,9 @@ if __name__ == "__main__":
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
         # Nodebuilder endpoints (dynamic node addition for KVM labs)
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
+        # VeloCloud Orchestrator proxy (must be after static file handlers)
+        (r'/vco/?', VcoProxyHandler),
+        (r'/vco/(.*)', VcoProxyHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
