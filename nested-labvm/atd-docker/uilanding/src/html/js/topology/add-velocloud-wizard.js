@@ -489,18 +489,65 @@ class AddVelocloudWizard {
         });
     }
 
+    // Fixed management IP for VeloCloud Orchestrator
+    // This enables predictable nginx proxy configuration (like CVP at 192.168.0.5)
+    static VCO_FIXED_MGMT_IP = '192.168.0.6';
+
     /**
      * Step 2: Management IP Selection
      */
     renderMgmtIpStep(content) {
+        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
+
+        // Orchestrator uses a fixed management IP for nginx proxy routing
+        // This enables the VCO web UI to be accessible at /vco/ with proper asset routing
+        if (this.veloConfig.device_type === 'orchestrator') {
+            this.veloConfig.mgmt_ip = AddVelocloudWizard.VCO_FIXED_MGMT_IP;
+
+            content.innerHTML = `
+                <div class="wizard-step wizard-step-ip">
+                    <h3>Management IP</h3>
+                    <p class="step-description">The VeloCloud Orchestrator uses a reserved management IP address.</p>
+
+                    <div class="form-group">
+                        <label>Management IP Address</label>
+                        <div class="fixed-ip-display">
+                            <code>${this.escapeHtml(AddVelocloudWizard.VCO_FIXED_MGMT_IP)}</code>
+                            <span class="fixed-ip-badge">Reserved</span>
+                        </div>
+                    </div>
+
+                    <div class="ip-info orchestrator-ip-info">
+                        <p>This IP is reserved for the Orchestrator to enable:</p>
+                        <ul>
+                            <li>Web UI access at <code>/vco/</code> through the lab portal</li>
+                            <li>Consistent proxy routing for all VCO paths</li>
+                            <li>Only one Orchestrator per topology is supported</li>
+                        </ul>
+                    </div>
+
+                    <div class="interface-info-box velocloud-interface-info">
+                        <h4>${typeConfig.label} Network Interfaces</h4>
+                        <p>The device will have the following network interfaces:</p>
+                        <ul>
+                            <li><strong>eth0 (Management)</strong> - For SSH and web UI access (${AddVelocloudWizard.VCO_FIXED_MGMT_IP})</li>
+                            ${typeConfig.interfaces.map((iface, idx) => `
+                                <li><strong>eth${idx + 1} (${iface.label})</strong> - ${iface.description}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Edge and Gateway use selectable IPs from the pool
         const ipOptions = this.availableIps.map(entry => `
             <option value="${this.escapeHtml(entry.ip)}"
                     data-hostname="${this.escapeHtml(entry.hostname || '')}">
                 ${this.escapeHtml(entry.ip)}${entry.hostname ? ` (${this.escapeHtml(entry.hostname)})` : ''}
             </option>
         `).join('');
-
-        const typeConfig = AddVelocloudWizard.DEVICE_TYPES[this.veloConfig.device_type];
 
         content.innerHTML = `
             <div class="wizard-step wizard-step-ip">
