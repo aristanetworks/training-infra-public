@@ -1638,7 +1638,7 @@ topologies:
             schema: 1
             resources:
               cpu: 72
-              ram: 110
+              ram: 160
             branch: v2025.1-12162025
             orderable: false
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
