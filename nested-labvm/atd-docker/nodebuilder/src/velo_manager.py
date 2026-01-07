@@ -238,6 +238,9 @@ def generate_velo_cloud_init(
         user_data = user_data.replace('{hostname}', hostname)
         user_data = user_data.replace('{mgmt_ip}', mgmt_ip)
         user_data = user_data.replace('{gateway}', gateway)
+        # {password} gets YAML-escaped for use in YAML value contexts (e.g., password: 'foo')
+        # {password_raw} is plain text for use inside literal blocks (e.g., super_users list)
+        user_data = user_data.replace('{password_raw}', password)
         user_data = user_data.replace('{password}', yaml_safe_string(password))
 
         # Replace interface IP placeholders

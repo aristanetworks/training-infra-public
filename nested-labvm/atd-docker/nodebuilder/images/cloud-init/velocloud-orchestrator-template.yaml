@@ -34,6 +34,6 @@ ssh_pwauth: True
 vco:
   super_users:
     list: |
-      admin@velocloud.local:{password}
+      admin@velocloud.local:{password_raw}
     remove_default_users: False
 
