@@ -145,8 +145,9 @@ class AddVelocloudWizard {
         };
 
         const prefix = prefixMap[deviceType] || deviceType;
-        const counts = this.veloStatus?.counts || {};
-        const existingCount = counts[deviceType] || 0;
+        // API returns { devices: { edge: { count, max }, ... } }
+        const devices = this.veloStatus?.devices || {};
+        const existingCount = devices[deviceType]?.count || 0;
 
         // Start from existingCount + 1 and find first available
         // In practice, with low limits (1-2 per type), this is usually just existingCount + 1
@@ -422,8 +423,18 @@ class AddVelocloudWizard {
      * Step 1: Device Type Selection
      */
     renderDeviceTypeStep(content) {
-        const counts = this.veloStatus.counts || {};
-        const limits = this.veloStatus.limits || {};
+        // API returns { devices: { edge: { count, max }, gateway: {...}, orchestrator: {...} } }
+        const devices = this.veloStatus.devices || {};
+        const counts = {
+            edge: devices.edge?.count || 0,
+            gateway: devices.gateway?.count || 0,
+            orchestrator: devices.orchestrator?.count || 0
+        };
+        const limits = {
+            edge: devices.edge?.max || 1,
+            gateway: devices.gateway?.max || 1,
+            orchestrator: devices.orchestrator?.max || 1
+        };
 
         content.innerHTML = `
             <div class="wizard-step wizard-step-device-type">

@@ -27,9 +27,12 @@
 #   - Inbound: UDP/2426 (VCMP), UDP/4500, UDP/500, IP/50 (ESP if no NAT)
 #
 # Default credentials: vcadmin / {password}
+#
+# Note: VeloCloud cloud-init expects plain text password, not YAML-quoted.
+# Use {password_raw} for the password field.
 
 hostname: {hostname}
-password: {password}
+password: {password_raw}
 chpasswd: {expire: False}
 ssh_pwauth: True
 ssh_authorized_keys: []

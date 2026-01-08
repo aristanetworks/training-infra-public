@@ -2437,6 +2437,10 @@
     margin-bottom: 4px;
 }
 
+.velocloud-info-box li strong {
+    color: #c084fc;
+}
+
 .velocloud-interface-info {
     background: #2a1a3a;
     border-color: #7c3aed;

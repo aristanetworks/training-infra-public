@@ -26,8 +26,11 @@
 #
 # Default credentials: vcadmin / {password}
 # Web UI: https://<mgmt_ip>/
+#
+# Note: VeloCloud cloud-init expects plain text password, not YAML-quoted.
+# Use {password_raw} for the password field.
 
-password: {password}
+password: {password_raw}
 chpasswd: {expire: False}
 ssh_pwauth: True
 
