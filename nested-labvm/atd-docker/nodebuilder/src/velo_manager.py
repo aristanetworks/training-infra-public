@@ -251,16 +251,18 @@ def generate_velo_cloud_init(
 
         # Handle Gateway-specific configuration
         if device_type_lower == 'gateway' and gateway_config:
-            vco = gateway_config.get('vco', 'orchestrator.velocloud.net')
-            activation_code = gateway_config.get('activation_code', 'XXXX-XXXX-XXXX-XXXX')
+            # Use 'or' to handle None values from gateway_config
+            vco = gateway_config.get('vco') or 'orchestrator.velocloud.net'
+            activation_code = gateway_config.get('activation_code') or ''
             user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', activation_code)
 
             # Generate network-config for Gateway (Netplan v2 format)
-            eth0_ip = gateway_config.get('eth0_ip', f'{mgmt_ip}/24')
-            eth0_gateway = gateway_config.get('eth0_gateway', gateway)
-            eth1_ip = gateway_config.get('eth1_ip', '')
-            eth1_gateway = gateway_config.get('eth1_gateway', '')
+            # Use 'or' to handle None values from gateway_config
+            eth0_ip = gateway_config.get('eth0_ip') or f'{mgmt_ip}/24'
+            eth0_gateway = gateway_config.get('eth0_gateway') or gateway
+            eth1_ip = gateway_config.get('eth1_ip') or ''
+            eth1_gateway = gateway_config.get('eth1_gateway') or ''
 
             network_config = _generate_gateway_network_config(
                 eth0_ip, eth0_gateway, eth1_ip, eth1_gateway
@@ -274,8 +276,9 @@ def generate_velo_cloud_init(
 
         # Handle Edge-specific configuration
         if device_type_lower == 'edge' and edge_config:
-            vco = edge_config.get('vco', 'orchestrator.velocloud.net')
-            activation_code = edge_config.get('activation_code', 'XXXX-XXXX-XXXX-XXXX')
+            # Use 'or' to handle None values from edge_config
+            vco = edge_config.get('vco') or 'orchestrator.velocloud.net'
+            activation_code = edge_config.get('activation_code') or ''
             user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', activation_code)
         elif device_type_lower == 'edge':
@@ -349,6 +352,7 @@ def _generate_gateway_network_config(
     eth1: Handoff interface to PE router (secondary, metric 13)
     """
     # Start with eth0 (required)
+    # Use gateway as primary DNS (usually the local router/DNS server)
     config = f"""version: 2
 ethernets:
   eth0:
@@ -357,8 +361,8 @@ ethernets:
     gateway4: {eth0_gateway}
     nameservers:
       addresses:
+        - {eth0_gateway}
         - 8.8.8.8
-        - 8.8.4.4
       search: []
     routes:
       - to: 0.0.0.0/0
