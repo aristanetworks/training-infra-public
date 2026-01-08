@@ -361,10 +361,14 @@ export class EventManager {
     async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
         // Determine display name and endpoint based on device type
         // Note: 'linux_host' is the device_type for user-added Linux hosts
+        // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
         const typeLabels = {
             'host': 'Linux Host',
             'linux_host': 'Linux Host',
             'firewall': 'Firewall',
+            'velo_edge': 'VeloCloud Edge',
+            'velo_gateway': 'VeloCloud Gateway',
+            'velo_orchestrator': 'VeloCloud Orchestrator',
             'node': 'Node'
         };
         const typeLabel = typeLabels[deviceType] || 'Node';
@@ -434,10 +438,14 @@ export class EventManager {
                 try {
                     // Use correct endpoint based on device type
                     // Note: 'linux_host' is the device_type for user-added Linux hosts
+                    // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
                     const endpoints = {
                         'host': '/td-api/nodes/delete-host',
                         'linux_host': '/td-api/nodes/delete-host',
                         'firewall': '/td-api/nodes/delete-firewall',
+                        'velo_edge': '/td-api/nodes/delete-velo-device',
+                        'velo_gateway': '/td-api/nodes/delete-velo-device',
+                        'velo_orchestrator': '/td-api/nodes/delete-velo-device',
                         'node': '/td-api/nodes/delete-node'
                     };
                     const endpoint = endpoints[deviceType] || endpoints['node'];
