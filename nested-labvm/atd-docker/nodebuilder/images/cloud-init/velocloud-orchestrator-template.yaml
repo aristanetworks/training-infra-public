@@ -24,8 +24,12 @@
 #   - Inbound: TCP/80 (HTTP), TCP/443 (HTTPS)
 #   - Outbound: Established connections for updates
 #
-# Default credentials: vcadmin / {password}
-# Web UI: https://<mgmt_ip>/
+# Default credentials:
+#   CLI/SSH: vcadmin / {password}
+#   Web UI: admin@velocloud.local / {password}
+#
+# Web UI URL: https://<mgmt_ip>/operator/
+# NOTE: The /operator/ path is required - root URL (/) is for enterprise users
 #
 # Note: VeloCloud cloud-init expects plain text password, not YAML-quoted.
 # Use {password_raw} for the password field.
