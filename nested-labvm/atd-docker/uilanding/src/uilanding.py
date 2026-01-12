@@ -717,8 +717,9 @@ def get_all_devices():
                                 'device_type': f'velo_{device_type}',
                                 'vm_name': name,
                                 'device_category': 'velocloud',
-                                # VeloCloud Orchestrator supports web UI access
-                                'supports_webui': device_type.lower() == 'orchestrator'
+                                # VCO web UI requires embedded Firefox (proxy abandoned)
+                                # Access via: https://<mgmt_ip>/operator/ with admin@velocloud.local
+                                'supports_webui': False
                             }
                 pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices into device list")
     except Exception as e:

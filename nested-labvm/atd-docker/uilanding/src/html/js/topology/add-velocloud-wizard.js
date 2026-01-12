@@ -542,6 +542,11 @@ class AddVelocloudWizard {
                             <li>Consistent proxy routing for all VCO paths</li>
                             <li>Only one Orchestrator per topology is supported</li>
                         </ul>
+                        <p class="credential-info"><strong>Login credentials:</strong></p>
+                        <ul>
+                            <li><strong>CLI/SSH:</strong> <code>vcadmin</code> / [lab password]</li>
+                            <li><strong>Web UI:</strong> <code>admin@velocloud.local</code> / [lab password] at <code>/operator/</code></li>
+                        </ul>
                     </div>
 
                     <div class="interface-info-box velocloud-interface-info">
@@ -1279,8 +1284,8 @@ class AddVelocloudWizard {
                 </div>
 
                 <div class="velocloud-interface-note">
-                    <p><strong>Note:</strong> Orchestrator uses default credentials: <code>vcadmin</code> / <code>[lab password]</code></p>
-                    <p>Web UI will be available at <code>https://${this.escapeHtml(this.veloConfig.mgmt_ip)}/</code> once the device boots.</p>
+                    <p><strong>CLI/SSH:</strong> <code>vcadmin</code> / <code>[lab password]</code></p>
+                    <p><strong>Web UI:</strong> <code>admin@velocloud.local</code> / <code>[lab password]</code> at <code>https://${this.escapeHtml(this.veloConfig.mgmt_ip)}/operator/</code></p>
                 </div>
             </div>
         `;
@@ -1470,7 +1475,7 @@ class AddVelocloudWizard {
                           typeConfig.requiresEdgeConfig ?
                             '<li>Edge will attempt to register with the configured VCO</li><li>Default login: root / [lab password]</li>' :
                           this.veloConfig.device_type === 'orchestrator' ?
-                            '<li>Web UI available at https://&lt;mgmt_ip&gt;/</li><li>Default login: vcadmin / [lab password]</li>' :
+                            '<li>Web UI: https://&lt;mgmt_ip&gt;/operator/</li><li>CLI login: vcadmin / [lab password]</li><li>Web UI login: admin@velocloud.local / [lab password]</li>' :
                             '<li>Device is configured for standalone training mode</li><li>Default login: arista / arista</li>'}
                     </ul>
                 </div>
