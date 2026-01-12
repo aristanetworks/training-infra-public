@@ -253,8 +253,9 @@ def generate_velo_cloud_init(
         if device_type_lower == 'gateway' and gateway_config:
             # Use 'or' to handle None/empty values from gateway_config
             # Strip whitespace and use default if empty
+            # Auto-detect local orchestrator IP if no VCO specified
             vco_raw = gateway_config.get('vco')
-            vco = (vco_raw.strip() if vco_raw else '') or 'orchestrator.velocloud.net'
+            vco = (vco_raw.strip() if vco_raw else '') or _get_orchestrator_ip() or 'orchestrator.velocloud.net'
             activation_raw = gateway_config.get('activation_code')
             activation_code = (activation_raw.strip() if activation_raw else '') or ''
             user_data = user_data.replace('{vco}', vco)
@@ -278,7 +279,9 @@ def generate_velo_cloud_init(
                 f.write(network_config)
         elif device_type_lower == 'gateway':
             # Provide defaults for Gateway if no config specified
-            user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
+            # Auto-detect local orchestrator IP if available
+            vco = _get_orchestrator_ip() or 'orchestrator.velocloud.net'
+            user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
             # Also generate network-config with defaults
             network_config = _generate_gateway_network_config(
@@ -292,14 +295,16 @@ def generate_velo_cloud_init(
             # Use 'or' to handle None/empty values from edge_config
             # Strip whitespace and use default if empty
             vco_raw = edge_config.get('vco')
-            vco = (vco_raw.strip() if vco_raw else '') or 'orchestrator.velocloud.net'
+            vco = (vco_raw.strip() if vco_raw else '') or _get_orchestrator_ip() or 'orchestrator.velocloud.net'
             activation_raw = edge_config.get('activation_code')
             activation_code = (activation_raw.strip() if activation_raw else '') or ''
             user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', activation_code)
         elif device_type_lower == 'edge':
             # Provide defaults for Edge if no config specified
-            user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
+            # Auto-detect local orchestrator IP if available
+            vco = _get_orchestrator_ip() or 'orchestrator.velocloud.net'
+            user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
 
         # Write user-data
@@ -310,11 +315,26 @@ def generate_velo_cloud_init(
         meta_data = f"""instance-id: {hostname}
 local-hostname: {hostname}
 """
-        # Add Edge network-interfaces section if edge_config provided
-        if device_type_lower == 'edge' and edge_config:
-            network_interfaces = edge_config.get('interfaces', {})
-            if network_interfaces:
-                meta_data += _generate_edge_network_interfaces(network_interfaces)
+        # Add Edge network-interfaces section
+        # Use edge_config interfaces if provided, otherwise default GE1 to static with mgmt_ip
+        if device_type_lower == 'edge':
+            network_interfaces = {}
+            if edge_config:
+                network_interfaces = edge_config.get('interfaces', {})
+
+            # If no interfaces configured, default GE1 to static with mgmt_ip
+            # Note: GE1 is connected to vmgmt bridge via eth0 in the VM
+            # VeloCloud Edge treats GE1/GE2 as LAN ports but static config should work
+            if not network_interfaces:
+                network_interfaces = {
+                    'GE1': {
+                        'type': 'static',
+                        'ip': mgmt_ip,
+                        'netmask': '255.255.255.0',
+                        'gateway': gateway
+                    }
+                }
+            meta_data += _generate_edge_network_interfaces(network_interfaces)
 
         # Add Orchestrator network-interfaces section
         if device_type_lower == 'orchestrator':
@@ -501,6 +521,24 @@ def _generate_orchestrator_network_interfaces(
         lines.append(f"    netmask {eth1_netmask}")
 
     return "\n".join(lines) + "\n"
+
+
+def _get_orchestrator_ip() -> Optional[str]:
+    """
+    Get the management IP of an existing VeloCloud Orchestrator.
+
+    Used to auto-populate VCO address for Edge/Gateway devices.
+
+    Returns:
+        Orchestrator IP if one exists, None otherwise
+    """
+    from persistence import list_user_velo_devices
+
+    devices = list_user_velo_devices(USER_VELO_PATH)
+    for device in devices:
+        if device.get('device_type') == 'orchestrator':
+            return device.get('mgmt_ip')
+    return None
 
 
 def _get_fallback_template(device_type: str) -> str:

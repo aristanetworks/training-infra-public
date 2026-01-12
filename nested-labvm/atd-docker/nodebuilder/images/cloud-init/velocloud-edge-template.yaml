@@ -32,3 +32,10 @@ velocloud:
     vco: {vco}
     activation_code: {activation_code}
     vco_ignore_cert_errors: true
+
+# Flush VCMP firewall rules that may block management traffic
+# In a training environment, we need management access to work
+runcmd:
+  - iptables -F VCMP_IN_ACL 2>/dev/null || true
+  - iptables -F VCMP_OUT_ACL 2>/dev/null || true
+  - iptables -F VCMP_FWD_ACL 2>/dev/null || true
