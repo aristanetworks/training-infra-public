@@ -42,3 +42,11 @@ velocloud:
     vco: {vco}
     activation_code: {activation_code}
     vco_ignore_cert_errors: true
+
+# Flush default VCMP firewall rules that block management traffic
+# These rules DROP all traffic by default, preventing ping, SSH, and VCO communication
+# In a training environment, we need management access to work out of the box
+runcmd:
+  - iptables -F VCMP_IN_ACL
+  - iptables -F VCMP_OUT_ACL
+  - iptables -F VCMP_FWD_ACL
