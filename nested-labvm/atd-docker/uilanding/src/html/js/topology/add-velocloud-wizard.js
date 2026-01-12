@@ -325,6 +325,13 @@ class AddVelocloudWizard {
             this.availableIps = Array.isArray(data.availableIps) ? data.availableIps : [];
             this.targetDevices = Array.isArray(data.targetDevices) ? data.targetDevices : [];
 
+            // Auto-populate VCO address if an orchestrator exists
+            const orchestratorIp = this.veloStatus.orchestrator_ip;
+            if (orchestratorIp) {
+                this.veloConfig.gateway_config.vco = orchestratorIp;
+                this.veloConfig.edge_config.vco = orchestratorIp;
+            }
+
         } catch (error) {
             console.error('[AddVelocloudWizard] Error loading wizard data:', error);
             content.innerHTML = `

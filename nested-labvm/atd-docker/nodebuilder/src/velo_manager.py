@@ -251,18 +251,25 @@ def generate_velo_cloud_init(
 
         # Handle Gateway-specific configuration
         if device_type_lower == 'gateway' and gateway_config:
-            # Use 'or' to handle None values from gateway_config
-            vco = gateway_config.get('vco') or 'orchestrator.velocloud.net'
-            activation_code = gateway_config.get('activation_code') or ''
+            # Use 'or' to handle None/empty values from gateway_config
+            # Strip whitespace and use default if empty
+            vco_raw = gateway_config.get('vco')
+            vco = (vco_raw.strip() if vco_raw else '') or 'orchestrator.velocloud.net'
+            activation_raw = gateway_config.get('activation_code')
+            activation_code = (activation_raw.strip() if activation_raw else '') or ''
             user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', activation_code)
 
             # Generate network-config for Gateway (Netplan v2 format)
-            # Use 'or' to handle None values from gateway_config
-            eth0_ip = gateway_config.get('eth0_ip') or f'{mgmt_ip}/24'
-            eth0_gateway = gateway_config.get('eth0_gateway') or gateway
-            eth1_ip = gateway_config.get('eth1_ip') or ''
-            eth1_gateway = gateway_config.get('eth1_gateway') or ''
+            # Use 'or' with strip() to handle None/empty/whitespace values
+            eth0_ip_raw = gateway_config.get('eth0_ip')
+            eth0_ip = (eth0_ip_raw.strip() if eth0_ip_raw else '') or f'{mgmt_ip}/24'
+            eth0_gw_raw = gateway_config.get('eth0_gateway')
+            eth0_gateway = (eth0_gw_raw.strip() if eth0_gw_raw else '') or gateway
+            eth1_ip_raw = gateway_config.get('eth1_ip')
+            eth1_ip = (eth1_ip_raw.strip() if eth1_ip_raw else '') or ''
+            eth1_gw_raw = gateway_config.get('eth1_gateway')
+            eth1_gateway = (eth1_gw_raw.strip() if eth1_gw_raw else '') or ''
 
             network_config = _generate_gateway_network_config(
                 eth0_ip, eth0_gateway, eth1_ip, eth1_gateway
@@ -273,12 +280,21 @@ def generate_velo_cloud_init(
             # Provide defaults for Gateway if no config specified
             user_data = user_data.replace('{vco}', 'orchestrator.velocloud.net')
             user_data = user_data.replace('{activation_code}', 'XXXX-XXXX-XXXX-XXXX')
+            # Also generate network-config with defaults
+            network_config = _generate_gateway_network_config(
+                f'{mgmt_ip}/24', gateway, '', ''
+            )
+            with open(os.path.join(temp_dir, 'network-config'), 'w') as f:
+                f.write(network_config)
 
         # Handle Edge-specific configuration
         if device_type_lower == 'edge' and edge_config:
-            # Use 'or' to handle None values from edge_config
-            vco = edge_config.get('vco') or 'orchestrator.velocloud.net'
-            activation_code = edge_config.get('activation_code') or ''
+            # Use 'or' to handle None/empty values from edge_config
+            # Strip whitespace and use default if empty
+            vco_raw = edge_config.get('vco')
+            vco = (vco_raw.strip() if vco_raw else '') or 'orchestrator.velocloud.net'
+            activation_raw = edge_config.get('activation_code')
+            activation_code = (activation_raw.strip() if activation_raw else '') or ''
             user_data = user_data.replace('{vco}', vco)
             user_data = user_data.replace('{activation_code}', activation_code)
         elif device_type_lower == 'edge':
@@ -1032,6 +1048,16 @@ def get_velo_status() -> Dict:
         device_info = status['devices'][device_type]
         if device_info['enabled']:
             device_info['available'] = device_info['max'] - device_info['count']
+
+    # Add orchestrator IP if one exists (for Gateway/Edge VCO auto-config)
+    orchestrator_ip = None
+    if status['devices']['orchestrator']['count'] > 0:
+        devices = list_velo_devices()
+        for device in devices:
+            if device.get('device_type') == 'orchestrator':
+                orchestrator_ip = device.get('mgmt_ip')
+                break
+    status['orchestrator_ip'] = orchestrator_ip
 
     return status
 
