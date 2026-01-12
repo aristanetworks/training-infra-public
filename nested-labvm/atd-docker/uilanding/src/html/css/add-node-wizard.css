@@ -2764,3 +2764,139 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================
+ * VeloCloud Wizard Specific Styles
+ * ============================================ */
+
+/* VeloCloud wizard header - use purple/blue accent color */
+.add-velocloud-wizard .wizard-header {
+    background: linear-gradient(135deg, #2d3a5a 0%, #1e2a3a 100%);
+    border-bottom: 3px solid #6db3f2;
+}
+
+/* Code elements in VeloCloud wizard - teal/cyan on dark, no white boxes */
+.add-velocloud-wizard code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #4ec9b0;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+/* Fixed IP display for Orchestrator reserved IP */
+.fixed-ip-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+}
+
+.fixed-ip-display code {
+    font-size: 16px;
+    font-weight: 600;
+    color: #4ec9b0;
+}
+
+.fixed-ip-badge {
+    background: #2d4a66;
+    color: #6db3f2;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Orchestrator IP info box - left-align content, remove center */
+.orchestrator-ip-info {
+    text-align: left;
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.orchestrator-ip-info p {
+    color: #aaa;
+    margin: 0 0 12px 0;
+}
+
+.orchestrator-ip-info ul {
+    margin: 0 0 16px 0;
+    padding-left: 24px;
+    text-align: left;
+}
+
+.orchestrator-ip-info li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 4px;
+}
+
+.orchestrator-ip-info .credential-info {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #444;
+    color: #fbb500;
+}
+
+/* VeloCloud interface note box at bottom of config steps */
+.velocloud-interface-note {
+    background: #1e2a3a;
+    border: 1px solid #2d4a66;
+    border-left: 3px solid #6db3f2;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.velocloud-interface-note p {
+    margin: 0 0 8px 0;
+    color: #aaa;
+    font-size: 13px;
+}
+
+.velocloud-interface-note p:last-child {
+    margin-bottom: 0;
+}
+
+.velocloud-interface-note strong {
+    color: #6db3f2;
+}
+
+/* Orchestrator config section styling */
+.wizard-step-orchestrator-config .config-section {
+    margin-bottom: 24px;
+}
+
+.wizard-step-orchestrator-config .config-section h4 {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+}
+
+.wizard-step-orchestrator-config .section-desc {
+    color: #888;
+    font-size: 13px;
+    margin: 0 0 12px 0;
+}
+
+/* Orchestrator management summary table */
+.orchestrator-mgmt-summary .review-table th {
+    color: #aaa;
+    background: #252525;
+}
+
+.orchestrator-mgmt-summary .review-table td {
+    color: #fff;
+    background: #1e1e1e;
+}
