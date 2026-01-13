@@ -316,24 +316,26 @@ def generate_velo_cloud_init(
 local-hostname: {hostname}
 """
         # Add Edge network-interfaces section
-        # Use edge_config interfaces if provided, otherwise default GE1 to static with mgmt_ip
+        # Use edge_config interfaces if provided, but ALWAYS ensure GE3 has mgmt_ip
         if device_type_lower == 'edge':
             network_interfaces = {}
             if edge_config:
-                network_interfaces = edge_config.get('interfaces', {})
+                network_interfaces = edge_config.get('interfaces', {}).copy()
 
-            # If no interfaces configured, default GE1 to static with mgmt_ip
-            # Note: GE1 is connected to vmgmt bridge via eth0 in the VM
-            # VeloCloud Edge treats GE1/GE2 as LAN ports but static config should work
-            if not network_interfaces:
-                network_interfaces = {
-                    'GE1': {
-                        'type': 'static',
-                        'ip': mgmt_ip,
-                        'netmask': '255.255.255.0',
-                        'gateway': gateway
-                    }
+            # ALWAYS ensure GE3 (eth2/WAN port) has the management IP for VCO connectivity
+            # GE1/GE2 are LAN ports that VeloCloud bridges internally, so they can't be used
+            # GE3 is connected to vmgmt bridge and must have the mgmt_ip to reach VCO
+            # Only override if GE3 doesn't have a static IP already configured
+            ge3_config = network_interfaces.get('GE3', {})
+            if ge3_config.get('type') != 'static' or not ge3_config.get('ip'):
+                network_interfaces['GE3'] = {
+                    'type': 'static',
+                    'ip': mgmt_ip,
+                    'netmask': '255.255.255.0',
+                    'gateway': gateway
                 }
+                logger.info(f"Edge GE3 configured with mgmt_ip {mgmt_ip} for VCO connectivity")
+
             meta_data += _generate_edge_network_interfaces(network_interfaces)
 
         # Add Orchestrator network-interfaces section
@@ -663,24 +665,57 @@ def generate_velo_xml(
     })
     ET.SubElement(cdrom, 'readonly')
 
-    # Add management interface (eth0 -> vmgmt)
-    # PCI slot 0x03 for mgmt
-    # Use generate_interface_target_name to ensure name fits 15-char Linux limit
-    mgmt_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
-    ET.SubElement(mgmt_int, 'source', attrib={'bridge': MGMT_BRIDGE})
-    ET.SubElement(mgmt_int, 'target', attrib={'dev': generate_interface_target_name(name, 'mgmt')})
-    ET.SubElement(mgmt_int, 'model', attrib={'type': 'virtio'})
-    ET.SubElement(mgmt_int, 'address', attrib={
-        'type': 'pci',
-        'domain': '0x0000',
-        'bus': '0x00',
-        'slot': '0x03',
-        'function': '0x0'
-    })
+    # For Edge devices, we need management on GE3 (WAN port) instead of GE1 (LAN port)
+    # VeloCloud Edge bridges GE1/GE2 (LAN ports) internally, making them unusable for
+    # upstream VCO connectivity. GE3+ are WAN ports that work for management.
+    # Interface mapping: eth0=GE1, eth1=GE2, eth2=GE3, etc.
+    # Per VeloCloud KVM docs, LAN interfaces use slots 0x12, 0x13 and WAN uses 0x14+
+    if device_type.lower() == 'edge':
+        # Add dummy interfaces for GE1 and GE2 (LAN ports) - not connected to anything
+        # Using slots 0x12, 0x13 per VeloCloud official KVM documentation
+        lan_slots = [0x12, 0x13]
+        for slot in lan_slots:
+            dummy_int = ET.SubElement(devices, 'interface', attrib={'type': 'user'})
+            ET.SubElement(dummy_int, 'model', attrib={'type': 'virtio'})
+            ET.SubElement(dummy_int, 'address', attrib={
+                'type': 'pci',
+                'domain': '0x0000',
+                'bus': '0x00',
+                'slot': hex(slot),
+                'function': '0x0'
+            })
+
+        # Add management interface on WAN slot (0x14) for Edge
+        # eth2 -> GE3 (WAN port) - can reach VCO
+        mgmt_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
+        ET.SubElement(mgmt_int, 'source', attrib={'bridge': MGMT_BRIDGE})
+        ET.SubElement(mgmt_int, 'target', attrib={'dev': generate_interface_target_name(name, 'mgmt')})
+        ET.SubElement(mgmt_int, 'model', attrib={'type': 'virtio'})
+        ET.SubElement(mgmt_int, 'address', attrib={
+            'type': 'pci',
+            'domain': '0x0000',
+            'bus': '0x00',
+            'slot': '0x14',
+            'function': '0x0'
+        })
+        pci_slot = 0x15  # Continue from here for additional data interfaces
+    else:
+        # For Gateway/Orchestrator: eth0 -> management interface at slot 0x03
+        mgmt_int = ET.SubElement(devices, 'interface', attrib={'type': 'bridge'})
+        ET.SubElement(mgmt_int, 'source', attrib={'bridge': MGMT_BRIDGE})
+        ET.SubElement(mgmt_int, 'target', attrib={'dev': generate_interface_target_name(name, 'mgmt')})
+        ET.SubElement(mgmt_int, 'model', attrib={'type': 'virtio'})
+        ET.SubElement(mgmt_int, 'address', attrib={
+            'type': 'pci',
+            'domain': '0x0000',
+            'bus': '0x00',
+            'slot': '0x03',
+            'function': '0x0'
+        })
+        pci_slot = 4  # Continue from here for additional data interfaces
 
     # Add data interfaces based on connections
-    # Start at PCI slot 0x04
-    pci_slot = 4
+    # pci_slot continues from where we left off above
     if connections:
         for conn in connections:
             bridge = conn.get('bridge', '')
