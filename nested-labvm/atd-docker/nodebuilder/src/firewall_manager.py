@@ -119,18 +119,16 @@ def get_firewall_count() -> int:
     return count
 
 
-def generate_vyos_cloud_init(hostname: str, mgmt_ip: str, gateway: str = '192.168.0.1') -> str:
+def generate_vyos_cloud_init(hostname: str) -> str:
     """
     Generate a cloud-init ISO for VyOS provisioning.
 
     VyOS uses vyos_config_commands in cloud-init for configuration.
-    Sets hostname, management IP, and default route.
+    Sets hostname only - users configure IPs manually after boot.
     Login credentials: vyos / vyos (VyOS default)
 
     Args:
         hostname: VM hostname
-        mgmt_ip: Management IP address (e.g., '192.168.0.50')
-        gateway: Default gateway (default: '192.168.0.1')
 
     Returns:
         Path to the generated ISO file
@@ -146,17 +144,14 @@ def generate_vyos_cloud_init(hostname: str, mgmt_ip: str, gateway: str = '192.16
             with open(template_path, 'r') as f:
                 user_data = f.read()
         else:
-            # Fallback inline template - minimal config
-            # Login: vyos / vyos (VyOS default, no need to set)
+            # Fallback inline template - hostname only
             user_data = """#cloud-config
 vyos_config_commands:
   - set system host-name '{hostname}'
-  - set interfaces ethernet eth0 address '{mgmt_ip}/24'
-  - set protocols static route 0.0.0.0/0 next-hop '{gateway}'
 """
 
         # Replace placeholders
-        user_data = user_data.format(hostname=hostname, mgmt_ip=mgmt_ip, gateway=gateway)
+        user_data = user_data.format(hostname=hostname)
 
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:
@@ -401,9 +396,9 @@ def create_firewall(
         image_path = copy_firewall_base_image(name)
         txn.add_resource('image', image_path)
 
-        # Step 2: Generate cloud-init ISO with management IP
+        # Step 2: Generate cloud-init ISO (hostname only)
         logger.info(f"Generating VyOS cloud-init ISO for {name}")
-        cidata_path = generate_vyos_cloud_init(hostname=name, mgmt_ip=mgmt_ip)
+        cidata_path = generate_vyos_cloud_init(hostname=name)
         txn.add_resource('cidata', cidata_path)
 
         # Step 3: Process inside connection (eth1)

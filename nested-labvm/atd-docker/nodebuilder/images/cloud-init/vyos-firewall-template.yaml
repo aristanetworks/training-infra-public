@@ -1,13 +1,6 @@
 #cloud-config
-# VyOS 1.4 cloud-init - minimal config
+# VyOS 1.4 cloud-init - hostname only
 # Login credentials: vyos / vyos (VyOS default)
-#
-# Variables replaced at runtime:
-#   {hostname} - VM hostname
-#   {mgmt_ip}  - Management IP address
-#   {gateway}  - Default gateway (192.168.0.1)
 
 vyos_config_commands:
   - set system host-name '{hostname}'
-  - set interfaces ethernet eth0 address '{mgmt_ip}/24'
-  - set protocols static route 0.0.0.0/0 next-hop '{gateway}'
