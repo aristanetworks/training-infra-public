@@ -1,11 +1,5 @@
 #cloud-config
-# Using the native user module for VyOS 1.4
-users:
-  - name: vyos
-    plain_text_passwd: 'vyos'
-    shell: /bin/bash
-    sudo: ALL=(ALL) NOPASSWD:ALL
-
 vyos_config_commands:
   - set system host-name 'firewall'
-  - set service ssh port '22'
+  - set system login user vyos authentication plaintext-password 'vyos'
+  - set system login user vyos capability 'super-user'
