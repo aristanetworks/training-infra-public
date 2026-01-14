@@ -119,16 +119,18 @@ def get_firewall_count() -> int:
     return count
 
 
-def generate_vyos_cloud_init(hostname: str) -> str:
+def generate_vyos_cloud_init(hostname: str, mgmt_ip: str, gateway: str = '192.168.0.1') -> str:
     """
     Generate a cloud-init ISO for VyOS provisioning.
 
     VyOS uses vyos_config_commands in cloud-init for configuration.
-    Sets hostname and password - users configure interface IPs manually after boot.
-    Login credentials: vyos / vyos
+    Sets hostname, management IP, and default route.
+    Login credentials: vyos / vyos (VyOS default)
 
     Args:
         hostname: VM hostname
+        mgmt_ip: Management IP address (e.g., '192.168.0.50')
+        gateway: Default gateway (default: '192.168.0.1')
 
     Returns:
         Path to the generated ISO file
@@ -145,19 +147,16 @@ def generate_vyos_cloud_init(hostname: str) -> str:
                 user_data = f.read()
         else:
             # Fallback inline template - minimal config
-            # Users will configure interface IPs manually after boot
-            # Login: vyos / vyos
-            # Note: Values must be in single quotes, keywords like 'all' should not be quoted
+            # Login: vyos / vyos (VyOS default, no need to set)
             user_data = """#cloud-config
 vyos_config_commands:
   - set system host-name '{hostname}'
-  - set system login user vyos authentication plaintext-password 'vyos'
-  - set service ssh port '22'
-  - set service lldp interface all
+  - set interfaces ethernet eth0 address '{mgmt_ip}/24'
+  - set protocols static route 0.0.0.0/0 next-hop '{gateway}'
 """
 
-        # Replace placeholders (only hostname now)
-        user_data = user_data.format(hostname=hostname)
+        # Replace placeholders
+        user_data = user_data.format(hostname=hostname, mgmt_ip=mgmt_ip, gateway=gateway)
 
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:
@@ -402,9 +401,9 @@ def create_firewall(
         image_path = copy_firewall_base_image(name)
         txn.add_resource('image', image_path)
 
-        # Step 2: Generate cloud-init ISO (hostname only - IPs configured manually after boot)
+        # Step 2: Generate cloud-init ISO with management IP
         logger.info(f"Generating VyOS cloud-init ISO for {name}")
-        cidata_path = generate_vyos_cloud_init(hostname=name)
+        cidata_path = generate_vyos_cloud_init(hostname=name, mgmt_ip=mgmt_ip)
         txn.add_resource('cidata', cidata_path)
 
         # Step 3: Process inside connection (eth1)

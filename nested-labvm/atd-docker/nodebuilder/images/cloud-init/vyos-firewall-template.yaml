@@ -1,42 +1,13 @@
 #cloud-config
-# Cloud-init template for VyOS 1.4 Community Firewall
+# VyOS 1.4 cloud-init - minimal config
+# Login credentials: vyos / vyos (VyOS default)
 #
 # Variables replaced at runtime:
-#   {hostname}    - VM hostname
-#
-# Interface mapping (configured by user after boot):
-#   eth0 - Management interface (vmgmt bridge, 192.168.0.x)
-#   eth1 - Inside interface (connects to inside network)
-#   eth2 - Outside interface (connects to outside network)
-#
-# Login credentials: vyos / vyos
-# Users will configure interface IPs manually after boot
+#   {hostname} - VM hostname
+#   {mgmt_ip}  - Management IP address
+#   {gateway}  - Default gateway (192.168.0.1)
 
-# VyOS-specific configuration commands
-# Note: Values must be in single quotes per VyOS cloud-init requirements
-# Keywords like 'all' should NOT be quoted
 vyos_config_commands:
-  # System configuration
   - set system host-name '{hostname}'
-
-  # Set password for vyos user (ensures consistent credentials)
-  # Default is already vyos/vyos, but explicitly set for clarity
-  - set system login user vyos authentication plaintext-password 'vyos'
-
-  # Enable SSH service (already enabled by default, but ensure port 22)
-  - set service ssh port '22'
-
-  # Enable LLDP on all interfaces for neighbor discovery
-  # Note: 'all' is a keyword, not a value - no quotes
-  - set service lldp interface all
-
-# Note: Interface IP addresses are NOT configured by cloud-init
-# Students will configure interface IPs and firewall rules manually
-# Example commands after login:
-#   configure
-#   set interfaces ethernet eth0 address 192.168.0.x/24
-#   set interfaces ethernet eth1 address 10.1.1.1/24
-#   set interfaces ethernet eth2 address 10.2.2.1/24
-#   set protocols static route 0.0.0.0/0 next-hop 192.168.0.1
-#   commit
-#   save
+  - set interfaces ethernet eth0 address '{mgmt_ip}/24'
+  - set protocols static route 0.0.0.0/0 next-hop '{gateway}'
