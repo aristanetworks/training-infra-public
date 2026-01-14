@@ -338,18 +338,15 @@ class TestBridgeNameRoundTrip:
     def test_host_roundtrip(self):
         """Test Linux host connection roundtrip.
 
-        Note: Linux host 'eth0' interface gets abbreviated to 'et0' by
-        parse_device_name (first 2 letters rule). During parsing, 'et0'
-        is expanded to 'Ethernet0' since we can't distinguish 'eth' from 'et'.
-        This is a known limitation - the UI shows 'Ethernet0' but the actual
-        interface is 'eth0'. The device name (host1) is correct.
+        Note: eth prefix is now preserved through the roundtrip to distinguish
+        Linux host interfaces (eth0, eth1) from Ethernet ports (Ethernet1, et1).
         """
         bridge = generate_bridge_name('host1', 'eth0', 'leaf1', 'Ethernet10')
         result = self._parse_bridge_name(bridge)
 
         assert result['source_device_name'] == 'host1'
-        # 'eth0' -> 'et0' -> 'Ethernet0' (known limitation)
-        assert result['source_port_name'] == 'Ethernet0'
+        # eth0 is preserved through roundtrip
+        assert result['source_port_name'] == 'eth0'
         assert result['target_device_name'] == 'leaf1'
         assert result['target_port_name'] == 'Ethernet10'
 
