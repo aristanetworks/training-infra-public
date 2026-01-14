@@ -14,22 +14,21 @@
 
 # VyOS-specific configuration commands
 # Note: Values must be in single quotes per VyOS cloud-init requirements
+# Keywords like 'all' should NOT be quoted
 vyos_config_commands:
   # System configuration
   - set system host-name '{hostname}'
-  - set system time-zone 'UTC'
 
   # Set password for vyos user (ensures consistent credentials)
+  # Default is already vyos/vyos, but explicitly set for clarity
   - set system login user vyos authentication plaintext-password 'vyos'
 
-  # Serial console configuration for virsh console access
-  - set system console device ttyS0 speed '115200'
-
-  # Enable SSH service
+  # Enable SSH service (already enabled by default, but ensure port 22)
   - set service ssh port '22'
 
   # Enable LLDP on all interfaces for neighbor discovery
-  - set service lldp interface 'all'
+  # Note: 'all' is a keyword, not a value - no quotes
+  - set service lldp interface all
 
 # Note: Interface IP addresses are NOT configured by cloud-init
 # Students will configure interface IPs and firewall rules manually

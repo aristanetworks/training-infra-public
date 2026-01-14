@@ -147,15 +147,13 @@ def generate_vyos_cloud_init(hostname: str) -> str:
             # Fallback inline template - minimal config
             # Users will configure interface IPs manually after boot
             # Login: vyos / vyos
-            # Note: Values must be in single quotes per VyOS cloud-init requirements
+            # Note: Values must be in single quotes, keywords like 'all' should not be quoted
             user_data = """#cloud-config
 vyos_config_commands:
   - set system host-name '{hostname}'
-  - set system time-zone 'UTC'
   - set system login user vyos authentication plaintext-password 'vyos'
-  - set system console device ttyS0 speed '115200'
   - set service ssh port '22'
-  - set service lldp interface 'all'
+  - set service lldp interface all
 """
 
         # Replace placeholders (only hostname now)
