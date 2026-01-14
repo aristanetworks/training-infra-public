@@ -1,5 +1,10 @@
 #cloud-config
-vyos_config_commands:
-  - set system host-name 'firewall'
-  - set system login user vyos authentication plaintext-password 'vyos'
-  - set system login user vyos capability 'super-user'
+# Standard cloud-init format (no vyos_config_commands)
+
+# Set hostname
+hostname: firewall
+
+# Set password and enable SSH password auth
+password: vyos
+chpasswd: { expire: False }
+ssh_pwauth: True

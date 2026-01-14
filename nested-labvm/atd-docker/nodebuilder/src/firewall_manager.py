@@ -144,12 +144,12 @@ def generate_vyos_cloud_init(hostname: str) -> str:
             with open(template_path, 'r') as f:
                 user_data = f.read()
         else:
-            # Fallback inline template - vyos_config_commands only (no users module)
+            # Fallback inline template - standard cloud-init (no vyos_config_commands)
             user_data = """#cloud-config
-vyos_config_commands:
-  - set system host-name 'firewall'
-  - set system login user vyos authentication plaintext-password 'vyos'
-  - set system login user vyos capability 'super-user'
+hostname: firewall
+password: vyos
+chpasswd: { expire: False }
+ssh_pwauth: True
 """
 
         # No variable substitution for now - hardcoded values
