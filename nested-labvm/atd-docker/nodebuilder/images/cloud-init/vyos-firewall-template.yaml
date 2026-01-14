@@ -1,6 +1,3 @@
 #cloud-config
-# VyOS 1.4 cloud-init - hostname only
+# VyOS 1.4 cloud-init - empty config for testing
 # Login credentials: vyos / vyos (VyOS default)
-
-vyos_config_commands:
-  - set system host-name '{hostname}'
