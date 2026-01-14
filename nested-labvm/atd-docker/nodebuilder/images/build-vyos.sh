@@ -223,7 +223,7 @@ install_vyos() {
         --vcpus 1 \
         --disk "$disk_opts" \
         --disk "$cdrom_opts" \
-        --os-variant generic \
+        --osinfo detect=on,name=linux2022 \
         --network bridge="$NETWORK_BRIDGE",model=virtio \
         --graphics none \
         --console pty,target_type=serial \

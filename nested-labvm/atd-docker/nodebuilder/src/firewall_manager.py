@@ -243,23 +243,8 @@ def generate_firewall_xml(
         'bus': 'virtio'
     })
 
-    # Add cloud-init CDROM
-    cdrom = ET.SubElement(devices, 'disk', attrib={
-        'type': 'file',
-        'device': 'cdrom'
-    })
-    ET.SubElement(cdrom, 'driver', attrib={
-        'name': 'qemu',
-        'type': 'raw'
-    })
-    ET.SubElement(cdrom, 'source', attrib={
-        'file': f'{LIBVIRT_IMAGES_PATH}/firewall/{name}-cidata.iso'
-    })
-    ET.SubElement(cdrom, 'target', attrib={
-        'dev': 'hdc',
-        'bus': 'ide'
-    })
-    ET.SubElement(cdrom, 'readonly')
+    # Note: Cloud-init CDROM removed - VyOS base image has pre-configured
+    # credentials. Users configure hostname and IPs manually after boot.
 
     # Add eth0: Management interface (vmgmt bridge)
     # Use generate_interface_target_name to ensure name fits 15-char Linux limit
@@ -398,10 +383,9 @@ def create_firewall(
         image_path = copy_firewall_base_image(name)
         txn.add_resource('image', image_path)
 
-        # Step 2: Generate cloud-init ISO (hostname only)
-        logger.info(f"Generating VyOS cloud-init ISO for {name}")
-        cidata_path = generate_vyos_cloud_init(hostname=name)
-        txn.add_resource('cidata', cidata_path)
+        # Note: Cloud-init ISO generation removed - VyOS base image has
+        # pre-configured credentials (vyos/vyos or arista/arista).
+        # Users configure hostname and IPs manually after boot.
 
         # Step 3: Process inside connection (eth1)
         inside_conn = None
@@ -568,7 +552,7 @@ def delete_firewall(name: str) -> Dict:
     vm_result = resource_mgr.delete_vm_with_cleanup(
         vm_name=name,
         disk_subdir='firewall',
-        has_cidata=True
+        has_cidata=False  # Cloud-init removed - no cidata ISO to delete
     )
 
     logger.info(f"Deleted VyOS firewall: {name}")

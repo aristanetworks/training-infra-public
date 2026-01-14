@@ -640,7 +640,7 @@ class AddFirewallWizard {
                         <li>A new VyOS VM will be created and connected to the selected switches</li>
                         <li>The firewall will boot and be accessible via SSH within ~90 seconds</li>
                         <li>Configure interface IPs and firewall rules after login</li>
-                        <li>Default login: arista / arista</li>
+                        <li>Default login: vyos / vyos (or as configured in base image)</li>
                     </ul>
                 </div>
             </div>
