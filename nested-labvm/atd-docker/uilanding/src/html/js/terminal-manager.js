@@ -496,16 +496,21 @@ const TerminalManager = {
       // Remove all connection classes
       deviceEl.classList.remove('ssh-connected', 'console-connected', 'novnc-connected', 'both-connected', 'multi-connected');
 
-      // Add appropriate class based on connection state
+      // Add class for EACH active connection type to light up corresponding dots
+      if (hasSSH) {
+        deviceEl.classList.add('ssh-connected');
+      }
+      if (hasConsole) {
+        deviceEl.classList.add('console-connected');
+      }
+      if (hasNoVnc) {
+        deviceEl.classList.add('novnc-connected');
+      }
+
+      // Add multi-connected class if 2+ connections (for potential future styling)
       const connectionCount = [hasSSH, hasConsole, hasNoVnc].filter(Boolean).length;
       if (connectionCount >= 2) {
         deviceEl.classList.add('multi-connected');
-      } else if (hasSSH) {
-        deviceEl.classList.add('ssh-connected');
-      } else if (hasConsole) {
-        deviceEl.classList.add('console-connected');
-      } else if (hasNoVnc) {
-        deviceEl.classList.add('novnc-connected');
       }
     }
 

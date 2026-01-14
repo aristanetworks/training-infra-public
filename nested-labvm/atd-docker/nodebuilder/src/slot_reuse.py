@@ -95,18 +95,24 @@ def attach_interface_with_slot_reuse(
                 orphaned_slot['mac_address'],
                 bridge_name
             )
-            if result.get('status') == 'updated':
+            # Both 'updated' (VM running) and 'configured' (VM stopped) are success
+            # 'updated' = applied immediately, 'configured' = takes effect on next boot
+            status = result.get('status')
+            if status in ('updated', 'configured'):
                 # Successfully reused the slot
                 claim_orphaned_slot(target_device, orphaned_slot['mac_address'])
                 if connection_dict is not None:
                     connection_dict['reused_orphaned_slot'] = True
+
+                # If 'configured', the VM still needs a reboot for changes to take effect
+                needs_reboot = (status == 'configured')
                 logger.info(
                     f"Successfully reused orphaned slot on {target_device} - "
-                    f"no reboot needed"
+                    f"{'reboot needed for changes to take effect' if needs_reboot else 'no reboot needed'}"
                 )
                 return SlotReuseResult(
                     reused_slot=True,
-                    needs_reboot=False,
+                    needs_reboot=needs_reboot,
                     target_device=target_device
                 )
             else:
@@ -165,10 +171,13 @@ def process_connections_with_slot_reuse(
             connection_dict=conn
         )
 
-        if result.reused_slot:
-            targets_reused_slots.append(result.target_device)
-        else:
+        # Check needs_reboot directly - reused slots may still need reboot
+        # if the target VM was stopped (status='configured')
+        if result.needs_reboot:
             targets_need_reboot.append(result.target_device)
+        elif result.reused_slot:
+            # Only add to reused_slots if NO reboot needed
+            targets_reused_slots.append(result.target_device)
 
     return targets_reused_slots, targets_need_reboot
 

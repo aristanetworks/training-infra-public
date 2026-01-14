@@ -87,6 +87,24 @@ class AddHostWizard {
             return;
         }
 
+        // Pre-check: verify slots are available BEFORE showing wizard
+        // This gives immediate feedback without wasting user time
+        try {
+            const hostStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/hosts/status');
+            if (!hostStatus.can_add_more) {
+                this.showSlotError('Host Limit Reached',
+                    `Maximum of ${hostStatus.max_allowed} Linux hosts per topology.`,
+                    'Delete an existing host to add a new one.');
+                return;
+            }
+        } catch (error) {
+            console.error('[AddHostWizard] Error checking host slots:', error);
+            this.showSlotError('Service Unavailable',
+                'Unable to check host availability.',
+                'Make sure the nodebuilder service is running.');
+            return;
+        }
+
         // Reset state
         this.currentStep = 1;
         this.hostConfig = {
@@ -108,6 +126,43 @@ class AddHostWizard {
 
         // Render first step
         this.renderStep();
+    }
+
+    /**
+     * Show a slot/limit error without opening the full wizard
+     */
+    showSlotError(title, message, hint) {
+        // Create a simple error modal
+        const overlay = document.createElement('div');
+        overlay.className = 'add-node-wizard-overlay';
+        overlay.innerHTML = `
+            <div class="add-node-wizard" style="max-width: 450px;">
+                <div class="wizard-header">
+                    <h2>${this.escapeHtml(title)}</h2>
+                    <button class="wizard-close-btn" title="Close">&times;</button>
+                </div>
+                <div class="wizard-content">
+                    <div class="wizard-error">
+                        <div class="error-icon">&#9888;</div>
+                        <h3>${this.escapeHtml(title)}</h3>
+                        <p>${this.escapeHtml(message)}</p>
+                        <p class="error-hint">${this.escapeHtml(hint)}</p>
+                    </div>
+                </div>
+                <div class="wizard-footer">
+                    <div class="wizard-footer-spacer"></div>
+                    <button class="wizard-btn wizard-btn-primary wizard-close-error-btn">OK</button>
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('.wizard-close-btn').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('.wizard-close-error-btn').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
     }
 
     /**

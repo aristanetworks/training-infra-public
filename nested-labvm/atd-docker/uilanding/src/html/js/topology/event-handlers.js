@@ -217,7 +217,9 @@ export class EventManager {
                     this.showRunningConfigModal(node);
                     this.hideContextMenu();
                 },
-                disabled: !data.ip || data.ip === 'N/A'
+                // Only show for EOS-based devices (not firewalls, linux hosts, or velocloud)
+                disabled: !data.ip || data.ip === 'N/A',
+                hidden: ['firewall', 'linux_host', 'velo_edge', 'velo_gateway', 'velo_orchestrator'].includes(data.device_type)
             },
             {
                 type: 'separator'

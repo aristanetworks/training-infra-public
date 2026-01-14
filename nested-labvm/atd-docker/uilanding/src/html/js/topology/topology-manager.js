@@ -1245,7 +1245,7 @@ export class TopologyManager {
 
     /**
      * Refresh topology data from server and update the diagram
-     * Called after adding new nodes to update the display
+     * Called after adding or deleting nodes to update the display
      */
     async refreshTopology() {
         console.log('[TopologyManager] Refreshing topology...');
@@ -1258,29 +1258,90 @@ export class TopologyManager {
                 return;
             }
 
-            // Find nodes that don't exist in current graph
+            // Get current graph state
             const existingNodeIds = new Set(this.cy.nodes().map(n => n.id()));
             const existingEdgeIds = new Set(this.cy.edges().map(e => e.id()));
 
+            // Get new server state
+            const serverNodeIds = new Set(newData.nodes.map(n => n.data.id));
+            const serverEdgeIds = new Set(newData.edges.map(e => e.data.id));
+
+            // Find nodes/edges to ADD (exist on server but not in graph)
             const newNodes = newData.nodes.filter(n => !existingNodeIds.has(n.data.id));
             const newEdges = newData.edges.filter(e => !existingEdgeIds.has(e.data.id));
 
+            // Find nodes/edges to REMOVE (exist in graph but not on server)
+            const nodesToRemove = this.cy.nodes().filter(n => !serverNodeIds.has(n.id()));
+            const edgesToRemove = this.cy.edges().filter(e => !serverEdgeIds.has(e.id()));
+
+            let needsLayoutUpdate = false;
+
+            // Remove deleted elements
+            if (nodesToRemove.length > 0 || edgesToRemove.length > 0) {
+                console.log(`[TopologyManager] Removing ${nodesToRemove.length} nodes and ${edgesToRemove.length} edges`);
+                this.cy.remove(nodesToRemove);
+                this.cy.remove(edgesToRemove);
+
+                // Clean up stored positions for removed nodes
+                nodesToRemove.forEach(node => {
+                    delete this.originalPositions[node.id()];
+                });
+
+                needsLayoutUpdate = true;
+            }
+
+            // Add new elements
             if (newNodes.length > 0 || newEdges.length > 0) {
                 console.log(`[TopologyManager] Adding ${newNodes.length} new nodes and ${newEdges.length} new edges`);
 
-                // Add new elements to the graph
+                // Get existing node positions to avoid overlaps
+                const existingPositions = this.cy.nodes().map(n => ({
+                    id: n.id(),
+                    x: n.position('x'),
+                    y: n.position('y')
+                }));
+
+                // Adjust new node positions to avoid overlaps with existing nodes
+                const NODE_SPACING = 170;  // Match server NODE_SPACING_X
+                const OVERLAP_THRESHOLD = 50;  // How close is "overlapping"
+
+                newNodes.forEach(node => {
+                    if (!node.position) return;
+
+                    let newX = node.position.x;
+                    let newY = node.position.y;
+                    let attempts = 0;
+                    const maxAttempts = 10;
+
+                    // Check for overlaps and offset if needed
+                    while (attempts < maxAttempts) {
+                        const overlap = existingPositions.find(existing => {
+                            const dx = Math.abs(existing.x - newX);
+                            const dy = Math.abs(existing.y - newY);
+                            return dx < OVERLAP_THRESHOLD && dy < OVERLAP_THRESHOLD;
+                        });
+
+                        if (!overlap) break;  // No overlap, position is good
+
+                        // Offset to the right of the overlapping node
+                        newX = overlap.x + NODE_SPACING;
+                        attempts++;
+                        console.log(`[TopologyManager] Node ${node.data.id} overlaps with ${overlap.id}, offsetting to x=${newX}`);
+                    }
+
+                    // Apply adjusted position
+                    node.position.x = newX;
+                    node.position.y = newY;
+
+                    // Track this position to avoid stacking multiple new nodes
+                    existingPositions.push({
+                        id: node.data.id,
+                        x: newX,
+                        y: newY
+                    });
+                });
+
                 this.cy.add([...newNodes, ...newEdges]);
-
-                // Re-run layout to position new nodes
-                // Use preset layout to respect server-calculated positions
-                this.cy.layout({
-                    name: 'preset',
-                    fit: true,
-                    padding: 50
-                }).run();
-
-                // Update stored topology data
-                this.topologyData = newData;
 
                 // Store new node positions for reset
                 newNodes.forEach(node => {
@@ -1288,9 +1349,23 @@ export class TopologyManager {
                         this.originalPositions[node.data.id] = { ...node.position };
                     }
                 });
-            } else {
-                console.log('[TopologyManager] No new nodes or edges to add');
+
+                needsLayoutUpdate = true;
             }
+
+            // Re-run layout if changes were made
+            if (needsLayoutUpdate) {
+                this.cy.layout({
+                    name: 'preset',
+                    fit: true,
+                    padding: 50
+                }).run();
+            } else {
+                console.log('[TopologyManager] No topology changes detected');
+            }
+
+            // Update stored topology data
+            this.topologyData = newData;
 
             return newData;
 

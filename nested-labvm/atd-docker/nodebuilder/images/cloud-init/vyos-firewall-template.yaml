@@ -9,7 +9,7 @@
 #   eth1 - Inside interface (connects to inside network)
 #   eth2 - Outside interface (connects to outside network)
 #
-# Login credentials: vyos / arista (from base image)
+# Login credentials: vyos / vyos
 # Users will configure interface IPs manually after boot
 
 # VyOS-specific configuration commands
@@ -18,6 +18,9 @@ vyos_config_commands:
   # System configuration
   - set system host-name '{hostname}'
   - set system time-zone 'UTC'
+
+  # Set password for vyos user (ensures consistent credentials)
+  - set system login user vyos authentication plaintext-password 'vyos'
 
   # Serial console configuration for virsh console access
   - set system console device ttyS0 speed '115200'

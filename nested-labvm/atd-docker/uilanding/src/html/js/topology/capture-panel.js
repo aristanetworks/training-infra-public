@@ -89,6 +89,7 @@ export class CapturePanel {
                     <select id="capture-bridge-select" class="capture-bridge-select">
                         <option value="">Select link...</option>
                     </select>
+                    <button id="capture-refresh-bridges-btn" class="capture-btn" title="Refresh links (for newly added nodes)">↻</button>
                 </div>
 
                 <div class="capture-controls">
@@ -160,6 +161,7 @@ export class CapturePanel {
         // Cache element references
         this.elements = {
             bridgeSelect: document.getElementById('capture-bridge-select'),
+            refreshBridgesBtn: document.getElementById('capture-refresh-bridges-btn'),
             startBtn: document.getElementById('capture-start-btn'),
             stopBtn: document.getElementById('capture-stop-btn'),
             clearBtn: document.getElementById('capture-clear-btn'),
@@ -195,6 +197,7 @@ export class CapturePanel {
         this.elements.stopBtn.addEventListener('click', () => this.stopCapture());
         this.elements.clearBtn.addEventListener('click', () => this.clearPackets());
         this.elements.layoutBtn.addEventListener('click', () => this.toggleLayout());
+        this.elements.refreshBridgesBtn.addEventListener('click', () => this.refreshBridges());
 
         // Filter input - apply on Enter
         this.elements.filterInput.addEventListener('keydown', (e) => {
@@ -241,6 +244,30 @@ export class CapturePanel {
             console.error('[CapturePanel] Failed to load bridges:', error);
             this.bridges = [];
             this.elements.bridgeSelect.innerHTML = '<option value="">Error loading bridges</option>';
+        }
+    }
+
+    /**
+     * Manually refresh bridges (user-triggered via refresh button)
+     * Shows visual feedback during refresh
+     */
+    async refreshBridges() {
+        const btn = this.elements.refreshBridgesBtn;
+        const originalText = btn.textContent;
+
+        // Show loading state
+        btn.textContent = '⟳';
+        btn.disabled = true;
+
+        try {
+            await this.loadBridges(true);
+            console.log('[CapturePanel] Bridges refreshed successfully');
+        } catch (error) {
+            console.error('[CapturePanel] Failed to refresh bridges:', error);
+        } finally {
+            // Restore button
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     }
 

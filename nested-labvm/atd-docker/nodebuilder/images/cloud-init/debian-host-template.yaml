@@ -16,6 +16,9 @@ hostname: {hostname}
 fqdn: {hostname}.atl.local
 manage_etc_hosts: true
 
+# Enable SSH password authentication
+ssh_pwauth: true
+
 # Create arista user with sudo access
 users:
   - name: arista
@@ -47,16 +50,10 @@ network:
           - 192.168.0.1
 {eth1_config}
 
-# Packages to install (pre-installed in base image, this ensures they exist)
-packages:
-  - iperf3
-  - tcpdump
-  - mtr
-  - traceroute
-  - firefox-esr
-  - net-tools
-  - iputils-ping
-  - dnsutils
+# Note: No 'packages:' section - Linux hosts have no internet access
+# All required packages must be pre-installed in the base image:
+#   openssh-server, iperf3, tcpdump, mtr, traceroute, firefox-esr,
+#   net-tools, iputils-ping, dnsutils, x11vnc, lightdm, lxde
 
 # Write x11vnc systemd service file (may not exist in base image)
 write_files:
@@ -89,6 +86,9 @@ runcmd:
   - mkdir -p /etc/lightdm/lightdm.conf.d
   # Reload systemd to pick up new service file
   - systemctl daemon-reload
+  # Enable and start SSH server for remote access
+  - systemctl enable ssh
+  - systemctl start ssh
   # Ensure display manager starts
   - systemctl enable lightdm
   - systemctl start lightdm

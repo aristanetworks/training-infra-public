@@ -79,6 +79,24 @@ class AddFirewallWizard {
             return;
         }
 
+        // Pre-check: verify slots are available BEFORE showing wizard
+        // This gives immediate feedback without wasting user time
+        try {
+            const firewallStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/firewalls/status');
+            if (!firewallStatus.can_add_more) {
+                this.showSlotError('Firewall Limit Reached',
+                    `Maximum of ${firewallStatus.max_allowed} firewall per topology.`,
+                    'Delete the existing firewall to add a new one.');
+                return;
+            }
+        } catch (error) {
+            console.error('[AddFirewallWizard] Error checking firewall slots:', error);
+            this.showSlotError('Service Unavailable',
+                'Unable to check firewall availability.',
+                'Make sure the nodebuilder service is running.');
+            return;
+        }
+
         // Reset state
         this.currentStep = 1;
         this.firewallConfig = {
@@ -103,6 +121,43 @@ class AddFirewallWizard {
 
         // Render first step
         this.renderStep();
+    }
+
+    /**
+     * Show a slot/limit error without opening the full wizard
+     */
+    showSlotError(title, message, hint) {
+        // Create a simple error modal
+        const overlay = document.createElement('div');
+        overlay.className = 'add-node-wizard-overlay';
+        overlay.innerHTML = `
+            <div class="add-node-wizard" style="max-width: 450px;">
+                <div class="wizard-header">
+                    <h2>${this.escapeHtml(title)}</h2>
+                    <button class="wizard-close-btn" title="Close">&times;</button>
+                </div>
+                <div class="wizard-content">
+                    <div class="wizard-error">
+                        <div class="error-icon">&#9888;</div>
+                        <h3>${this.escapeHtml(title)}</h3>
+                        <p>${this.escapeHtml(message)}</p>
+                        <p class="error-hint">${this.escapeHtml(hint)}</p>
+                    </div>
+                </div>
+                <div class="wizard-footer">
+                    <div class="wizard-footer-spacer"></div>
+                    <button class="wizard-btn wizard-btn-primary wizard-close-error-btn">OK</button>
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('.wizard-close-btn').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('.wizard-close-error-btn').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
     }
 
     /**

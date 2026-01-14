@@ -743,6 +743,16 @@
     outline: none;
 }
 
+/* Refresh bridges button */
+#capture-refresh-bridges-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    min-width: unset;
+}
+
 .capture-bridge-select:disabled {
     opacity: 0.4;
     cursor: not-allowed;

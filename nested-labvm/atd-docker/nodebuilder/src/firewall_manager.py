@@ -124,8 +124,8 @@ def generate_vyos_cloud_init(hostname: str) -> str:
     Generate a cloud-init ISO for VyOS provisioning.
 
     VyOS uses vyos_config_commands in cloud-init for configuration.
-    Only sets hostname - users configure interface IPs manually after boot.
-    Uses default VyOS credentials (vyos/arista from base image).
+    Sets hostname and password - users configure interface IPs manually after boot.
+    Login credentials: vyos / vyos
 
     Args:
         hostname: VM hostname
@@ -146,12 +146,13 @@ def generate_vyos_cloud_init(hostname: str) -> str:
         else:
             # Fallback inline template - minimal config
             # Users will configure interface IPs manually after boot
-            # Login: vyos / arista (from base image)
+            # Login: vyos / vyos
             # Note: Values must be in single quotes per VyOS cloud-init requirements
             user_data = """#cloud-config
 vyos_config_commands:
   - set system host-name '{hostname}'
   - set system time-zone 'UTC'
+  - set system login user vyos authentication plaintext-password 'vyos'
   - set system console device ttyS0 speed '115200'
   - set service ssh port '22'
   - set service lldp interface 'all'

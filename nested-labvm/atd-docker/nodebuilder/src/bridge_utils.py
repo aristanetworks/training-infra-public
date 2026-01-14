@@ -97,6 +97,7 @@ def parse_device_name(dev_name: str) -> Dict:
         firewall1 -> fi1 (NOT fw1)
         gateway1 -> ga1 (NOT gw1)
         Ethernet3 -> 3 (just the number for ports)
+        eth1 -> eth1 (Linux host interface, preserved)
         host1 -> ho1
         wan1 -> wa1 (VeloCloud WAN port)
         lan1 -> la1 (VeloCloud LAN port)
@@ -146,6 +147,9 @@ def parse_device_name(dev_name: str) -> Dict:
     # For Ethernet ports, just use the number
     if 'ethernet' in dev_name.lower():
         dev_short = ''
+    # For Linux eth ports (eth1, eth2), preserve 'eth' prefix
+    elif dev_name.lower().startswith('eth') and len(alpha) == 3:
+        dev_short = 'eth'
     else:
         dev_short = alpha[:split_len].lower()
 

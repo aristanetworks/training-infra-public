@@ -2900,3 +2900,34 @@
     color: #fff;
     background: #1e1e1e;
 }
+
+/* Configuration note styling (firewall wizard) */
+.config-note {
+    background: #2a3a4a;
+    border: 1px solid #3d5a73;
+    border-left: 3px solid #fbb500;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+
+.config-note strong {
+    color: #fbb500;
+}
+
+.config-note code {
+    background: #1e2a3a;
+    color: #6db3f2;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+}
+
+/* Error hint styling for validation messages */
+.error-hint {
+    color: #e30909 !important;
+    font-weight: 500;
+}
