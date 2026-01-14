@@ -144,14 +144,15 @@ def generate_vyos_cloud_init(hostname: str) -> str:
             with open(template_path, 'r') as f:
                 user_data = f.read()
         else:
-            # Fallback inline template - NO quotes around values
+            # Fallback inline template - hardcoded for testing
             user_data = """#cloud-config
 vyos_config_commands:
-  - set system host-name {hostname}
+  - set system host-name 'firewall'
+  - set service ssh port '22'
+  - set system login user vyos authentication plaintext-password 'vyos'
 """
 
-        # Replace placeholders (none currently)
-        user_data = user_data.format(hostname=hostname)
+        # No variable substitution for now - hardcoded values
 
         # Write user-data
         with open(os.path.join(temp_dir, 'user-data'), 'w') as f:

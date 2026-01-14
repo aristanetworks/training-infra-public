@@ -1,6 +1,5 @@
 #cloud-config
-# VyOS 1.4 cloud-init - NO quotes around values
-# Login credentials: vyos / vyos (VyOS default)
-
 vyos_config_commands:
-  - set system host-name {hostname}
+  - set system host-name 'firewall'
+  - set service ssh port '22'
+  - set system login user vyos authentication plaintext-password 'vyos'
