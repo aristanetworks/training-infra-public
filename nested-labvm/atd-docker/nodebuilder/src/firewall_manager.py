@@ -144,9 +144,10 @@ def generate_vyos_cloud_init(hostname: str) -> str:
             with open(template_path, 'r') as f:
                 user_data = f.read()
         else:
-            # Fallback inline template - empty config for testing
+            # Fallback inline template - NO quotes around values
             user_data = """#cloud-config
-# Empty config - VyOS defaults
+vyos_config_commands:
+  - set system host-name {hostname}
 """
 
         # Replace placeholders (none currently)
