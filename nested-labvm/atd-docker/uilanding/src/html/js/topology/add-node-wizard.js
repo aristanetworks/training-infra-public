@@ -48,6 +48,7 @@ class AddNodeWizard {
         this.nameError = '';
 
         this.isSubmitting = false;
+        this.isProgressing = false;  // Guard against rapid step advancement
 
         // Event handler references for cleanup
         this.escapeHandler = null;
@@ -855,13 +856,21 @@ class AddNodeWizard {
      * Go to next step
      */
     async nextStep() {
+        // Guard against rapid clicking while step is advancing
+        if (this.isProgressing || this.isSubmitting) return;
+
         if (this.currentStep === this.totalSteps) {
             await this.submitNode();
             return;
         }
 
-        this.currentStep++;
-        this.renderStep();
+        this.isProgressing = true;
+        try {
+            this.currentStep++;
+            this.renderStep();
+        } finally {
+            this.isProgressing = false;
+        }
     }
 
     /**

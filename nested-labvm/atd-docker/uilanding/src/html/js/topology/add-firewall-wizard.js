@@ -607,8 +607,31 @@ class AddFirewallWizard {
                 canProceed = this.firewallConfig.inside_interface.target_device !== '';
                 break;
             case 3:
-                // Only require target device selection (IP configured manually after boot)
-                canProceed = this.firewallConfig.outside_interface.target_device !== '';
+                // Require target device selection and validate not same port as inside
+                const outsideDevice = this.firewallConfig.outside_interface.target_device;
+                const outsidePort = this.firewallConfig.outside_interface.target_port;
+                const insideDevice = this.firewallConfig.inside_interface.target_device;
+                const insidePort = this.firewallConfig.inside_interface.target_port;
+
+                canProceed = outsideDevice !== '';
+
+                // Validate that same device + same port isn't used for both interfaces
+                if (outsideDevice === insideDevice && outsidePort === insidePort && outsidePort !== '') {
+                    canProceed = false;
+                    // Show error hint if available
+                    const hintEl = this.overlay?.querySelector('#outside-device-hint');
+                    if (hintEl) {
+                        hintEl.textContent = 'Error: Inside and outside interfaces cannot use the same port on the same device';
+                        hintEl.classList.add('error-hint');
+                    }
+                } else {
+                    // Clear error hint
+                    const hintEl = this.overlay?.querySelector('#outside-device-hint');
+                    if (hintEl) {
+                        hintEl.textContent = 'You can use the same device as inside interface (different ports will be used)';
+                        hintEl.classList.remove('error-hint');
+                    }
+                }
                 break;
             case 4:
                 canProceed = !this.isSubmitting;

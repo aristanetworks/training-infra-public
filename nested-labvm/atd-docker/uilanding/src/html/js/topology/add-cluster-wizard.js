@@ -685,9 +685,33 @@ class AddClusterWizard {
         const jitterInput = this.overlay.querySelector('#cluster-jitter');
         const lossInput = this.overlay.querySelector('#cluster-loss');
 
-        const latencyVal = parseInt(latencyInput?.value, 10) || 0;
-        const jitterVal = parseInt(jitterInput?.value, 10) || 0;
-        const lossVal = parseFloat(lossInput?.value) || 0;
+        // Parse values with explicit NaN handling
+        const latencyRaw = parseInt(latencyInput?.value, 10);
+        const jitterRaw = parseInt(jitterInput?.value, 10);
+        const lossRaw = parseFloat(lossInput?.value);
+
+        // Check for NaN (invalid input) - treat empty as 0, but reject non-numeric
+        const latencyVal = latencyInput?.value === '' ? 0 : latencyRaw;
+        const jitterVal = jitterInput?.value === '' ? 0 : jitterRaw;
+        const lossVal = lossInput?.value === '' ? 0 : lossRaw;
+
+        if (latencyInput?.value !== '' && isNaN(latencyRaw)) {
+            errors.push('Latency must be a valid number');
+            latencyInput?.classList.add('error');
+            return { valid: false, errors };
+        }
+
+        if (jitterInput?.value !== '' && isNaN(jitterRaw)) {
+            errors.push('Jitter must be a valid number');
+            jitterInput?.classList.add('error');
+            return { valid: false, errors };
+        }
+
+        if (lossInput?.value !== '' && isNaN(lossRaw)) {
+            errors.push('Packet loss must be a valid number');
+            lossInput?.classList.add('error');
+            return { valid: false, errors };
+        }
 
         // Validate ranges
         if (latencyVal < 0 || latencyVal > AddClusterWizard.MAX_LATENCY_MS) {

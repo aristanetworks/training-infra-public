@@ -550,6 +550,13 @@ def create_host(
             f"to clean it up."
         )
 
+    # Validate data_ip CIDR format if provided
+    if data_ip:
+        from validation import validate_cidr_ip
+        valid, error = validate_cidr_ip(data_ip)
+        if not valid:
+            raise ValueError(f"Invalid data IP: {error}")
+
     # x11vnc inside VM always uses port 5900
     # noVNC connects to mgmt_ip:5900 for desktop access
     x11vnc_port = 5900
