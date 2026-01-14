@@ -82,7 +82,7 @@ class AddFirewallWizard {
         // Pre-check: verify slots are available BEFORE showing wizard
         // This gives immediate feedback without wasting user time
         try {
-            const firewallStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/firewalls/status');
+            const firewallStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/firewall-status');
             if (!firewallStatus.can_add_more) {
                 this.showSlotError('Firewall Limit Reached',
                     `Maximum of ${firewallStatus.max_allowed} firewall per topology.`,

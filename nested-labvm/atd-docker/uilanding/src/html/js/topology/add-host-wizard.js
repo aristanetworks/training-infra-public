@@ -90,7 +90,7 @@ class AddHostWizard {
         // Pre-check: verify slots are available BEFORE showing wizard
         // This gives immediate feedback without wasting user time
         try {
-            const hostStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/hosts/status');
+            const hostStatus = await NodeBuilderAPI.fetchWithRetry('/td-api/host-status');
             if (!hostStatus.can_add_more) {
                 this.showSlotError('Host Limit Reached',
                     `Maximum of ${hostStatus.max_allowed} Linux hosts per topology.`,
