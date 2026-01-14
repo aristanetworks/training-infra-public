@@ -2365,7 +2365,8 @@ export class EventManager {
         const data = edge.data();
 
         // Check device types - skip eAPI stats for non-EOS devices (firewalls, Linux hosts)
-        const nonEosTypes = ['firewall', 'linux_host', 'host'];
+        // Note: 'host' type devices in topology are vEOS switches, only 'linux_host' are non-EOS
+        const nonEosTypes = ['firewall', 'linux_host'];
         const sourceNode = this.cy.$id(data.source);
         const targetNode = this.cy.$id(data.target);
         const sourceType = sourceNode.data('device_type');
