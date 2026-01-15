@@ -254,9 +254,9 @@
                   <!-- View Toggle -->
                   <div class="topology-controls">
                     <button id="toggle-topo-view" class="button">
-                      <i class="fa-solid fa-image"></i> Switch to Static
+                      <i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)
                     </button>
-                    <div id="filter-controls">
+                    <div id="filter-controls" style="display: none;">
                       <input type="text" id="device-search" placeholder="Search devices..." />
                       <div id="device-type-filters"></div>
                       <button id="reset-layout" class="button">Reset Layout</button>
@@ -264,13 +264,13 @@
                     </div>
                   </div>
 
-                  <!-- Static Topology (hidden by default) -->
-                  <div id="static-topology" class="text-center" style="display: none;">
+                  <!-- Static Topology (default view) -->
+                  <div id="static-topology" class="text-center" style="display: block;">
                     <img src="topo/atd-topo.png" usemap="#image_map" />
                   </div>
 
-                  <!-- Interactive Topology (default view) -->
-                  <div id="interactive-topology"></div>
+                  <!-- Interactive Topology (hidden by default) -->
+                  <div id="interactive-topology" style="display: none;"></div>
 
                 </div>
               </div>
@@ -472,7 +472,7 @@
     import { TopologyManager } from './js/topology/topology-manager.js';
 
     let topoManager = null;
-    let isInteractiveView = true;  // Start with interactive view
+    let isInteractiveView = false;  // Start with static view
 
     // Store observer reference for cleanup
     let capturePanelObserver = null;
@@ -598,7 +598,7 @@
         staticDiv.style.display = 'block';
         interactiveDiv.style.display = 'none';
         filterControls.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Switch to Interactive';
+        toggleBtn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)';
 
         isInteractiveView = false;
       } else {

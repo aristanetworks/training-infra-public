@@ -213,27 +213,39 @@ class topoRequestHandler(BaseHandler):
     def get(self):
         host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
-        if lab_type == "Exam" and 'auth' in self.request.arguments and 'honorlock' not in self.request.arguments:
-            # Clear authentication and force re-authentication through Honorlock
-            self.clear_cookie("user")
-            self.redirect('/exam-authentication')
-            return()        
-        if not self.current_user:
-            if lab_type == "Exam":
 
-                if 'auth' in self.request.arguments and 'honorlock' in self.request.arguments:
-                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
-                elif 'auth' in self.request.arguments:
-                    self.redirect('/exam-authentication')
-                else:
-                    self.redirect('/login')
+        # For Exam labs: ALWAYS require Honorlock authentication flow
+        # This prevents bypass via direct URL access or cached sessions
+        if lab_type == "Exam":
+            # Check if user accessed via proper Honorlock flow (has 'honorlock' parameter)
+            if 'honorlock' in self.request.arguments:
+                # Valid Honorlock flow - proceed with authentication
+                if not self.current_user:
+                    # Redirect to login with auth credentials
+                    if 'auth' in self.request.arguments:
+                        self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+                    else:
+                        self.redirect('/login')
+                    return
+                # else: User authenticated via Honorlock - allow access (continue to line 232+)
             else:
-                if 'auth' in self.request.arguments:
-                    self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
-                else:
-                    self.redirect('/login')
+                # No 'honorlock' parameter - force Honorlock authentication
+                # This blocks:
+                #   1. Direct URL access: https://lab.com/
+                #   2. Cached session access without Honorlock
+                #   3. Manual auth parameter manipulation
+                self.redirect('/exam-authentication')
+                return
 
-            return()
+        # Handle non-authenticated users for regular (non-Exam) labs
+        # Note: Exam labs are already handled above (lines 210-229)
+        if not self.current_user:
+            # Regular lab authentication
+            if 'auth' in self.request.arguments:
+                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            else:
+                self.redirect('/login')
+            return
         else:
             _topo_cvp = False
             if 'disabled_links' in host_yaml:
@@ -1136,6 +1148,163 @@ class BaseUrlHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+
+class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to provide uptime data with runtime information for timer widget
+        """
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            self.set_header("Content-Type", "application/json")
+
+            # Get uptime data directly from atd-uptime service
+            try:
+                response = requests.get("http://atd-uptime:50010/uptime", timeout=1)
+                instance_data = response.json()
+
+                # Add runtime from topology metadata
+                if instance_data.get('status') == 'init' and TOPO_DATA and 'labels' in TOPO_DATA and 'runtime' in TOPO_DATA['labels']:
+                    instance_data['runtime'] = int(TOPO_DATA['labels']['runtime'])
+                else:
+                    instance_data['runtime'] = 12
+
+                # Add exam time information if available
+                instance_data['exam_end_time'] = EXAM_END_TIME
+                instance_data['exam_start_time'] = EXAM_START_TIME
+
+                self.write(json.dumps(instance_data))
+            except:
+                # If uptime service is not ready, return default values
+                self.write(json.dumps({
+                    'boottime': 0,
+                    'uptime': 0,
+                    'runtime': 12,
+                    'status': 'init',
+                    'exam_end_time': EXAM_END_TIME,
+                    'exam_start_time': EXAM_START_TIME
+                }))
+        except Exception as e:
+            self.set_status(500)
+            self.write(json.dumps({
+                "error": str(e),
+                "boottime": 0,
+                "uptime": 0,
+                "runtime": 12,
+                "status": "error",
+                "exam_end_time": 0,
+                "exam_start_time": 0
+            }))
+
+class MenuAPIHandler(tornado.web.RequestHandler):
+    def get(self):
+        """
+        Handler to provide menu items for unified header
+        Returns JSON with menu items based on disabled_links configuration
+        """
+        try:
+            self.set_header("Access-Control-Allow-Origin", "*")
+            self.set_header("Content-Type", "application/json")
+
+            # Load topology configuration
+            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+
+            # Get disabled links
+            disable_links = host_yaml.get('disabled_links', [])
+            if NOMENUOPTIONFILE:
+                disable_links.append('lab_menu')
+
+            # Build menu items array
+            menu_items = []
+
+            # Home is always first
+            menu_items.append({
+                'name': 'Home',
+                'url': '/',
+                'icon': '🏠'
+            })
+
+            # Lab Guides
+            if "labguides" not in disable_links:
+                if 'labguides' in host_yaml:
+                    if host_yaml['labguides'] == 'self':
+                        labguides_url = '/labguides/index.html'
+                    else:
+                        labguides_url = host_yaml['labguides']
+                else:
+                    labguides_url = '/labguides/index.html'
+
+                # Don't include Lab Guides in menu since it's in the header button
+                # menu_items.append({
+                #     'name': 'Lab Guides',
+                #     'url': labguides_url,
+                #     'icon': '📖'
+                # })
+
+            # Switch Access (BETA)
+            if "console" not in disable_links:
+                menu_items.append({
+                    'name': 'Terminal',
+                    'url': '/terminal',
+                    'icon': '💻'
+                })
+                menu_items.append({
+                    'name': 'Switch Access',
+                    'url': '/ssh/host/192.168.0.1',
+                    'icon': '🔌'
+                })
+
+            # CVP
+            if "cvp" not in disable_links:
+                menu_items.append({
+                    'name': 'CVP',
+                    'url': '/cv',
+                    'icon': '📊'
+                })
+
+            # CVaaS
+            if "cvaas" not in disable_links:
+                menu_items.append({
+                    'name': 'CVaaS',
+                    'url': 'https://www.arista.io/',
+                    'icon': '☁️'
+                })
+
+            # Programmability IDE (Coder)
+            if "ide" not in disable_links:
+                menu_items.append({
+                    'name': 'Coder',
+                    'url': '/coder',
+                    'icon': '⚙️'
+                })
+
+            # WebUI (Firefox)
+            if "webui" not in disable_links:
+                menu_items.append({
+                    'name': 'Firefox',
+                    'url': '/firefox',
+                    'icon': '🦊'
+                })
+
+            # Jenkins
+            if "jenkins" not in disable_links:
+                menu_items.append({
+                    'name': 'Jenkins',
+                    'url': '/jenkins',
+                    'icon': '🔧'
+                })
+
+            self.write(json.dumps({
+                'menu_items': menu_items
+            }))
+
+        except Exception as e:
+            pS(f"[MenuAPIHandler] Error: {e}")
+            self.set_status(500)
+            self.write(json.dumps({
+                "error": str(e),
+                "menu_items": []
+            }))
 
 class GetAccessInfoHandler(tornado.web.RequestHandler):
     def validate_field(self, customer_details, field_name, default_value, validated_details, defaulted_fields):
@@ -3699,9 +3868,11 @@ if __name__ == "__main__":
         (r'/getClientId', GetClientIdHandler),
         (r'/getExamInstructions', GetExamInstructionsHandler),
         (r'/getUserSessionId', GetUserSessionIdHandler),
-        (r'/beginExam', BeginExamHandler),  
+        (r'/beginExam', BeginExamHandler),
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
+        (r'/uptimeWithRuntime', UptimeWithRuntimeHandler),
+        (r'/td-api/menu', MenuAPIHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
         (r'/td-api/devices', DevicesAPIHandler),
