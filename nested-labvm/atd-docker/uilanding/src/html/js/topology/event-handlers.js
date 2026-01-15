@@ -25,6 +25,9 @@ export class EventManager {
         this.isCeosLab = this.eosType === 'container-labs';
         console.log('[EventManager] EOS type:', this.eosType, 'isCeosLab:', this.isCeosLab);
 
+        // VeloCloud feature availability (set by TopologyManager after fetching status)
+        this.veloEnabled = false;
+
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
@@ -83,6 +86,13 @@ export class EventManager {
             }
         });
 
+        // Background right-click - show add node menu (KVM labs only)
+        this.cy.on('cxttap', (evt) => {
+            if (evt.target === this.cy) {
+                this.showBackgroundContextMenu(evt);
+            }
+        });
+
         // Prevent browser context menu on the topology container
         this.container.addEventListener('contextmenu', (evt) => {
             evt.preventDefault();
@@ -105,30 +115,38 @@ export class EventManager {
     }
 
     /**
-     * Open SSH session in terminal page
+     * Open SSH or console session in terminal page
      * Uses postMessage to communicate with existing terminal window,
      * or calls custom handler if provided (for embedding in terminal page)
+     * @param {string} deviceName - Device display name
+     * @param {string} ip - Device IP address
+     * @param {string} type - Connection type: 'ssh' (default) or 'console'
+     * @param {string} vmName - Original VM name for console (optional, defaults to deviceName)
      */
-    openTerminal(deviceName, ip) {
-        if (!ip || ip === 'N/A') return;
+    openTerminal(deviceName, ip, type = 'ssh', vmName = null) {
+        // For SSH, IP is required; for console, device name is required
+        if (type === 'ssh' && (!ip || ip === 'N/A')) return;
+        if (type === 'console' && !deviceName) return;
+
+        const effectiveVmName = vmName || deviceName;
 
         // Use custom handler if provided (e.g., when embedded in terminal page)
         if (this.customTerminalHandler) {
-            console.log('[EventManager] Using custom terminal handler for', deviceName, ip);
-            this.customTerminalHandler(deviceName, ip);
+            console.log('[EventManager] Using custom terminal handler for', deviceName, ip, type);
+            this.customTerminalHandler(deviceName, ip, type, effectiveVmName);
             return;
         }
 
-        console.log('[EventManager] Using default terminal handler for', deviceName, ip);
+        console.log('[EventManager] Using default terminal handler for', deviceName, ip, type);
 
         // Check if we're already on the terminal page - if so, use TerminalManager directly
         if (window.location.pathname === '/terminal' && typeof TerminalManager !== 'undefined') {
             console.log('[EventManager] On terminal page, using TerminalManager directly');
-            TerminalManager.openTerminal(deviceName, ip);
+            TerminalManager.openTerminal(deviceName, ip, type, effectiveVmName);
             return;
         }
 
-        const deviceData = { type: 'openDevice', device: deviceName, ip: ip };
+        const deviceData = { type: 'openDevice', device: deviceName, ip: ip, connectionType: type, vmName: effectiveVmName };
 
         // Check if we have an existing terminal window that's still open
         if (this.terminalWindow && !this.terminalWindow.closed) {
@@ -137,7 +155,7 @@ export class EventManager {
             this.terminalWindow.focus();
         } else {
             // Open new terminal window with device parameters
-            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip)}`;
+            const terminalUrl = `/terminal?device=${encodeURIComponent(deviceName)}&ip=${encodeURIComponent(ip || '')}&type=${type}&vmName=${encodeURIComponent(effectiveVmName)}`;
             this.terminalWindow = window.open(terminalUrl, 'terminal-page');
         }
     }
@@ -169,6 +187,17 @@ export class EventManager {
                 disabled: !data.ip || data.ip === 'N/A'
             },
             {
+                label: 'Open Console (Serial)',
+                action: () => {
+                    // Open console in terminal page (same as SSH but with type='console')
+                    this.openTerminal(data.label, data.ip, 'console', data.label);
+                    this.hideContextMenu();
+                },
+                // Only show for KVM labs (virsh console not available for cEOS)
+                hidden: this.isCeosLab,
+                disabled: !data.label
+            },
+            {
                 label: 'Focus on Device',
                 action: () => {
                     this.enterFocusMode(node);
@@ -188,7 +217,9 @@ export class EventManager {
                     this.showRunningConfigModal(node);
                     this.hideContextMenu();
                 },
-                disabled: !data.ip || data.ip === 'N/A'
+                // Only show for EOS-based devices (not firewalls, linux hosts, or velocloud)
+                disabled: !data.ip || data.ip === 'N/A',
+                hidden: ['firewall', 'linux_host', 'velo_edge', 'velo_gateway', 'velo_orchestrator'].includes(data.device_type)
             },
             {
                 type: 'separator'
@@ -202,18 +233,48 @@ export class EventManager {
                     this.hideContextMenu();
                 },
                 disabled: !data.ip || data.ip === 'N/A'
+            },
+            {
+                type: 'separator',
+                // Only show separator if edit/delete options are visible
+                hidden: !data.user_added || this.isCeosLab
+            },
+            {
+                label: 'Edit Connections',
+                action: () => {
+                    this.showEditConnectionsDialog(data.label);
+                    this.hideContextMenu();
+                },
+                // Only show for user-added nodes in KVM labs
+                hidden: !data.user_added || this.isCeosLab
+            },
+            {
+                label: 'Delete Node',
+                action: () => {
+                    this.confirmDeleteNode(data.label, data.ip, data.device_type);
+                    this.hideContextMenu();
+                },
+                // Only show for user-added nodes in KVM labs
+                hidden: !data.user_added || this.isCeosLab,
+                className: 'danger'
             }
         ];
 
         // Build menu HTML
         menuItems.forEach(item => {
+            // Skip hidden items (e.g., console option on cEOS labs)
+            if (item.hidden) return;
+
             if (item.type === 'separator') {
                 const sep = document.createElement('div');
                 sep.className = 'context-menu-separator';
                 menu.appendChild(sep);
             } else {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                let className = 'context-menu-item';
+                if (item.disabled) className += ' disabled';
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
 
                 // Only add icon if provided
                 if (item.icon) {
@@ -289,6 +350,632 @@ export class EventManager {
         if (existing) {
             existing.remove();
         }
+    }
+
+    /**
+     * Show confirmation dialog for deleting a user-added node
+     * Uses BaseModal for consistent theming with other dialogs.
+     * Shows reboot prompt for affected devices after successful deletion.
+     * @param {string} nodeName - Name of the node to delete
+     * @param {string} nodeIp - IP address of the node
+     * @param {string} deviceType - Type of device: 'node', 'host', or 'firewall'
+     */
+    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
+        // Determine display name and endpoint based on device type
+        // Note: 'linux_host' is the device_type for user-added Linux hosts
+        // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
+        const typeLabels = {
+            'host': 'Linux Host',
+            'linux_host': 'Linux Host',
+            'firewall': 'Firewall',
+            'velo_edge': 'VeloCloud Edge',
+            'velo_gateway': 'VeloCloud Gateway',
+            'velo_orchestrator': 'VeloCloud Orchestrator',
+            'node': 'Node'
+        };
+        const typeLabel = typeLabels[deviceType] || 'Node';
+
+        // Create modal using BaseModal
+        const modal = new BaseModal({
+            id: 'delete-node-modal',
+            title: `Delete ${typeLabel}`,
+            theme: BaseModal.THEMES.DARK,
+            size: BaseModal.SIZES.MEDIUM
+        });
+
+        modal.show();
+        modal.showLoading('Loading node information...');
+
+        // Fetch node connections and target devices to know what needs rebooting
+        let affectedDevices = [];
+        let targetDevices = [];
+
+        try {
+            const [connectionsResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+
+            const connectionsData = await connectionsResp.json();
+            const targetsData = await targetsResp.json();
+
+            if (connectionsResp.ok && connectionsData.connections) {
+                affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+            }
+            targetDevices = targetsData.devices || [];
+        } catch (err) {
+            console.warn('Could not fetch node connections for reboot info:', err);
+        }
+
+        // Set content with warning
+        modal.setContent(`
+            <div class="delete-node-content">
+                <p>Are you sure you want to delete <strong>${modal.escapeHtml(nodeName)}</strong>?</p>
+                <p class="atd-modal__warning-text">This will:</p>
+                <ul class="atd-modal__warning-list">
+                    <li>Stop and remove the VM</li>
+                    <li>Delete the disk image</li>
+                    <li>Remove all network connections</li>
+                </ul>
+                <p class="atd-modal__warning-text">This action cannot be undone.</p>
+            </div>
+        `);
+
+        // Add footer buttons
+        modal.clearFooter();
+        const cancelBtn = modal.addFooterButton({
+            text: 'Cancel',
+            type: 'secondary',
+            onClick: () => modal.hide()
+        });
+
+        const deleteBtn = modal.addFooterButton({
+            text: `Delete ${typeLabel}`,
+            type: 'danger',
+            onClick: async () => {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+                cancelBtn.disabled = true;
+
+                try {
+                    // Use correct endpoint based on device type
+                    // Note: 'linux_host' is the device_type for user-added Linux hosts
+                    // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
+                    const endpoints = {
+                        'host': '/td-api/nodes/delete-host',
+                        'linux_host': '/td-api/nodes/delete-host',
+                        'firewall': '/td-api/nodes/delete-firewall',
+                        'velo_edge': '/td-api/nodes/delete-velo-device',
+                        'velo_gateway': '/td-api/nodes/delete-velo-device',
+                        'velo_orchestrator': '/td-api/nodes/delete-velo-device',
+                        'node': '/td-api/nodes/delete-node'
+                    };
+                    const endpoint = endpoints[deviceType] || endpoints['node'];
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: nodeName })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || `Failed to delete ${typeLabel.toLowerCase()}`);
+                    }
+
+                    // Refresh topology
+                    if (window.topologyManager) {
+                        await window.topologyManager.refreshTopology();
+                    }
+
+                    // Show success with reboot options if there were affected devices
+                    if (affectedDevices.length > 0) {
+                        const rebootManager = new DeviceRebootManager(targetDevices);
+
+                        modal.setContent(`
+                            <div class="delete-node-success">
+                                <div class="success-icon">&#10004;</div>
+                                <h3>${typeLabel} Deleted Successfully</h3>
+                                <p><strong>${modal.escapeHtml(nodeName)}</strong> has been removed.</p>
+                                ${rebootManager.renderRebootSection(affectedDevices)}
+                            </div>
+                        `);
+
+                        // Attach reboot handlers
+                        const modalBody = modal.modal.querySelector('.atd-modal__content');
+                        rebootManager.attachEventHandlers(modalBody);
+
+                        // Update footer to just have Close button
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            text: 'Close',
+                            type: 'secondary',
+                            onClick: () => modal.hide()
+                        });
+                    } else {
+                        // No affected devices, just close and notify
+                        modal.hide();
+                        this.showNotification(`${typeLabel} ${nodeName} deleted successfully`, 'success');
+                    }
+
+                } catch (error) {
+                    console.error(`Error deleting ${typeLabel.toLowerCase()}:`, error);
+                    this.showNotification(`Failed to delete ${typeLabel.toLowerCase()}: ${error.message}`, 'error');
+                    modal.hide();
+                }
+            }
+        });
+    }
+
+    /**
+     * Show a notification toast
+     */
+    showNotification(message, type = 'info') {
+        // Create or get notification container
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            document.body.appendChild(container);
+        }
+
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+
+        container.appendChild(notification);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
+    }
+
+    /**
+     * Show dialog for editing connections on a user-added node
+     * Uses BaseModal for consistent theming with other dialogs.
+     * Includes reboot prompt for affected target devices.
+     */
+    async showEditConnectionsDialog(nodeName) {
+        // Create modal using BaseModal with edit header theme
+        const modal = new BaseModal({
+            id: 'edit-connections-modal',
+            title: `Edit Connections - ${nodeName}`,
+            theme: BaseModal.THEMES.DARK,
+            size: BaseModal.SIZES.MEDIUM,
+            headerTheme: BaseModal.HEADER_THEMES.EDIT
+        });
+
+        modal.show();
+        modal.showLoading('Loading connections...');
+
+        // Fetch current connections and available targets
+        try {
+            const [connectionsResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+
+            const connectionsData = await connectionsResp.json();
+            const targetsData = await targetsResp.json();
+
+            if (!connectionsResp.ok) {
+                throw new Error(connectionsData.error || 'Failed to fetch connections');
+            }
+
+            const connections = connectionsData.connections || [];
+            const targetDevices = targetsData.devices || [];
+
+            // Track devices that need rebooting after edits
+            const affectedDevices = new Set();
+
+            // Build connection list HTML
+            let connectionsHtml = connections.map((conn, i) => `
+                <div class="connection-row" data-index="${i}">
+                    <span class="connection-info">
+                        <strong>${modal.escapeHtml(conn.local_port)}</strong> &rarr;
+                        ${modal.escapeHtml(conn.target_device)}:${modal.escapeHtml(conn.target_port)}
+                    </span>
+                    <button class="atd-modal__btn atd-modal__btn--danger atd-modal__btn--small remove-connection-btn"
+                            data-local-port="${modal.escapeHtml(conn.local_port)}"
+                            data-target-device="${modal.escapeHtml(conn.target_device)}"
+                            data-target-port="${modal.escapeHtml(conn.target_port)}">
+                        Remove
+                    </button>
+                </div>
+            `).join('');
+
+            if (connections.length === 0) {
+                connectionsHtml = '<p class="no-connections">No connections configured</p>';
+            }
+
+            // Build target device options
+            const targetOptions = targetDevices.map(device =>
+                `<option value="${modal.escapeHtml(device.name)}">${modal.escapeHtml(device.name)}</option>`
+            ).join('');
+
+            // Set modal content
+            modal.setContent(`
+                <div class="edit-connections-content">
+                    <div class="edit-section">
+                        <h4>Current Connections</h4>
+                        <div class="connections-list">${connectionsHtml}</div>
+                    </div>
+                    <div class="edit-section">
+                        <h4>Add Connection</h4>
+                        <div class="add-connection-form">
+                            <select id="add-target-device" class="atd-modal__select">
+                                <option value="">Select target device...</option>
+                                ${targetOptions}
+                            </select>
+                            <button class="atd-modal__btn atd-modal__btn--primary" id="add-connection-btn" disabled>
+                                Add Connection
+                            </button>
+                        </div>
+                    </div>
+                    <div class="edit-reboot-section"></div>
+                </div>
+            `);
+
+            // Set footer with close button
+            modal.clearFooter();
+            modal.addFooterButton({
+                text: 'Close',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
+
+            // Get modal content container for event handling
+            const modalContent = modal.modal.querySelector('.atd-modal__content');
+
+            // Helper function to update the reboot section
+            const updateRebootSection = () => {
+                const rebootContainer = modalContent.querySelector('.edit-reboot-section');
+                if (affectedDevices.size > 0) {
+                    const rebootManager = new DeviceRebootManager(targetDevices);
+                    const rebootTargets = [...affectedDevices];
+                    rebootContainer.innerHTML = rebootManager.renderRebootSection(rebootTargets);
+                    rebootManager.attachEventHandlers(rebootContainer);
+                } else {
+                    rebootContainer.innerHTML = '';
+                }
+            };
+
+            // Enable add button when target selected
+            const addTargetSelect = modalContent.querySelector('#add-target-device');
+            const addBtn = modalContent.querySelector('#add-connection-btn');
+
+            addTargetSelect.addEventListener('change', () => {
+                addBtn.disabled = !addTargetSelect.value;
+            });
+
+            // Handle remove connection
+            modalContent.querySelectorAll('.remove-connection-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const localPort = btn.dataset.localPort;
+                    const targetDevice = btn.dataset.targetDevice;
+                    const targetPort = btn.dataset.targetPort;
+
+                    btn.disabled = true;
+                    btn.textContent = 'Removing...';
+
+                    try {
+                        const response = await fetch('/td-api/nodes/edit-node', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: nodeName,
+                                remove_connections: [{
+                                    local_port: localPort,
+                                    target_device: targetDevice,
+                                    target_port: targetPort
+                                }]
+                            })
+                        });
+
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error);
+
+                        // Remove from UI
+                        btn.closest('.connection-row').remove();
+
+                        // Check if no connections left
+                        const connectionsList = modalContent.querySelector('.connections-list');
+                        if (modalContent.querySelectorAll('.connection-row').length === 0) {
+                            connectionsList.innerHTML =
+                                '<p class="no-connections">No connections configured</p>';
+                        }
+
+                        // Track affected device for reboot
+                        affectedDevices.add(targetDevice);
+                        updateRebootSection();
+
+                        this.showNotification(`Removed connection ${localPort}`, 'success');
+
+                        // Refresh topology
+                        if (window.topologyManager) {
+                            await window.topologyManager.refreshTopology();
+                        }
+
+                    } catch (error) {
+                        btn.disabled = false;
+                        btn.textContent = 'Remove';
+                        this.showNotification(`Failed to remove: ${error.message}`, 'error');
+                    }
+                });
+            });
+
+            // Handle add connection
+            addBtn.addEventListener('click', async () => {
+                const targetDevice = addTargetSelect.value;
+                if (!targetDevice) return;
+
+                addBtn.disabled = true;
+                addBtn.textContent = 'Adding...';
+
+                try {
+                    const response = await fetch('/td-api/nodes/edit-node', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: nodeName,
+                            add_connections: [{ target_device: targetDevice }]
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+
+                    // Track affected device for reboot
+                    affectedDevices.add(targetDevice);
+
+                    // Get the added connection info from response
+                    const addedConn = result.added && result.added[0];
+                    const localPort = addedConn?.local_port || 'EthernetX';
+                    const targetPort = addedConn?.target_port || 'EthernetX';
+
+                    // Add new connection to the UI
+                    const connectionsList = modalContent.querySelector('.connections-list');
+                    const noConnMsg = connectionsList.querySelector('.no-connections');
+                    if (noConnMsg) noConnMsg.remove();
+
+                    const newRow = document.createElement('div');
+                    newRow.className = 'connection-row';
+                    newRow.innerHTML = `
+                        <span class="connection-info">
+                            <strong>${modal.escapeHtml(localPort)}</strong> &rarr;
+                            ${modal.escapeHtml(targetDevice)}:${modal.escapeHtml(targetPort)}
+                        </span>
+                        <button class="atd-modal__btn atd-modal__btn--danger atd-modal__btn--small remove-connection-btn"
+                                data-local-port="${modal.escapeHtml(localPort)}"
+                                data-target-device="${modal.escapeHtml(targetDevice)}"
+                                data-target-port="${modal.escapeHtml(targetPort)}">
+                            Remove
+                        </button>
+                    `;
+                    connectionsList.appendChild(newRow);
+
+                    // Attach remove handler to the new button
+                    const newRemoveBtn = newRow.querySelector('.remove-connection-btn');
+                    newRemoveBtn.addEventListener('click', async () => {
+                        newRemoveBtn.disabled = true;
+                        newRemoveBtn.textContent = 'Removing...';
+                        try {
+                            const removeResp = await fetch('/td-api/nodes/edit-node', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: nodeName,
+                                    remove_connections: [{
+                                        local_port: localPort,
+                                        target_device: targetDevice,
+                                        target_port: targetPort
+                                    }]
+                                })
+                            });
+                            const removeResult = await removeResp.json();
+                            if (!removeResp.ok) throw new Error(removeResult.error);
+                            newRow.remove();
+                            if (modalContent.querySelectorAll('.connection-row').length === 0) {
+                                connectionsList.innerHTML = '<p class="no-connections">No connections configured</p>';
+                            }
+                            affectedDevices.add(targetDevice);
+                            updateRebootSection();
+                            this.showNotification(`Removed connection ${localPort}`, 'success');
+                            if (window.topologyManager) await window.topologyManager.refreshTopology();
+                        } catch (err) {
+                            newRemoveBtn.disabled = false;
+                            newRemoveBtn.textContent = 'Remove';
+                            this.showNotification(`Failed to remove: ${err.message}`, 'error');
+                        }
+                    });
+
+                    // Reset add form
+                    addTargetSelect.value = '';
+                    addBtn.disabled = true;
+                    addBtn.textContent = 'Add Connection';
+
+                    // Update reboot section
+                    updateRebootSection();
+
+                    this.showNotification(`Added connection to ${targetDevice}`, 'success');
+
+                    // Refresh topology
+                    if (window.topologyManager) {
+                        await window.topologyManager.refreshTopology();
+                    }
+
+                } catch (error) {
+                    addBtn.disabled = false;
+                    addBtn.textContent = 'Add Connection';
+                    this.showNotification(`Failed to add: ${error.message}`, 'error');
+                }
+            });
+
+        } catch (error) {
+            console.error('Error showing edit dialog:', error);
+            modal.showError(`Failed to load connections: ${error.message}`);
+        }
+    }
+
+    /**
+     * Show dialog for adding a cluster of nodes
+     * Delegates to AddClusterWizard class for consistent architecture with AddNodeWizard
+     */
+    showAddClusterDialog() {
+        // Use the AddClusterWizard class (same pattern as AddNodeWizard)
+        if (window.addClusterWizard) {
+            window.addClusterWizard.show();
+        } else if (window.topologyManager) {
+            // Initialize wizard if not already done
+            window.addClusterWizard = new AddClusterWizard(window.topologyManager);
+            window.addClusterWizard.show();
+        } else {
+            console.error('[EventManager] Cannot show cluster wizard: TopologyManager not available');
+            this.showNotification('Failed to initialize cluster wizard', 'error');
+        }
+    }
+
+    /**
+     * Show context menu when right-clicking on empty canvas background
+     * Provides options like "Add New Node" (KVM only), "Fit to View", etc.
+     */
+    showBackgroundContextMenu(evt) {
+        // Hide any existing menu
+        this.hideContextMenu();
+        this.hideTooltip();
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'topo-context-menu';
+        menu.className = 'topology-context-menu';
+
+        // Menu items for background
+        const menuItems = [
+            {
+                label: this.isCeosLab ? 'Add New Node (vEOS only)' : 'Add New Node',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addNodeWizard) {
+                        window.addNodeWizard.show();
+                    } else {
+                        console.error('AddNodeWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: this.isCeosLab ? 'Add Cluster (vEOS only)' : 'Add Cluster',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showAddClusterDialog();
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: this.isCeosLab ? 'Add Linux Host (KVM only)' : 'Add Linux Host',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addHostWizard) {
+                        window.addHostWizard.show();
+                    } else {
+                        console.error('AddHostWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            {
+                label: this.isCeosLab ? 'Add VyOS Firewall (KVM only)' : 'Add VyOS Firewall',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addFirewallWizard) {
+                        window.addFirewallWizard.show();
+                    } else {
+                        console.error('AddFirewallWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            },
+            // VeloCloud device option - only visible if VeloCloud is enabled for this topology
+            ...(this.veloEnabled ? [{
+                label: 'Add VeloCloud Device',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addVelocloudWizard) {
+                        window.addVelocloudWizard.show();
+                    } else {
+                        console.error('AddVelocloudWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab
+            }] : []),
+            {
+                type: 'separator'
+            },
+            {
+                label: 'Fit to View',
+                action: () => {
+                    this.hideContextMenu();
+                    this.cy.fit(50);
+                }
+            },
+            {
+                label: 'Reset Zoom',
+                action: () => {
+                    this.hideContextMenu();
+                    this.cy.zoom(1);
+                    this.cy.center();
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
+                label: this.isCeosLab ? 'Reset User Nodes (KVM only)' : 'Reset All User Nodes',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showResetConfirmation();
+                },
+                disabled: this.isCeosLab,
+                className: 'danger'
+            }
+        ];
+
+        // Build menu HTML using same pattern as showContextMenu
+        menuItems.forEach(item => {
+            if (item.type === 'separator') {
+                const separator = document.createElement('div');
+                separator.className = 'context-menu-separator';
+                menu.appendChild(separator);
+            } else {
+                const menuItem = document.createElement('div');
+                let className = 'context-menu-item';
+                if (item.disabled) className += ' disabled';
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
+                menuItem.textContent = item.label;
+                if (!item.disabled) {
+                    menuItem.addEventListener('click', item.action);
+                }
+                menu.appendChild(menuItem);
+            }
+        });
+
+        // Position the menu at click location
+        const renderedPos = evt.renderedPosition;
+        const containerRect = this.container.getBoundingClientRect();
+
+        menu.style.position = 'fixed';
+        menu.style.left = (renderedPos.x + containerRect.left) + 'px';
+        menu.style.top = (renderedPos.y + containerRect.top) + 'px';
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        // Adjust position if menu would go off screen
+        this.adjustMenuPosition(menu);
     }
 
     /**
@@ -1677,11 +2364,27 @@ export class EventManager {
     async fetchAndDisplayEdgeStats(edge, tooltip) {
         const data = edge.data();
 
+        // Check device types - skip eAPI stats for non-EOS devices (firewalls, Linux hosts)
+        // Note: 'host' type devices in topology are vEOS switches, only 'linux_host' are non-EOS
+        const nonEosTypes = ['firewall', 'linux_host'];
+        const sourceNode = this.cy.$id(data.source);
+        const targetNode = this.cy.$id(data.target);
+        const sourceType = sourceNode.data('device_type');
+        const targetType = targetNode.data('device_type');
+
         try {
+            // Only fetch stats for EOS devices - skip firewalls and Linux hosts
+            const sourceStatsPromise = nonEosTypes.includes(sourceType)
+                ? Promise.resolve(null)
+                : this.fetchInterfaceStats(data.source, data.source_port);
+            const targetStatsPromise = nonEosTypes.includes(targetType)
+                ? Promise.resolve(null)
+                : this.fetchInterfaceStats(data.target, data.target_port);
+
             // Fetch stats for both interfaces in parallel
             const [sourceStats, targetStats] = await Promise.all([
-                this.fetchInterfaceStats(data.source, data.source_port),
-                this.fetchInterfaceStats(data.target, data.target_port)
+                sourceStatsPromise,
+                targetStatsPromise
             ]);
 
             // Check if tooltip is still visible (user might have moved away)
@@ -1793,11 +2496,14 @@ export class EventManager {
 
         const buildInterfaceSection = (title, stats) => {
             if (!stats || !stats.stats) {
+                // Check if device is unconfigured (auth failure)
+                const isUnconfigured = stats && stats.status === 'unconfigured';
+                const message = isUnconfigured ? 'Device unconfigured' : 'Stats unavailable';
                 return `
                     <div class="tooltip-section">
                         <span class="section-title">${title}</span>
                         <div class="tooltip-row">
-                            <span class="tooltip-value">Stats unavailable</span>
+                            <span class="tooltip-value${isUnconfigured ? ' status-unconfigured' : ''}">${message}</span>
                         </div>
                     </div>
                 `;
@@ -2311,6 +3017,165 @@ export class EventManager {
         const existing = document.getElementById('running-config-overlay');
         if (existing) {
             existing.remove();
+        }
+    }
+
+    /**
+     * Show reset all user nodes confirmation modal
+     * Requires checkbox confirmation before allowing reset
+     */
+    async showResetConfirmation() {
+        // Create modal using BaseModal with danger header theme
+        const modal = new BaseModal({
+            id: 'reset-all-modal',
+            title: 'Reset All User Nodes',
+            size: 'medium',
+            theme: 'dark',
+            headerTheme: BaseModal.HEADER_THEMES.DANGER
+        });
+
+        modal.show();
+        modal.showLoading('Checking user nodes...');
+
+        try {
+            // Get current status to show what will be deleted
+            const status = await NodeBuilderAPI.getUserNodesStatus();
+
+            // API returns flat nodes array with type field - filter by type
+            const allNodes = status.nodes || [];
+            const veosList = allNodes.filter(n => n.type === 'node');
+            const hostsList = allNodes.filter(n => n.type === 'host');
+            const firewallsList = allNodes.filter(n => n.type === 'firewall');
+
+            const totalCount = allNodes.length;
+
+            if (totalCount === 0) {
+                modal.setContent(`
+                    <div class="reset-info">
+                        <p>There are no user-added nodes to reset.</p>
+                        <p class="reset-note">The topology is already in its original state.</p>
+                    </div>
+                `);
+                modal.clearFooter();
+                modal.addFooterButton({
+                    text: 'Close',
+                    type: 'secondary',
+                    onClick: () => modal.hide()
+                });
+                return;
+            }
+
+            // Build list of what will be deleted
+            let itemsList = '<ul class="reset-items-list">';
+            if (veosList.length > 0) {
+                const nodeNames = veosList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${veosList.length} vEOS node${veosList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(nodeNames)}</li>`;
+            }
+            if (hostsList.length > 0) {
+                const hostNames = hostsList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${hostsList.length} Linux host${hostsList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(hostNames)}</li>`;
+            }
+            if (firewallsList.length > 0) {
+                const fwNames = firewallsList.map(n => n.name).join(', ');
+                itemsList += `<li><strong>${firewallsList.length} VyOS firewall${firewallsList.length > 1 ? 's' : ''}:</strong> ${this.escapeHtml(fwNames)}</li>`;
+            }
+            itemsList += '</ul>';
+
+            modal.setContent(`
+                <div class="reset-warning">
+                    <div class="reset-warning-icon">&#9888;</div>
+                    <h3>This will permanently delete:</h3>
+                    ${itemsList}
+                    <div class="reset-consequences">
+                        <p><strong>This action will:</strong></p>
+                        <ul>
+                            <li>Stop and remove all user-added VMs</li>
+                            <li>Delete all associated disk images</li>
+                            <li>Remove all user-created network bridges</li>
+                            <li>Clear all user node persistence files</li>
+                        </ul>
+                    </div>
+                    <div class="reset-confirm-checkbox">
+                        <label>
+                            <input type="checkbox" id="reset-confirm-check">
+                            <span>I understand this action cannot be undone</span>
+                        </label>
+                    </div>
+                </div>
+            `);
+
+            modal.clearFooter();
+            modal.addFooterButton({
+                text: 'Cancel',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
+
+            const resetBtn = modal.addFooterButton({
+                text: 'Reset All',
+                type: 'danger',
+                onClick: async () => {
+                    resetBtn.disabled = true;
+                    resetBtn.textContent = 'Resetting...';
+
+                    try {
+                        const result = await NodeBuilderAPI.resetAllUserNodes();
+
+                        // Show success
+                        const summary = result.summary || {};
+                        modal.setContent(`
+                            <div class="reset-success">
+                                <div class="reset-success-icon">&#10004;</div>
+                                <h3>Reset Complete</h3>
+                                <p>The topology has been restored to its original state.</p>
+                                <div class="reset-summary">
+                                    <p><strong>Removed:</strong></p>
+                                    <ul>
+                                        ${summary.nodes ? `<li>${summary.nodes} vEOS node${summary.nodes !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.hosts ? `<li>${summary.hosts} Linux host${summary.hosts !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.firewalls ? `<li>${summary.firewalls} VyOS firewall${summary.firewalls !== 1 ? 's' : ''}</li>` : ''}
+                                        ${summary.bridges ? `<li>${summary.bridges} network bridge${summary.bridges !== 1 ? 's' : ''}</li>` : ''}
+                                    </ul>
+                                </div>
+                                ${result.affected_devices?.length > 0 ? `
+                                    <div class="reset-reboot-note">
+                                        <p><strong>Note:</strong> The following devices may need to be rebooted:</p>
+                                        <p>${result.affected_devices.join(', ')}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `);
+
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            text: 'Close',
+                            type: 'primary',
+                            onClick: () => {
+                                modal.hide();
+                                // Refresh the topology view
+                                if (window.topologyManager) {
+                                    window.topologyManager.refresh();
+                                }
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Reset failed:', error);
+                        modal.showError('Reset failed: ' + error.message);
+                    }
+                }
+            });
+
+            // Disable reset button until checkbox is checked
+            resetBtn.disabled = true;
+            const checkbox = modal.getContentElement().querySelector('#reset-confirm-check');
+            checkbox.addEventListener('change', () => {
+                resetBtn.disabled = !checkbox.checked;
+            });
+
+        } catch (error) {
+            console.error('Failed to load user nodes status:', error);
+            modal.showError('Failed to check user nodes: ' + error.message);
         }
     }
 

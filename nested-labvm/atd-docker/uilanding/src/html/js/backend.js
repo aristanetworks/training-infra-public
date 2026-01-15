@@ -317,13 +317,23 @@ document.getElementById("labBtn").addEventListener("click", function () {
 
 });
 function displayToolTip() {
-    document.getElementById('tooltiptext').style.visibility = "visible";
+    var tooltipEl = document.getElementById('tooltiptext');
+    if (tooltipEl) {
+        tooltipEl.style.visibility = "visible";
+    }
 }
 function hideToolTip() {
-    document.getElementById('tooltiptext').style.visibility = "hidden";
+    var tooltipEl = document.getElementById('tooltiptext');
+    if (tooltipEl) {
+        tooltipEl.style.visibility = "hidden";
+    }
 }
-document.getElementById('CvpStatus').style.color = "grey";
-document.getElementById('CvpStatus').style.pointerEvents = "none";
+// Only apply CVP status styling if element exists (not present on all pages)
+var cvpStatusEl = document.getElementById('CvpStatus');
+if (cvpStatusEl) {
+    cvpStatusEl.style.color = "grey";
+    cvpStatusEl.style.pointerEvents = "none";
+}
 
 
 
@@ -338,19 +348,27 @@ var btn = document.getElementById("myBtn");
 // Get the <span> element that closes the modal
 var span = document.getElementsByClassName("close")[0];
 
-// When the user clicks the button, open the modal 
-btn.onclick = function () {
-    modal.style.display = "block";
+// When the user clicks the button, open the modal
+// Only attach if both btn and modal exist
+if (btn && modal) {
+    btn.onclick = function () {
+        modal.style.display = "block";
+    }
 }
 
 // When the user clicks on <span> (x), close the modal
-span.onclick = function () {
-    modal.style.display = "none";
+// Only attach if both span and modal exist
+if (span && modal) {
+    span.onclick = function () {
+        modal.style.display = "none";
+    }
 }
 
 // When the user clicks anywhere outside of the modal, close it
-window.onclick = function (event) {
-    if (event.target == modal) {
-        modal.style.display = "none";
+if (modal) {
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
     }
 }    

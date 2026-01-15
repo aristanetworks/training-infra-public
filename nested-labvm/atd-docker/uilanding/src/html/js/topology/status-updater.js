@@ -190,7 +190,7 @@ export class StatusUpdater {
         node.data('status', status);
 
         // Update CSS classes - remove all status classes first
-        node.removeClass('status-up status-down status-init status-unknown status-error');
+        node.removeClass('status-up status-down status-init status-unknown status-error status-unconfigured');
         node.addClass(`status-${status}`);
 
         // Update classes string - preserve device type and add status

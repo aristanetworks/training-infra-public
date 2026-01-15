@@ -161,19 +161,33 @@ class ExamAuthenticationHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 class LoginHandler(BaseHandler):
+    def _validate_credentials(self, username: str, password: str) -> bool:
+        """
+        Validate username and password using constant-time comparison.
+
+        Security: Uses secrets.compare_digest to prevent timing attacks.
+        Always computes both hashes regardless of username validity.
+        """
+        tmp_username_hash = hashlib.sha512((username + salt).encode('utf-8')).hexdigest()
+        tmp_pwd_hash = hashlib.sha512((password + salt).encode('utf-8')).hexdigest()
+
+        # Get stored password hash, or use a dummy value if username not found
+        # This ensures constant-time behavior regardless of username validity
+        stored_pwd_hash = accounts.get(tmp_username_hash, 'invalid_user_dummy_hash')
+
+        # Use constant-time comparison to prevent timing attacks
+        return secrets.compare_digest(tmp_pwd_hash, stored_pwd_hash)
+
     def get(self):
         AUTH = False
+        decoded_cred = None
         if 'auth' in self.request.arguments:
             try:
                 decoded_cred = decodeID(self.get_argument('auth'))
-                tmp_username_hash = hashlib.sha512((decoded_cred['user'] + salt).encode('utf-8')).hexdigest()
-                if tmp_username_hash in accounts:
-                    tmp_pwd_hash = hashlib.sha512((decoded_cred['pwd'] + salt).encode('utf-8')).hexdigest()
-                    if tmp_pwd_hash == accounts[tmp_username_hash]:
-                        AUTH = True
+                AUTH = self._validate_credentials(decoded_cred['user'], decoded_cred['pwd'])
             except:
                 pass
-        if AUTH:
+        if AUTH and decoded_cred:
             self.set_secure_cookie("user", decoded_cred['user'])
             self.redirect('/')
         else:
@@ -183,17 +197,12 @@ class LoginHandler(BaseHandler):
             )
 
     def post(self):
-        tmp_username_hash = hashlib.sha512((self.get_argument("name") + salt).encode('utf-8')).hexdigest()
-        if tmp_username_hash in accounts:
-            tmp_pwd_hash = hashlib.sha512((self.get_argument("pwd") + salt).encode('utf-8')).hexdigest()
-            if tmp_pwd_hash == accounts[tmp_username_hash]:
-                self.set_secure_cookie("user", self.get_argument("name"))
-                self.redirect("/")
-            else:
-                self.render(
-                    BASE_PATH + 'login.html',
-                    LOGIN_MESSAGE="Wrong username and/or password."
-                )
+        username = self.get_argument("name")
+        password = self.get_argument("pwd")
+
+        if self._validate_credentials(username, password):
+            self.set_secure_cookie("user", username)
+            self.redirect("/")
         else:
             self.render(
                 BASE_PATH + 'login.html',
@@ -448,6 +457,28 @@ def pS(mtype):
 _TOPO_BUILD_CACHE = None
 # Cache for merged device list from both sources
 _ALL_DEVICES_CACHE = None
+# Track user_nodes.yaml modification time for cache invalidation
+_USER_NODES_MTIME = 0
+# Track user_hosts.yaml modification time for cache invalidation
+_USER_HOSTS_MTIME = 0
+# Track user_firewalls.yaml modification time for cache invalidation
+_USER_FIREWALLS_MTIME = 0
+# Track user_velo.yaml modification time for cache invalidation
+_USER_VELO_MTIME = 0
+
+
+def invalidate_devices_cache():
+    """
+    Invalidate the devices cache.
+    Called when user nodes/hosts/firewalls/velo devices are added/removed to ensure fresh data.
+    """
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME, _USER_VELO_MTIME
+    _ALL_DEVICES_CACHE = None
+    _USER_NODES_MTIME = 0
+    _USER_HOSTS_MTIME = 0
+    _USER_FIREWALLS_MTIME = 0
+    _USER_VELO_MTIME = 0
+    pS("Devices cache invalidated")
 
 
 def _get_topo_build_data():
@@ -536,12 +567,55 @@ def normalize_device_name(name):
 
 def get_all_devices():
     """
-    Get all devices from topo_build.yml (the authoritative topology source).
-    Returns a dict of {device_name: {'ip': ip_address}}.
+    Get all devices from topo_build.yml, user_nodes.yaml, user_hosts.yaml, and user_firewalls.yaml.
+    Returns a dict of {device_name: {'ip': ip_address, 'user_added': bool, 'device_category': str}}.
     Uses caching to avoid repeated lookups.
     Device names are normalized to consistent capitalization.
+    Cache is auto-invalidated when any user file changes.
     """
-    global _ALL_DEVICES_CACHE
+    global _ALL_DEVICES_CACHE, _USER_NODES_MTIME, _USER_HOSTS_MTIME, _USER_FIREWALLS_MTIME, _USER_VELO_MTIME
+
+    # Check if any user file has been modified since last cache
+    user_nodes_path = '/etc/atd/user_nodes.yaml'
+    user_hosts_path = '/etc/atd/user_hosts.yaml'
+    user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+    user_velo_path = '/etc/atd/user_velo.yaml'
+
+    try:
+        if os.path.exists(user_nodes_path):
+            current_mtime = os.path.getmtime(user_nodes_path)
+            if current_mtime > _USER_NODES_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_NODES_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_hosts_path):
+            current_mtime = os.path.getmtime(user_hosts_path)
+            if current_mtime > _USER_HOSTS_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_HOSTS_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_firewalls_path):
+            current_mtime = os.path.getmtime(user_firewalls_path)
+            if current_mtime > _USER_FIREWALLS_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_FIREWALLS_MTIME = current_mtime
+    except OSError:
+        pass
+
+    try:
+        if os.path.exists(user_velo_path):
+            current_mtime = os.path.getmtime(user_velo_path)
+            if current_mtime > _USER_VELO_MTIME:
+                _ALL_DEVICES_CACHE = None
+                _USER_VELO_MTIME = current_mtime
+    except OSError:
+        pass
 
     if _ALL_DEVICES_CACHE is not None:
         return _ALL_DEVICES_CACHE
@@ -559,10 +633,112 @@ def get_all_devices():
                         ip = ''
                     # Normalize device name to consistent capitalization
                     display_name = normalize_device_name(name)
-                    devices[display_name] = {'ip': ip}
+                    # Store original name for virsh console (VM names match topo_build.yml)
+                    devices[display_name] = {'ip': ip, 'user_added': False, 'vm_name': name, 'device_category': 'node'}
+
+    # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
+    try:
+        if os.path.exists(user_nodes_path):
+            with open(user_nodes_path, 'r') as f:
+                user_data = YAML().load(f)
+            if user_data and 'nodes' in user_data and user_data['nodes']:
+                for node_entry in user_data['nodes']:
+                    if isinstance(node_entry, dict):
+                        for name, info in node_entry.items():
+                            ip = info.get('ip_addr', '')
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': info.get('device_type', 'other'),
+                                'vm_name': name,
+                                'device_category': 'node'
+                            }
+                pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
+
+    # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
+    try:
+        if os.path.exists(user_hosts_path):
+            with open(user_hosts_path, 'r') as f:
+                hosts_data = YAML().load(f)
+            if hosts_data and 'hosts' in hosts_data and hosts_data['hosts']:
+                for host_entry in hosts_data['hosts']:
+                    if isinstance(host_entry, dict):
+                        for name, info in host_entry.items():
+                            ip = info.get('ip_addr', info.get('mgmt_ip', ''))
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': 'linux_host',
+                                'vm_name': name,
+                                'device_category': 'host',
+                                'supports_novnc': True  # Linux hosts have noVNC desktop access
+                            }
+                pS(f"Merged {len(hosts_data['hosts'])} user-added hosts into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_hosts.yaml for devices: {e}")
+
+    # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
+    try:
+        if os.path.exists(user_firewalls_path):
+            with open(user_firewalls_path, 'r') as f:
+                firewalls_data = YAML().load(f)
+            if firewalls_data and 'firewalls' in firewalls_data and firewalls_data['firewalls']:
+                for fw_entry in firewalls_data['firewalls']:
+                    if isinstance(fw_entry, dict):
+                        for name, info in fw_entry.items():
+                            ip = info.get('ip_addr', info.get('mgmt_ip', ''))
+                            if ip == 'N/A':
+                                ip = ''
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': 'firewall',
+                                'vm_name': name,
+                                'device_category': 'firewall'
+                            }
+                pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_firewalls.yaml for devices: {e}")
+
+    # Merge user-added VeloCloud devices from user_velo.yaml
+    try:
+        if os.path.exists(user_velo_path):
+            with open(user_velo_path, 'r') as f:
+                velo_data = YAML().load(f)
+            if velo_data and 'devices' in velo_data and velo_data['devices']:
+                for velo_entry in velo_data['devices']:
+                    if isinstance(velo_entry, dict):
+                        for name, info in velo_entry.items():
+                            ip = info.get('mgmt_ip', '')
+                            if ip == 'N/A':
+                                ip = ''
+                            device_type = info.get('device_type', 'edge')
+                            display_name = normalize_device_name(name)
+                            devices[display_name] = {
+                                'ip': ip,
+                                'user_added': True,
+                                'device_type': f'velo_{device_type}',
+                                'vm_name': name,
+                                'device_category': 'velocloud',
+                                # VCO web UI requires embedded Firefox (proxy abandoned)
+                                # Access via: https://<mgmt_ip>/operator/ with admin@velocloud.local
+                                'supports_webui': False
+                            }
+                pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices into device list")
+    except Exception as e:
+        pS(f"Warning: Error loading user_velo.yaml for devices: {e}")
 
     _ALL_DEVICES_CACHE = devices
-    pS(f"Cached {len(devices)} devices from topo_build.yml")
+    pS(f"Cached {len(devices)} devices from topo_build.yml + user files")
     return devices
 
 
@@ -1208,6 +1384,25 @@ class TerminalPageHandler(BaseHandler):
         )
 
 
+class ConsolePageHandler(BaseHandler):
+    """Handler for the serial console page (virsh console access)."""
+
+    def get(self):
+        if not self.current_user:
+            if 'auth' in self.request.arguments:
+                self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
+            else:
+                self.redirect('/login')
+            return
+
+        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        self.render(
+            BASE_PATH + 'console.html',
+            topo_title=TITLE,
+            ARISTA_PWD=host_yaml['login_info']['jump_host']['pw'],
+        )
+
+
 class TopologyAPIHandler(BaseHandler):
     """API endpoint to return topology data for interactive Cytoscape.js diagram."""
 
@@ -1216,6 +1411,11 @@ class TopologyAPIHandler(BaseHandler):
     _cache_time = 0
     _cache_lock = threading.Lock()
     CACHE_TTL = 30
+    # Track user files modification time for cache invalidation
+    _user_nodes_mtime = 0
+    _user_hosts_mtime = 0
+    _user_firewalls_mtime = 0
+    _user_velo_mtime = 0
 
     @staticmethod
     def classify_device_type(device_name):
@@ -1352,7 +1552,9 @@ class TopologyAPIHandler(BaseHandler):
                 p_routers.append(node)
             elif dtype == 'pe':
                 pe_routers.append(node)
-            elif dtype in ('ce', 'host', 'leaf', 'customer', 'other'):
+            elif DeviceTypeConfig.is_wan_customer_device(dtype) or dtype == 'leaf':
+                # Customer/endpoint devices go to left/right columns in WAN layout
+                # Also includes leafs which often connect to customer equipment
                 customer_devices.append(node)
             else:
                 other_devices.append(node)
@@ -1573,6 +1775,117 @@ class TopologyAPIHandler(BaseHandler):
             pS(f"Error parsing topology file: {e}")
             return {'error': f'Failed to parse topology file: {str(e)}', 'error_type': 'parse_error'}
 
+        # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
+        user_nodes_path = '/etc/atd/user_nodes.yaml'
+        try:
+            if os.path.exists(user_nodes_path):
+                with open(user_nodes_path, 'r') as f:
+                    user_data = YAML().load(f)
+                if user_data and 'nodes' in user_data and user_data['nodes']:
+                    # Ensure topo_data has nodes list
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Append user-added nodes
+                    topo_data['nodes'].extend(user_data['nodes'])
+                    pS(f"Merged {len(user_data['nodes'])} user-added nodes from {user_nodes_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_nodes.yaml: {e}")
+            # Continue without user nodes - don't fail the whole topology load
+
+        # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
+        user_hosts_path = '/etc/atd/user_hosts.yaml'
+        try:
+            if os.path.exists(user_hosts_path):
+                with open(user_hosts_path, 'r') as f:
+                    hosts_data = YAML().load(f)
+                if hosts_data and 'hosts' in hosts_data and hosts_data['hosts']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert hosts to node format for topology
+                    for host_entry in hosts_data['hosts']:
+                        if isinstance(host_entry, dict):
+                            for name, info in host_entry.items():
+                                # Create node entry with linux_host device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', info.get('ip_addr', 'N/A')),
+                                    'device_type': 'linux_host',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(hosts_data['hosts'])} user-added hosts from {user_hosts_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_hosts.yaml: {e}")
+
+        # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
+        user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+        try:
+            if os.path.exists(user_firewalls_path):
+                with open(user_firewalls_path, 'r') as f:
+                    firewalls_data = YAML().load(f)
+                if firewalls_data and 'firewalls' in firewalls_data and firewalls_data['firewalls']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert firewalls to node format for topology
+                    for fw_entry in firewalls_data['firewalls']:
+                        if isinstance(fw_entry, dict):
+                            for name, info in fw_entry.items():
+                                # Create node entry with firewall device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', info.get('ip_addr', 'N/A')),
+                                    'device_type': 'firewall',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls from {user_firewalls_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_firewalls.yaml: {e}")
+
+        # Merge user-added VeloCloud devices from user_velo.yaml
+        user_velo_path = '/etc/atd/user_velo.yaml'
+        try:
+            if os.path.exists(user_velo_path):
+                with open(user_velo_path, 'r') as f:
+                    velo_data = YAML().load(f)
+                if velo_data and 'devices' in velo_data and velo_data['devices']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    # Convert VeloCloud devices to node format for topology
+                    for velo_entry in velo_data['devices']:
+                        if isinstance(velo_entry, dict):
+                            for name, info in velo_entry.items():
+                                device_type = info.get('device_type', 'edge')
+                                # Create node entry with velo_* device_type
+                                node_info = {
+                                    'ip_addr': info.get('mgmt_ip', 'N/A'),
+                                    'device_type': f'velo_{device_type}',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                # Add connections as neighbors for edge drawing
+                                connections = info.get('connections', [])
+                                for conn in connections:
+                                    target = conn.get('target_device', '')
+                                    if target:
+                                        node_info['neighbors'].append({
+                                            'neighborDevice': target,
+                                            'neighborPort': conn.get('target_port', ''),
+                                            'port': conn.get('local_port', '')
+                                        })
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices from {user_velo_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_velo.yaml: {e}")
+
         # Validate topo_data structure
         if topo_data is None:
             return {'error': 'Topology file is empty', 'error_type': 'empty_file'}
@@ -1601,12 +1914,16 @@ class TopologyAPIHandler(BaseHandler):
         edges = []
         edge_set = set()  # Track edges to avoid duplicates
 
-        # First pass: collect all valid node names
+        # First pass: collect all valid node names and build normalization mapping
+        # Maps raw_name (from YAML) -> normalized_name (for display and API consistency)
         valid_node_names = set()
+        name_mapping = {}  # raw_name -> normalized_name
         for node_entry in topo_data['nodes']:
             if isinstance(node_entry, dict):
-                for device_name in node_entry.keys():
-                    valid_node_names.add(device_name)
+                for raw_name in node_entry.keys():
+                    normalized = normalize_device_name(raw_name)
+                    valid_node_names.add(raw_name)
+                    name_mapping[raw_name] = normalized
 
         # Second pass: build nodes and edges
         for node_entry in topo_data['nodes']:
@@ -1616,20 +1933,27 @@ class TopologyAPIHandler(BaseHandler):
                 continue
 
             # Each entry is a dict with device name as key
-            for device_name, device_info in node_entry.items():
+            for raw_device_name, device_info in node_entry.items():
+                # Get normalized display name for API consistency
+                display_name = name_mapping.get(raw_device_name, raw_device_name)
+
                 # Validate device_info is a dict
                 if not isinstance(device_info, dict):
-                    pS(f"Warning: Invalid device info for {device_name} (not a dict)")
+                    pS(f"Warning: Invalid device info for {raw_device_name} (not a dict)")
                     continue
 
-                device_type = self.classify_device_type(device_name)
+                # Use explicit device_type if provided (for user-added nodes),
+                # otherwise classify from device name
+                device_type = device_info.get('device_type') or self.classify_device_type(raw_device_name)
                 ip_addr = device_info.get('ip_addr', 'N/A')
                 sys_mac = device_info.get('sys_mac', 'N/A')
                 neighbors = device_info.get('neighbors', [])
+                # Check if this is a user-added node (from user_nodes.yaml)
+                user_added = device_info.get('user_added', False)
 
                 # Validate neighbors is a list
                 if not isinstance(neighbors, list):
-                    pS(f"Warning: Invalid neighbors format for {device_name}")
+                    pS(f"Warning: Invalid neighbors format for {raw_device_name}")
                     neighbors = []
 
                 # Build port info for tooltip
@@ -1638,24 +1962,27 @@ class TopologyAPIHandler(BaseHandler):
                     if not isinstance(neighbor, dict):
                         continue
 
-                    neighbor_device = neighbor.get('neighborDevice', '')
+                    neighbor_device_raw = neighbor.get('neighborDevice', '')
+                    # Get normalized neighbor name for display
+                    neighbor_device_display = name_mapping.get(neighbor_device_raw, neighbor_device_raw)
 
                     ports.append({
                         'port': neighbor.get('port', ''),
-                        'neighbor': neighbor_device,
+                        'neighbor': neighbor_device_display,  # Use normalized name for display
                         'neighbor_port': neighbor.get('neighborPort', '')
                     })
 
                     # Create edge only if both nodes exist (prevents Cytoscape.js errors)
-                    if neighbor_device and neighbor_device in valid_node_names:
+                    if neighbor_device_raw and neighbor_device_raw in valid_node_names:
                         # Get port values with None-safety
                         device_port = neighbor.get('port') or ''
                         neighbor_port = neighbor.get('neighborPort') or ''
 
                         # Create edge key that includes ports to support multiple links
                         # between the same device pair (e.g., MLAG, port-channel, redundancy)
+                        # Use normalized names for edge keys
                         port_pair = tuple(sorted([device_port, neighbor_port]))
-                        edge_key = (tuple(sorted([device_name, neighbor_device])), port_pair)
+                        edge_key = (tuple(sorted([display_name, neighbor_device_display])), port_pair)
 
                         if edge_key not in edge_set:
                             edge_set.add(edge_key)
@@ -1664,20 +1991,20 @@ class TopologyAPIHandler(BaseHandler):
                             # consistent port assignment regardless of processing order.
                             # edge_key[0][0] is the alphabetically first device name.
                             sorted_devices = edge_key[0]
-                            if device_name == sorted_devices[0]:
+                            if display_name == sorted_devices[0]:
                                 # Current device is alphabetically first, so it's the source.
                                 # Ports stay as-is: device_port -> source, neighbor_port -> target
-                                source_node = device_name
-                                target_node = neighbor_device
+                                source_node = display_name
+                                target_node = neighbor_device_display
                                 source_port = device_port
                                 target_port = neighbor_port
                             else:
                                 # Neighbor device is alphabetically first, so it becomes source.
-                                # Since we're processing from device_name's perspective, swap ports:
+                                # Since we're processing from device's perspective, swap ports:
                                 # neighbor_port belongs to the alphabetically-first (source) node
                                 # device_port belongs to the alphabetically-second (target) node
-                                source_node = neighbor_device
-                                target_node = device_name
+                                source_node = neighbor_device_display
+                                target_node = display_name
                                 source_port = neighbor_port
                                 target_port = device_port
 
@@ -1692,19 +2019,22 @@ class TopologyAPIHandler(BaseHandler):
                                     'target_port': target_port
                                 }
                             })
-                    elif neighbor_device:
-                        pS(f"Warning: Skipping edge {device_name}->{neighbor_device}: target node not in topology")
+                    elif neighbor_device_raw:
+                        pS(f"Warning: Skipping edge {display_name}->{neighbor_device_display}: target node not in topology")
 
-                # Create node
+                # Create node with normalized display name as ID
+                # Keep vm_name for virsh console access (uses original name from YAML)
                 nodes.append({
                     'data': {
-                        'id': device_name,
-                        'label': device_name,
+                        'id': display_name,
+                        'label': display_name,
                         'ip': ip_addr,
                         'sys_mac': sys_mac,
                         'device_type': device_type,
                         'status': 'unknown',
-                        'ports': ports
+                        'ports': ports,
+                        'user_added': user_added,
+                        'vm_name': raw_device_name  # Original name for virsh console
                     },
                     'classes': f"device-type-{device_type} status-unknown"
                 })
@@ -1748,10 +2078,28 @@ class TopologyAPIHandler(BaseHandler):
         try:
             current_time = time.time()
 
-            # Thread-safe cache check
+            # Check if any user file was modified (invalidates cache)
+            user_nodes_path = '/etc/atd/user_nodes.yaml'
+            user_hosts_path = '/etc/atd/user_hosts.yaml'
+            user_firewalls_path = '/etc/atd/user_firewalls.yaml'
+            user_velo_path = '/etc/atd/user_velo.yaml'
+
+            user_nodes_mtime = os.path.getmtime(user_nodes_path) if os.path.exists(user_nodes_path) else 0
+            user_hosts_mtime = os.path.getmtime(user_hosts_path) if os.path.exists(user_hosts_path) else 0
+            user_firewalls_mtime = os.path.getmtime(user_firewalls_path) if os.path.exists(user_firewalls_path) else 0
+            user_velo_mtime = os.path.getmtime(user_velo_path) if os.path.exists(user_velo_path) else 0
+
+            # Thread-safe cache check - invalidate if any user file changed
             with TopologyAPIHandler._cache_lock:
-                if (TopologyAPIHandler._cache and
-                    current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL):
+                cache_valid = (
+                    TopologyAPIHandler._cache and
+                    current_time - TopologyAPIHandler._cache_time < TopologyAPIHandler.CACHE_TTL and
+                    user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime and
+                    user_hosts_mtime <= TopologyAPIHandler._user_hosts_mtime and
+                    user_firewalls_mtime <= TopologyAPIHandler._user_firewalls_mtime and
+                    user_velo_mtime <= TopologyAPIHandler._user_velo_mtime
+                )
+                if cache_valid:
                     self.write(json.dumps(TopologyAPIHandler._cache))
                     return
 
@@ -1773,10 +2121,14 @@ class TopologyAPIHandler(BaseHandler):
 
             topology_data = result['data']
 
-            # Thread-safe cache update
+            # Thread-safe cache update (include user file mtimes for invalidation)
             with TopologyAPIHandler._cache_lock:
                 TopologyAPIHandler._cache = topology_data
                 TopologyAPIHandler._cache_time = current_time
+                TopologyAPIHandler._user_nodes_mtime = user_nodes_mtime
+                TopologyAPIHandler._user_hosts_mtime = user_hosts_mtime
+                TopologyAPIHandler._user_firewalls_mtime = user_firewalls_mtime
+                TopologyAPIHandler._user_velo_mtime = user_velo_mtime
 
             self.write(json.dumps(topology_data))
 
@@ -1800,24 +2152,59 @@ class DevicesAPIHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Get devices from topo_build.yml (single source of truth)
+            # Get devices from topo_build.yml, user_nodes.yaml, user_hosts.yaml, user_firewalls.yaml
             nodes = get_all_devices()
 
             # Group devices using shared DeviceTypeConfig
+            # User-added items go to separate groups by category at the end
             groups = {}
+            user_nodes_group = []
+            user_hosts_group = []
+            user_firewalls_group = []
+            user_velocloud_group = []
 
             for device_name, device_info in nodes.items():
-                # Classify device and get its group name
-                device_type = DeviceTypeConfig.classify_device(device_name)
-                group_name = DeviceTypeConfig.get_group_name(device_type)
+                is_user_added = device_info.get('user_added', False)
+                device_category = device_info.get('device_category', 'node')
 
-                if group_name not in groups:
-                    groups[group_name] = []
+                # Build device entry with new flags
+                # Console only supported for KVM labs (virsh console), not cEOS
+                supports_console = EOS_TYPE != 'container-labs'
+                # Include original VM name for virsh console connections
+                vm_name = device_info.get('vm_name', device_name)
+                # Linux hosts support noVNC desktop access
+                supports_novnc = device_info.get('supports_novnc', False)
+                # VeloCloud Orchestrator supports web UI access
+                supports_webui = device_info.get('supports_webui', False)
 
-                groups[group_name].append({
+                device_entry = {
                     'name': device_name,
+                    'vmName': vm_name,  # Original name for virsh console
                     'ip': device_info.get('ip', ''),
-                })
+                    'userAdded': is_user_added,
+                    'supportsConsole': supports_console,
+                    'supportsNoVnc': supports_novnc,
+                    'supportsWebUI': supports_webui,
+                }
+
+                if is_user_added:
+                    # User-added devices go to category-specific groups
+                    if device_category == 'host':
+                        user_hosts_group.append(device_entry)
+                    elif device_category == 'firewall':
+                        user_firewalls_group.append(device_entry)
+                    elif device_category == 'velocloud':
+                        user_velocloud_group.append(device_entry)
+                    else:
+                        user_nodes_group.append(device_entry)
+                else:
+                    # Regular nodes grouped by device type
+                    device_type = device_info.get('device_type') or DeviceTypeConfig.classify_device(device_name)
+                    group_name = DeviceTypeConfig.get_group_name(device_type)
+
+                    if group_name not in groups:
+                        groups[group_name] = []
+                    groups[group_name].append(device_entry)
 
             # Sort devices within each group and format result
             # Order groups by tier (using first device type that maps to each group)
@@ -1841,14 +2228,68 @@ class DevicesAPIHandler(BaseHandler):
                         'devices': devices
                     })
 
+            # Add User Nodes group if there are any
+            if user_nodes_group:
+                result.append({
+                    'group': 'User Nodes',
+                    'devices': sorted(user_nodes_group, key=lambda x: x['name'])
+                })
+
+            # Add User Hosts group if there are any (Linux desktop VMs)
+            if user_hosts_group:
+                result.append({
+                    'group': 'Linux Hosts',
+                    'devices': sorted(user_hosts_group, key=lambda x: x['name'])
+                })
+
+            # Add User Firewalls group if there are any (VyOS firewalls)
+            if user_firewalls_group:
+                result.append({
+                    'group': 'Firewalls',
+                    'devices': sorted(user_firewalls_group, key=lambda x: x['name'])
+                })
+
+            # Add VeloCloud group if there are any (VeloCloud Edge/Gateway/Orchestrator)
+            if user_velocloud_group:
+                result.append({
+                    'group': 'VeloCloud',
+                    'devices': sorted(user_velocloud_group, key=lambda x: x['name'])
+                })
+
             self.write(json.dumps({
                 'topology': TITLE,
+                'eosType': EOS_TYPE,
                 'groups': result
             }))
 
-        except Exception as e:
+        except FileNotFoundError as e:
+            pS(f"DevicesAPIHandler: Configuration file not found: {e}")
+            self.set_status(503)
+            self.write(json.dumps({
+                'error': 'Device configuration not available',
+                'detail': 'The topology configuration file could not be found. Please wait for the lab to finish initializing.',
+                'retry': True
+            }))
+
+        except (yaml.YAMLError, json.JSONDecodeError) as e:
+            pS(f"DevicesAPIHandler: Configuration parse error: {e}")
+            traceback.print_exc()
             self.set_status(500)
-            self.write(json.dumps({'error': str(e)}))
+            self.write(json.dumps({
+                'error': 'Configuration error',
+                'detail': 'The device configuration could not be parsed.',
+                'retry': False
+            }))
+
+        except Exception as e:
+            pS(f"DevicesAPIHandler: Unexpected error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({
+                'error': 'Internal server error',
+                'detail': str(e),
+                'retry': True
+            }))
 
 
 class DeviceTypesAPIHandler(BaseHandler):
@@ -1904,10 +2345,21 @@ class InterfaceStatsAPIHandler(BaseHandler):
             stats = self.get_interface_stats(device, interface)
             self.write(json.dumps(stats))
         except Exception as e:
-            pS(f"InterfaceStatsAPIHandler error: {e}")
-            traceback.print_exc()
-            self.set_status(500)
-            self.write(json.dumps({'error': str(e)}))
+            error_str = str(e)
+            # Check for authentication failures - device is up but not configured
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                pS(f"InterfaceStatsAPIHandler: Auth failed for {device} (unconfigured)")
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)'
+                }))
+            else:
+                pS(f"InterfaceStatsAPIHandler error: {e}")
+                traceback.print_exc()
+                self.set_status(500)
+                self.write(json.dumps({'error': error_str}))
 
     def get_interface_stats(self, device_name, interface_name):
         """Query EOS device for interface counters via eAPI."""
@@ -1996,6 +2448,10 @@ class InterfaceStatsAPIHandler(BaseHandler):
             return stats
 
         except pyeapi.eapilib.ConnectionError as e:
+            # Preserve auth failure info for upstream handler to detect 'unconfigured' status
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str:
+                raise ValueError(f"Unauthorized: Cannot authenticate to {device_name} ({device_ip}): {e}")
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
@@ -2070,7 +2526,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             self.write(json.dumps({'devices': statuses}))
 
     def check_device_status(self, device_name):
-        """Check if a single device is reachable via eAPI."""
+        """Check if a single device is reachable. Uses eAPI for EOS devices, ping for hosts/firewalls."""
         cache_key = device_name
         current_time = time.time()
 
@@ -2081,9 +2537,17 @@ class DeviceStatusAPIHandler(BaseHandler):
                 if current_time - timestamp < self.CACHE_TTL:
                     return data
 
-        # Get device IP from topology
-        device_ip = get_device_ip_from_sources(device_name)
-        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}")
+        # Get device info from topology (includes device_category for hosts/firewalls)
+        all_devices = get_all_devices()
+        device_info = all_devices.get(device_name, {})
+        device_ip = device_info.get('ip', '')
+        device_category = device_info.get('device_category', 'node')
+
+        # Fallback to old method if not found in get_all_devices
+        if not device_ip:
+            device_ip = get_device_ip_from_sources(device_name)
+
+        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}, category: {device_category}")
         if not device_ip:
             result = {
                 'device': device_name,
@@ -2092,18 +2556,114 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
             return result
 
+        # For hosts and firewalls, use ping instead of eAPI
+        if device_category in ('host', 'firewall'):
+            result = self._check_device_via_ping(device_name, device_ip, device_category)
+        else:
+            # For EOS devices, use eAPI
+            result = self._check_device_via_eapi(device_name, device_ip)
+
+        # Update cache
+        with self._cache_lock:
+            self._cache[cache_key] = (current_time, result)
+
+        return result
+
+    def _check_device_via_ping(self, device_name, device_ip, device_category):
+        """Check if a host or firewall is reachable via ping or TCP check."""
+        import subprocess
+        import socket
+
+        device_type_label = 'Linux Host' if device_category == 'host' else 'VyOS Firewall'
+
+        # Try ping first
+        try:
+            # Quick ping with 1 second timeout
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '1', device_ip],
+                capture_output=True,
+                timeout=3
+            )
+
+            if result.returncode == 0:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'up',
+                    'version': device_type_label,
+                    'last_check': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'down',
+                    'error': 'Ping failed',
+                    'last_check': datetime.now().isoformat()
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': 'Ping timeout',
+                'last_check': datetime.now().isoformat()
+            }
+        except FileNotFoundError:
+            # ping command not available, fallback to TCP check on port 22 (SSH)
+            pS(f"[DeviceStatus] Ping not available, trying TCP check for {device_name}")
+            pass
+        except Exception as e:
+            # Log the error but try TCP fallback
+            pS(f"[DeviceStatus] Ping failed for {device_name}: {e}, trying TCP check")
+            pass
+
+        # Fallback: TCP check on SSH port (22)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex((device_ip, 22))
+            sock.close()
+
+            if result == 0:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'up',
+                    'version': device_type_label,
+                    'last_check': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'down',
+                    'error': f'TCP port 22 not responding (code {result})',
+                    'last_check': datetime.now().isoformat()
+                }
+        except Exception as e:
+            pS(f"[DeviceStatus] TCP check also failed for {device_name}: {e}")
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': f'Unreachable: {str(e)}',
+                'last_check': datetime.now().isoformat()
+            }
+
+    def _check_device_via_eapi(self, device_name, device_ip):
+        """Check if an EOS device is reachable via eAPI."""
         # Get credentials from ACCESS_INFO
         try:
             host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
             username = host_yaml['login_info']['jump_host']['user']
             password = host_yaml['login_info']['jump_host']['pw']
         except Exception as e:
-            result = {
+            return {
                 'device': device_name,
                 'status': 'error',
                 'error': f'Cannot read credentials: {e}'
             }
-            return result
 
         # Try to connect via eAPI
         try:
@@ -2119,7 +2679,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             result_cmd = connection.execute(['show version'])
             version = result_cmd.get('result', [{}])[0].get('version', 'unknown')
 
-            result = {
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'up',
@@ -2127,8 +2687,18 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
 
-        except pyeapi.eapilib.ConnectionError:
-            result = {
+        except pyeapi.eapilib.ConnectionError as e:
+            # pyeapi raises ConnectionError for auth failures with "Unauthorized" message
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)',
+                    'last_check': datetime.now().isoformat()
+                }
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'down',
@@ -2136,19 +2706,23 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
         except Exception as e:
-            result = {
+            error_str = str(e)
+            # Fallback check for authentication failures from other exception types
+            if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
+                return {
+                    'device': device_name,
+                    'ip': device_ip,
+                    'status': 'unconfigured',
+                    'error': 'Device reachable but authentication failed (not yet configured)',
+                    'last_check': datetime.now().isoformat()
+                }
+            return {
                 'device': device_name,
                 'ip': device_ip,
                 'status': 'error',
-                'error': str(e),
+                'error': error_str,
                 'last_check': datetime.now().isoformat()
             }
-
-        # Update cache
-        with self._cache_lock:
-            self._cache[cache_key] = (current_time, result)
-
-        return result
 
     def check_all_devices(self):
         """Check status of all devices from both modules.yaml and topo_build.yml."""
@@ -2246,6 +2820,10 @@ class RunningConfigAPIHandler(BaseHandler):
             }
 
         except pyeapi.eapilib.ConnectionError as e:
+            # Preserve auth failure info for upstream handler to detect 'unconfigured' status
+            error_str = str(e)
+            if 'Unauthorized' in error_str or 'Bad username' in error_str:
+                raise ValueError(f"Unauthorized: Cannot authenticate to {device_name} ({device_ip}): {e}")
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
@@ -2480,11 +3058,15 @@ class CaptureBridgesAPIHandler(BaseHandler):
             from tornado.httpclient import AsyncHTTPClient
             http_client = AsyncHTTPClient()
 
+            # Check for refresh parameter
+            refresh = self.get_argument('refresh', '0')
+            refresh_param = f"?refresh={refresh}" if refresh == '1' else ""
+
             # Try to fetch bridges from capture service
             bridges = []
             try:
                 response = await http_client.fetch(
-                    f"{self.CAPTURE_SERVICE_URL}/bridges",
+                    f"{self.CAPTURE_SERVICE_URL}/bridges{refresh_param}",
                     request_timeout=5
                 )
                 data = json.loads(response.body.decode('utf-8'))
@@ -2493,7 +3075,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
                 try:
                     response = await http_client.fetch(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges",
+                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
                         request_timeout=5
                     )
                     data = json.loads(response.body.decode('utf-8'))
@@ -2525,37 +3107,75 @@ class CaptureBridgesAPIHandler(BaseHandler):
         """Add topology edge information to bridges."""
         # Load topology data to map bridge names to device names
         topo_data = _get_topo_build_data()
-        if not topo_data:
-            return bridges
 
         # Build device name lookup from short codes
         # This maps sp1 -> spine1, le1 -> leaf1, etc.
         device_lookup = {}
-        if 'nodes' in topo_data:
+        if topo_data and 'nodes' in topo_data:
             for node_entry in topo_data['nodes']:
                 if isinstance(node_entry, dict):
                     for device_name in node_entry.keys():
                         # Generate short code (same logic as kvm-topo-builder)
-                        short_code = self.get_short_code(device_name)
+                        # Lowercase for consistent matching with bridge codes
+                        short_code = self.get_short_code(device_name).lower()
                         device_lookup[short_code] = device_name
+
+        # Also include user-added devices from persistence files
+        user_files = [
+            ('/etc/atd/user_nodes.yaml', 'nodes'),
+            ('/etc/atd/user_hosts.yaml', 'hosts'),
+            ('/etc/atd/user_firewalls.yaml', 'firewalls'),
+        ]
+        for user_file_path, key in user_files:
+            try:
+                if os.path.exists(user_file_path):
+                    with open(user_file_path, 'r') as f:
+                        user_data = YAML().load(f)
+                    if user_data and key in user_data and user_data[key]:
+                        for entry in user_data[key]:
+                            if isinstance(entry, dict):
+                                for device_name in entry.keys():
+                                    short_code = self.get_short_code(device_name).lower()
+                                    device_lookup[short_code] = device_name
+            except Exception as e:
+                pS(f"Warning: Error loading {user_file_path} for bridge enrichment: {e}")
 
         # Enrich each bridge
         for bridge in bridges:
-            src_code = bridge.get('source_device', '')
-            tgt_code = bridge.get('target_device', '')
+            src_code = bridge.get('source_device', '').lower()
+            tgt_code = bridge.get('target_device', '').lower()
 
             if src_code in device_lookup:
                 bridge['source_device_name'] = device_lookup[src_code]
             if tgt_code in device_lookup:
                 bridge['target_device_name'] = device_lookup[tgt_code]
 
-            # Convert port codes to full names (Et1 -> Ethernet1)
-            if bridge.get('source_port', '').startswith('Et'):
-                port_num = bridge['source_port'][2:]
+            # Convert port codes to full names
+            # - Et1/et1 -> Ethernet1 (EOS switches)
+            # - eth1 stays as eth1 (Linux hosts/firewalls)
+            # - Bare numbers like '7' -> Ethernet7 (nodebuilder format)
+            src_port = bridge.get('source_port', '')
+            tgt_port = bridge.get('target_port', '')
+
+            if src_port.lower().startswith('eth'):
+                # Linux host interface - keep as-is
+                bridge['source_port_name'] = src_port
+            elif src_port.lower().startswith('et'):
+                # EOS Ethernet port
+                port_num = src_port[2:]
                 bridge['source_port_name'] = f'Ethernet{port_num}'
-            if bridge.get('target_port', '').startswith('Et'):
-                port_num = bridge['target_port'][2:]
+            elif src_port.isdigit():
+                # Bare port number (nodebuilder format)
+                bridge['source_port_name'] = f'Ethernet{src_port}'
+
+            if tgt_port.lower().startswith('eth'):
+                bridge['target_port_name'] = tgt_port
+            elif tgt_port.lower().startswith('et'):
+                port_num = tgt_port[2:]
                 bridge['target_port_name'] = f'Ethernet{port_num}'
+            elif tgt_port.isdigit():
+                # Bare port number (nodebuilder format)
+                bridge['target_port_name'] = f'Ethernet{tgt_port}'
 
         return bridges
 
@@ -3116,6 +3736,109 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+# ===============================
+# Nodebuilder Proxy Handlers
+# ===============================
+
+class NodeBuilderProxyHandler(BaseHandler):
+    """
+    Proxy handler for nodebuilder service API calls.
+
+    The nodebuilder service runs on port 8090 with host network mode
+    for libvirt/virsh access. This handler proxies requests from the
+    UI to the nodebuilder service.
+    """
+
+    NODEBUILDER_URL = "http://host.docker.internal:8090"
+    NODEBUILDER_URL_FALLBACK = "http://172.17.0.1:8090"
+
+    async def get(self, path):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        await self._proxy_request('GET', path)
+
+    async def post(self, path):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+        await self._proxy_request('POST', path, self.request.body)
+
+    async def options(self, path):
+        """Handle CORS preflight requests."""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.set_header("Access-Control-Max-Age", "86400")
+        self.set_status(204)
+        self.finish()
+
+    async def _proxy_request(self, method, path, body=None):
+        """Proxy request to nodebuilder service."""
+        from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPClientError
+
+        http_client = AsyncHTTPClient()
+        url = f"/{path}" if path else ""
+
+        # Longer timeout for operations that may take a while
+        timeout = 180 if 'reset-all' in path or 'cleanup' in path else 60
+
+        async def try_fetch(base_url):
+            """Attempt to fetch from a URL, returning (response, error)."""
+            request = HTTPRequest(
+                f"{base_url}{url}",
+                method=method,
+                body=body if method == 'POST' else None,
+                headers={"Content-Type": "application/json"} if body else {},
+                request_timeout=timeout
+            )
+            try:
+                response = await http_client.fetch(request, raise_error=False)
+                return response, None
+            except Exception as e:
+                return None, e
+
+        try:
+            # Try primary URL first (Docker Desktop)
+            response, error = await try_fetch(self.NODEBUILDER_URL)
+
+            if error:
+                # Connection error - try fallback
+                pS(f"[NodeBuilderProxy] Primary connection failed: {error}, trying fallback...")
+                response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
+
+            if error:
+                # Both failed to connect
+                pS(f"[NodeBuilderProxy] Fallback also failed: {error}")
+                self.set_status(503)
+                self.write(json.dumps({
+                    'error': 'Nodebuilder service unavailable',
+                    'detail': str(error)
+                }))
+                return
+
+            # Forward the response (including non-2xx status codes like 400)
+            self.set_status(response.code)
+            if response.body:
+                self.write(response.body)
+
+        except Exception as e:
+            pS(f"[NodeBuilderProxy] Error: {e}")
+            traceback.print_exc()
+            self.set_status(500)
+            self.write(json.dumps({'error': str(e)}))
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -3151,6 +3874,7 @@ if __name__ == "__main__":
         (r'/uptimeWithRuntime', UptimeWithRuntimeHandler),
         (r'/td-api/menu', MenuAPIHandler),
         (r'/terminal', TerminalPageHandler),
+        (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
@@ -3173,6 +3897,8 @@ if __name__ == "__main__":
         (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
         (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
+        # Nodebuilder endpoints (dynamic node addition for KVM labs)
+        (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
     app.listen(PORT)
     print('*** Websocket Server Started on {} ***'.format(PORT))
