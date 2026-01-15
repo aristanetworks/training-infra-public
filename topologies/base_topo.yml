@@ -1243,14 +1243,24 @@ topologies:
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20251003
             eos:
-              - 4.32.1F               
+              - 4.32.1F    
+          2025.1.0-43502:
+            schema: 1
+            resources:
+              cpu: 72
+              ram: 160
+            branch: nested/2025.1
+            orderable: true
+            image: base-veos-training-lx-veos-2025-1-43502-20260115-141929
+            eos:
+              - 4.32.1F             
           2025.2.0:
             schema: 1
             resources:
               cpu: 72
               ram: 160
             branch: nested/2025.2
-            orderable: true
+            orderable: false
             image: base-veos-training-lx-veos-2025-2-4321-20250725
             eos:
               - 4.32.1F  
