@@ -1253,7 +1253,7 @@ topologies:
             orderable: true
             image: base-veos-training-lx-veos-2025-1-43502-20260115-141929
             eos:
-              - 4.32.1F             
+              - 4.35.0.2F             
           2025.2.0:
             schema: 1
             resources:
