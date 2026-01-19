@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-LABEL maintainer="ATD Team <atd-help@arista.com>"
+LABEL maintainer="ATL Team <training@arista.com>"
 LABEL description="Feature Flags Service - Firestore-backed feature flag management"
 
 WORKDIR /app
