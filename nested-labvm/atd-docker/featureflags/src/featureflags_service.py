@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Feature Flags Service for ATD Labs
+Feature Flags Service for ATL Labs
 
 Provides REST API for querying enabled feature flags.
 Fetches from Firestore once at boot, caches locally for lab lifetime.

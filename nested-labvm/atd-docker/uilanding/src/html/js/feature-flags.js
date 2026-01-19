@@ -1,5 +1,5 @@
 /**
- * Feature Flags Client for ATD Frontend
+ * Feature Flags Client for ATL Frontend
  *
  * Usage:
  *   const ff = new FeatureFlags();
