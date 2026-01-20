@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 LABEL maintainer="ATL Team <training@arista.com>"
-LABEL description="Feature Flags Service - Firestore-backed feature flag management"
+LABEL description="Config Service - Feature flags and announcements management"
 
 WORKDIR /app
 
@@ -14,4 +14,4 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 50011
 
-CMD ["python", "src/featureflags_service.py"]
+CMD ["python", "src/configservice.py"]

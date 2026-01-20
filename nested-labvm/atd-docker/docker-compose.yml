@@ -10,13 +10,13 @@ services:
       - /etc/atd:/etc/atd:ro
     networks:
       - atd_nginx
-  featureflags:
-    container_name: atd-featureflags
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_featureflags:1.0.0
+  configservice:
+    container_name: atd-configservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
-      - GOOGLE_APPLICATION_CREDENTIALS=/etc/atd/credentials/featureflags-sa.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/atd/credentials/configservice-sa.json
     volumes:
       - /etc/atd:/etc/atd:rw
     networks:
