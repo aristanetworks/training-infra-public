@@ -20,6 +20,8 @@ import re
 import subprocess
 import threading
 import time
+import urllib.request
+import urllib.error
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -37,6 +39,11 @@ define("allowed_hosts", default="127.0.0.1,localhost", help="Allowed hosts for A
 # Global state
 TOPOLOGY_DATA_PATH = "/etc/atd/ACCESS_INFO.yaml"
 TOPOLOGY_FILE_PATH = "/opt/atd/topologies/topo_build.yml"
+
+# Nodebuilder API endpoint for bridge information
+# Captureservice runs with host network, so nodebuilder is at localhost
+NODEBUILDER_BRIDGES_URL = "http://localhost:8090/bridges"
+NODEBUILDER_TIMEOUT = 5  # seconds
 
 
 @dataclass
@@ -1009,16 +1016,76 @@ class CaptureManager:
 
     def invalidate_bridge_cache(self):
         """Invalidate the bridge cache to force a refresh."""
-        self._bridge_cache = None
-        self._bridge_cache_time = 0
+        with self._lock:
+            self._bridge_cache = None
+            self._bridge_cache_time = 0
 
     def get_bridges(self, refresh: bool = False) -> List[Dict]:
-        """Get list of OVS bridges with edge mapping."""
+        """
+        Get list of OVS bridges with edge mapping.
+
+        Fetches bridge information from nodebuilder API which is the single
+        source of truth for bridge name parsing. Falls back to local OVS
+        command with local parsing if nodebuilder is unreachable.
+
+        Thread-safe: Uses lock for cache and session access.
+        """
         now = time.time()
-        if not refresh and self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
-            return self._bridge_cache
+
+        # Thread-safe cache check
+        with self._lock:
+            if not refresh and self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
+                return list(self._bridge_cache)  # Return copy to avoid mutations
 
         bridges = []
+
+        # Try nodebuilder API first with retry logic
+        max_retries = 2
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(
+                    NODEBUILDER_BRIDGES_URL,
+                    headers={'Accept': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=NODEBUILDER_TIMEOUT) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+
+                    # Get set of capturing bridges with single lock acquisition
+                    with self._lock:
+                        capturing_bridges = {
+                            s.bridge_name for s in self.sessions.values()
+                            if s.is_active
+                        }
+
+                    for bridge_info in data.get('bridges', []):
+                        bridge_info['is_capturing'] = bridge_info.get('name', '') in capturing_bridges
+                        bridges.append(bridge_info)
+
+                    print(f"[CaptureManager] Got {len(bridges)} bridges from nodebuilder API")
+
+                    # Thread-safe cache update
+                    with self._lock:
+                        self._bridge_cache = bridges
+                        self._bridge_cache_time = time.time()
+                    return bridges
+
+            except urllib.error.URLError as e:
+                last_error = f"Nodebuilder API unavailable: {e}"
+            except json.JSONDecodeError as e:
+                last_error = f"Invalid JSON from nodebuilder: {e}"
+            except Exception as e:
+                last_error = f"Error calling nodebuilder API: {e}"
+
+            if attempt < max_retries - 1:
+                print(f"[CaptureManager] Retry {attempt + 1}/{max_retries}: {last_error}")
+                time.sleep(0.5)  # Brief delay before retry
+
+        # All retries failed
+        print(f"[CaptureManager] {last_error}")
+
+        # Fallback: Get bridges locally with local parsing
+        print("[CaptureManager] Falling back to local OVS bridge list with local parsing")
         try:
             result = subprocess.run(
                 ["ovs-vsctl", "list-br"],
@@ -1027,6 +1094,13 @@ class CaptureManager:
                 timeout=10
             )
             if result.returncode == 0:
+                # Get set of capturing bridges with single lock acquisition
+                with self._lock:
+                    capturing_bridges = {
+                        s.bridge_name for s in self.sessions.values()
+                        if s.is_active
+                    }
+
                 for name in result.stdout.strip().split('\n'):
                     name = name.strip()
                     if not name:
@@ -1034,12 +1108,9 @@ class CaptureManager:
 
                     info = self._parse_bridge_name(name)
                     info['name'] = name
-                    info['is_capturing'] = any(
-                        s.bridge_name == name and s.is_active
-                        for s in self.sessions.values()
-                    )
+                    info['is_capturing'] = name in capturing_bridges
                     bridges.append(info)
-                print(f"[CaptureManager] Found {len(bridges)} OVS bridges")
+                print(f"[CaptureManager] Found {len(bridges)} OVS bridges (local fallback)")
             else:
                 print(f"[CaptureManager] ovs-vsctl failed: {result.stderr.strip()}")
         except FileNotFoundError:
@@ -1047,8 +1118,10 @@ class CaptureManager:
         except Exception as e:
             print(f"[CaptureManager] Error listing bridges: {e}")
 
-        self._bridge_cache = bridges
-        self._bridge_cache_time = now
+        # Thread-safe cache update
+        with self._lock:
+            self._bridge_cache = bridges
+            self._bridge_cache_time = time.time()
         return bridges
 
     # Mapping of 2-letter abbreviations to full device type names
@@ -1575,48 +1648,36 @@ class LatencyManager:
 
     def get_bridges_with_status(self) -> List[Dict]:
         """Get list of bridges with their latency status."""
-        bridges = []
+        result_bridges = []
 
         try:
-            result = subprocess.run(
-                ["ovs-vsctl", "list-br"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return bridges
-
-            # Reuse CaptureManager's bridge parsing logic
+            # Use CaptureManager's get_bridges() which calls nodebuilder API
             capture_manager = get_manager()
+            bridges = capture_manager.get_bridges()
 
-            for name in result.stdout.strip().split('\n'):
-                name = name.strip()
-                if not name:
-                    continue
-
-                # Parse bridge name to get device/port info
-                info = capture_manager._parse_bridge_name(name)
-                info['name'] = name
+            for info in bridges:
+                # Make a copy to avoid modifying the cached data
+                bridge_info = dict(info)
+                name = bridge_info.get('name', '')
 
                 # Get interface for this bridge
                 interface = self._get_interface_for_bridge(name)
                 if interface:
                     delay = self.get_tc_delay(interface)
-                    info['latency_enabled'] = delay is not None
-                    info['latency_delay_ms'] = delay
-                    info['interface'] = interface
+                    bridge_info['latency_enabled'] = delay is not None
+                    bridge_info['latency_delay_ms'] = delay
+                    bridge_info['interface'] = interface
                 else:
-                    info['latency_enabled'] = False
-                    info['latency_delay_ms'] = None
-                    info['interface'] = None
+                    bridge_info['latency_enabled'] = False
+                    bridge_info['latency_delay_ms'] = None
+                    bridge_info['interface'] = None
 
-                bridges.append(info)
+                result_bridges.append(bridge_info)
 
         except Exception as e:
             print(f"[LatencyManager] Error getting bridges with status: {e}")
 
-        return bridges
+        return result_bridges
 
 
 class PacketLossManager:
@@ -2178,41 +2239,29 @@ class ImpairmentCoordinator:
 
     def get_all_bridges_with_status(self) -> List[Dict]:
         """Get list of all bridges with their impairment status."""
-        bridges = []
+        result_bridges = []
 
         try:
-            result = subprocess.run(
-                ["ovs-vsctl", "list-br"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return bridges
-
-            # Reuse CaptureManager's bridge parsing logic
+            # Use CaptureManager's get_bridges() which calls nodebuilder API
             capture_manager = get_manager()
+            bridges = capture_manager.get_bridges()
 
-            for name in result.stdout.strip().split('\n'):
-                name = name.strip()
-                if not name:
-                    continue
-
-                # Parse bridge name to get device/port info
-                info = capture_manager._parse_bridge_name(name)
-                info['name'] = name
+            for info in bridges:
+                # Make a copy to avoid modifying the cached data
+                bridge_info = dict(info)
+                name = bridge_info.get('name', '')
 
                 # Get impairment status
                 impairments = self.get_bridge_impairments(name)
-                info['impairments'] = impairments
-                info['has_impairments'] = impairments['has_impairments']
+                bridge_info['impairments'] = impairments
+                bridge_info['has_impairments'] = impairments['has_impairments']
 
-                bridges.append(info)
+                result_bridges.append(bridge_info)
 
         except Exception as e:
             print(f"[ImpairmentCoordinator] Error getting bridges with status: {e}")
 
-        return bridges
+        return result_bridges
 
 
 # Global managers
