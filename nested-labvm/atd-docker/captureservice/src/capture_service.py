@@ -1233,11 +1233,12 @@ class CaptureManager:
         # - 'e' after (e.g., fi1xet1 for eth port)
         # - 'w' after (e.g., ve1xwa1 for VeloCloud WAN)
         # - 'l' after (e.g., ve1xla1 for VeloCloud LAN)
+        # - 't' after (e.g., vc1xtr1 for VeloCloud Gateway transport)
         for i, c in enumerate(lower):
             if c == 'x' and i > 0 and i < len(part) - 1:
                 prev_char = lower[i - 1]
                 next_char = lower[i + 1]
-                if prev_char.isdigit() and (next_char.isdigit() or next_char in 'ewl'):
+                if prev_char.isdigit() and (next_char.isdigit() or next_char in 'ewlt'):
                     return part[:i], part[i + 1:]
 
         # Look for 'eth' (longer prefix, for Linux hosts)
@@ -1328,6 +1329,13 @@ class CaptureManager:
             number = ''.join(c for c in code if c.isdigit())
             if number:
                 return f"lan{number}"
+            return code
+
+        # Abbreviated VeloCloud Gateway transport port: tr1 -> transport1
+        if code_lower.startswith('tr') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"transport{number}"
             return code
 
         # Ethernet abbreviation: et5 -> Ethernet5
