@@ -11,7 +11,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 350px;
+    height: 420px;
     background-color: #ffffff;
     border-top: 3px solid #fbb500;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
@@ -301,9 +301,9 @@
 }
 
 .capture-body.side-by-side .capture-detail-panel {
-    width: 400px;
-    min-width: 300px;
-    max-width: 50%;
+    width: 500px;
+    min-width: 400px;
+    max-width: 55%;
     height: auto;
     border-top: none;
     border-left: 2px solid #071c35;
@@ -735,7 +735,7 @@
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
-    max-width: 200px;
+    max-width: 300px;
 }
 
 .capture-bridge-select:focus {
@@ -831,7 +831,7 @@ body.has-left-sidebar > .capture-panel {
 
 /* When capture panel is visible, add padding to right-panel */
 .right-panel.capture-panel-visible {
-    padding-bottom: 350px;
+    padding-bottom: 420px;
 }
 
 .right-panel.capture-panel-visible.capture-panel-minimized {
@@ -870,7 +870,7 @@ body.has-device-sidebar-collapsed > .capture-panel {
 
 /* When capture panel is visible, add padding to main-content */
 .main-content.capture-panel-visible {
-    padding-bottom: 350px;
+    padding-bottom: 420px;
 }
 
 .main-content.capture-panel-visible.capture-panel-minimized {
