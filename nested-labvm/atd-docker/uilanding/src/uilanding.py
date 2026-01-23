@@ -3150,32 +3150,12 @@ class CaptureBridgesAPIHandler(BaseHandler):
             if tgt_code in device_lookup:
                 bridge['target_device_name'] = device_lookup[tgt_code]
 
-            # Convert port codes to full names
-            # - Et1/et1 -> Ethernet1 (EOS switches)
-            # - eth1 stays as eth1 (Linux hosts/firewalls)
-            # - Bare numbers like '7' -> Ethernet7 (nodebuilder format)
-            src_port = bridge.get('source_port', '')
-            tgt_port = bridge.get('target_port', '')
-
-            if src_port.lower().startswith('eth'):
-                # Linux host interface - keep as-is
-                bridge['source_port_name'] = src_port
-            elif src_port.lower().startswith('et'):
-                # EOS Ethernet port
-                port_num = src_port[2:]
-                bridge['source_port_name'] = f'Ethernet{port_num}'
-            elif src_port.isdigit():
-                # Bare port number (nodebuilder format)
-                bridge['source_port_name'] = f'Ethernet{src_port}'
-
-            if tgt_port.lower().startswith('eth'):
-                bridge['target_port_name'] = tgt_port
-            elif tgt_port.lower().startswith('et'):
-                port_num = tgt_port[2:]
-                bridge['target_port_name'] = f'Ethernet{port_num}'
-            elif tgt_port.isdigit():
-                # Bare port number (nodebuilder format)
-                bridge['target_port_name'] = f'Ethernet{tgt_port}'
+            # Port names are already parsed by nodebuilder API (source_port_name, target_port_name)
+            # Only set defaults if not provided (e.g., fallback path didn't parse them)
+            if not bridge.get('source_port_name') and bridge.get('source_port'):
+                bridge['source_port_name'] = bridge['source_port']
+            if not bridge.get('target_port_name') and bridge.get('target_port'):
+                bridge['target_port_name'] = bridge['target_port']
 
         return bridges
 
