@@ -27,11 +27,12 @@ from google.api_core import exceptions as gcp_exceptions
 
 FEATURES_COLLECTION = "feature-flags"
 ANNOUNCEMENTS_COLLECTION = "announcements"
+TOPOLOGIES_COLLECTION = "topologies"
 GLOBAL_DOC = "global"
 TOPOLOGIES_DOC = "topologies"
 
 # Whitelist of allowed collections - safety guard against accidental writes to other collections
-ALLOWED_COLLECTIONS = frozenset([FEATURES_COLLECTION, ANNOUNCEMENTS_COLLECTION])
+ALLOWED_COLLECTIONS = frozenset([FEATURES_COLLECTION, ANNOUNCEMENTS_COLLECTION, TOPOLOGIES_COLLECTION])
 
 ANNOUNCEMENT_TYPES = ["info", "warning", "alert", "success"]
 LINK_TYPES = ["internal", "external", "action"]
@@ -337,6 +338,68 @@ class ConfigManager:
             print_error(f"Failed to update document: {e}")
             return False
 
+    def get_all_topologies(self) -> Tuple[bool, List[str]]:
+        """
+        Fetch all topology names from the topologies collection.
+
+        Each document in the topologies collection represents a topology,
+        with the document ID being the topology name.
+
+        Returns:
+            Tuple of (success, list of topology names)
+        """
+        try:
+            docs = self.db.collection(TOPOLOGIES_COLLECTION).stream()
+            topologies = [doc.id for doc in docs if not doc.id.startswith('_')]
+            return (True, sorted(topologies))
+        except gcp_exceptions.GoogleAPIError as e:
+            print_error(f"Failed to fetch topologies: {e}")
+            return (False, [])
+
+    def select_topology(self, prompt: str = "Select topology") -> Optional[str]:
+        """
+        Display available topologies and let user select one.
+
+        Args:
+            prompt: The prompt to display
+
+        Returns:
+            Selected topology name, or None if cancelled/error
+        """
+        success, topologies = self.get_all_topologies()
+        if not success:
+            return None
+
+        if not topologies:
+            print_warning("No topologies found in the topologies collection.")
+            print_info("You can enter a topology name manually.")
+            topology = get_input("Topology name (e.g., training-level7-cl)")
+            if not validate_identifier(topology, "Topology name"):
+                return None
+            return topology
+
+        print(f"\n{Colors.BOLD}Available Topologies ({len(topologies)}):{Colors.END}")
+        for i, topo in enumerate(topologies, 1):
+            print(f"  {i}. {topo}")
+        print(f"  {len(topologies) + 1}. [Enter custom name]")
+
+        while True:
+            try:
+                choice = input(f"\n{prompt} (1-{len(topologies) + 1}): ").strip()
+                if not choice:
+                    return None
+                idx = int(choice) - 1
+                if 0 <= idx < len(topologies):
+                    return topologies[idx]
+                if idx == len(topologies):
+                    topology = get_input("Topology name")
+                    if not validate_identifier(topology, "Topology name"):
+                        return None
+                    return topology
+                print_error(f"Please select 1-{len(topologies) + 1}.")
+            except ValueError:
+                print_error("Please enter a number.")
+
     # -------------------------------------------------------------------------
     # Feature Flags Operations
     # -------------------------------------------------------------------------
@@ -552,16 +615,9 @@ class ConfigManager:
         if not success:
             return
 
-        # List existing topologies
-        existing_topos = [k for k in topo_data.keys() if not k.startswith('_')]
-        if existing_topos:
-            print("Existing topologies:")
-            for t in sorted(existing_topos):
-                print(f"  - {t}")
-
-        # Get topology name
-        topology = get_input("Topology name (e.g., training-level7-cl)")
-        if not validate_identifier(topology, "Topology name"):
+        # Select topology from topologies collection
+        topology = self.select_topology("Select topology to manage")
+        if not topology:
             return
 
         # Get current config for this topology
@@ -1058,18 +1114,9 @@ class ConfigManager:
         """Add an announcement to a specific topology."""
         print_subheader("Add Topology Announcement")
 
-        # List existing topologies
-        success, data = self.get_document(ANNOUNCEMENTS_COLLECTION, TOPOLOGIES_DOC)
-        if not success:
-            return
-        existing = [k for k in data.keys() if not k.startswith('_')]
-        if existing:
-            print("Existing topologies:")
-            for t in sorted(existing):
-                print(f"  - {t}")
-
-        topology = get_input("Topology name")
-        if not validate_identifier(topology, "Topology name"):
+        # Select topology from topologies collection
+        topology = self.select_topology("Select topology for announcement")
+        if not topology:
             return
         self.add_announcement(topology=topology)
 
@@ -1077,28 +1124,59 @@ class ConfigManager:
         """Edit an announcement in a specific topology."""
         print_subheader("Edit Topology Announcement")
 
+        # Get topologies that have announcements
         success, data = self.get_document(ANNOUNCEMENTS_COLLECTION, TOPOLOGIES_DOC)
         if not success:
             return
-        topologies = [k for k in data.keys() if not k.startswith('_') and data[k]]
 
-        if not topologies:
+        # Filter to topologies with existing announcements
+        topos_with_announcements = {
+            k: v for k, v in data.items()
+            if not k.startswith('_') and v and isinstance(v, list) and len(v) > 0
+        }
+
+        if not topos_with_announcements:
             print_warning("No topologies with announcements found.")
+            print_info("Use 'Add topology announcement' to create one first.")
             return
 
-        print("Topologies with announcements:")
-        for i, t in enumerate(sorted(topologies), 1):
-            count = len(data[t])
+        print(f"\n{Colors.BOLD}Topologies with Announcements:{Colors.END}")
+        sorted_topos = sorted(topos_with_announcements.keys())
+        for i, t in enumerate(sorted_topos, 1):
+            count = len(topos_with_announcements[t])
             print(f"  {i}. {t} ({count} announcement(s))")
 
-        try:
-            choice = int(get_input("Select topology")) - 1
-            topology = sorted(topologies)[choice]
-        except (ValueError, IndexError):
-            print_error("Invalid selection.")
-            return
+        while True:
+            try:
+                choice = input(f"\nSelect topology (1-{len(sorted_topos)}): ").strip()
+                if not choice:
+                    return
+                idx = int(choice) - 1
+                if 0 <= idx < len(sorted_topos):
+                    topology = sorted_topos[idx]
+                    break
+                print_error(f"Please select 1-{len(sorted_topos)}.")
+            except ValueError:
+                print_error("Please enter a number.")
 
         self.edit_announcement(topology=topology)
+
+
+    def list_topologies(self):
+        """List all available topologies from the topologies collection."""
+        print_subheader("Available Topologies")
+
+        success, topologies = self.get_all_topologies()
+        if not success:
+            return
+
+        if not topologies:
+            print_warning("No topologies found in the topologies collection.")
+            return
+
+        print(f"\n{Colors.BOLD}Topologies ({len(topologies)}):{Colors.END}")
+        for topo in topologies:
+            print(f"  {Colors.GREEN}●{Colors.END} {topo}")
 
 
 # =============================================================================
@@ -1125,6 +1203,9 @@ def main_menu(manager: ConfigManager):
         print("  10. Add topology announcement")
         print("  11. Edit global announcement")
         print("  12. Edit topology announcement")
+
+        print(f"\n{Colors.BOLD}Topologies{Colors.END}")
+        print("  13. List all topologies")
 
         print(f"\n{Colors.BOLD}General{Colors.END}")
         print("  q. Quit")
@@ -1155,6 +1236,8 @@ def main_menu(manager: ConfigManager):
             manager.edit_announcement()
         elif choice == '12':
             manager.edit_topology_announcement()
+        elif choice == '13':
+            manager.list_topologies()
         elif choice == 'q':
             print_info("Goodbye!")
             break
@@ -1166,7 +1249,7 @@ def main_menu(manager: ConfigManager):
 
 def main():
     """Main entry point."""
-    print_header("Config Manager v1.1")
+    print_header("Config Manager v1.2")
     print_info("Connecting to Firestore...")
 
     manager = ConfigManager()
