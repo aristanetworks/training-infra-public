@@ -19,6 +19,7 @@ from config import (
     FIRESTORE_RETRY_DELAY_SECONDS,
 )
 from models.announcement import filter_active_announcements
+from models.feature import DependencyResolver, parse_feature_definitions
 
 logger = logging.getLogger('configservice')
 
@@ -39,12 +40,18 @@ class BaseFirestoreClient:
 class FeatureFlagClient(BaseFirestoreClient):
     """Client for fetching feature flags from Firestore"""
 
-    def fetch_all_features(self, topology: str) -> Dict:
+    def fetch_all_features(self, topology: str, resolve_dependencies: bool = True) -> Dict:
         """
         Fetch all enabled features (global + topology-specific).
 
+        Features are resolved based on their dependencies - a feature is only
+        truly enabled if all its dependencies are also enabled.
+
         Args:
             topology: The topology name (e.g., "training-level7-cl")
+            resolve_dependencies: If True, check dependencies and only return
+                                  features whose dependencies are satisfied.
+                                  If False, return raw enabled features list.
 
         Returns:
             Dictionary containing enabled features and metadata
@@ -63,29 +70,76 @@ class FeatureFlagClient(BaseFirestoreClient):
                 global_doc = collection.document(FIRESTORE_GLOBAL_DOC).get()
                 topo_doc = collection.document(FIRESTORE_TOPOLOGIES_DOC).get()
 
-                # Extract global features
+                # Extract global data
+                global_data = {}
                 global_features: List[str] = []
+                feature_definitions_raw: Dict = {}
                 if global_doc.exists:
                     global_data = global_doc.to_dict()
                     global_features = global_data.get('enabled_features', [])
+                    feature_definitions_raw = global_data.get('feature_definitions', {})
 
                 # Extract topology-specific features
                 topology_features: List[str] = []
+                topology_config: Dict = {}
                 if topo_doc.exists:
                     topo_data = topo_doc.to_dict()
-                    topology_features = topo_data.get(topology, [])
+                    topo_entry = topo_data.get(topology, {})
+                    # Handle both legacy (list) and new (dict) formats
+                    if isinstance(topo_entry, list):
+                        topology_features = topo_entry
+                    elif isinstance(topo_entry, dict):
+                        topology_features = topo_entry.get('enabled_features', [])
+                        topology_config = topo_entry
 
-                # Merge and deduplicate
-                all_features: Set[str] = set(global_features) | set(topology_features)
+                # Merge requested features (before dependency resolution)
+                requested_features: Set[str] = set(global_features) | set(topology_features)
 
-                return {
-                    'enabled_features': sorted(list(all_features)),
-                    'global_features': global_features,
-                    'topology_features': topology_features,
+                # Parse feature definitions
+                feature_definitions = parse_feature_definitions(feature_definitions_raw)
+
+                # Build response
+                response = {
                     'topology': topology,
                     'fetched_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-                    'source': 'firestore'
+                    'source': 'firestore',
+                    'global_features': global_features,
+                    'topology_features': topology_features,
+                    'requested_features': sorted(list(requested_features)),
                 }
+
+                if resolve_dependencies and feature_definitions:
+                    # Resolve dependencies
+                    resolver = DependencyResolver(feature_definitions)
+                    resolution = resolver.resolve_enabled_features(
+                        requested_features,
+                        feature_definitions
+                    )
+
+                    response['enabled_features'] = resolution['enabled']
+                    response['dependency_resolution'] = {
+                        'disabled_missing_deps': resolution['disabled_missing_deps'],
+                        'disabled_circular': resolution['disabled_circular'],
+                        'dependency_chain': resolution['dependency_chain'],
+                        'circular_dependencies': resolution['circular_dependencies'],
+                    }
+
+                    # Log warnings for dependency issues
+                    if resolution['disabled_missing_deps']:
+                        for feat, missing in resolution['disabled_missing_deps'].items():
+                            logger.warning(
+                                f"Feature '{feat}' disabled due to missing dependencies: {missing}"
+                            )
+                    if resolution['disabled_circular']:
+                        logger.warning(
+                            f"Features disabled due to circular dependencies: {resolution['disabled_circular']}"
+                        )
+                else:
+                    # No dependency resolution - return all requested features
+                    response['enabled_features'] = sorted(list(requested_features))
+                    response['dependency_resolution'] = None
+
+                return response
 
             except (gcp_exceptions.GoogleAPIError, Exception) as e:
                 last_error = e

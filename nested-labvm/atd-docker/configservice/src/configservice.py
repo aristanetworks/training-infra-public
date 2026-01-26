@@ -127,6 +127,8 @@ def fetch_and_cache_features() -> Dict:
             'enabled_features': [],
             'global_features': [],
             'topology_features': [],
+            'requested_features': [],
+            'dependency_resolution': None,
             'topology': topology,
             'fetched_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             'source': 'empty_fallback'
