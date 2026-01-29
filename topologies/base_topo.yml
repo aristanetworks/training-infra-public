@@ -503,8 +503,8 @@ topologies:
             eos:
               - 4.32.1F     
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
-    name: 'Training - Expert: Part 1'
-    title: 'Training - Expert: Part 1'
+    name: 'Training - Expert: Qualification'
+    title: 'Training - Expert: Qualification'
     disk_size: 500
     access: standard
     disable_links: [ jenkins,lab_status, lab_grading, Tools]
