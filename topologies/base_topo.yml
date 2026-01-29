@@ -1342,7 +1342,7 @@ topologies:
             resources:
               cpu: 68
               ram: 160
-            branch: v2025.1-12162025
+            branch: v2025.1-01292026-1
             orderable: true
             image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
             eos:
