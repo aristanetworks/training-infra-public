@@ -85,7 +85,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-honorlock
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.27-honorlock
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -112,16 +112,16 @@ services:
 
   labguides-v2:
     container_name: atd-labguides-v2
-    # image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
-    image: us.gcr.io/atd-testdrivetraining-dev/labguides-v3:5984989e
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - /opt/labguides/web/:/app/html/:rw
-      - /etc/atd/ACCESS_INFO.yaml:/app/ACCESS_INFO.yaml:ro
-      - /home/arista/arista-dir/menus/:/app/menus/:rw
-      - /opt/templates/grading:/app/grading:rw
+      - /etc/atd:/etc/atd:ro
+      - /opt/atd:/opt/atd:ro
+      - /opt/labguides/web/:/html/:rw
+      - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
+      - /home/arista/arista-dir/menus/:/menus/:rw
     networks:
       - atd_nginx
 
@@ -162,7 +162,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.14
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.11
     restart: always
     depends_on:
       - uilanding
@@ -237,7 +237,7 @@ services:
       - atd_nginx
   captureservice:
     container_name: atd-captureservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_captureservice:1.0.1
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_captureservice:1.0.0
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
@@ -271,66 +271,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - cvpupdater
-  nodebuilder:
-    container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.1
-    restart: always
-    # Host network mode required to access libvirt socket and OVS bridges on host
-    network_mode: host
-    # Privileged mode required for VM creation and interface management
-    privileged: true
-    environment:
-      - PYTHONUNBUFFERED=1
-    cap_add:
-      # Required for OVS bridge management
-      - NET_ADMIN
-    volumes:
-      # Persistence for user-added nodes
-      - /etc/atd:/etc/atd:rw
-      # Topology files (read-only)
-      - /opt/atd:/opt/atd:ro
-      # libvirt socket for virsh commands
-      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
-      # VM disk images
-      - /var/lib/libvirt/images:/var/lib/libvirt/images:rw
-      # OVS socket for bridge management
-      - /var/run/openvswitch:/var/run/openvswitch:rw
-      # dnsmasq config for IP/MAC lookup (NetworkManager managed)
-      - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
-      # noVNC token directory shared with novnc container for WebSocket auth
-      - /tmp/novnc:/tmp/novnc:rw
-      # GCP credentials for gsutil to download base images from bucket
-      - /root/.config/gcloud:/root/.config/gcloud:ro
-      # Note: Cloud-init templates are built into the Docker image
-      # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
-  consoleservice:
-    container_name: atd-consoleservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_consoleservice:1.0.0
-    restart: on-failure
-    # Host network mode required to access libvirt socket on host
-    network_mode: host
-    # Privileged mode required for virsh console access
-    privileged: true
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      # libvirt socket for virsh console commands
-      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
-      # ATD config (read-only)
-      - /etc/atd:/etc/atd:ro
-  # noVNC/websockify service - WebSocket proxy for VNC access to Linux hosts
-  # Uses token-based authentication to map tokens to VM management IPs
-  # Host network mode required to reach VM management IPs (192.168.0.x)
-  novnc:
-    container_name: atd-novnc
-    build: ./novnc
-    restart: on-failure
-    # Host network mode to reach VMs on vmgmt bridge (192.168.0.x)
-    network_mode: host
-    volumes:
-      # Token file for websockify authentication (format: "token: host:port")
-      # Tokens are written by nodebuilder's novnc_manager.py
-      - /tmp/novnc:/tmp/novnc:ro
 networks:
   atd_nginx:
 volumes:
