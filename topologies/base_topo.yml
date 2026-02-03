@@ -1264,6 +1264,16 @@ topologies:
             image: base-veos-training-lx-veos-2025-2-4321-20250725
             eos:
               - 4.32.1F  
+          2026.1.0:
+            schema: 1
+            resources:
+              cpu: 72
+              ram: 160
+            branch: nested/2025.2
+            orderable: true
+            image: base-veos-training-lx-veos-2026-1-4321-20260203
+            eos:
+              - 4.32.1F                
     prod:
       veos:
         cpu: 60
