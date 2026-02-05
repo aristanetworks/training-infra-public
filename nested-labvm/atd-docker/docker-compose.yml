@@ -127,7 +127,7 @@ services:
 
   syslog:
     container_name: atd-syslog
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_syslog:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_syslog:1.0.1
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -140,7 +140,7 @@ services:
       - atd_nginx
   tacacs:
     container_name: atd-tacacs
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_tacacs:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_tacacs:1.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
