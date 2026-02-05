@@ -24,7 +24,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_login:1.0.30
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.30
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -85,7 +85,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:1.0.29-honorlock
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-honorlock
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -97,18 +97,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
-  labguides:
-    container_name: atd-labguides
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:217bd770
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /etc/atd:/etc/atd:ro
-      - /opt/atd:/opt/atd:ro
-      - /opt/labguides/web/:/root/labguides/web/:rw
-    networks:
-      - atd_nginx
+  # labguides:
+  #   container_name: atd-labguides
+  #   image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:217bd770
+  #   restart: always
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - /etc/atd:/etc/atd:ro
+  #     - /opt/atd:/opt/atd:ro
+  #     - /opt/labguides/web/:/root/labguides/web/:rw
+  #   networks:
+  #     - atd_nginx
 
   labguides-v2:
     container_name: atd-labguides-v2
@@ -125,35 +125,35 @@ services:
     networks:
       - atd_nginx
 
-  syslog:
-    container_name: atd-syslog
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_syslog:1.0.1
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /home/arista/arista-dir/apps/syslog/:/var/log/remote/:rw
-    ports:
-      - "1514:1514"
-      - "1514:1514/udp"
-    networks:
-      - atd_nginx
-  tacacs:
-    container_name: atd-tacacs
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_tacacs:1.0.0
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /home/arista/arista-dir/apps/tacacs/config:/etc/tac_plus/tac_user.cfg:ro
-      - /home/arista/arista-dir/apps/tacacs/tac.log:/var/log/tac_plus.log:rw
-    ports:
-      - "49:49"
-    networks:
-      - atd_nginx
+  # syslog:
+  #   container_name: atd-syslog
+  #   image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1
+  #   restart: always
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - /home/arista/arista-dir/apps/syslog/:/var/log/remote/:rw
+  #   ports:
+  #     - "1514:1514"
+  #     - "1514:1514/udp"
+  #   networks:
+  #     - atd_nginx
+  # tacacs:
+  #   container_name: atd-tacacs
+  #   image: us.gcr.io/atd-testdrivetraining-dev/atddocker_tacacs:1.0.0
+  #   restart: always
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - /home/arista/arista-dir/apps/tacacs/config:/etc/tac_plus/tac_user.cfg:ro
+  #     - /home/arista/arista-dir/apps/tacacs/tac.log:/var/log/tac_plus.log:rw
+  #   ports:
+  #     - "49:49"
+  #   networks:
+  #     - atd_nginx
   freerad:
     container_name: atd-freeradius
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freerad:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:1.0.0
     restart: always
     volumes:
       - /opt/atd/nested-labvm/atd-docker/freeradius/src/mods-config/files/authorize:/etc/freeradius/mods-config/files/authorize:ro
@@ -162,7 +162,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.14
     restart: always
     depends_on:
       - uilanding
@@ -273,7 +273,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.1
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
