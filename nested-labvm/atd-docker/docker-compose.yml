@@ -155,8 +155,6 @@ services:
     container_name: atd-freeradius
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:217bd770
     restart: always
-    volumes:
-      - /opt/atd/nested-labvm/atd-docker/freeradius/src/mods-config/files/authorize:/etc/freeradius/mods-config/files/authorize:ro
     ports:
       - "1812:1812/udp"
       - "1813:1813/udp"
