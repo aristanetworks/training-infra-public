@@ -97,18 +97,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - atd_nginx
-  # labguides:
-  #   container_name: atd-labguides
-  #   image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:217bd770
-  #   restart: always
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #   volumes:
-  #     - /etc/atd:/etc/atd:ro
-  #     - /opt/atd:/opt/atd:ro
-  #     - /opt/labguides/web/:/root/labguides/web/:rw
-  #   networks:
-  #     - atd_nginx
+  labguides:
+     container_name: atd-labguides
+     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:217bd770
+     restart: always
+     environment:
+       - PYTHONUNBUFFERED=1
+     volumes:
+       - /etc/atd:/etc/atd:ro
+       - /opt/atd:/opt/atd:ro
+       - /opt/labguides/web/:/root/labguides/web/:rw
+     networks:
+       - atd_nginx
 
   labguides-v2:
     container_name: atd-labguides-v2
@@ -153,7 +153,7 @@ services:
   #     - atd_nginx
   freerad:
     container_name: atd-freeradius
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:217bd770
     restart: always
     volumes:
       - /opt/atd/nested-labvm/atd-docker/freeradius/src/mods-config/files/authorize:/etc/freeradius/mods-config/files/authorize:ro
