@@ -62,6 +62,79 @@ def get_topology() -> str:
     return _topology
 
 
+def get_user_email() -> Optional[str]:
+    """Get user email from ACCESS_INFO.yaml customer_details"""
+    try:
+        yaml = YAML()
+        with open(ACCESS_INFO_PATH, 'r') as f:
+            access_info = yaml.load(f)
+            customer_details = access_info.get('customer_details', {})
+            email = customer_details.get('exam_taker_email')
+            return email
+    except Exception as e:
+        logger.warning(f"Failed to read user email from ACCESS_INFO.yaml: {e}")
+        return None
+
+
+def is_arista_user() -> bool:
+    """
+    Check if the current user is an Arista employee.
+    If email is not found, assume Arista user (default allow).
+    """
+    email = get_user_email()
+
+    if email is None:
+        logger.info("User email not found in ACCESS_INFO.yaml - treating as Arista user (default allow)")
+        return True
+
+    is_arista = email.lower().endswith('@arista.com')
+    logger.info(f"User email: {email}, is_arista: {is_arista}")
+    return is_arista
+
+
+def filter_features_by_arista_only(features: Dict, feature_definitions: Dict) -> Dict:
+    """
+    Filter enabled features based on arista_only rollout flag.
+
+    Args:
+        features: Feature data dict with 'enabled_features' list
+        feature_definitions: Feature definitions dict from Firestore
+
+    Returns:
+        Updated features dict with filtered enabled_features list
+    """
+    if not feature_definitions:
+        return features
+
+    user_is_arista = is_arista_user()
+    enabled_features = features.get('enabled_features', [])
+    original_count = len(enabled_features)
+
+    # Filter features
+    filtered_features = []
+    for feature_id in enabled_features:
+        definition = feature_definitions.get(feature_id, {})
+        rollout = definition.get('rollout', {})
+        arista_only = rollout.get('arista_only', False)
+
+        # If feature requires Arista user and user is not Arista, skip it
+        if arista_only and not user_is_arista:
+            logger.info(f"Filtering out feature '{feature_id}' (arista_only=true, user is not Arista)")
+            continue
+
+        filtered_features.append(feature_id)
+
+    # Update features dict
+    features['enabled_features'] = filtered_features
+    features['filtered_by_arista_only'] = original_count != len(filtered_features)
+    features['user_is_arista'] = user_is_arista
+
+    if original_count != len(filtered_features):
+        logger.info(f"Filtered {original_count - len(filtered_features)} features due to arista_only restriction")
+
+    return features
+
+
 # =============================================================================
 # Feature Flag Functions
 # =============================================================================
@@ -99,6 +172,7 @@ def save_feature_cache_to_file(data: Dict) -> bool:
 def fetch_and_cache_features() -> Dict:
     """
     Fetch features from Firestore and cache locally.
+    Applies arista_only filtering based on user email.
     Falls back to cached file if Firestore is unreachable.
     """
     global _feature_cache
@@ -108,9 +182,14 @@ def fetch_and_cache_features() -> Dict:
 
     try:
         data = client.fetch_all_features(topology)
+
+        # Apply arista_only filtering
+        feature_definitions = data.get('feature_definitions', {})
+        data = filter_features_by_arista_only(data, feature_definitions)
+
         save_feature_cache_to_file(data)
         _feature_cache = data
-        logger.info(f"Fetched {len(data['enabled_features'])} features from Firestore")
+        logger.info(f"Fetched {len(data['enabled_features'])} features from Firestore (after arista_only filtering)")
         return data
 
     except Exception as e:
@@ -118,8 +197,11 @@ def fetch_and_cache_features() -> Dict:
 
         cached = load_feature_cache_from_file()
         if cached:
+            # Apply arista_only filtering to cached data too
+            feature_definitions = cached.get('feature_definitions', {})
+            cached = filter_features_by_arista_only(cached, feature_definitions)
             _feature_cache = cached
-            logger.warning("Using cached features due to Firestore failure")
+            logger.warning("Using cached features due to Firestore failure (with arista_only filtering)")
             return cached
 
         logger.error("No cached features available, returning empty set")
@@ -131,7 +213,8 @@ def fetch_and_cache_features() -> Dict:
             'dependency_resolution': None,
             'topology': topology,
             'fetched_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            'source': 'empty_fallback'
+            'source': 'empty_fallback',
+            'user_is_arista': is_arista_user()
         }
         return _feature_cache
 

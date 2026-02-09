@@ -98,7 +98,7 @@ class FeatureFlagClient(BaseFirestoreClient):
                 # Parse feature definitions
                 feature_definitions = parse_feature_definitions(feature_definitions_raw)
 
-                # Build response
+                # Build response (include feature_definitions for client-side filtering)
                 response = {
                     'topology': topology,
                     'fetched_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
@@ -106,6 +106,7 @@ class FeatureFlagClient(BaseFirestoreClient):
                     'global_features': global_features,
                     'topology_features': topology_features,
                     'requested_features': sorted(list(requested_features)),
+                    'feature_definitions': feature_definitions_raw,  # Pass raw definitions for client-side filtering
                 }
 
                 if resolve_dependencies and feature_definitions:

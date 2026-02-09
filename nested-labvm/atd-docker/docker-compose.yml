@@ -16,7 +16,6 @@ services:
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
-      - GOOGLE_APPLICATION_CREDENTIALS=/etc/atd/credentials/configservice-sa.json
     volumes:
       - /etc/atd:/etc/atd:rw
     networks:
@@ -96,7 +95,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-honorlock
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-feature
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -173,7 +172,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.13
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.13-feature
     restart: always
     depends_on:
       - uilanding

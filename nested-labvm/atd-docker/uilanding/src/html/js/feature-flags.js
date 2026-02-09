@@ -15,6 +15,8 @@
  *   }
  */
 
+console.log('[FeatureFlags] Script loading...');
+
 class FeatureFlags {
     constructor() {
         this.features = null;
@@ -49,6 +51,16 @@ class FeatureFlags {
             }
             this.features = await response.json();
             this.loaded = true;
+
+            // Log user status if available
+            if (this.features.user_is_arista !== undefined) {
+                console.log(`[FeatureFlags] User is Arista: ${this.features.user_is_arista}`);
+            }
+            if (this.features.filtered_by_arista_only) {
+                console.log('[FeatureFlags] Some features filtered by arista_only flag');
+            }
+
+            console.log(`[FeatureFlags] Loaded ${this.features.enabled_features.length} features`);
         } catch (error) {
             console.warn('Failed to load feature flags:', error);
             this.features = { enabled_features: [], source: 'error' };
@@ -131,4 +143,6 @@ class FeatureFlags {
 }
 
 // Global instance - auto-loads when accessed
+console.log('[FeatureFlags] Creating global instance...');
 window.featureFlags = new FeatureFlags();
+console.log('[FeatureFlags] Global instance created:', window.featureFlags);

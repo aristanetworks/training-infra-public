@@ -131,38 +131,72 @@ export class TopologyManager {
                 this.statusUpdater.startStatusPolling();
             }
 
-            // Initialize AddNodeWizard for dynamic node addition (KVM labs only)
-            if (typeof window.AddNodeWizard !== 'undefined') {
+            // Check individual NodeBuilder feature flags
+            const nodebuilderFeatures = {
+                addNode: false,
+                addCluster: false,
+                addHost: false,
+                addFirewall: false,
+                addVelocloud: false,
+                resetTopology: false
+            };
+
+            if (window.featureFlags) {
+                // Check each feature independently
+                nodebuilderFeatures.addNode = await window.featureFlags.check('nb_add_node');
+                nodebuilderFeatures.addCluster = await window.featureFlags.check('nb_add_cluster');
+                nodebuilderFeatures.addHost = await window.featureFlags.check('nb_add_host');
+                nodebuilderFeatures.addFirewall = await window.featureFlags.check('nb_add_firewall');
+                nodebuilderFeatures.addVelocloud = await window.featureFlags.check('nb_add_velocloud');
+                nodebuilderFeatures.resetTopology = await window.featureFlags.check('nb_reset_topology');
+
+                // Log feature flags status
+                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
+                console.log('[TopologyManager]', logMessage);
+                if (window.logger) {
+                    window.logger.info('topology_manager', 'NodeBuilder feature flags checked', nodebuilderFeatures);
+                }
+            } else {
+                console.warn('[TopologyManager]', 'Feature flags not available - all NodeBuilder features disabled');
+            }
+
+            // Initialize AddNodeWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addNode && typeof window.AddNodeWizard !== 'undefined') {
                 window.addNodeWizard = new window.AddNodeWizard(this);
-                console.log('[TopologyManager] AddNodeWizard initialized');
+                console.log('[TopologyManager] AddNodeWizard initialized (nb_add_node enabled)');
 
                 // Check if there are user nodes that need restoration (after reboot)
                 // This shows a notification banner if user-added VMs are not running
                 window.addNodeWizard.showRestoreNotificationIfNeeded();
             }
 
-            // Initialize AddClusterWizard for cluster addition (KVM labs only)
-            if (typeof window.AddClusterWizard !== 'undefined') {
+            // Initialize AddClusterWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addCluster && typeof window.AddClusterWizard !== 'undefined') {
                 window.addClusterWizard = new window.AddClusterWizard(this);
-                console.log('[TopologyManager] AddClusterWizard initialized');
+                console.log('[TopologyManager] AddClusterWizard initialized (nb_add_cluster enabled)');
             }
 
-            // Initialize AddHostWizard for Linux host addition (KVM labs only)
-            if (typeof window.AddHostWizard !== 'undefined') {
+            // Initialize AddHostWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addHost && typeof window.AddHostWizard !== 'undefined') {
                 window.addHostWizard = new window.AddHostWizard(this);
-                console.log('[TopologyManager] AddHostWizard initialized');
+                console.log('[TopologyManager] AddHostWizard initialized (nb_add_host enabled)');
             }
 
-            // Initialize AddFirewallWizard for VyOS firewall addition (KVM labs only)
-            if (typeof window.AddFirewallWizard !== 'undefined') {
+            // Initialize AddFirewallWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addFirewall && typeof window.AddFirewallWizard !== 'undefined') {
                 window.addFirewallWizard = new window.AddFirewallWizard(this);
-                console.log('[TopologyManager] AddFirewallWizard initialized');
+                console.log('[TopologyManager] AddFirewallWizard initialized (nb_add_firewall enabled)');
             }
 
-            // Initialize AddVelocloudWizard for VeloCloud SD-WAN device addition (KVM labs only)
-            if (typeof window.AddVelocloudWizard !== 'undefined') {
+            // Initialize AddVelocloudWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addVelocloud && typeof window.AddVelocloudWizard !== 'undefined') {
                 window.addVelocloudWizard = new window.AddVelocloudWizard(this);
-                console.log('[TopologyManager] AddVelocloudWizard initialized');
+                console.log('[TopologyManager] AddVelocloudWizard initialized (nb_add_velocloud enabled)');
+            }
+
+            // Pass NodeBuilder feature states to EventManager to control menu visibility
+            if (this.eventManager) {
+                this.eventManager.nodebuilderFeatures = nodebuilderFeatures;
             }
 
             // Check VeloCloud feature availability and update EventManager

@@ -28,6 +28,16 @@ export class EventManager {
         // VeloCloud feature availability (set by TopologyManager after fetching status)
         this.veloEnabled = false;
 
+        // NodeBuilder granular feature flags (set by TopologyManager based on feature flags)
+        this.nodebuilderFeatures = {
+            addNode: false,
+            addCluster: false,
+            addHost: false,
+            addFirewall: false,
+            addVelocloud: false,
+            resetTopology: false
+        };
+
         // Capture panel reference (set externally by TopologyManager)
         this.capturePanel = null;
 
@@ -864,7 +874,8 @@ export class EventManager {
                         console.error('AddNodeWizard not initialized');
                     }
                 },
-                disabled: this.isCeosLab
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addNode
             },
             {
                 label: this.isCeosLab ? 'Add Cluster (vEOS only)' : 'Add Cluster',
@@ -872,7 +883,8 @@ export class EventManager {
                     this.hideContextMenu();
                     this.showAddClusterDialog();
                 },
-                disabled: this.isCeosLab
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addCluster
             },
             {
                 label: this.isCeosLab ? 'Add Linux Host (KVM only)' : 'Add Linux Host',
@@ -884,7 +896,8 @@ export class EventManager {
                         console.error('AddHostWizard not initialized');
                     }
                 },
-                disabled: this.isCeosLab
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addHost
             },
             {
                 label: this.isCeosLab ? 'Add VyOS Firewall (KVM only)' : 'Add VyOS Firewall',
@@ -896,10 +909,11 @@ export class EventManager {
                         console.error('AddFirewallWizard not initialized');
                     }
                 },
-                disabled: this.isCeosLab
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addFirewall
             },
-            // VeloCloud device option - only visible if VeloCloud is enabled for this topology
-            ...(this.veloEnabled ? [{
+            // VeloCloud device option - only visible if VeloCloud is enabled AND feature flag is enabled
+            ...(this.veloEnabled && this.nodebuilderFeatures.addVelocloud ? [{
                 label: 'Add VeloCloud Device',
                 action: () => {
                     this.hideContextMenu();
@@ -939,12 +953,16 @@ export class EventManager {
                     this.showResetConfirmation();
                 },
                 disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.resetTopology,
                 className: 'danger'
             }
         ];
 
         // Build menu HTML using same pattern as showContextMenu
         menuItems.forEach(item => {
+            // Skip hidden items
+            if (item.hidden) return;
+
             if (item.type === 'separator') {
                 const separator = document.createElement('div');
                 separator.className = 'context-menu-separator';
