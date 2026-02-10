@@ -27,6 +27,10 @@ function init() {
         return;
     }
     injectCSS();
+    // Detect CVP pages
+    if (document.getElementById("main")) {
+        document.body.classList.add("has-main");
+    }
     injectHTML();
     initializeHeader();
     console.log('[UnifiedHeader] Injection complete');
@@ -54,6 +58,70 @@ function injectCSS() {
         body {
             margin-top: 44px !important;
         }
+
+        /* CVP spacing fix */
+        body.has-main {
+            margin-top: 0 !important;
+        }
+
+        #main {
+            padding-top: 44px !important;
+        }
+
+        /* Collapse feature */
+        .header-collapse-btn {
+            padding: 4px 8px;
+            height: 28px;
+            background: transparent;
+            border: 1px solid #fbb500;
+            color: #fbb500;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .header-expand-btn {
+            position: fixed;
+            top: 0;
+            right: 16px;
+            background: #071c35;
+            border: 1px solid #fbb500;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            color: #fbb500;
+            padding: 4px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            z-index: 100001;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        body.header-collapsed .unified-header {
+            transform: translateY(-44px);
+            transition: transform 0.3s ease;
+        }
+
+        body.header-collapsed .header-expand-btn {
+            transform: translateY(44px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        body.header-collapsed.has-main {
+            margin-top: 0 !important;
+        }
+
+        body.header-collapsed #main {
+            padding-top: 0 !important;
+        }
+        /* CVP-specific: Ensure #main div does not overlap header */
+        #main {
+            padding-top: 44px !important;
+            margin-top: 0 !important;
+            box-sizing: border-box;
+        }
+
 
         .header-left {
             display: flex;
@@ -332,8 +400,65 @@ function injectCSS() {
             }
 
             body {
-                margin-top: auto !important;
+                margin-top: 44px !important;
             }
+
+        /* CVP spacing fix */
+        body.has-main {
+            margin-top: 0 !important;
+        }
+
+        #main {
+            padding-top: 44px !important;
+        }
+
+        /* Collapse feature */
+        .header-collapse-btn {
+            padding: 4px 8px;
+            height: 28px;
+            background: transparent;
+            border: 1px solid #fbb500;
+            color: #fbb500;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .header-expand-btn {
+            position: fixed;
+            top: 0;
+            right: 16px;
+            background: #071c35;
+            border: 1px solid #fbb500;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            color: #fbb500;
+            padding: 4px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            z-index: 100001;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        body.header-collapsed .unified-header {
+            transform: translateY(-44px);
+            transition: transform 0.3s ease;
+        }
+
+        body.header-collapsed .header-expand-btn {
+            transform: translateY(44px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        body.header-collapsed.has-main {
+            margin-top: 0 !important;
+        }
+
+        body.header-collapsed #main {
+            padding-top: 0 !important;
+        }
 
             .header-left,
             .header-center,
@@ -355,6 +480,7 @@ function injectCSS() {
 
 function injectHTML() {
     const html = `
+        <button class="header-expand-btn" id="headerExpandBtn">▼ Show</button>
         <div class="unified-header">
             <div class="header-left">
                 <a href="/" class="arista-logo">
@@ -382,6 +508,7 @@ function injectHTML() {
 
             <div class="header-right">
                 <button class="labguides-toggle" id="labguidesToggle">Lab Guides</button>
+                <button class="header-collapse-btn" id="headerCollapseBtn" title="Hide Header">▲</button>
             </div>
         </div>
 
@@ -404,6 +531,8 @@ function initializeHeader() {
     loadCredentials();
     initializeTimer();
     initializeLabGuides();
+    initializeCollapse();
+    applyCollapsedState();
 
     // Hide Lab Guides button on labguides page
     if (window.location.pathname.startsWith('/labguides')) {
@@ -591,4 +720,27 @@ function initializeLabGuides() {
             }
         }
     });
+}
+
+function initializeCollapse() {
+    const collapseBtn = document.getElementById("headerCollapseBtn");
+    const expandBtn = document.getElementById("headerExpandBtn");
+    if (collapseBtn) {
+        collapseBtn.onclick = () => {
+            document.body.classList.add("header-collapsed");
+            localStorage.setItem("headerCollapsed", "true");
+        };
+    }
+    if (expandBtn) {
+        expandBtn.onclick = () => {
+            document.body.classList.remove("header-collapsed");
+            localStorage.setItem("headerCollapsed", "false");
+        };
+    }
+}
+
+function applyCollapsedState() {
+    if (localStorage.getItem("headerCollapsed") === "true") {
+        document.body.classList.add("header-collapsed");
+    }
 }
