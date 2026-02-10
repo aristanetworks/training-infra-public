@@ -10,6 +10,16 @@ services:
       - /etc/atd:/etc/atd:ro
     networks:
       - atd_nginx
+  configservice:
+    container_name: atd-configservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /etc/atd:/etc/atd:rw
+    networks:
+      - atd_nginx
   conftopo:
     container_name: atd-conftopo
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_conftopo:217bd770
@@ -85,7 +95,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-honorlock
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-feature
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
