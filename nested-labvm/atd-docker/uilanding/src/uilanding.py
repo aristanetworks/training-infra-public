@@ -1196,116 +1196,6 @@ class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
                 "exam_start_time": 0
             }))
 
-class MenuAPIHandler(tornado.web.RequestHandler):
-    def get(self):
-        """
-        Handler to provide menu items for unified header
-        Returns JSON with menu items based on disabled_links configuration
-        """
-        try:
-            self.set_header("Access-Control-Allow-Origin", "*")
-            self.set_header("Content-Type", "application/json")
-
-            # Load topology configuration
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
-
-            # Get disabled links
-            disable_links = host_yaml.get('disabled_links', [])
-            if NOMENUOPTIONFILE:
-                disable_links.append('lab_menu')
-
-            # Build menu items array
-            menu_items = []
-
-            # Home is always first
-            menu_items.append({
-                'name': 'Home',
-                'url': '/',
-                'icon': '🏠'
-            })
-
-            # Lab Guides
-            if "labguides" not in disable_links:
-                if 'labguides' in host_yaml:
-                    if host_yaml['labguides'] == 'self':
-                        labguides_url = '/labguides/index.html'
-                    else:
-                        labguides_url = host_yaml['labguides']
-                else:
-                    labguides_url = '/labguides/index.html'
-
-                # Don't include Lab Guides in menu since it's in the header button
-                # menu_items.append({
-                #     'name': 'Lab Guides',
-                #     'url': labguides_url,
-                #     'icon': '📖'
-                # })
-
-            # Switch Access (BETA)
-            if "console" not in disable_links:
-                menu_items.append({
-                    'name': 'Terminal',
-                    'url': '/terminal',
-                    'icon': '💻'
-                })
-                menu_items.append({
-                    'name': 'Switch Access',
-                    'url': '/ssh/host/192.168.0.1',
-                    'icon': '🔌'
-                })
-
-            # CVP
-            if "cvp" not in disable_links:
-                menu_items.append({
-                    'name': 'CVP',
-                    'url': '/cv',
-                    'icon': '📊'
-                })
-
-            # CVaaS
-            if "cvaas" not in disable_links:
-                menu_items.append({
-                    'name': 'CVaaS',
-                    'url': 'https://www.arista.io/',
-                    'icon': '☁️'
-                })
-
-            # Programmability IDE (Coder)
-            if "ide" not in disable_links:
-                menu_items.append({
-                    'name': 'Coder',
-                    'url': '/coder',
-                    'icon': '⚙️'
-                })
-
-            # WebUI (Firefox)
-            if "webui" not in disable_links:
-                menu_items.append({
-                    'name': 'Firefox',
-                    'url': '/firefox',
-                    'icon': '🦊'
-                })
-
-            # Jenkins
-            if "jenkins" not in disable_links:
-                menu_items.append({
-                    'name': 'Jenkins',
-                    'url': '/jenkins',
-                    'icon': '🔧'
-                })
-
-            self.write(json.dumps({
-                'menu_items': menu_items
-            }))
-
-        except Exception as e:
-            pS(f"[MenuAPIHandler] Error: {e}")
-            self.set_status(500)
-            self.write(json.dumps({
-                "error": str(e),
-                "menu_items": []
-            }))
-
 class GetAccessInfoHandler(tornado.web.RequestHandler):
     def validate_field(self, customer_details, field_name, default_value, validated_details, defaulted_fields):
         """
@@ -3150,32 +3040,12 @@ class CaptureBridgesAPIHandler(BaseHandler):
             if tgt_code in device_lookup:
                 bridge['target_device_name'] = device_lookup[tgt_code]
 
-            # Convert port codes to full names
-            # - Et1/et1 -> Ethernet1 (EOS switches)
-            # - eth1 stays as eth1 (Linux hosts/firewalls)
-            # - Bare numbers like '7' -> Ethernet7 (nodebuilder format)
-            src_port = bridge.get('source_port', '')
-            tgt_port = bridge.get('target_port', '')
-
-            if src_port.lower().startswith('eth'):
-                # Linux host interface - keep as-is
-                bridge['source_port_name'] = src_port
-            elif src_port.lower().startswith('et'):
-                # EOS Ethernet port
-                port_num = src_port[2:]
-                bridge['source_port_name'] = f'Ethernet{port_num}'
-            elif src_port.isdigit():
-                # Bare port number (nodebuilder format)
-                bridge['source_port_name'] = f'Ethernet{src_port}'
-
-            if tgt_port.lower().startswith('eth'):
-                bridge['target_port_name'] = tgt_port
-            elif tgt_port.lower().startswith('et'):
-                port_num = tgt_port[2:]
-                bridge['target_port_name'] = f'Ethernet{port_num}'
-            elif tgt_port.isdigit():
-                # Bare port number (nodebuilder format)
-                bridge['target_port_name'] = f'Ethernet{tgt_port}'
+            # Port names are already parsed by nodebuilder API (source_port_name, target_port_name)
+            # Only set defaults if not provided (e.g., fallback path didn't parse them)
+            if not bridge.get('source_port_name') and bridge.get('source_port'):
+                bridge['source_port_name'] = bridge['source_port']
+            if not bridge.get('target_port_name') and bridge.get('target_port'):
+                bridge['target_port_name'] = bridge['target_port']
 
         return bridges
 
@@ -3872,7 +3742,6 @@ if __name__ == "__main__":
         (r'/endExam', EndExamHandler),
         (r'/baseUrl', BaseUrlHandler),
         (r'/uptimeWithRuntime', UptimeWithRuntimeHandler),
-        (r'/td-api/menu', MenuAPIHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
         (r'/td-api/devices', DevicesAPIHandler),

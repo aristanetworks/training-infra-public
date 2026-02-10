@@ -179,8 +179,10 @@ export class CapturePanel {
             closeBtn: document.getElementById('capture-close-btn')
         };
 
-        // Layout state
-        this.sideBySideLayout = false;
+        // Layout state - default to side-by-side view
+        this.sideBySideLayout = true;
+        this.elements.captureBody.classList.add('side-by-side');
+        this.elements.layoutBtn.classList.add('active');
     }
 
     /**

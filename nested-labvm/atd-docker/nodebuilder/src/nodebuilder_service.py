@@ -2519,6 +2519,75 @@ async def get_device_abbreviations(request):
         return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
+@routes.get('/bridges')
+async def get_all_bridges_parsed(request):
+    """
+    Get all OVS bridges with parsed device/port information.
+
+    This is the primary endpoint for captureservice and UILanding to get
+    bridge information for the packet capture panel. Returns all bridges
+    with pre-parsed device and port names.
+
+    System bridges (oob_mgmt, br0, br-mgmt, vmgmt, etc.) are excluded.
+
+    Returns:
+        JSON with bridges array:
+        {
+            "bridges": [
+                {
+                    "name": "le5x1-sp4x9",
+                    "source_device": "le5",
+                    "source_port": "1",
+                    "source_device_name": "leaf5",
+                    "source_port_name": "Ethernet1",
+                    "target_device": "sp4",
+                    "target_port": "9",
+                    "target_device_name": "spine4",
+                    "target_port_name": "Ethernet9"
+                },
+                ...
+            ],
+            "count": 42
+        }
+    """
+    import subprocess
+    from bridge_utils import parse_bridge_name
+
+    try:
+        # Get all bridges from OVS
+        result = subprocess.run(
+            ['ovs-vsctl', 'list-br'],
+            capture_output=True,
+            text=True,
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
+        )
+
+        if result.returncode != 0:
+            return web.json_response({'error': 'Failed to list bridges'}, status=500)
+
+        all_bridges = [b.strip() for b in result.stdout.strip().split('\n') if b.strip()]
+
+        # Filter out system bridges
+        system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+        link_bridges = [b for b in all_bridges if b not in system_bridges]
+
+        # Parse each bridge and include parsed info
+        bridges = []
+        for bridge_name in link_bridges:
+            parsed = parse_bridge_name(bridge_name)
+            parsed['name'] = bridge_name
+            bridges.append(parsed)
+
+        return web.json_response({
+            'bridges': bridges,
+            'count': len(bridges)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting bridges: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
 @routes.get('/reconcile')
 async def reconcile_resources_dry_run(request):
     """
