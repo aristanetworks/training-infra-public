@@ -252,12 +252,16 @@ class topoRequestHandler(BaseHandler):
                 disable_links = host_yaml['disabled_links']
             else:
                 disable_links = []
-            menu={} 
+            menu={}
             if NOMENUOPTIONFILE:
                 disable_links.append('lab_menu')
             else:
                 for lab in MENU_ITEMS['lab_list']:
                     menu[lab] = MENU_ITEMS['lab_list'][lab]['description']
+
+            # Disable lab_menu for Exam type labs
+            if lab_type == "Exam" and 'lab_menu' not in disable_links:
+                disable_links.append('lab_menu')
             if 'labguides' in host_yaml:
                 if host_yaml['labguides'] == 'self':
                     labguides = '/labguides/index.html'
