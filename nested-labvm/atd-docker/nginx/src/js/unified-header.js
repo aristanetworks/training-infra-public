@@ -123,6 +123,112 @@ function injectCSS() {
         }
 
 
+        /* Announcement Banner */
+        .announcement-banner {
+            position: fixed;
+            top: 44px;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            z-index: 99998;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .announcement-banner.info {
+            background: #1e3a5f;
+            border-bottom: 2px solid #3498db;
+            color: #fff;
+        }
+
+        .announcement-banner.warning {
+            background: #5a4a1a;
+            border-bottom: 2px solid #f39c12;
+            color: #fff;
+        }
+
+        .announcement-banner.alert {
+            background: #4a1a1a;
+            border-bottom: 2px solid #e74c3c;
+            color: #fff;
+        }
+
+        .announcement-banner.success {
+            background: #1a4a2e;
+            border-bottom: 2px solid #27ae60;
+            color: #fff;
+        }
+
+        .announcement-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .announcement-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .announcement-text {
+            flex: 1;
+        }
+
+        .announcement-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .announcement-message {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .announcement-close {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 2px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .announcement-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Adjust body margin when announcement is shown */
+        body.has-announcement {
+            padding-top: 60px !important;
+        }
+
+        body.has-announcement.has-main {
+            padding-top: 0 !important;
+        }
+
+        body.has-announcement.has-main #main {
+            padding-top: 104px !important;
+        }
+
+        body.has-announcement.header-collapsed {
+            padding-top: 16px !important;
+        }
+
+        body.has-announcement.header-collapsed .announcement-banner {
+            top: 0;
+        }
+
         .header-left {
             display: flex;
             align-items: center;
@@ -237,6 +343,188 @@ function injectCSS() {
             align-items: center;
             gap: 10px;
             flex-shrink: 0;
+        }
+
+        /* Notification Bell */
+        .notification-bell {
+            position: relative;
+            padding: 6px 10px;
+            height: 32px;
+            box-sizing: border-box;
+            background: transparent;
+            border: 1px solid #fbb500;
+            border-radius: 0;
+            color: #fbb500;
+            font-size: 16px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .notification-bell:hover {
+            background: rgba(251, 181, 0, 0.15);
+        }
+
+        .notification-bell.active {
+            background: #fbb500;
+            color: #04152a;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        /* Notifications Panel */
+        .notifications-panel {
+            position: fixed;
+            top: 44px;
+            right: 0;
+            width: 400px;
+            min-width: 300px;
+            max-width: 90vw;
+            max-height: calc(100vh - 44px);
+            background: #04152a;
+            border-left: 4px solid #fbb500;
+            transition: transform 0.3s ease;
+            transform: translateX(100%);
+            z-index: 99997;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .notifications-panel.visible {
+            transform: translateX(0);
+        }
+
+        .notifications-panel-header {
+            padding: 12px 16px;
+            background: rgba(251, 181, 0, 0.1);
+            border-bottom: 1px solid rgba(251, 181, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notifications-panel-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fbb500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .notifications-close {
+            background: transparent;
+            border: none;
+            color: #fbb500;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0;
+            transition: all 0.2s;
+        }
+
+        .notifications-close:hover {
+            background: rgba(251, 181, 0, 0.2);
+        }
+
+        .notifications-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .notification-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .notification-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .notification-item.info {
+            border-left-color: #3498db;
+        }
+
+        .notification-item.warning {
+            border-left-color: #f39c12;
+        }
+
+        .notification-item.alert {
+            border-left-color: #e74c3c;
+        }
+
+        .notification-item.success {
+            border-left-color: #27ae60;
+        }
+
+        .notification-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .notification-item-title {
+            font-weight: 600;
+            color: #fff;
+            font-size: 13px;
+            flex: 1;
+        }
+
+        .notification-item-time {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .notification-item-message {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .notification-item-icon {
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        .notifications-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .notifications-empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
         }
 
         .labguides-toggle {
@@ -470,6 +758,11 @@ function injectCSS() {
             .labguides-panel {
                 width: 100%;
             }
+
+            .notifications-panel {
+                width: 100%;
+                max-width: 100vw;
+            }
         }
     `;
 
@@ -507,8 +800,25 @@ function injectHTML() {
             </div>
 
             <div class="header-right">
+                <button class="notification-bell" id="notificationBell" title="View Notifications">
+                    🔔
+                    <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                </button>
                 <button class="labguides-toggle" id="labguidesToggle">Lab Guides</button>
                 <button class="header-collapse-btn" id="headerCollapseBtn" title="Hide Header">▲</button>
+            </div>
+        </div>
+
+        <div class="notifications-panel" id="notificationsPanel">
+            <div class="notifications-panel-header">
+                <h3>Notifications</h3>
+                <button class="notifications-close" id="notificationsClose">&times;</button>
+            </div>
+            <div class="notifications-content" id="notificationsContent">
+                <div class="notifications-empty">
+                    <div class="notifications-empty-icon">🔔</div>
+                    <div>No notifications</div>
+                </div>
             </div>
         </div>
 
@@ -533,6 +843,8 @@ function initializeHeader() {
     initializeLabGuides();
     initializeCollapse();
     applyCollapsedState();
+    initializeAnnouncements();
+    initializeNotifications();
 
     // Hide Lab Guides button on labguides page
     if (window.location.pathname.startsWith('/labguides')) {
@@ -743,4 +1055,289 @@ function applyCollapsedState() {
     if (localStorage.getItem("headerCollapsed") === "true") {
         document.body.classList.add("header-collapsed");
     }
+}
+
+async function fetchAnnouncements() {
+    try {
+        const response = await fetch('/announcements');
+        if (!response.ok) {
+            console.error('[UnifiedHeader] Failed to fetch announcements:', response.status);
+            return null;
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('[UnifiedHeader] Error fetching announcements:', error);
+        return null;
+    }
+}
+
+function renderAnnouncements(announcementsData) {
+    if (!announcementsData || !announcementsData.active_announcements || announcementsData.active_announcements.length === 0) {
+        return;
+    }
+
+    // Get dismissed announcements from localStorage
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+
+    // Filter out dismissed announcements and get the highest priority one
+    const activeAnnouncements = announcementsData.active_announcements
+        .filter(ann => !dismissed.includes(ann.id))
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    if (activeAnnouncements.length === 0) {
+        return;
+    }
+
+    // Show the highest priority announcement
+    const announcement = activeAnnouncements[0];
+
+    const iconMap = {
+        'info': 'ℹ️',
+        'warning': '⚠️',
+        'alert': '🚨',
+        'success': '✅'
+    };
+
+    const icon = iconMap[announcement.type] || iconMap['info'];
+    const bannerHTML = `
+        <div class="announcement-banner ${announcement.type}" id="announcementBanner" data-id="${announcement.id}">
+            <div class="announcement-content">
+                <span class="announcement-icon">${icon}</span>
+                <div class="announcement-text">
+                    <div class="announcement-title">${announcement.title || ''}</div>
+                    <div class="announcement-message">${announcement.message || ''}</div>
+                </div>
+            </div>
+            ${announcement.dismissible !== false ? '<button class="announcement-close" id="announcementClose">✕</button>' : ''}
+        </div>
+    `;
+
+    // Insert after the unified header
+    const header = document.querySelector('.unified-header');
+    if (header) {
+        header.insertAdjacentHTML('afterend', bannerHTML);
+        document.body.classList.add('has-announcement');
+
+        // Add close handler
+        if (announcement.dismissible !== false) {
+            const closeBtn = document.getElementById('announcementClose');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    dismissAnnouncement(announcement.id);
+                });
+            }
+        }
+    }
+}
+
+function dismissAnnouncement(announcementId) {
+    // Get the announcement banner to extract details
+    const banner = document.getElementById('announcementBanner');
+    if (!banner) return;
+
+    // Get announcement details from the banner
+    const title = banner.querySelector('.announcement-title')?.textContent || '';
+    const message = banner.querySelector('.announcement-message')?.textContent || '';
+    const type = banner.classList.contains('info') ? 'info' :
+                 banner.classList.contains('warning') ? 'warning' :
+                 banner.classList.contains('alert') ? 'alert' : 'success';
+
+    // Get current dismissed list (now stores objects, not just IDs)
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+    const dismissedNotifications = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+
+    // Add ID to dismissed list for filtering
+    if (!dismissed.includes(announcementId)) {
+        dismissed.push(announcementId);
+        localStorage.setItem('dismissedAnnouncements', JSON.stringify(dismissed));
+    }
+
+    // Check if this announcement is already in the notifications list (prevent duplicates)
+    const alreadyExists = dismissedNotifications.some(notif => notif.id === announcementId);
+
+    if (!alreadyExists) {
+        // Add full notification details for display in bell panel
+        const notification = {
+            id: announcementId,
+            title: title,
+            message: message,
+            type: type,
+            dismissedAt: new Date().toISOString()
+        };
+
+        // Add to beginning of array (most recent first)
+        dismissedNotifications.unshift(notification);
+
+        // Keep only last 50 notifications
+        if (dismissedNotifications.length > 50) {
+            dismissedNotifications.splice(50);
+        }
+
+        localStorage.setItem('dismissedNotifications', JSON.stringify(dismissedNotifications));
+    }
+
+    // Remove the banner from DOM
+    banner.remove();
+    document.body.classList.remove('has-announcement');
+
+    // Update notification badge
+    updateNotificationBadge();
+}
+
+async function initializeAnnouncements() {
+    const data = await fetchAnnouncements();
+    if (data) {
+        renderAnnouncements(data);
+    }
+
+    // Poll for new announcements every 2 minutes
+    setInterval(async () => {
+        const newData = await fetchAnnouncements();
+        if (newData) {
+            checkForNewAnnouncements(newData);
+        }
+    }, 2 * 60 * 1000); // 2 minutes
+}
+
+function checkForNewAnnouncements(announcementsData) {
+    if (!announcementsData || !announcementsData.active_announcements || announcementsData.active_announcements.length === 0) {
+        return;
+    }
+
+    // Get current announcement ID (if any)
+    const currentBanner = document.getElementById('announcementBanner');
+    const currentAnnouncementId = currentBanner?.getAttribute('data-id');
+
+    // Get dismissed announcements
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+
+    // Filter and sort announcements
+    const activeAnnouncements = announcementsData.active_announcements
+        .filter(ann => !dismissed.includes(ann.id))
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    if (activeAnnouncements.length === 0) {
+        return;
+    }
+
+    const newTopAnnouncement = activeAnnouncements[0];
+
+    // If there's a new announcement with different ID or no current announcement
+    if (!currentAnnouncementId || newTopAnnouncement.id !== currentAnnouncementId) {
+        console.log('[UnifiedHeader] New announcement detected:', newTopAnnouncement.title);
+
+        // Remove current banner if exists
+        if (currentBanner) {
+            currentBanner.remove();
+            document.body.classList.remove('has-announcement');
+        }
+
+        // Render new announcement
+        renderAnnouncements(announcementsData);
+    }
+}
+
+function initializeNotifications() {
+    const notificationBell = document.getElementById('notificationBell');
+    const notificationsPanel = document.getElementById('notificationsPanel');
+    const notificationsClose = document.getElementById('notificationsClose');
+
+    if (!notificationBell || !notificationsPanel || !notificationsClose) return;
+
+    function openNotifications() {
+        notificationsPanel.classList.add('visible');
+        notificationBell.classList.add('active');
+        renderNotificationsList();
+    }
+
+    function closeNotifications() {
+        notificationsPanel.classList.remove('visible');
+        notificationBell.classList.remove('active');
+    }
+
+    function toggleNotifications() {
+        if (notificationsPanel.classList.contains('visible')) {
+            closeNotifications();
+        } else {
+            openNotifications();
+        }
+    }
+
+    notificationBell.addEventListener('click', toggleNotifications);
+    notificationsClose.addEventListener('click', closeNotifications);
+
+    // Initial badge update
+    updateNotificationBadge();
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (!badge) return;
+
+    const notifications = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+    const count = notifications.length;
+
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderNotificationsList() {
+    const content = document.getElementById('notificationsContent');
+    if (!content) return;
+
+    const notifications = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+
+    if (notifications.length === 0) {
+        content.innerHTML = `
+            <div class="notifications-empty">
+                <div class="notifications-empty-icon">🔔</div>
+                <div>No notifications</div>
+            </div>
+        `;
+        return;
+    }
+
+    const iconMap = {
+        'info': 'ℹ️',
+        'warning': '⚠️',
+        'alert': '🚨',
+        'success': '✅'
+    };
+
+    const notificationsHTML = notifications.map(notif => {
+        const icon = iconMap[notif.type] || iconMap['info'];
+        const timeAgo = getTimeAgo(notif.dismissedAt);
+
+        return `
+            <div class="notification-item ${notif.type}">
+                <div class="notification-item-header">
+                    <div class="notification-item-title">
+                        <span class="notification-item-icon">${icon}</span>
+                        ${notif.title || 'Announcement'}
+                    </div>
+                    <div class="notification-item-time">${timeAgo}</div>
+                </div>
+                <div class="notification-item-message">${notif.message || ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    content.innerHTML = notificationsHTML;
+}
+
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const seconds = Math.floor((now - then) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return then.toLocaleDateString();
 }

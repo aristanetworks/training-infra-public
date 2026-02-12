@@ -12,7 +12,7 @@ services:
       - atd_nginx
   configservice:
     container_name: atd-configservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0-announcement
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -172,7 +172,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.15
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.15-announcement
     restart: always
     depends_on:
       - uilanding
