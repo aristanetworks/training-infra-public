@@ -1186,6 +1186,12 @@ function dismissAnnouncement(announcementId) {
 }
 
 async function initializeAnnouncements() {
+    // Check if announcements feature is enabled
+    if (window.featureFlags && !await window.featureFlags.check('announcements')) {
+        console.log('[UnifiedHeader] Announcements feature is disabled');
+        return;
+    }
+
     const data = await fetchAnnouncements();
     if (data) {
         renderAnnouncements(data);

@@ -284,9 +284,10 @@ def fetch_and_cache_announcements() -> Dict:
 
     topology = get_topology()
     client = AnnouncementClient()
+    user_arista = is_arista_user()
 
     try:
-        data = client.fetch_all_announcements(topology)
+        data = client.fetch_all_announcements(topology, user_is_arista=user_arista)
         save_announcement_cache_to_file(data)
         _announcement_cache = data
         logger.info(f"Fetched {len(data['active_announcements'])} active announcements from Firestore")

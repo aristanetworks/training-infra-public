@@ -158,13 +158,15 @@ class FeatureFlagClient(BaseFirestoreClient):
 class AnnouncementClient(BaseFirestoreClient):
     """Client for fetching announcements from Firestore"""
 
-    def fetch_all_announcements(self, topology: str) -> Dict:
+    def fetch_all_announcements(self, topology: str, user_is_arista: Optional[bool] = None) -> Dict:
         """
         Fetch all active announcements (global + topology-specific).
-        Filters by current time to only return active announcements.
+        Filters by current time and optionally by audience.
 
         Args:
             topology: The topology name (e.g., "training-level7-cl")
+            user_is_arista: If provided, filter by audience (True=Arista, False=external).
+                            If None, no audience filtering is applied.
 
         Returns:
             Dictionary containing active announcements and metadata
@@ -195,9 +197,9 @@ class AnnouncementClient(BaseFirestoreClient):
                     topo_data = topo_doc.to_dict()
                     topology_announcements = topo_data.get(topology, [])
 
-                # Filter to active only
-                active_global = filter_active_announcements(global_announcements)
-                active_topology = filter_active_announcements(topology_announcements)
+                # Filter to active only (with audience filtering)
+                active_global = filter_active_announcements(global_announcements, user_is_arista)
+                active_topology = filter_active_announcements(topology_announcements, user_is_arista)
 
                 # Combine and re-sort by priority
                 all_active = active_global + active_topology
