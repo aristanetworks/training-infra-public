@@ -19,12 +19,14 @@ Endpoints:
 
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import tornado.ioloop
 import tornado.web
 from ruamel.yaml import YAML
+from google.cloud import logging as cloud_logging
 
 from config import (
     SERVICE_PORT,
@@ -44,6 +46,15 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('configservice')
+
+# Initialize Google Cloud Logging
+_cloud_logger = None
+try:
+    cloud_logging_client = cloud_logging.Client()
+    _cloud_logger = cloud_logging_client.logger('configservice')
+    logger.info("Google Cloud Logging initialized successfully")
+except Exception as e:
+    logger.warning(f"Failed to initialize Google Cloud Logging: {e}. Falling back to standard logging.")
 
 # Global state
 _feature_cache: Optional[Dict] = None
@@ -273,9 +284,10 @@ def fetch_and_cache_announcements() -> Dict:
 
     topology = get_topology()
     client = AnnouncementClient()
+    user_arista = is_arista_user()
 
     try:
-        data = client.fetch_all_announcements(topology)
+        data = client.fetch_all_announcements(topology, user_is_arista=user_arista)
         save_announcement_cache_to_file(data)
         _announcement_cache = data
         logger.info(f"Fetched {len(data['active_announcements'])} active announcements from Firestore")
@@ -370,6 +382,31 @@ class AnnouncementsHandler(tornado.web.RequestHandler):
 
     def get(self):
         announcements = get_announcements()
+
+        # Log announcement fetch with structured data to Google Cloud Logging (async, non-blocking)
+        if _cloud_logger:
+            def log_async():
+                try:
+                    active_announcements = announcements.get('active_announcements', [])
+                    announcement_ids = [ann['id'] for ann in active_announcements]
+
+                    log_entry = {
+                        'event_type': 'announcement_fetch',
+                        'topology': get_topology(),
+                        'user_email': get_user_email(),
+                        'announcements_count': len(active_announcements),
+                        'announcement_ids': announcement_ids,
+                        'source': announcements.get('source', 'unknown'),
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    }
+
+                    _cloud_logger.log_struct(log_entry, severity='INFO')
+                except Exception as e:
+                    logger.warning(f"Failed to log announcement fetch to Cloud Logging: {e}")
+
+            # Run logging in background thread so it doesn't block the HTTP response
+            threading.Thread(target=log_async, daemon=True).start()
+
         self.write(announcements)
 
 
@@ -477,6 +514,17 @@ def pS(mtype):
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
 
+def auto_refresh_cache():
+    """Automatically refresh cache from Firestore every 5 minutes"""
+    try:
+        logger.info("Auto-refresh: Fetching latest data from Firestore...")
+        fetch_and_cache_features()
+        fetch_and_cache_announcements()
+        logger.info("Auto-refresh: Cache updated successfully")
+    except Exception as e:
+        logger.error(f"Auto-refresh failed: {e}")
+
+
 if __name__ == "__main__":
     # Set credentials path if file exists
     if os.path.exists(SERVICE_ACCOUNT_PATH):
@@ -497,6 +545,11 @@ if __name__ == "__main__":
     app = make_app()
     app.listen(SERVICE_PORT)
     pS(f'*** Config Service v{SERVICE_VERSION} Started on port {SERVICE_PORT} ***')
+
+    # Schedule automatic cache refresh every 5 minutes (300000 ms)
+    refresh_interval = 5 * 60 * 1000  # 5 minutes in milliseconds
+    tornado.ioloop.PeriodicCallback(auto_refresh_cache, refresh_interval).start()
+    logger.info(f"Auto-refresh enabled: Will refresh cache every 5 minutes")
 
     try:
         tornado.ioloop.IOLoop.instance().start()
