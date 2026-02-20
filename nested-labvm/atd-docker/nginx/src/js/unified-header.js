@@ -38,6 +38,22 @@ function init() {
 
 function injectCSS() {
     const css = `
+        /* CSS Reset for unified header elements - prevents host page styles from leaking in */
+        .unified-header,
+        .unified-header *,
+        .announcement-banner,
+        .announcement-banner *,
+        .notifications-panel,
+        .notifications-panel * {
+            list-style: none !important;
+            list-style-type: none !important;
+        }
+        .unified-header *::before,
+        .announcement-banner *::before,
+        .notifications-panel *::before {
+            content: none !important;
+        }
+
         /* Unified Header */
         .unified-header {
             position: fixed;

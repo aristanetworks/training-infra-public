@@ -26,7 +26,12 @@ from typing import Dict, Optional
 import tornado.ioloop
 import tornado.web
 from ruamel.yaml import YAML
-from google.cloud import logging as cloud_logging
+
+try:
+    from google.cloud import logging as cloud_logging
+    _HAS_CLOUD_LOGGING = True
+except ImportError:
+    _HAS_CLOUD_LOGGING = False
 
 from config import (
     SERVICE_PORT,
@@ -47,14 +52,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger('configservice')
 
-# Initialize Google Cloud Logging
+# Initialize Google Cloud Logging (optional dependency)
 _cloud_logger = None
-try:
-    cloud_logging_client = cloud_logging.Client()
-    _cloud_logger = cloud_logging_client.logger('configservice')
-    logger.info("Google Cloud Logging initialized successfully")
-except Exception as e:
-    logger.warning(f"Failed to initialize Google Cloud Logging: {e}. Falling back to standard logging.")
+if _HAS_CLOUD_LOGGING:
+    try:
+        cloud_logging_client = cloud_logging.Client()
+        _cloud_logger = cloud_logging_client.logger('configservice')
+        logger.info("Google Cloud Logging initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Google Cloud Logging: {e}. Falling back to standard logging.")
 
 # Global state
 _feature_cache: Optional[Dict] = None
