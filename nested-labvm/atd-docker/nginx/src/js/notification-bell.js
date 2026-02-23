@@ -194,7 +194,7 @@
             '    border: 1px solid #fbb500;',
             '    border-radius: 0;',
             '    color: #fbb500;',
-            '    font-size: 14px;',
+            '    font-size: 11px;',
             '    cursor: pointer;',
             '    white-space: nowrap;',
             '    font-weight: 600;',

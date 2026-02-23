@@ -113,13 +113,18 @@ function injectCSS() {
             transition: all 0.3s ease;
         }
 
+        body.header-collapsed {
+            margin-top: 0 !important;
+            transition: margin-top 0.3s ease;
+        }
+
         body.header-collapsed .unified-header {
             transform: translateY(-44px);
             transition: transform 0.3s ease;
         }
 
         body.header-collapsed .header-expand-btn {
-            transform: translateY(44px);
+            transform: translateY(0);
             opacity: 1;
             pointer-events: auto;
         }
@@ -745,13 +750,17 @@ function injectCSS() {
             transition: all 0.3s ease;
         }
 
+        body.header-collapsed {
+            margin-top: 0 !important;
+        }
+
         body.header-collapsed .unified-header {
             transform: translateY(-44px);
             transition: transform 0.3s ease;
         }
 
         body.header-collapsed .header-expand-btn {
-            transform: translateY(44px);
+            transform: translateY(0);
             opacity: 1;
             pointer-events: auto;
         }
