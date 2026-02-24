@@ -10,6 +10,10 @@
  *   - Response timeout: 3 minutes
  *   - On timeout: Redirect to homepage
  *   - On confirm: Close prompt, reset timer
+ *
+ * Note: Uses a Web Worker for reliable timing in background tabs. Browsers
+ * throttle setTimeout/setInterval in background tabs, but Web Workers are
+ * less affected.
  */
 (function() {
     'use strict';
@@ -35,11 +39,70 @@
     const RESPONSE_TIMEOUT_MS = DEBUG_MODE ? 10 * 1000 : 3 * 60 * 1000;     // 10s debug, 3min prod
     const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     const ACTIVITY_THROTTLE_MS = 1000;             // Throttle activity detection
+    const WORKER_CHECK_INTERVAL_MS = 1000;         // Worker checks every second
 
     // State
-    let inactivityTimer = null;
-    let responseTimer = null;
+    let worker = null;
+    let inactivityDeadline = null;
+    let responseDeadline = null;
     let modalVisible = false;
+
+    /**
+     * Create an inline Web Worker for reliable background timing
+     * Web Workers are less throttled than main thread in background tabs
+     */
+    function createTimerWorker() {
+        const workerCode = `
+            let checkInterval = null;
+            let inactivityDeadline = null;
+            let responseDeadline = null;
+
+            self.onmessage = function(e) {
+                const { type, deadline, interval } = e.data;
+
+                if (type === 'setInactivityDeadline') {
+                    inactivityDeadline = deadline;
+                } else if (type === 'setResponseDeadline') {
+                    responseDeadline = deadline;
+                } else if (type === 'clearResponseDeadline') {
+                    responseDeadline = null;
+                } else if (type === 'start') {
+                    if (checkInterval) clearInterval(checkInterval);
+                    checkInterval = setInterval(function() {
+                        const now = Date.now();
+
+                        // Check response deadline first (modal countdown)
+                        if (responseDeadline && now >= responseDeadline) {
+                            self.postMessage({ type: 'responseTimeout' });
+                            responseDeadline = null;
+                        } else if (responseDeadline) {
+                            self.postMessage({
+                                type: 'responseCountdown',
+                                remaining: responseDeadline - now
+                            });
+                        }
+                        // Check inactivity deadline (show modal)
+                        else if (inactivityDeadline && now >= inactivityDeadline) {
+                            self.postMessage({ type: 'inactivityTimeout' });
+                            inactivityDeadline = null;
+                        }
+                    }, interval || 1000);
+                } else if (type === 'stop') {
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                        checkInterval = null;
+                    }
+                }
+            };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        const timerWorker = new Worker(workerUrl);
+        URL.revokeObjectURL(workerUrl);
+
+        return timerWorker;
+    }
 
     /**
      * Inject CSS for the modal
@@ -195,6 +258,33 @@
     }
 
     /**
+     * Handle messages from the Web Worker
+     */
+    function handleWorkerMessage(e) {
+        const { type, remaining } = e.data;
+
+        switch (type) {
+            case 'inactivityTimeout':
+                console.log('[CVP Activity] Inactivity timeout from worker');
+                showModal();
+                break;
+
+            case 'responseTimeout':
+                console.log('[CVP Activity] Response timeout from worker');
+                handleTimeout();
+                break;
+
+            case 'responseCountdown':
+                // Update countdown display
+                const countdown = document.getElementById('cvpCountdown');
+                if (countdown) {
+                    countdown.textContent = formatCountdown(remaining);
+                }
+                break;
+        }
+    }
+
+    /**
      * Show the "Are you still there?" modal
      */
     function showModal() {
@@ -208,20 +298,15 @@
 
         if (!overlay || !countdown) return;
 
+        // Set response deadline and tell worker
+        responseDeadline = Date.now() + RESPONSE_TIMEOUT_MS;
+        countdown.textContent = formatCountdown(RESPONSE_TIMEOUT_MS);
+
+        if (worker) {
+            worker.postMessage({ type: 'setResponseDeadline', deadline: responseDeadline });
+        }
+
         overlay.classList.add('visible');
-
-        // Start countdown
-        let remaining = RESPONSE_TIMEOUT_MS;
-        countdown.textContent = formatCountdown(remaining);
-
-        responseTimer = setInterval(() => {
-            remaining -= 1000;
-            countdown.textContent = formatCountdown(remaining);
-
-            if (remaining <= 0) {
-                handleTimeout();
-            }
-        }, 1000);
     }
 
     /**
@@ -229,15 +314,15 @@
      */
     function hideModal() {
         modalVisible = false;
+        responseDeadline = null;
+
+        if (worker) {
+            worker.postMessage({ type: 'clearResponseDeadline' });
+        }
 
         const overlay = document.getElementById('cvpActivityOverlay');
         if (overlay) {
             overlay.classList.remove('visible');
-        }
-
-        if (responseTimer) {
-            clearInterval(responseTimer);
-            responseTimer = null;
         }
     }
 
@@ -257,10 +342,11 @@
         console.log('[CVP Activity] Response timeout - redirecting to homepage');
         hideModal();
 
-        // Clear all timers
-        if (inactivityTimer) {
-            clearTimeout(inactivityTimer);
-            inactivityTimer = null;
+        // Stop the worker
+        if (worker) {
+            worker.postMessage({ type: 'stop' });
+            worker.terminate();
+            worker = null;
         }
 
         // Redirect to homepage
@@ -271,13 +357,11 @@
      * Reset the inactivity timer
      */
     function resetActivityTimer() {
-        if (inactivityTimer) {
-            clearTimeout(inactivityTimer);
-        }
+        inactivityDeadline = Date.now() + INACTIVITY_TIMEOUT_MS;
 
-        inactivityTimer = setTimeout(() => {
-            showModal();
-        }, INACTIVITY_TIMEOUT_MS);
+        if (worker) {
+            worker.postMessage({ type: 'setInactivityDeadline', deadline: inactivityDeadline });
+        }
     }
 
     /**
@@ -322,6 +406,19 @@
         // Create modal
         createModal();
 
+        // Create Web Worker for reliable background timing
+        try {
+            worker = createTimerWorker();
+            worker.onmessage = handleWorkerMessage;
+            worker.onerror = (err) => {
+                console.error('[CVP Activity] Worker error:', err);
+            };
+            console.log('[CVP Activity] Web Worker created for background timing');
+        } catch (err) {
+            console.error('[CVP Activity] Failed to create Web Worker:', err);
+            // Fallback: will rely on visibilitychange, less reliable but better than nothing
+        }
+
         // Attach activity listeners
         ACTIVITY_EVENTS.forEach(eventType => {
             document.addEventListener(eventType, handleActivity, { passive: true });
@@ -330,11 +427,24 @@
         // Start the inactivity timer
         resetActivityTimer();
 
+        // Start the worker
+        if (worker) {
+            worker.postMessage({ type: 'start', interval: WORKER_CHECK_INTERVAL_MS });
+        }
+
         // Expose debug functions on window for console testing
         window.cvpActivityDebug = {
             showModal: showModal,
             hideModal: hideModal,
             resetTimer: resetActivityTimer,
+            getDeadline: function() {
+                return {
+                    inactivityDeadline: inactivityDeadline,
+                    responseDeadline: responseDeadline,
+                    remainingInactivity: inactivityDeadline ? inactivityDeadline - Date.now() : null,
+                    remainingResponse: responseDeadline ? responseDeadline - Date.now() : null
+                };
+            },
             trigger: function() {
                 console.log('[CVP Activity] Manually triggered via console');
                 showModal();
