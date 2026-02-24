@@ -27,9 +27,12 @@
         return;
     }
 
+    // Debug mode: add ?cvp-test=1 to URL for 10-second timeouts
+    const DEBUG_MODE = new URLSearchParams(window.location.search).has('cvp-test');
+
     // Configuration
-    const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000;  // 60 minutes
-    const RESPONSE_TIMEOUT_MS = 3 * 60 * 1000;     // 3 minutes
+    const INACTIVITY_TIMEOUT_MS = DEBUG_MODE ? 10 * 1000 : 60 * 60 * 1000;  // 10s debug, 60min prod
+    const RESPONSE_TIMEOUT_MS = DEBUG_MODE ? 10 * 1000 : 3 * 60 * 1000;     // 10s debug, 3min prod
     const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     const ACTIVITY_THROTTLE_MS = 1000;             // Throttle activity detection
 
@@ -300,9 +303,12 @@
      * Initialize the activity monitor
      */
     function init() {
+        if (DEBUG_MODE) {
+            console.log('[CVP Activity] DEBUG MODE ENABLED - using 10 second timeouts');
+        }
         console.log('[CVP Activity] Initializing activity monitor');
-        console.log('[CVP Activity] Inactivity timeout: 60 minutes');
-        console.log('[CVP Activity] Response timeout: 3 minutes');
+        console.log('[CVP Activity] Inactivity timeout:', INACTIVITY_TIMEOUT_MS / 1000, 'seconds');
+        console.log('[CVP Activity] Response timeout:', RESPONSE_TIMEOUT_MS / 1000, 'seconds');
 
         // Inject styles
         injectCSS();
@@ -318,7 +324,19 @@
         // Start the inactivity timer
         resetActivityTimer();
 
+        // Expose debug functions on window for console testing
+        window.cvpActivityDebug = {
+            showModal: showModal,
+            hideModal: hideModal,
+            resetTimer: resetActivityTimer,
+            trigger: function() {
+                console.log('[CVP Activity] Manually triggered via console');
+                showModal();
+            }
+        };
+
         console.log('[CVP Activity] Activity monitor started');
+        console.log('[CVP Activity] Debug: use window.cvpActivityDebug.trigger() to test modal');
     }
 
     // Initialize when DOM is ready
