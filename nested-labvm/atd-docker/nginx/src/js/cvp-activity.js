@@ -302,7 +302,13 @@
     /**
      * Initialize the activity monitor
      */
-    function init() {
+    async function init() {
+        // Check if cvpactivity feature is enabled
+        if (window.featureFlags && !await window.featureFlags.check('cvpactivity')) {
+            console.log('[CVP Activity] Feature is disabled via feature flags');
+            return;
+        }
+
         if (DEBUG_MODE) {
             console.log('[CVP Activity] DEBUG MODE ENABLED - using 10 second timeouts');
         }
