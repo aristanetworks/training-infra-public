@@ -48,6 +48,35 @@
     let modalVisible = false;
 
     /**
+     * Check if the cvpactivity feature is enabled.
+     * Fetches directly from /feature-flags since uilanding's feature-flags.js
+     * is not loaded on CVP pages.
+     * @returns {Promise<boolean>} True if enabled, false if disabled
+     */
+    async function isFeatureEnabled() {
+        // If uilanding's feature flags are available, use them
+        if (window.featureFlags) {
+            return await window.featureFlags.check('cvpactivity');
+        }
+
+        // Otherwise, fetch directly from the API
+        try {
+            const response = await fetch('/feature-flags');
+            if (!response.ok) {
+                console.warn('[CVP Activity] Failed to fetch feature flags, defaulting to disabled');
+                return false;
+            }
+            const data = await response.json();
+            const enabled = data.enabled_features && data.enabled_features.includes('cvpactivity');
+            console.log('[CVP Activity] Feature flag cvpactivity:', enabled ? 'enabled' : 'disabled');
+            return enabled;
+        } catch (error) {
+            console.warn('[CVP Activity] Error checking feature flags:', error);
+            return false;  // Default to disabled on error
+        }
+    }
+
+    /**
      * Create an inline Web Worker for reliable background timing
      * Web Workers are less throttled than main thread in background tabs
      */
@@ -388,7 +417,8 @@
      */
     async function init() {
         // Check if cvpactivity feature is enabled
-        if (window.featureFlags && !await window.featureFlags.check('cvpactivity')) {
+        const featureEnabled = await isFeatureEnabled();
+        if (!featureEnabled) {
             console.log('[CVP Activity] Feature is disabled via feature flags');
             return;
         }
