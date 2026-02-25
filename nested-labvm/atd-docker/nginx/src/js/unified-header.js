@@ -878,6 +878,30 @@ function initializeHeader() {
             labguidesToggle.style.display = 'none';
         }
     }
+
+    // Load CVP activity monitor for CVP pages
+    // CVP pages have a #main div and constant data transmission that bypasses idle detection
+    if (document.getElementById('main')) {
+        loadCVPActivityMonitor();
+    }
+}
+
+function loadCVPActivityMonitor() {
+    // Prevent duplicate loading
+    if (window.__cvpActivityMonitorInjected || document.getElementById('cvp-activity-script')) {
+        return;
+    }
+
+    console.log('[UnifiedHeader] Loading CVP activity monitor');
+
+    const script = document.createElement('script');
+    script.id = 'cvp-activity-script';
+    script.src = '/cvp-activity.js';
+    script.async = true;
+    script.onerror = () => {
+        console.error('[UnifiedHeader] Failed to load CVP activity monitor');
+    };
+    document.head.appendChild(script);
 }
 
 async function loadCredentials() {
