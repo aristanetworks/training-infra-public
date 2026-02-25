@@ -1252,6 +1252,11 @@ async function initializeAnnouncements() {
     }
     if (!announcementsEnabled) {
         console.log('[UnifiedHeader] Announcements feature is disabled');
+        // Hide bell icon and notifications panel when announcements are disabled
+        const bell = document.getElementById('notificationBell');
+        const panel = document.getElementById('notificationsPanel');
+        if (bell) bell.style.display = 'none';
+        if (panel) panel.style.display = 'none';
         return;
     }
 
