@@ -23,10 +23,41 @@
 
     function init() {
         isTerminalPage = !!document.querySelector('.tab-bar-actions');
-        injectCSS();
-        injectBell();
-        fetchAnnouncements();
-        setInterval(fetchAnnouncements, 120000);
+        // Check if announcements feature is enabled before rendering
+        checkAnnouncementsFeature().then(function(enabled) {
+            if (!enabled) {
+                console.log('[NotificationBell] Announcements feature is disabled');
+                return;
+            }
+            injectCSS();
+            injectBell();
+            fetchAnnouncements();
+            setInterval(fetchAnnouncements, 120000);
+        });
+    }
+
+    function checkAnnouncementsFeature() {
+        // Use uilanding's featureFlags if available
+        if (window.featureFlags) {
+            return window.featureFlags.check('announcements').catch(function() {
+                return fetchFeatureFlag();
+            });
+        }
+        return fetchFeatureFlag();
+    }
+
+    function fetchFeatureFlag() {
+        return fetch('/feature-flags')
+            .then(function(r) {
+                if (!r.ok) return false;
+                return r.json();
+            })
+            .then(function(data) {
+                return data && data.enabled_features && data.enabled_features.indexOf('announcements') !== -1;
+            })
+            .catch(function() {
+                return false;
+            });
     }
 
     function getDismissed() {
