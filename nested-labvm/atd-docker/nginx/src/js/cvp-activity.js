@@ -10,10 +10,15 @@
  *   - Response timeout: 3 minutes
  *   - On timeout: Redirect to homepage
  *   - On confirm: Close prompt, reset timer
+ *   - Debug mode: Add ?cvp-test=1 to URL for 10-second timeouts
+ *
+ * CSP Requirements:
+ *   - worker-src blob:  (inline Web Worker via Blob URL)
+ *   - style-src 'unsafe-inline'  (injected modal CSS)
  *
  * Note: Uses a Web Worker for reliable timing in background tabs. Browsers
  * throttle setTimeout/setInterval in background tabs, but Web Workers are
- * less affected.
+ * less affected. Falls back to main-thread setInterval if Workers are blocked.
  */
 (function() {
     'use strict';
@@ -40,9 +45,11 @@
     const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     const ACTIVITY_THROTTLE_MS = 1000;             // Throttle activity detection
     const WORKER_CHECK_INTERVAL_MS = 1000;         // Worker checks every second
+    const REDIRECT_URL = window.location.origin + '/';
 
     // State
     let worker = null;
+    let fallbackInterval = null;
     let inactivityDeadline = null;
     let responseDeadline = null;
     let modalVisible = false;
@@ -54,12 +61,18 @@
      * @returns {Promise<boolean>} True if enabled, false if disabled
      */
     async function isFeatureEnabled() {
-        // If uilanding's feature flags are available, use them
+        // If uilanding's feature flags are available, use them.
+        // Wrapped in try/catch in case featureFlags exists but isn't
+        // fully initialized (race condition with feature-flags.js load order).
         if (window.featureFlags) {
-            return await window.featureFlags.check('cvpactivity');
+            try {
+                return await window.featureFlags.check('cvpactivity');
+            } catch (error) {
+                console.warn('[CVP Activity] featureFlags.check() failed, falling back to API:', error);
+            }
         }
 
-        // Otherwise, fetch directly from the API
+        // Fetch directly from the API (CVP pages or featureFlags fallback)
         try {
             const response = await fetch('/feature-flags');
             if (!response.ok) {
@@ -131,6 +144,40 @@
         URL.revokeObjectURL(workerUrl);
 
         return timerWorker;
+    }
+
+    /**
+     * Start a main-thread fallback timer when Web Worker is unavailable.
+     * Less reliable in background tabs (browsers throttle setInterval),
+     * but functional for foreground usage.
+     */
+    function startFallbackTimer() {
+        if (fallbackInterval) clearInterval(fallbackInterval);
+
+        fallbackInterval = setInterval(function() {
+            const now = Date.now();
+
+            if (responseDeadline && now >= responseDeadline) {
+                handleTimeout();
+            } else if (responseDeadline) {
+                const countdown = document.getElementById('cvpCountdown');
+                if (countdown) {
+                    countdown.textContent = formatCountdown(responseDeadline - now);
+                }
+            } else if (inactivityDeadline && now >= inactivityDeadline) {
+                showModal();
+            }
+        }, WORKER_CHECK_INTERVAL_MS);
+    }
+
+    /**
+     * Stop the fallback timer
+     */
+    function stopFallbackTimer() {
+        if (fallbackInterval) {
+            clearInterval(fallbackInterval);
+            fallbackInterval = null;
+        }
     }
 
     /**
@@ -253,15 +300,18 @@
         const overlay = document.createElement('div');
         overlay.className = 'cvp-activity-overlay';
         overlay.id = 'cvpActivityOverlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'cvpActivityTitle');
 
         overlay.innerHTML = `
             <div class="cvp-activity-modal">
-                <div class="cvp-activity-icon">👋</div>
-                <div class="cvp-activity-title">Are you still there?</div>
+                <div class="cvp-activity-icon" aria-hidden="true">👋</div>
+                <div class="cvp-activity-title" id="cvpActivityTitle">Are you still there?</div>
                 <div class="cvp-activity-message">
                     Your session has been inactive. Click below to continue using CloudVision.
                 </div>
-                <div class="cvp-activity-countdown">
+                <div class="cvp-activity-countdown" aria-live="polite">
                     Redirecting to homepage in <span class="cvp-activity-countdown-value" id="cvpCountdown">3:00</span>
                 </div>
                 <button class="cvp-activity-button" id="cvpStillHereBtn">
@@ -274,6 +324,13 @@
 
         // Attach button handler
         document.getElementById('cvpStillHereBtn').addEventListener('click', handleConfirm);
+
+        // Allow Escape key to confirm presence
+        overlay.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                handleConfirm();
+            }
+        });
     }
 
     /**
@@ -336,6 +393,10 @@
         }
 
         overlay.classList.add('visible');
+
+        // Focus the confirm button for keyboard accessibility
+        var btn = document.getElementById('cvpStillHereBtn');
+        if (btn) btn.focus();
     }
 
     /**
@@ -370,16 +431,26 @@
     function handleTimeout() {
         console.log('[CVP Activity] Response timeout - redirecting to homepage');
         hideModal();
+        cleanup();
 
-        // Stop the worker
+        // Redirect to homepage
+        window.location.href = REDIRECT_URL;
+    }
+
+    /**
+     * Clean up worker, fallback timer, and event listeners
+     */
+    function cleanup() {
         if (worker) {
             worker.postMessage({ type: 'stop' });
             worker.terminate();
             worker = null;
         }
+        stopFallbackTimer();
 
-        // Redirect to homepage
-        window.location.href = '/';
+        ACTIVITY_EVENTS.forEach(function(eventType) {
+            document.removeEventListener(eventType, handleActivity);
+        });
     }
 
     /**
@@ -446,8 +517,12 @@
             console.log('[CVP Activity] Web Worker created for background timing');
         } catch (err) {
             console.error('[CVP Activity] Failed to create Web Worker:', err);
-            // Fallback: will rely on visibilitychange, less reliable but better than nothing
+            console.log('[CVP Activity] Using fallback main-thread timer (less reliable in background tabs)');
+            startFallbackTimer();
         }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', cleanup);
 
         // Attach activity listeners
         ACTIVITY_EVENTS.forEach(eventType => {
@@ -462,27 +537,29 @@
             worker.postMessage({ type: 'start', interval: WORKER_CHECK_INTERVAL_MS });
         }
 
-        // Expose debug functions on window for console testing
-        window.cvpActivityDebug = {
-            showModal: showModal,
-            hideModal: hideModal,
-            resetTimer: resetActivityTimer,
-            getDeadline: function() {
-                return {
-                    inactivityDeadline: inactivityDeadline,
-                    responseDeadline: responseDeadline,
-                    remainingInactivity: inactivityDeadline ? inactivityDeadline - Date.now() : null,
-                    remainingResponse: responseDeadline ? responseDeadline - Date.now() : null
-                };
-            },
-            trigger: function() {
-                console.log('[CVP Activity] Manually triggered via console');
-                showModal();
-            }
-        };
+        // Expose debug functions only in debug mode to avoid namespace pollution
+        if (DEBUG_MODE) {
+            window.cvpActivityDebug = {
+                showModal: showModal,
+                hideModal: hideModal,
+                resetTimer: resetActivityTimer,
+                getDeadline: function() {
+                    return {
+                        inactivityDeadline: inactivityDeadline,
+                        responseDeadline: responseDeadline,
+                        remainingInactivity: inactivityDeadline ? inactivityDeadline - Date.now() : null,
+                        remainingResponse: responseDeadline ? responseDeadline - Date.now() : null
+                    };
+                },
+                trigger: function() {
+                    console.log('[CVP Activity] Manually triggered via console');
+                    showModal();
+                }
+            };
+            console.log('[CVP Activity] Debug: use window.cvpActivityDebug.trigger() to test modal');
+        }
 
         console.log('[CVP Activity] Activity monitor started');
-        console.log('[CVP Activity] Debug: use window.cvpActivityDebug.trigger() to test modal');
     }
 
     // Initialize when DOM is ready
