@@ -1236,7 +1236,21 @@ function dismissAnnouncement(announcementId) {
 
 async function initializeAnnouncements() {
     // Check if announcements feature is enabled
-    if (window.featureFlags && !await window.featureFlags.check('announcements')) {
+    let announcementsEnabled = true;
+    try {
+        if (window.featureFlags) {
+            announcementsEnabled = await window.featureFlags.check('announcements');
+        } else {
+            const response = await fetch('/feature-flags');
+            if (response.ok) {
+                const data = await response.json();
+                announcementsEnabled = data.enabled_features && data.enabled_features.includes('announcements');
+            }
+        }
+    } catch (error) {
+        console.warn('[UnifiedHeader] Error checking announcements feature flag:', error);
+    }
+    if (!announcementsEnabled) {
         console.log('[UnifiedHeader] Announcements feature is disabled');
         return;
     }
