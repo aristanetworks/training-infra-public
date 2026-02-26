@@ -229,7 +229,7 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
   ssh:
     container_name: atd-ssh
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ssh:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ssh:112e5560
     restart: always
     networks:
       - atd_nginx
