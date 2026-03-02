@@ -153,10 +153,7 @@
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                  <a class="site-sidebar__item menu-click" href="/terminal" target="_blank">Switch Access (BETA)</a>
-                </li>
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
+                  <a class="site-sidebar__item menu-click" href="/terminal" target="_blank">Switch Access</a>
                 </li>
                 {% end %}
                 {% if "cvp" not in disable_links %}
@@ -251,12 +248,8 @@
             <section class="topology">
               <div class="topology-overview">
                 <div class="white-box">
-                  <!-- View Toggle -->
                   <div class="topology-controls">
-                    <button id="toggle-topo-view" class="button">
-                      <i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)
-                    </button>
-                    <div id="filter-controls" style="display: none;">
+                    <div id="filter-controls" style="display: flex;">
                       <input type="text" id="device-search" placeholder="Search devices..." />
                       <div id="device-type-filters"></div>
                       <button id="reset-layout" class="button">Reset Layout</button>
@@ -264,13 +257,8 @@
                     </div>
                   </div>
 
-                  <!-- Static Topology (default view) -->
-                  <div id="static-topology" class="text-center" style="display: block;">
-                    <img src="topo/atd-topo.png" usemap="#image_map" />
-                  </div>
-
-                  <!-- Interactive Topology (hidden by default) -->
-                  <div id="interactive-topology" style="display: none;"></div>
+                  <!-- Interactive Topology -->
+                  <div id="interactive-topology"></div>
 
                 </div>
               </div>
@@ -473,7 +461,7 @@
     import { TopologyManager } from './js/topology/topology-manager.js';
 
     let topoManager = null;
-    let isInteractiveView = false;  // Start with static view
+    let isInteractiveView = true;
 
     // Store observer reference for cleanup
     let capturePanelObserver = null;
@@ -586,37 +574,6 @@
 
     // Initialize on DOM ready
     initTopology();
-
-    // Toggle between static and interactive views
-    document.getElementById('toggle-topo-view').addEventListener('click', async function() {
-      const staticDiv = document.getElementById('static-topology');
-      const interactiveDiv = document.getElementById('interactive-topology');
-      const filterControls = document.getElementById('filter-controls');
-      const toggleBtn = this;
-
-      if (isInteractiveView) {
-        // Switch to static view
-        staticDiv.style.display = 'block';
-        interactiveDiv.style.display = 'none';
-        filterControls.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)';
-
-        isInteractiveView = false;
-      } else {
-        // Switch to interactive view
-        staticDiv.style.display = 'none';
-        interactiveDiv.style.display = 'block';
-        filterControls.style.display = 'flex';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-image"></i> Switch to Static';
-
-        // Re-fit view when switching back
-        if (topoManager) {
-          topoManager.fit();
-        }
-
-        isInteractiveView = true;
-      }
-    });
 
     // Device type display names
     const deviceTypeNames = {
