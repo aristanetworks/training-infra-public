@@ -1239,7 +1239,7 @@ topologies:
             resources:
               cpu: 72
               ram: 160
-            branch: nested/2025.1
+            branch: v2025.1-12162025
             orderable: true
             image: base-veos-training-lx-veos-2025-1-4321-20251003
             eos:
