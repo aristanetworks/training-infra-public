@@ -211,7 +211,7 @@ services:
       - /opt/atd/nested-labvm/atd-docker/runtime-configs/jenkins/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
   coder:
     container_name: atd-coder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_coder:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_coder:4f71588c
     restart: always
     user: $ArID:$ArGD
     command: /home/coder/project
