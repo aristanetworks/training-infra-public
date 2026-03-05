@@ -1254,6 +1254,7 @@ class ATDStartup:
         self.docker_manager = DockerManager(self.config.docker_compose_path)
         self.docker_auth = DockerAuthManager()
         self.labguide_manager = LabguideManager(self.config)
+        self.git_manager = GitManager(self.config.atd_opt_path)
 
         # Will be initialized after loading access info
         self.exam_manager = None
@@ -1293,6 +1294,17 @@ class ATDStartup:
             if branch:
                 self.config_manager.update_atd_repo_branch(branch)
                 self.logger.info(f"Changing branch name to {branch}")
+
+                # Switch to the new branch if it differs from the current one
+                current_branch = self.git_manager.get_current_branch()
+                if current_branch != branch:
+                    self.logger.info(f"Branch changed from {current_branch} to {branch}, switching...")
+                    self.git_manager.fetch()
+                    if self.git_manager.checkout(branch):
+                        self.git_manager.pull()
+                        self.logger.info(f"Successfully switched to branch {branch}")
+                    else:
+                        self.logger.error(f"Failed to checkout branch {branch}")
             else:
                 self.logger.info("Not changing any branch name")
 
