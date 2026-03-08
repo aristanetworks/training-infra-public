@@ -2,7 +2,7 @@ version: "3"
 services:
   uptime:
     container_name: atd-uptime
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uptime:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uptime:f00ef72a
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -22,7 +22,7 @@ services:
       - atd_nginx
   conftopo:
     container_name: atd-conftopo
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_conftopo:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_conftopo:f00ef72a
     restart: always
     networks:
       - atd_nginx
@@ -85,7 +85,7 @@ services:
       - /home/atdadmin/KVM_scripts:/home/atdadmin/kvm:rw
   ceosbuilder:
     container_name: atd-ceosbuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ceosbuilder:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ceosbuilder:f00ef72a
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
@@ -109,7 +109,7 @@ services:
       - atd_nginx
   labguides:
      container_name: atd-labguides
-     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:217bd770
+     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:f00ef72a
      restart: always
      environment:
        - PYTHONUNBUFFERED=1
@@ -163,7 +163,7 @@ services:
   #     - atd_nginx
   freerad:
     container_name: atd-freeradius
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:f00ef72a
     restart: always
     volumes:
       - /opt/atd/nested-labvm/atd-docker/runtime-configs/freeradius/authorize:/etc/freeradius/mods-config/files/authorize:ro
@@ -187,7 +187,7 @@ services:
       - atd_nginx
   monitor:
     container_name: atd-monitor
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_monitor:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_monitor:f00ef72a
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -247,7 +247,7 @@ services:
       - atd_nginx
   captureservice:
     container_name: atd-captureservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:f00ef72a
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
@@ -266,7 +266,7 @@ services:
       - /var/run/openvswitch:/var/run/openvswitch:rw
   cvp-device-registration:
     container_name: atd-cvp-device-registration
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvp-device-registration:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvp-device-registration:f00ef72a
     restart: "no"
     environment:
       - PYTHONUNBUFFERED=1
@@ -315,7 +315,7 @@ services:
       # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:
     container_name: atd-consoleservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:217bd770
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:f00ef72a
     restart: on-failure
     # Host network mode required to access libvirt socket on host
     network_mode: host
