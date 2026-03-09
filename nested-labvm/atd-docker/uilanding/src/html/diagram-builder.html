@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagram Builder - {{ topo_title }}</title>
+  <link rel="stylesheet" href="css/variables.min.css" />
+  <link rel="stylesheet" href="css/typography.min.css" />
+  <link rel="stylesheet" href="css/diagram-builder.css" />
+  <!-- Cytoscape.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <!-- Dagre layout plugin -->
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <!-- YAML parser -->
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+</head>
+
+<body>
+  <!-- Header Bar -->
+  <div class="builder-header">
+    <div class="builder-header-left">
+      <a href="/" class="builder-back-link" title="Back to Topology">&larr;</a>
+      <h1 class="builder-title">Diagram Builder</h1>
+      <span class="builder-subtitle">{{ topo_title }}</span>
+    </div>
+    <div class="builder-header-center">
+      <!-- Toolbar -->
+      <div class="builder-toolbar">
+        <button class="toolbar-btn" id="btn-add-connection" title="Add Connection (C)">
+          <span class="toolbar-icon">&#x2194;</span>
+          <span class="toolbar-label">Connection</span>
+        </button>
+        <button class="toolbar-btn" id="btn-add-zone" title="Add Zone (Z)">
+          <span class="toolbar-icon">&#x25A1;</span>
+          <span class="toolbar-label">Zone</span>
+        </button>
+        <button class="toolbar-btn" id="btn-add-annotation" title="Add Annotation (A)">
+          <span class="toolbar-icon">T</span>
+          <span class="toolbar-label">Annotation</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" id="btn-delete" title="Delete Selected (Del)">
+          <span class="toolbar-icon">&#x2715;</span>
+          <span class="toolbar-label">Delete</span>
+        </button>
+        <button class="toolbar-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+          <span class="toolbar-icon">&#x21B6;</span>
+          <span class="toolbar-label">Undo</span>
+        </button>
+        <button class="toolbar-btn" id="btn-redo" title="Redo (Ctrl+Y)">
+          <span class="toolbar-icon">&#x21B7;</span>
+          <span class="toolbar-label">Redo</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" id="btn-fit" title="Fit to Screen (F)">
+          <span class="toolbar-icon">&#x2922;</span>
+          <span class="toolbar-label">Fit</span>
+        </button>
+        <select class="toolbar-select" id="select-layout" title="Layout Algorithm">
+          <option value="preset">Preset</option>
+          <option value="dagre" selected>Dagre</option>
+          <option value="cose">CoSE</option>
+          <option value="concentric">Concentric</option>
+          <option value="grid">Grid</option>
+        </select>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn toolbar-btn-accent" id="btn-preview" title="Preview (P)">
+          <span class="toolbar-icon">&#x25B6;</span>
+          <span class="toolbar-label">Preview</span>
+        </button>
+      </div>
+    </div>
+    <div class="builder-header-right">
+      <span class="builder-mode-indicator" id="mode-indicator">Select</span>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="builder-layout">
+    <!-- Left Panel - Device Palette -->
+    <div class="builder-panel builder-palette" id="device-palette">
+      <div class="panel-header">
+        <h3>Devices</h3>
+        <input type="text" class="palette-search" id="palette-search" placeholder="Search devices..." />
+      </div>
+      <div class="panel-body" id="palette-body">
+        <!-- Device categories populated by device-palette.js -->
+      </div>
+    </div>
+
+    <!-- Center - Canvas -->
+    <div class="builder-canvas-wrapper">
+      <div class="builder-canvas" id="cy-builder">
+        <!-- Cytoscape.js canvas rendered here -->
+      </div>
+      <!-- Annotation overlay container -->
+      <div class="annotation-overlay" id="annotation-overlay"></div>
+      <!-- Canvas status bar -->
+      <div class="canvas-status-bar" id="canvas-status">
+        <span id="status-nodes">Nodes: 0</span>
+        <span id="status-edges">Edges: 0</span>
+        <span id="status-zones">Zones: 0</span>
+        <span class="status-separator">|</span>
+        <span id="status-zoom">Zoom: 100%</span>
+      </div>
+    </div>
+
+    <!-- Right Panel - Properties & Export -->
+    <div class="builder-panel builder-properties" id="properties-panel">
+      <div class="panel-header">
+        <h3 id="properties-title">Properties</h3>
+      </div>
+      <div class="panel-body">
+        <!-- Properties form populated by properties-panel.js -->
+        <div class="properties-content" id="properties-content">
+          <div class="properties-empty">
+            <p>Select a node, edge, zone, or annotation to edit its properties.</p>
+            <p class="properties-hint">Drag devices from the palette to add them to the canvas.</p>
+          </div>
+        </div>
+
+        <!-- Diagram Settings -->
+        <div class="properties-section" id="diagram-settings">
+          <h4 class="section-header" data-toggle="diagram-settings-body">Diagram Settings</h4>
+          <div class="section-body" id="diagram-settings-body">
+            <div class="form-group">
+              <label for="setting-title">Title</label>
+              <input type="text" id="setting-title" placeholder="My Topology" />
+            </div>
+            <div class="form-group">
+              <label for="setting-height">Height (px)</label>
+              <input type="number" id="setting-height" value="500" min="200" max="2000" />
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="setting-live-status" checked />
+                Live Status
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="setting-device-access" checked />
+                Device Access
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="setting-port-labels" checked />
+                Port Labels
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <div class="properties-section" id="export-section">
+          <h4 class="section-header" data-toggle="export-body">Export</h4>
+          <div class="section-body" id="export-body">
+            <button class="export-btn" id="btn-copy-yaml" title="Copy YAML to clipboard">Copy YAML</button>
+            <button class="export-btn" id="btn-copy-rst" title="Copy RST directive snippet">Copy RST</button>
+            <button class="export-btn" id="btn-download-yml" title="Download as .yml file">Download .yml</button>
+          </div>
+        </div>
+
+        <!-- Import Section -->
+        <div class="properties-section" id="import-section">
+          <h4 class="section-header" data-toggle="import-body">Import</h4>
+          <div class="section-body" id="import-body">
+            <button class="import-btn import-btn-primary" id="btn-from-topology" title="Import from topo_build.yml">From Topology</button>
+            <button class="import-btn import-btn-primary" id="btn-from-api" title="Fetch current running topology from API">From API</button>
+            <button class="import-btn" id="btn-import-yaml" title="Import YAML/JSON diagram">Import YAML</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div class="builder-modal" id="preview-modal" style="display: none;">
+    <div class="builder-modal-content builder-modal-large">
+      <div class="builder-modal-header">
+        <h3>Preview</h3>
+        <button class="builder-modal-close" id="preview-close">&times;</button>
+      </div>
+      <div class="builder-modal-body">
+        <div class="preview-container" id="preview-container">
+          <!-- Preview Cytoscape canvas rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="builder-modal" id="import-modal" style="display: none;">
+    <div class="builder-modal-content">
+      <div class="builder-modal-header">
+        <h3 id="import-modal-title">Import Topology</h3>
+        <button class="builder-modal-close" id="import-close">&times;</button>
+      </div>
+      <div class="builder-modal-body">
+        <div class="import-tabs">
+          <button class="import-tab active" data-tab="paste">Paste</button>
+          <button class="import-tab" data-tab="upload">Upload File</button>
+        </div>
+        <div class="import-tab-content" id="import-tab-paste">
+          <textarea class="import-textarea" id="import-textarea" placeholder="Paste YAML or topo_build.yml content here..."></textarea>
+        </div>
+        <div class="import-tab-content" id="import-tab-upload" style="display: none;">
+          <div class="import-dropzone" id="import-dropzone">
+            <p>Drop a .yml or .json file here</p>
+            <p class="import-dropzone-hint">or click to browse</p>
+            <input type="file" id="import-file-input" accept=".yml,.yaml,.json" style="display: none;" />
+          </div>
+        </div>
+        <div class="import-actions">
+          <button class="import-btn import-btn-primary" id="btn-import-confirm">Import</button>
+          <button class="import-btn" id="btn-import-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="builder-toast" id="builder-toast" style="display: none;"></div>
+
+  <!-- Main application module -->
+  <script type="module" src="js/diagram-builder/diagram-builder.js"></script>
+</body>
+
+</html>

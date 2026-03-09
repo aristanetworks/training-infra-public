@@ -1,0 +1,75 @@
+---
+title: Interactive Topology Diagram Builder Architecture
+---
+graph TB
+    subgraph "Main Entry Point"
+        DiagramBuilder[DiagramBuilder<br/>Main Orchestrator]
+    end
+
+    subgraph "Canvas Layer"
+        BuilderCanvas[BuilderCanvas<br/>Cytoscape.js Editor]
+        DevicePalette[DevicePalette<br/>Drag-and-Drop Device Library]
+    end
+
+    subgraph "Editing Managers"
+        ConnectionManager[ConnectionManager<br/>Edge Creation]
+        ZoneManager[ZoneManager<br/>Zone/Group Management]
+        AnnotationManager[AnnotationManager<br/>Text Overlay Annotations]
+    end
+
+    subgraph "Properties & Settings"
+        PropertiesPanel[PropertiesPanel<br/>Context-Sensitive Editor]
+    end
+
+    subgraph "Import/Export"
+        ImportManager[ImportManager<br/>YAML/API/topo_build Import]
+        ExportManager[ExportManager<br/>YAML/RST Export]
+        TopoBuildConverter[TopoBuildConverter<br/>topo_build.yml Parser]
+    end
+
+    subgraph "Preview & State"
+        PreviewManager[PreviewManager<br/>Read-Only Preview Modal]
+        StateManagement[State Management<br/>Undo/Redo Stack]
+    end
+
+    subgraph "External Dependencies"
+        Cytoscape[Cytoscape.js<br/>Graph Rendering]
+        CytoscapeStyles[cytoscape-styles.js<br/>Shared Styles]
+        LayoutConfig[layout-config.js<br/>Layout Algorithms]
+    end
+
+    DiagramBuilder --> BuilderCanvas
+    DiagramBuilder --> DevicePalette
+    DiagramBuilder --> ConnectionManager
+    DiagramBuilder --> ZoneManager
+    DiagramBuilder --> AnnotationManager
+    DiagramBuilder --> PropertiesPanel
+    DiagramBuilder --> ImportManager
+    DiagramBuilder --> ExportManager
+    DiagramBuilder --> PreviewManager
+    DiagramBuilder --> StateManagement
+
+    BuilderCanvas --> Cytoscape
+    BuilderCanvas --> CytoscapeStyles
+    BuilderCanvas --> LayoutConfig
+
+    ConnectionManager --> BuilderCanvas
+    ZoneManager --> BuilderCanvas
+    AnnotationManager --> BuilderCanvas
+
+    PropertiesPanel --> ZoneManager
+
+    ImportManager --> TopoBuildConverter
+    ImportManager --> DiagramBuilder
+
+    ExportManager --> ZoneManager
+    ExportManager --> AnnotationManager
+
+    PreviewManager --> CytoscapeStyles
+    PreviewManager --> LayoutConfig
+    PreviewManager --> Cytoscape
+
+    style DiagramBuilder fill:#fbb500,stroke:#071c35,stroke-width:3px,color:#000
+    style BuilderCanvas fill:#dae0fe,stroke:#4c5cae,stroke-width:2px
+    style StateManagement fill:#dae0fe,stroke:#4c5cae,stroke-width:2px
+    style Cytoscape fill:#e8f4e8,stroke:#78d82c,stroke-width:2px

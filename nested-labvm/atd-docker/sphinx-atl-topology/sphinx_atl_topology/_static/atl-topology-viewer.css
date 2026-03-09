@@ -1,0 +1,116 @@
+/* ATL Topology Viewer - Sphinx Lab Guide Styles */
+
+.atl-topology-title {
+    font-family: "proxima-nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #071c35;
+    padding: 8px 0 4px;
+    margin-bottom: 4px;
+    border-bottom: 3px solid #fbb500;
+}
+
+.atl-topology-container {
+    position: relative;
+    width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafbfe;
+    margin: 12px 0;
+    overflow: hidden;
+}
+
+.atl-topology-container .cy-viewer {
+    width: 100%;
+    height: 100%;
+}
+
+/* Annotation overlays */
+.atl-topology-container .annotation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.atl-topology-container .atl-annotation {
+    position: absolute;
+    font-family: "proxima-nova", sans-serif;
+    font-weight: 600;
+    white-space: nowrap;
+    transform-origin: left top;
+    pointer-events: none;
+}
+
+.atl-topology-container .atl-annotation.has-background {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Context menu */
+.atl-topology-context-menu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    padding: 4px 0;
+    min-width: 160px;
+    z-index: 10000;
+    font-family: "proxima-nova", sans-serif;
+    font-size: 13px;
+}
+
+.atl-topology-context-menu-item {
+    display: block;
+    width: 100%;
+    padding: 6px 14px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: #333;
+    font-family: inherit;
+    font-size: inherit;
+    transition: background 0.1s;
+}
+
+.atl-topology-context-menu-item:hover {
+    background: #f0f2ff;
+    color: #071c35;
+}
+
+.atl-topology-context-menu-separator {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 4px 0;
+}
+
+/* Status indicator */
+.atl-topology-status {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 10px;
+    color: #999;
+    z-index: 20;
+}
+
+.atl-topology-status.connected {
+    color: #78d82c;
+}
+
+/* Loading state */
+.atl-topology-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    font-size: 14px;
+}

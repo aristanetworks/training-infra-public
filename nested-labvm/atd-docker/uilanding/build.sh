@@ -158,6 +158,41 @@ for basename in "${TOPOLOGY_ES_MODULES[@]}"; do
     [ -f "$jsfile" ] && minify_js_inplace "$jsfile"
 done
 
+# ES module files in diagram-builder/ directory - minify in-place
+DIAGRAM_BUILDER_ES_MODULES=(
+    "diagram-builder.js"
+    "builder-canvas.js"
+    "device-palette.js"
+    "properties-panel.js"
+    "connection-manager.js"
+    "zone-manager.js"
+    "annotation-manager.js"
+    "export-manager.js"
+    "import-manager.js"
+    "topo-build-converter.js"
+    "preview-manager.js"
+)
+
+for basename in "${DIAGRAM_BUILDER_ES_MODULES[@]}"; do
+    jsfile="${HTML_DIR}/js/diagram-builder/${basename}"
+    [ -f "$jsfile" ] && minify_js_inplace "$jsfile"
+done
+
+# ES module files in topology-viewer/ directory - minify in-place
+TOPOLOGY_VIEWER_ES_MODULES=(
+    "atl-topology-viewer.js"
+    "viewer-manager.js"
+    "viewer-event-handlers.js"
+    "viewer-status-updater.js"
+    "viewer-zone-renderer.js"
+    "viewer-annotation-renderer.js"
+)
+
+for basename in "${TOPOLOGY_VIEWER_ES_MODULES[@]}"; do
+    jsfile="${HTML_DIR}/js/topology-viewer/${basename}"
+    [ -f "$jsfile" ] && minify_js_inplace "$jsfile"
+done
+
 echo ""
 echo "=== Minifying JavaScript (Regular Scripts) ==="
 

@@ -609,6 +609,40 @@ export function getCytoscapeStyles() {
                 'line-style': 'dashed',
                 'width': 3
             }
+        },
+
+        // ==========================================
+        // Zone (Compound Node) Styles
+        // Used by diagram builder and embedded viewer for background zones
+        // ==========================================
+        {
+            selector: ':parent',
+            style: {
+                'background-color': 'data(zoneBackground)',
+                'background-opacity': 0.3,
+                'border-width': 2,
+                'border-color': 'data(zoneColor)',
+                'border-style': 'data(zoneBorderStyle)',
+                'label': 'data(label)',
+                'text-valign': 'top',
+                'text-halign': 'left',
+                'text-margin-x': 10,
+                'text-margin-y': 10,
+                'font-size': 14,
+                'font-weight': 600,
+                'color': 'data(zoneColor)',
+                'padding': 20,
+                'shape': 'roundrectangle',
+                'corner-radius': 8,
+                'text-outline-width': 0
+            }
+        },
+        {
+            selector: ':parent:selected',
+            style: {
+                'border-color': '#fbb500',
+                'border-width': 3
+            }
         }
     ];
 }

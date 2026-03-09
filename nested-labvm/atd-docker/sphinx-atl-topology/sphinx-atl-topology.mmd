@@ -1,0 +1,71 @@
+---
+title: Sphinx ATL Topology Extension Architecture
+---
+graph TB
+    subgraph "Sphinx Integration"
+        Setup[setup function<br/>Extension Entry Point]
+        SphinxApp[Sphinx Application]
+    end
+
+    subgraph "Directive Processing"
+        Directive[TopologyDiagramDirective<br/>RST Directive Parser]
+        Schema[schema.py<br/>validate_topology]
+        DeviceTypes[device_types.py<br/>classify_device<br/>DEVICE_TYPE_ICONS]
+    end
+
+    subgraph "Document Tree"
+        Node[TopologyDiagramNode<br/>Custom Docutils Node]
+        Translator[translator.py<br/>visit_topology_node<br/>depart_topology_node]
+    end
+
+    subgraph "HTML Output"
+        HTMLDiv[data-topology Container<br/>JSON Configuration]
+    end
+
+    subgraph "Static Assets"
+        CSS[atl-topology-viewer.css]
+        CytoscapeJS[cytoscape.min.js]
+        DagreJS[cytoscape-dagre.js]
+        ViewerJS[atl-topology-viewer.js]
+    end
+
+    subgraph "Client-Side Viewer"
+        ATLViewer[ATLTopologyViewer<br/>Auto-initializing]
+        ViewerManager[ViewerManager<br/>Cytoscape Rendering]
+        EventHandlers[ViewerEventHandlers<br/>SSH/Console/Focus]
+        StatusUpdater[ViewerStatusUpdater<br/>WebSocket Status]
+        ZoneRenderer[ViewerZoneRenderer<br/>Zone Helpers]
+        AnnotationRenderer[ViewerAnnotationRenderer<br/>HTML Overlays]
+    end
+
+    Setup -->|register| SphinxApp
+    SphinxApp -->|add_directive| Directive
+    SphinxApp -->|add_node| Node
+    SphinxApp -->|add_css_file| CSS
+    SphinxApp -->|add_js_file| CytoscapeJS
+    SphinxApp -->|add_js_file| DagreJS
+    SphinxApp -->|add_js_file| ViewerJS
+
+    Directive -->|validate| Schema
+    Directive -->|classify devices| DeviceTypes
+    Directive -->|create| Node
+
+    Node -->|HTML translation| Translator
+    Translator -->|generate| HTMLDiv
+
+    HTMLDiv -.->|rendered in browser| ATLViewer
+    CSS -.->|styles| ATLViewer
+    CytoscapeJS -.->|graph engine| ATLViewer
+    DagreJS -.->|layout| ATLViewer
+    ViewerJS -.->|initializes| ATLViewer
+
+    ATLViewer --> ViewerManager
+    ATLViewer --> EventHandlers
+    ATLViewer --> StatusUpdater
+    ATLViewer --> ZoneRenderer
+    ATLViewer --> AnnotationRenderer
+
+    style Setup fill:#fbb500,stroke:#071c35,stroke-width:3px,color:#000
+    style Directive fill:#dae0fe,stroke:#4c5cae,stroke-width:2px
+    style ATLViewer fill:#dae0fe,stroke:#4c5cae,stroke-width:2px
+    style HTMLDiv fill:#e8f4e8,stroke:#78d82c,stroke-width:2px

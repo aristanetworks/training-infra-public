@@ -3713,6 +3713,12 @@ class NodeBuilderProxyHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+class DiagramBuilderHandler(BaseHandler):
+    """Serves the topology diagram builder page."""
+    def get(self):
+        self.render(BASE_PATH + '/diagram-builder.html', topo_title=TITLE)
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -3748,6 +3754,7 @@ if __name__ == "__main__":
         (r'/uptimeWithRuntime', UptimeWithRuntimeHandler),
         (r'/terminal', TerminalPageHandler),
         (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
+        (r'/diagram-builder', DiagramBuilderHandler),
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),

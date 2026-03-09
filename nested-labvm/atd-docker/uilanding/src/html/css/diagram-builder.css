@@ -1,0 +1,772 @@
+/* ============================================================
+   Diagram Builder - ATL Interactive Topology Editor
+   Uses ATL color scheme: Navy #071c35, Yellow #fbb500
+   ============================================================ */
+
+/* --- Reset & Base --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: "proxima-nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    color: #333;
+    background: #f5f6fa;
+}
+
+/* --- Header Bar --- */
+.builder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 16px;
+    background: #071c35;
+    color: #fff;
+    border-bottom: 3px solid #fbb500;
+    z-index: 100;
+}
+
+.builder-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+}
+
+.builder-back-link {
+    color: #fbb500;
+    text-decoration: none;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.builder-back-link:hover {
+    background: rgba(251, 181, 0, 0.15);
+}
+
+.builder-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.builder-subtitle {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 400;
+}
+
+.builder-header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.builder-header-right {
+    min-width: 200px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.builder-mode-indicator {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(251, 181, 0, 0.2);
+    color: #fbb500;
+}
+
+/* --- Toolbar --- */
+.builder-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toolbar-btn.active {
+    background: rgba(251, 181, 0, 0.25);
+    border-color: #fbb500;
+    color: #fbb500;
+}
+
+.toolbar-btn-accent {
+    background: rgba(251, 181, 0, 0.15);
+    border-color: #fbb500;
+    color: #fbb500;
+}
+
+.toolbar-btn-accent:hover {
+    background: rgba(251, 181, 0, 0.3);
+}
+
+.toolbar-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.toolbar-label {
+    font-weight: 500;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 4px;
+}
+
+.toolbar-select {
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.toolbar-select option {
+    background: #071c35;
+    color: #fff;
+}
+
+/* --- Main Layout --- */
+.builder-layout {
+    display: flex;
+    height: calc(100vh - 51px); /* 48px header + 3px border */
+}
+
+/* --- Panels (Palette & Properties) --- */
+.builder-panel {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
+    overflow: hidden;
+}
+
+.builder-palette {
+    width: 220px;
+    min-width: 180px;
+}
+
+.builder-properties {
+    width: 260px;
+    min-width: 220px;
+    border-right: none;
+    border-left: 1px solid #e0e0e0;
+}
+
+.panel-header {
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.panel-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #071c35;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+/* --- Palette --- */
+.palette-search {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.palette-search:focus {
+    border-color: #4c5cae;
+}
+
+.palette-category {
+    padding: 0 10px;
+    margin-bottom: 4px;
+}
+
+.palette-category-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.palette-category-header .category-toggle {
+    margin-right: 6px;
+    font-size: 10px;
+    transition: transform 0.15s;
+}
+
+.palette-category-header.collapsed .category-toggle {
+    transform: rotate(-90deg);
+}
+
+.palette-category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.palette-category.collapsed .palette-category-items {
+    display: none;
+}
+
+.palette-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: grab;
+    user-select: none;
+    transition: background 0.1s;
+}
+
+.palette-item:hover {
+    background: #f0f2ff;
+}
+
+.palette-item:active {
+    cursor: grabbing;
+}
+
+.palette-item-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.palette-item-icon img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.palette-item-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+}
+
+.palette-item.hidden {
+    display: none;
+}
+
+/* --- Canvas --- */
+.builder-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    background: #fafbfe;
+    overflow: hidden;
+}
+
+.builder-canvas {
+    width: 100%;
+    height: 100%;
+    background-image:
+        radial-gradient(circle, #ddd 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* --- Annotation Overlay --- */
+.annotation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.atl-annotation {
+    position: absolute;
+    font-family: "proxima-nova", sans-serif;
+    font-weight: 600;
+    white-space: nowrap;
+    transform-origin: left top;
+    pointer-events: auto;
+    cursor: move;
+    user-select: none;
+    transition: opacity 0.15s;
+}
+
+.atl-annotation.has-background {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.atl-annotation.selected {
+    outline: 2px solid #fbb500;
+    outline-offset: 2px;
+}
+
+.atl-annotation.editing {
+    cursor: text;
+}
+
+/* --- Canvas Status Bar --- */
+.canvas-status-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px;
+    background: rgba(7, 28, 53, 0.85);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 11px;
+    font-weight: 500;
+    z-index: 20;
+}
+
+.status-separator {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* --- Properties Panel --- */
+.properties-content {
+    padding: 0 14px;
+}
+
+.properties-empty {
+    padding: 20px 0;
+    text-align: center;
+    color: #999;
+}
+
+.properties-empty p {
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.properties-hint {
+    font-size: 11px;
+    color: #bbb;
+}
+
+.properties-section {
+    border-top: 1px solid #e8e8e8;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #071c35;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.section-header:hover {
+    background: #f8f9fc;
+}
+
+.section-body {
+    padding: 0 14px 12px;
+}
+
+/* --- Form Elements --- */
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #4c5cae;
+}
+
+.form-group input[type="color"] {
+    width: 100%;
+    height: 30px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.form-group label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    text-transform: none;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.form-row {
+    display: flex;
+    gap: 8px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+/* --- Export / Import Buttons --- */
+.export-btn,
+.import-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    margin-bottom: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.export-btn:hover,
+.import-btn:hover {
+    background: #f5f6fa;
+    border-color: #bbb;
+}
+
+.import-btn-primary {
+    background: #071c35;
+    color: #fff;
+    border-color: #071c35;
+}
+
+.import-btn-primary:hover {
+    background: #0a2548;
+    border-color: #0a2548;
+}
+
+/* --- Modals --- */
+.builder-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(7, 28, 53, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.builder-modal-content {
+    background: #fff;
+    border-radius: 8px;
+    width: 500px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.builder-modal-large {
+    width: 90vw;
+    max-width: 1200px;
+    height: 80vh;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.builder-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.builder-modal-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #071c35;
+}
+
+.builder-modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #999;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.builder-modal-close:hover {
+    color: #e30909;
+}
+
+.builder-modal-body {
+    padding: 18px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* --- Import Modal --- */
+.import-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.import-tab {
+    padding: 6px 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.import-tab.active {
+    background: #071c35;
+    color: #fff;
+    border-color: #071c35;
+}
+
+.import-textarea {
+    width: 100%;
+    height: 300px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    resize: vertical;
+    outline: none;
+}
+
+.import-textarea:focus {
+    border-color: #4c5cae;
+}
+
+.import-dropzone {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.import-dropzone:hover,
+.import-dropzone.dragover {
+    border-color: #4c5cae;
+    background: #f0f2ff;
+}
+
+.import-dropzone p {
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.import-dropzone-hint {
+    font-size: 11px;
+    color: #999;
+}
+
+.import-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-end;
+}
+
+.import-actions .import-btn {
+    width: auto;
+    min-width: 100px;
+}
+
+/* --- Preview Container --- */
+.preview-container {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+}
+
+/* --- Toast Notification --- */
+.builder-toast {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 20px;
+    border-radius: 6px;
+    background: #071c35;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 2000;
+    transition: opacity 0.3s;
+}
+
+.builder-toast.toast-success {
+    border-left: 4px solid #78d82c;
+}
+
+.builder-toast.toast-error {
+    border-left: 4px solid #e30909;
+}
+
+.builder-toast.toast-info {
+    border-left: 4px solid #4c5cae;
+}
+
+/* --- Connection Mode Cursor --- */
+.builder-canvas.connection-mode {
+    cursor: crosshair;
+}
+
+.builder-canvas.annotation-mode {
+    cursor: text;
+}
+
+/* --- Drag Ghost (when dragging from palette) --- */
+.palette-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 5000;
+    opacity: 0.8;
+}
+
+.palette-drag-ghost img {
+    width: 50px;
+    height: 50px;
+}
+
+/* --- Scrollbar Styling --- */
+.panel-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.panel-body::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.panel-body::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+/* --- Responsive adjustments --- */
+@media (max-width: 1024px) {
+    .builder-palette {
+        width: 180px;
+        min-width: 150px;
+    }
+
+    .builder-properties {
+        width: 220px;
+        min-width: 200px;
+    }
+
+    .toolbar-label {
+        display: none;
+    }
+}
