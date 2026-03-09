@@ -16,6 +16,7 @@ def setup(app):
 
     app.add_css_file('atl-topology-viewer.css')
     app.add_js_file('cytoscape.min.js')
+    app.add_js_file('dagre.min.js')
     app.add_js_file('cytoscape-dagre.js')
     app.add_js_file('atl-topology-viewer.js')
 
