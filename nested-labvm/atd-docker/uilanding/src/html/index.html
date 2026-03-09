@@ -157,13 +157,12 @@
                 </li>
                 {% end %}
                 {% if "cvp" not in disable_links %}
-                <li class="tooltipOfCvp" id="cvpLoading" onmouseover="displayToolTip(this)"
-                  onmouseout="hideToolTip(this)">
-                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank"><s>CVP</s></a>
-                  <span id="tooltiptext">CVP is Starting, Please wait</span>
-                </li>
-                <li id="cvpLoaded">
-                  <a class="site-sidebar__item menu-click" href="/cv" target="_blank">CVP</a>
+                <li id="cvpLink" class="cvp-sidebar-link cvp-disabled">
+                  <a id="cvpLinkAnchor" class="site-sidebar__item menu-click">
+                    <i class="fa-solid fa-spinner fa-spin cvp-spinner"></i>
+                    <span>CVP</span>
+                  </a>
+                  <span class="cvp-tooltip">CVP is starting, please wait...</span>
                 </li>
                 {% end %}
                 {% if "cvaas" not in disable_links %}

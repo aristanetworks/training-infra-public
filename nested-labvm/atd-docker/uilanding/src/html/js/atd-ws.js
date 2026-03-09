@@ -45,8 +45,8 @@ function getCachedExamElements() {
             cvpReadyIcon: document.getElementById('cvpReadyIcon'),
             labBtn: document.getElementById('labBtn'),
             cvpStatus: document.getElementById('cvpStatus'),
-            cvpLoading: document.getElementById('cvpLoading'),
-            cvpLoaded: document.getElementById('cvpLoaded')
+            cvpLink: document.getElementById('cvpLink'),
+            cvpLinkAnchor: document.getElementById('cvpLinkAnchor')
         };
     }
     return cachedExamElements;
@@ -182,8 +182,13 @@ function createWS(SOCK_URL) {
                 elements.labBtn.disabled = true
                 if (elements.cvpStatus) {
                     elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "block"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "none"
+                    if (elements.cvpLink) {
+                        elements.cvpLink.classList.add('cvp-disabled');
+                        if (elements.cvpLinkAnchor) {
+                            elements.cvpLinkAnchor.removeAttribute('href');
+                            elements.cvpLinkAnchor.removeAttribute('target');
+                        }
+                    }
                 }
             }
         } else {
@@ -233,8 +238,13 @@ function createWS(SOCK_URL) {
                 elements.labBtn.disabled = false
                 if (elements.cvpStatus) {
                     elements.cvpStatus.textContent = ""
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "none"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block"
+                    if (elements.cvpLink) {
+                        elements.cvpLink.classList.remove('cvp-disabled');
+                        if (elements.cvpLinkAnchor) {
+                            elements.cvpLinkAnchor.href = '/cv';
+                            elements.cvpLinkAnchor.target = '_blank';
+                        }
+                    }
                 }
             }
         }

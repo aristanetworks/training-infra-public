@@ -316,18 +316,6 @@ document.getElementById("labBtn").addEventListener("click", function () {
 
 
 });
-function displayToolTip() {
-    var tooltipEl = document.getElementById('tooltiptext');
-    if (tooltipEl) {
-        tooltipEl.style.visibility = "visible";
-    }
-}
-function hideToolTip() {
-    var tooltipEl = document.getElementById('tooltiptext');
-    if (tooltipEl) {
-        tooltipEl.style.visibility = "hidden";
-    }
-}
 // Only apply CVP status styling if element exists (not present on all pages)
 var cvpStatusEl = document.getElementById('CvpStatus');
 if (cvpStatusEl) {

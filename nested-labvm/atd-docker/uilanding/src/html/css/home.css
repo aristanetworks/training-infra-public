@@ -262,6 +262,17 @@ body {
   .site-sidebar {
     position: relative;
   }
+  .cvp-tooltip {
+    left: auto;
+    right: 0;
+    top: 100%;
+    transform: none;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+  .cvp-tooltip::before {
+    display: none;
+  }
   .site-navigation {
     position: absolute;
     right: -100%;
@@ -283,6 +294,67 @@ body {
     max-width: 100%;
     overflow: auto;
   }
+}
+
+/* CVP Sidebar Link States */
+.cvp-sidebar-link {
+  position: relative;
+}
+
+.cvp-sidebar-link .site-sidebar__item {
+  transition: color 0.3s ease, opacity 0.3s ease;
+}
+
+.cvp-sidebar-link.cvp-disabled .site-sidebar__item {
+  color: #6c8eaf;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.cvp-spinner {
+  font-size: 14px;
+  color: var(--secondary-color);
+  margin-right: 8px;
+}
+
+.cvp-sidebar-link:not(.cvp-disabled) .cvp-spinner {
+  display: none;
+}
+
+/* CVP tooltip */
+.cvp-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 8px;
+  background: rgba(7, 28, 53, 0.95);
+  color: var(--secondary-color);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--secondary-color);
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.cvp-tooltip::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: var(--secondary-color);
+}
+
+.cvp-sidebar-link.cvp-disabled:hover .cvp-tooltip {
+  visibility: visible;
+  opacity: 1;
 }
 
 /* CVP Status Badge styles moved to style.css (unified system status badge) */
