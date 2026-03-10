@@ -6,6 +6,18 @@
 (function() {
 'use strict';
 
+// Detect _static/ base path from this script's URL
+var STATIC_BASE = (function() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = scripts.length - 1; i >= 0; i--) {
+        var src = scripts[i].src || '';
+        if (src.indexOf('atl-topology-viewer.js') !== -1) {
+            return src.substring(0, src.lastIndexOf('/') + 1);
+        }
+    }
+    return '_static/';
+})();
+
 // ============================================================
 // ViewerManager
 // ============================================================
@@ -34,33 +46,34 @@ class ViewerManager {
     }
 
     getStyles() {
+        var img = STATIC_BASE + 'images/';
         return [
             { selector: 'node', style: { 'label': 'data(label)', 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 8, 'font-family': '"proxima-nova", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 'font-size': 11, 'font-weight': 500, 'color': '#071c35', 'text-outline-color': '#ffffff', 'text-outline-width': 2, 'border-width': 0, 'background-color': 'transparent', 'background-opacity': 0, 'width': 50, 'height': 50, 'transition-property': 'border-color, border-width, opacity', 'transition-duration': '0.2s' } },
             // Spine icon
-            { selector: '.device-type-spine', style: { 'background-image': 'images/spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
-            { selector: '.device-type-pe', style: { 'background-image': 'images/spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
-            { selector: '.device-type-p', style: { 'background-image': 'images/spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 62, 'height': 62 } },
-            { selector: '.device-type-ce', style: { 'background-image': 'images/spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-spine', style: { 'background-image': img + 'spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
+            { selector: '.device-type-pe', style: { 'background-image': img + 'spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
+            { selector: '.device-type-p', style: { 'background-image': img + 'spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 62, 'height': 62 } },
+            { selector: '.device-type-ce', style: { 'background-image': img + 'spine.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
             // Leaf icon
-            { selector: '.device-type-leaf', style: { 'background-image': 'images/leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
-            { selector: '.device-type-borderleaf', style: { 'background-image': 'images/leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
-            { selector: '.device-type-memleaf', style: { 'background-image': 'images/leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 62, 'height': 62 } },
+            { selector: '.device-type-leaf', style: { 'background-image': img + 'leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
+            { selector: '.device-type-borderleaf', style: { 'background-image': img + 'leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
+            { selector: '.device-type-memleaf', style: { 'background-image': img + 'leaf.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 62, 'height': 62 } },
             // Router icon
-            { selector: '.device-type-router', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
-            { selector: '.device-type-core', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
-            { selector: '.device-type-dci', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
-            { selector: '.device-type-isp, .device-type-internet', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
-            { selector: '.device-type-rr', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
-            { selector: '.device-type-gw', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
-            { selector: '.device-type-customer', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
-            { selector: '.device-type-oob', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
-            { selector: '.device-type-firewall', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
-            { selector: '.device-type-other', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
-            { selector: '.device-type-velo_orchestrator', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
-            { selector: '.device-type-velo_gateway', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
-            { selector: '.device-type-velo_edge', style: { 'background-image': 'images/router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-router', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
+            { selector: '.device-type-core', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
+            { selector: '.device-type-dci', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
+            { selector: '.device-type-isp, .device-type-internet', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
+            { selector: '.device-type-rr', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
+            { selector: '.device-type-gw', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
+            { selector: '.device-type-customer', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-oob', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-firewall', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-other', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
+            { selector: '.device-type-velo_orchestrator', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 68, 'height': 68 } },
+            { selector: '.device-type-velo_gateway', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 65, 'height': 65 } },
+            { selector: '.device-type-velo_edge', style: { 'background-image': img + 'router.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 60, 'height': 60 } },
             // Host icon
-            { selector: '.device-type-host, .device-type-linux_host', style: { 'background-image': 'images/hosts.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
+            { selector: '.device-type-host, .device-type-linux_host', style: { 'background-image': img + 'hosts.png', 'background-fit': 'contain', 'background-clip': 'none', 'width': 70, 'height': 70 } },
             // Zone (compound) parent styles
             { selector: ':parent', style: { 'background-color': 'data(zoneBackground)', 'background-opacity': 0.3, 'border-width': 2, 'border-color': 'data(zoneColor)', 'border-style': 'data(zoneBorderStyle)', 'label': 'data(label)', 'text-valign': 'top', 'text-halign': 'left', 'text-margin-x': 10, 'text-margin-y': 10, 'font-size': 14, 'font-weight': 600, 'color': 'data(zoneColor)', 'padding': 20, 'shape': 'roundrectangle', 'corner-radius': 8, 'text-outline-width': 0 } },
             // Status styles
@@ -108,6 +121,7 @@ class ViewerEventHandlers {
         this.cy = cy;
         this.container = container;
         this.contextMenu = null;
+        this.tooltip = null;
         this.focusMode = false;
         this.focusedNode = null;
         this.bindEvents();
@@ -120,28 +134,68 @@ class ViewerEventHandlers {
             self.showContextMenu(e);
         });
         this.cy.on('tap', function() { self.hideContextMenu(); });
+
+        // Hover tooltip with device info
         this.cy.on('mouseover', 'node', function(e) {
             if (e.target.data('isZone')) return;
             e.target.addClass('hover');
             self.container.style.cursor = 'pointer';
+            self.showTooltip(e.target);
         });
         this.cy.on('mouseout', 'node', function(e) {
             e.target.removeClass('hover');
             self.container.style.cursor = '';
+            self.hideTooltip();
         });
+
+        // Hide tooltip on pan/zoom
+        this.cy.on('pan zoom', function() { self.hideTooltip(); });
+
         document.addEventListener('click', function(e) {
             if (self.contextMenu && !self.contextMenu.contains(e.target)) self.hideContextMenu();
         });
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 self.hideContextMenu();
+                self.hideTooltip();
                 if (self.focusMode) self.exitFocusMode();
             }
         });
     }
 
+    showTooltip(node) {
+        this.hideTooltip();
+        var label = node.data('label') || node.id();
+        var ip = node.data('ip');
+        var type = node.data('device_type') || '';
+
+        var tip = document.createElement('div');
+        tip.className = 'atl-topology-tooltip';
+        tip.innerHTML = '<strong>' + label + '</strong>';
+        if (type) tip.innerHTML += '<br><span style="color:#666;font-size:11px">' + type + '</span>';
+        if (ip) tip.innerHTML += '<br><span style="color:#4c5cae;font-size:11px">' + ip + '</span>';
+
+        var renderedPos = node.renderedPosition();
+        var rect = this.container.getBoundingClientRect();
+        tip.style.left = (rect.left + renderedPos.x + 15) + 'px';
+        tip.style.top = (rect.top + renderedPos.y - 10) + 'px';
+
+        document.body.appendChild(tip);
+        this.tooltip = tip;
+
+        // Keep tooltip on screen
+        var tipRect = tip.getBoundingClientRect();
+        if (tipRect.right > window.innerWidth) tip.style.left = (window.innerWidth - tipRect.width - 10) + 'px';
+        if (tipRect.top < 0) tip.style.top = (rect.top + renderedPos.y + 20) + 'px';
+    }
+
+    hideTooltip() {
+        if (this.tooltip) { this.tooltip.remove(); this.tooltip = null; }
+    }
+
     showContextMenu(e) {
         this.hideContextMenu();
+        this.hideTooltip();
         var node = e.target;
         var ip = node.data('ip');
         var label = node.data('label') || node.id();

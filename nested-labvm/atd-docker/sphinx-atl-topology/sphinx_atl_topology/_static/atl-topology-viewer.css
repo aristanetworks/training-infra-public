@@ -13,16 +13,23 @@
 .atl-topology-container {
     position: relative;
     width: 100%;
+    max-width: 100%;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     background: #fafbfe;
     margin: 12px 0;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .atl-topology-container .cy-viewer {
     width: 100%;
     height: 100%;
+}
+
+/* Prevent Cytoscape canvas from expanding page */
+.atl-topology-container canvas {
+    display: block;
 }
 
 /* Annotation overlays */
@@ -34,6 +41,7 @@
     height: 100%;
     pointer-events: none;
     z-index: 10;
+    overflow: hidden;
 }
 
 .atl-topology-container .atl-annotation {
@@ -89,6 +97,24 @@
     height: 1px;
     background: #e0e0e0;
     margin: 4px 0;
+}
+
+/* Hover tooltip */
+.atl-topology-tooltip {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-left: 3px solid #fbb500;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 6px 10px;
+    z-index: 10001;
+    font-family: "proxima-nova", sans-serif;
+    font-size: 12px;
+    color: #071c35;
+    pointer-events: none;
+    line-height: 1.4;
+    max-width: 250px;
 }
 
 /* Status indicator */
