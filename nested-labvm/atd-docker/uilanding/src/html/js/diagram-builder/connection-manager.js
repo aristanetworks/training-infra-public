@@ -88,8 +88,8 @@ export class ConnectionManager {
                 return;
             }
 
-            // Create edge
-            const edgeId = `${this.sourceNode.id()}|${targetNode.id()}`;
+            // Create edge (use timestamp suffix to allow parallel links)
+            const edgeId = `${this.sourceNode.id()}|${targetNode.id()}:${Date.now()}`;
             const edge = this.cy.add({
                 group: 'edges',
                 data: {

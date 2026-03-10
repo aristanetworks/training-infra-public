@@ -131,9 +131,11 @@ class TopologyDiagramDirective(SphinxDirective):
 
             elements.append(elem)
 
-        # Add edges
-        for edge_def in topo_data.get('edges', []):
-            edge_id = f"{edge_def['source']}|{edge_def['target']}"
+        # Add edges (include ports in ID to support parallel links)
+        for i, edge_def in enumerate(topo_data.get('edges', [])):
+            sp = edge_def.get('source_port', str(i))
+            tp = edge_def.get('target_port', str(i))
+            edge_id = f"{edge_def['source']}|{edge_def['target']}:{sp}-{tp}"
             edge_data = {
                 'id': edge_id,
                 'source': edge_def['source'],

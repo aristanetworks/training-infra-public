@@ -61,27 +61,31 @@ export class PreviewManager {
             }
         });
 
-        this.previewCy = cytoscape({
-            container: container,
-            style: styles,
-            elements: elements,
-            layout: { name: 'preset' },
-            userPanningEnabled: true,
-            userZoomingEnabled: true,
-            boxSelectionEnabled: false,
-            selectionType: 'single',
-            minZoom: 0.2,
-            maxZoom: 3,
-        });
+        // Delay initialization to let the modal container render with dimensions
+        requestAnimationFrame(() => {
+            this.previewCy = cytoscape({
+                container: container,
+                style: styles,
+                elements: elements,
+                layout: { name: 'preset' },
+                userPanningEnabled: true,
+                userZoomingEnabled: true,
+                boxSelectionEnabled: false,
+                selectionType: 'single',
+                minZoom: 0.2,
+                maxZoom: 3,
+            });
 
-        // Run layout if needed
-        const layoutName = state.settings?.layout || 'dagre';
-        if (layoutName !== 'preset') {
-            const layoutConfig = getLayout(layoutName);
-            this.previewCy.layout(layoutConfig).run();
-        } else {
+            // Run layout after cytoscape has measured the container
+            const layoutName = state.settings?.layout || 'dagre';
+            if (layoutName !== 'preset') {
+                const layoutConfig = getLayout(layoutName);
+                // Disable animation for preview - ensures layout completes before fit
+                layoutConfig.animate = false;
+                this.previewCy.layout(layoutConfig).run();
+            }
             this.previewCy.fit(undefined, 30);
-        }
+        });
     }
 
     hide() {
@@ -135,20 +139,22 @@ export class PreviewManager {
             }
         }
 
-        // Edges
+        // Edges (use port info in ID to handle parallel links)
         if (state.edges) {
-            for (const edge of state.edges) {
+            state.edges.forEach((edge, i) => {
+                const sp = edge.source_port || i;
+                const tp = edge.target_port || i;
                 elements.push({
                     group: 'edges',
                     data: {
-                        id: `${edge.source}|${edge.target}`,
+                        id: `${edge.source}|${edge.target}:${sp}-${tp}`,
                         source: edge.source,
                         target: edge.target,
                         source_port: edge.source_port || '',
                         target_port: edge.target_port || '',
                     },
                 });
-            }
+            });
         }
 
         return elements;

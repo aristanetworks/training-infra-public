@@ -40,19 +40,27 @@ export class TopoBuildConverter {
             throw new Error('YAML parser not available');
         }
 
-        if (!parsed || !parsed.nodes) {
-            throw new Error('Invalid topo_build.yml: missing "nodes" array');
+        if (!parsed || (!parsed.nodes && !parsed.servers)) {
+            throw new Error('Invalid topo_build.yml: missing "nodes" and "servers" arrays');
         }
 
         const nodes = [];
         const edgeMap = new Map(); // Deduplicate bidirectional edges
         const deviceNames = new Set();
 
-        // Parse nodes
-        for (const nodeEntry of parsed.nodes) {
+        // Parse both nodes and servers sections (same format)
+        const allEntries = [
+            ...(parsed.nodes || []),
+            ...(parsed.servers || []),
+        ];
+
+        for (const nodeEntry of allEntries) {
             // Each entry is { DeviceName: { ip_addr, sys_mac, neighbors } }
             const name = Object.keys(nodeEntry)[0];
             const config = nodeEntry[name];
+
+            // Skip if already processed (shouldn't happen but guard against it)
+            if (deviceNames.has(name)) continue;
             deviceNames.add(name);
 
             const type = this.classifyDevice(name);

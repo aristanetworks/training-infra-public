@@ -486,13 +486,15 @@ class DiagramBuilder {
             });
         }
 
-        // Add edges
+        // Add edges (use port info in ID to handle parallel links)
         if (data.edges) {
-            data.edges.forEach(edge => {
+            data.edges.forEach((edge, i) => {
+                const sp = edge.source_port || i;
+                const tp = edge.target_port || i;
                 this.canvas.cy.add({
                     group: 'edges',
                     data: {
-                        id: `${edge.source}|${edge.target}`,
+                        id: `${edge.source}|${edge.target}:${sp}-${tp}`,
                         source: edge.source,
                         target: edge.target,
                         source_port: edge.source_port || '',
