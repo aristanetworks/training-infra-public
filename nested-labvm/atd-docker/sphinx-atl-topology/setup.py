@@ -14,7 +14,6 @@ setup(
     install_requires=[
         'sphinx>=4.0',
         'pyyaml>=5.0',
-        'jsonschema>=4.0',
     ],
     python_requires='>=3.8',
 )
