@@ -15,6 +15,7 @@ import docker
 import urllib3
 import traceback
 import os
+import re
 import subprocess
 import time
 import threading
@@ -3714,9 +3715,83 @@ class NodeBuilderProxyHandler(BaseHandler):
 
 
 class DiagramBuilderHandler(BaseHandler):
-    """Serves the topology diagram builder page."""
+    """Serves the topology diagram builder page. DEV only."""
     def get(self):
+        if 'dev' not in PROJECT.lower():
+            self.set_status(404)
+            return
         self.render(BASE_PATH + '/diagram-builder.html', topo_title=TITLE)
+
+
+class DiagramSaveHandler(BaseHandler):
+    """Save/load diagram YAML files. DEV only."""
+    DIAGRAMS_DIR = '/home/arista/arista-dir/diagrams'
+
+    def prepare(self):
+        if 'dev' not in PROJECT.lower():
+            self.set_status(404)
+            self.finish()
+            return
+        os.makedirs(self.DIAGRAMS_DIR, exist_ok=True)
+
+    def get(self):
+        """List saved diagrams or load a specific one."""
+        name = self.get_argument('name', None)
+        if name:
+            # Load specific diagram
+            safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', name)
+            filepath = os.path.join(self.DIAGRAMS_DIR, safe_name + '.yml')
+            if not os.path.exists(filepath):
+                self.set_status(404)
+                self.write({'error': 'Diagram not found'})
+                return
+            with open(filepath, 'r') as f:
+                self.set_header('Content-Type', 'application/json')
+                self.write({'name': safe_name, 'content': f.read()})
+        else:
+            # List all saved diagrams
+            files = []
+            if os.path.exists(self.DIAGRAMS_DIR):
+                for f in sorted(os.listdir(self.DIAGRAMS_DIR)):
+                    if f.endswith('.yml'):
+                        files.append(f[:-4])
+            self.set_header('Content-Type', 'application/json')
+            self.write({'diagrams': files})
+
+    def post(self):
+        """Save a diagram."""
+        try:
+            data = json.loads(self.request.body)
+            name = data.get('name', '')
+            content = data.get('content', '')
+            if not name or not content:
+                self.set_status(400)
+                self.write({'error': 'Name and content required'})
+                return
+            safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', name)
+            if not safe_name:
+                self.set_status(400)
+                self.write({'error': 'Invalid name'})
+                return
+            filepath = os.path.join(self.DIAGRAMS_DIR, safe_name + '.yml')
+            with open(filepath, 'w') as f:
+                f.write(content)
+            self.write({'saved': safe_name})
+        except Exception as e:
+            self.set_status(500)
+            self.write({'error': str(e)})
+
+    def delete(self):
+        """Delete a diagram."""
+        name = self.get_argument('name', '')
+        safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', name)
+        filepath = os.path.join(self.DIAGRAMS_DIR, safe_name + '.yml')
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            self.write({'deleted': safe_name})
+        else:
+            self.set_status(404)
+            self.write({'error': 'Not found'})
 
 
 if __name__ == "__main__":
@@ -3755,6 +3830,7 @@ if __name__ == "__main__":
         (r'/terminal', TerminalPageHandler),
         (r'/console/?', ConsolePageHandler),  # /? makes trailing slash optional
         (r'/diagram-builder', DiagramBuilderHandler),
+        (r'/td-api/diagrams', DiagramSaveHandler),
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),

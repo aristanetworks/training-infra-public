@@ -174,6 +174,22 @@ class DiagramBuilder {
             this.importMgr.showImportModal('yaml');
         });
 
+        // Save/Load buttons
+        document.getElementById('btn-save').addEventListener('click', () => {
+            this.saveDiagram();
+        });
+
+        document.getElementById('btn-load').addEventListener('click', () => {
+            this.loadDiagram();
+        });
+
+        document.getElementById('btn-delete-saved').addEventListener('click', () => {
+            this.deleteDiagram();
+        });
+
+        // Refresh saved diagrams list on page load
+        this.refreshDiagramList();
+
         // Settings
         document.getElementById('setting-title').addEventListener('change', () => this.saveState());
         document.getElementById('setting-height').addEventListener('change', () => this.saveState());
@@ -571,6 +587,100 @@ class DiagramBuilder {
             });
         }
         this.updateStatusBar();
+    }
+
+    // --- Save / Load / Delete ---
+
+    async saveDiagram() {
+        const nameInput = document.getElementById('save-name');
+        const name = nameInput.value.trim();
+        if (!name) {
+            this.showToast('Enter a diagram name', 'error');
+            nameInput.focus();
+            return;
+        }
+        const yaml = this.exportMgr.toYAML();
+        try {
+            const resp = await fetch('/td-api/diagrams', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, content: yaml }),
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                this.showToast(`Saved "${result.saved}"`, 'success');
+                this.refreshDiagramList();
+            } else {
+                this.showToast(result.error || 'Save failed', 'error');
+            }
+        } catch (err) {
+            this.showToast('Save failed: ' + err.message, 'error');
+        }
+    }
+
+    async loadDiagram() {
+        const select = document.getElementById('load-select');
+        const name = select.value;
+        if (!name) {
+            this.showToast('Select a diagram to load', 'error');
+            return;
+        }
+        try {
+            const resp = await fetch('/td-api/diagrams?name=' + encodeURIComponent(name));
+            const result = await resp.json();
+            if (resp.ok) {
+                const data = this.importMgr.parseDiagramData(result.content);
+                this.loadState(data);
+                document.getElementById('save-name').value = name;
+            } else {
+                this.showToast(result.error || 'Load failed', 'error');
+            }
+        } catch (err) {
+            this.showToast('Load failed: ' + err.message, 'error');
+        }
+    }
+
+    async deleteDiagram() {
+        const select = document.getElementById('load-select');
+        const name = select.value;
+        if (!name) {
+            this.showToast('Select a diagram to delete', 'error');
+            return;
+        }
+        if (!confirm(`Delete diagram "${name}"?`)) return;
+        try {
+            const resp = await fetch('/td-api/diagrams?name=' + encodeURIComponent(name), {
+                method: 'DELETE',
+            });
+            if (resp.ok) {
+                this.showToast(`Deleted "${name}"`, 'success');
+                this.refreshDiagramList();
+            } else {
+                const result = await resp.json();
+                this.showToast(result.error || 'Delete failed', 'error');
+            }
+        } catch (err) {
+            this.showToast('Delete failed: ' + err.message, 'error');
+        }
+    }
+
+    async refreshDiagramList() {
+        const select = document.getElementById('load-select');
+        try {
+            const resp = await fetch('/td-api/diagrams');
+            const result = await resp.json();
+            const current = select.value;
+            select.innerHTML = '<option value="">-- Select --</option>';
+            (result.diagrams || []).forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                if (name === current) opt.selected = true;
+                select.appendChild(opt);
+            });
+        } catch {
+            // Silent - save/load might not be available
+        }
     }
 
     // --- UI Helpers ---

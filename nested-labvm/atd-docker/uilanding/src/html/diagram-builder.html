@@ -164,6 +164,26 @@
           </div>
         </div>
 
+        <!-- Save/Load Section -->
+        <div class="properties-section" id="save-section">
+          <h4 class="section-header" data-toggle="save-body">Save / Load</h4>
+          <div class="section-body" id="save-body">
+            <div class="form-group">
+              <label for="save-name">Diagram Name</label>
+              <input type="text" id="save-name" placeholder="my-topology" />
+            </div>
+            <button class="import-btn import-btn-primary" id="btn-save" title="Save diagram to server">Save</button>
+            <div class="form-group" style="margin-top:8px">
+              <label for="load-select">Load Saved</label>
+              <select id="load-select">
+                <option value="">-- Select --</option>
+              </select>
+            </div>
+            <button class="import-btn" id="btn-load" title="Load selected diagram">Load</button>
+            <button class="export-btn" id="btn-delete-saved" title="Delete selected diagram" style="color:#e30909;margin-top:4px">Delete</button>
+          </div>
+        </div>
+
         <!-- Import Section -->
         <div class="properties-section" id="import-section">
           <h4 class="section-header" data-toggle="import-body">Import</h4>
