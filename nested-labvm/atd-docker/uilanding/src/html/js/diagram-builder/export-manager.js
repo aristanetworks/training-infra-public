@@ -74,6 +74,9 @@ export class ExportManager {
                 if (zone.border_style && zone.border_style !== 'solid') {
                     lines.push(`    border_style: ${zone.border_style}`);
                 }
+                if (zone.layer !== undefined && zone.layer !== 0) {
+                    lines.push(`    layer: ${zone.layer}`);
+                }
             }
             lines.push('');
         }

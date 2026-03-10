@@ -515,6 +515,9 @@ class DiagramBuilder {
             });
         }
 
+        // Reapply zone layer z-index after all elements are loaded
+        this.zones.reapplyAllLayers();
+
         // Run layout if not preset
         const layout = data.settings?.layout || 'dagre';
         if (layout !== 'preset') {

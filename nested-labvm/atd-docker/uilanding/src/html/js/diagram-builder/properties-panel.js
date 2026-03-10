@@ -189,6 +189,10 @@ export class PropertiesPanel {
                     <option value="dashed" ${node.data('zoneBorderStyle') === 'dashed' ? 'selected' : ''}>Dashed</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="prop-zone-layer">Layer (higher = on top)</label>
+                <input type="number" id="prop-zone-layer" value="${node.data('zoneLayer') || 0}" min="0" max="99" />
+            </div>
         `;
 
         const zoneId = node.id();
@@ -214,6 +218,7 @@ export class PropertiesPanel {
         bindZone('prop-zone-color', 'color');
         bindZone('prop-zone-bg', 'background');
         bindZone('prop-zone-border', 'border_style');
+        bindZone('prop-zone-layer', 'layer');
     }
 
     showAnnotation(annotation) {
