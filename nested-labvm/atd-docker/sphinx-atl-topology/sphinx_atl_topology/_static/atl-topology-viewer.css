@@ -14,12 +14,29 @@
     position: relative;
     width: 100%;
     max-width: 100%;
+    min-height: 300px;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     background: #fafbfe;
     margin: 12px 0;
     overflow: hidden;
     box-sizing: border-box;
+    /* User-resizable height */
+    resize: vertical;
+}
+
+/* Resize handle styling hint */
+.atl-topology-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(to bottom, transparent, rgba(7, 28, 53, 0.08));
+    cursor: ns-resize;
+    pointer-events: none;
+    z-index: 30;
 }
 
 .atl-topology-container .cy-viewer {

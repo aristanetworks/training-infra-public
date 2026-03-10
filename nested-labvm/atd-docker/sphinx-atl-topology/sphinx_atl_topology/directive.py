@@ -53,7 +53,7 @@ class TopologyDiagramDirective(SphinxDirective):
             raise self.error(f'Topology validation errors: {"; ".join(errors)}')
 
         # Apply directive options as overrides
-        height = self.options.get('height', topo_data.get('settings', {}).get('height', 500))
+        height = self.options.get('height', topo_data.get('settings', {}).get('height', 600))
         layout = self.options.get('layout', topo_data.get('settings', {}).get('layout', 'dagre'))
         title = self.options.get('title', topo_data.get('title', ''))
         live_status = 'no-live-status' not in self.options and topo_data.get('settings', {}).get('live_status', True)

@@ -103,13 +103,17 @@ class ViewerManager {
         }
 
         var name = (layoutName === 'preset' && !hasPositions) ? 'dagre' : layoutName;
+        var cy = this.cy;
         var layouts = {
             dagre: { name: 'dagre', rankDir: 'TB', rankSep: 80, nodeSep: 50, edgeSep: 20, padding: 30, animate: false, fit: true, spacingFactor: 1.2 },
             cose: { name: 'cose', idealEdgeLength: 100, nodeOverlap: 20, fit: true, padding: 30, randomize: false, componentSpacing: 100, nodeRepulsion: 400000, animate: false },
             concentric: { name: 'concentric', fit: true, padding: 30, minNodeSpacing: 50, avoidOverlap: true, spacingFactor: 1.5, animate: false },
             grid: { name: 'grid', fit: true, padding: 30, avoidOverlap: true, spacingFactor: 1.5, animate: false },
         };
-        this.cy.layout(layouts[name] || layouts.dagre).run();
+        var config = layouts[name] || layouts.dagre;
+        // Ensure fit after layout completes
+        config.stop = function() { cy.fit(undefined, 30); };
+        this.cy.layout(config).run();
     }
 }
 
@@ -428,6 +432,14 @@ class ATLTopologyViewer {
         }
 
         this.manager.runLayout(config.layout || 'dagre');
+
+        // Re-fit when user resizes the container (drag handle)
+        var self = this;
+        var resizeObserver = new ResizeObserver(function() {
+            self.cy.resize();
+            self.cy.fit(undefined, 30);
+        });
+        resizeObserver.observe(container);
     }
 }
 

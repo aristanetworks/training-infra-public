@@ -3,7 +3,7 @@ import html
 
 def visit_topology_node(self, node):
     title = node.get('title', '')
-    height = node.get('height', 500)
+    height = node.get('height', 600)
     topology_json = node.get('topology_data', '{}')
 
     title_html = ''
