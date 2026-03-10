@@ -214,8 +214,8 @@ export class ImportManager {
                     source: apiEdge.data.source,
                     target: apiEdge.data.target,
                 };
-                if (apiEdge.data.sourcePort) edge.source_port = apiEdge.data.sourcePort;
-                if (apiEdge.data.targetPort) edge.target_port = apiEdge.data.targetPort;
+                if (apiEdge.data.source_port) edge.source_port = apiEdge.data.source_port;
+                if (apiEdge.data.target_port) edge.target_port = apiEdge.data.target_port;
                 edges.push(edge);
             }
         }
