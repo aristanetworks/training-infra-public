@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip install --upgrade pip
 
-RUN pip install tornado requests ruamel.yaml docker pyeapi google-cloud-logging
+RUN pip install tornado requests ruamel.yaml docker pyeapi pyyaml google-cloud-logging
 
 RUN mkdir -p /opt/topo/html
 
