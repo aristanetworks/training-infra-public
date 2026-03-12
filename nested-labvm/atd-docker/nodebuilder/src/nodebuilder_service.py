@@ -72,7 +72,13 @@ logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger('nodebuilder')
+
+# Cloud Logging Setup — routes existing logger.info/error/warning calls to GCP
+try:
+    from cloud_logging_utils import setup_cloud_logging
+    logger = setup_cloud_logging('nodebuilder')
+except Exception:
+    logger = logging.getLogger('nodebuilder')
 
 routes = web.RouteTableDef()
 

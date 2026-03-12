@@ -24,6 +24,24 @@ from device_types import DeviceTypeConfig
 # Packet capture runs in the dedicated captureservice container with host network mode.
 # uilanding proxies WebSocket connections to the capture service.
 
+# Cloud Logging Setup
+try:
+    from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
+    logger = setup_cloud_logging('uilanding')
+except Exception:
+    import logging as _logging
+    logger = _logging.getLogger('uilanding')
+    logger.addHandler(_logging.StreamHandler())
+    logger.setLevel(_logging.INFO)
+
+def safe_log(level, message, **kwargs):
+    """Log safely - never crash the application due to logging errors"""
+    try:
+        labels = {k: str(v) for k, v in kwargs.items()}
+        getattr(logger, level)(message, extra={'labels': labels} if labels else {})
+    except Exception:
+        pass
+
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
 
@@ -107,6 +125,7 @@ def get_metadata_extract(attribute):
         else:
             return None
     except requests.exceptions.RequestException as e:
+        safe_log('error', f'Error in get_metadata_extract: {e}', event='error', handler='get_metadata_extract')
         print(f"Error fetching metadata: {e}")
         return None
 
@@ -126,9 +145,11 @@ class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
                 html_content = file.read()
             self.write(html_content)  # Write the HTML content to the response
         except FileNotFoundError:
+            safe_log('error', 'Error in ExamSubmittedRedirectHandler: exam-submitted.html not found', event='error', handler='ExamSubmittedRedirectHandler')
             self.set_status(404)
             self.write("Error: exam-submitted.html not found")
         except Exception as e:
+            safe_log('error', f'Error in ExamSubmittedRedirectHandler: {e}', event='error', handler='ExamSubmittedRedirectHandler')
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 
@@ -141,9 +162,11 @@ class ExamAlreadyRunningHandler(tornado.web.RequestHandler):
                 html_content = file.read()
             self.write(html_content)
         except FileNotFoundError:
+            safe_log('error', 'Error in ExamAlreadyRunningHandler: exam-already-running.html not found', event='error', handler='ExamAlreadyRunningHandler')
             self.set_status(404)
             self.write("Error: exam-already-running.html not found")
         except Exception as e:
+            safe_log('error', f'Error in ExamAlreadyRunningHandler: {e}', event='error', handler='ExamAlreadyRunningHandler')
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 class ExamAuthenticationHandler(tornado.web.RequestHandler):
@@ -155,9 +178,11 @@ class ExamAuthenticationHandler(tornado.web.RequestHandler):
                 html_content = file.read()
             self.write(html_content)  # Write the HTML content to the response
         except FileNotFoundError:
+            safe_log('error', 'Error in ExamAuthenticationHandler: honorlock-index.html not found', event='error', handler='ExamAuthenticationHandler')
             self.set_status(404)
             self.write("Error: honorlock-index.html not found")
-        except Exception as e:      
+        except Exception as e:
+            safe_log('error', f'Error in ExamAuthenticationHandler: {e}', event='error', handler='ExamAuthenticationHandler')
             self.set_status(500)
             self.write(f"Error: {str(e)}")
 class LoginHandler(BaseHandler):
@@ -179,6 +204,7 @@ class LoginHandler(BaseHandler):
         return secrets.compare_digest(tmp_pwd_hash, stored_pwd_hash)
 
     def get(self):
+        safe_log('info', 'Login page accessed', event='page_view', page='login')
         AUTH = False
         decoded_cred = None
         if 'auth' in self.request.arguments:
@@ -201,9 +227,11 @@ class LoginHandler(BaseHandler):
         password = self.get_argument("pwd")
 
         if self._validate_credentials(username, password):
+            safe_log('info', 'Login successful', event='auth', action='login_success', username=username)
             self.set_secure_cookie("user", username)
             self.redirect("/")
         else:
+            safe_log('warning', 'Login failed', event='auth', action='login_failure', username=username)
             self.render(
                 BASE_PATH + 'login.html',
                 LOGIN_MESSAGE="Wrong username and/or password."
@@ -247,6 +275,7 @@ class topoRequestHandler(BaseHandler):
                 self.redirect('/login')
             return
         else:
+            safe_log('info', 'Topology page accessed', event='page_view', page='topology', lab_type=str(lab_type))
             _topo_cvp = False
             if 'disabled_links' in host_yaml:
                 disable_links = host_yaml['disabled_links']
@@ -284,6 +313,7 @@ class topoRequestHandler(BaseHandler):
                     for server in servers:
                         gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
                 except Exception as e:
+                    safe_log('error', f'Error in topoRequestHandler: {e}', event='error', handler='topoRequestHandler')
                     pS(f"Error while looking for servers in GUI {e}")
             self.render(
                 BASE_PATH + 'index.html',
@@ -301,6 +331,7 @@ class topoRequestHandler(BaseHandler):
     
 class topoDataHandler(tornado.websocket.WebSocketHandler):
     def open(self):
+        safe_log('info', 'WebSocket connection opened', event='websocket', action='connect')
         self.cvp_status = ''
         self.cvp_tasks = ''
         self.uptime = {}
@@ -325,12 +356,14 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.sendData('status')
                 self.schedule_update()
         except:
+            safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
             pS("WS ERROR")
 
     def schedule_update(self):
         try:
             self.timeout = tornado.ioloop.IOLoop.instance().add_timeout(timedelta(seconds=30),self.keepalive)
         except:
+            safe_log('error', 'Error in topoDataHandler.schedule_update', event='error', handler='topoDataHandler')
             pS("Error with timeout call")
         
     def keepalive(self):
@@ -345,11 +378,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.cvp_tasks = ''
             self.sendData('status')
         except:
+            safe_log('error', 'Error in topoDataHandler.keepalive', event='error', handler='topoDataHandler')
             pS("ERROR sending update")
         finally:
             self.schedule_update()
 
     def on_close(self):
+        safe_log('info', 'WebSocket connection closed', event='websocket', action='disconnect')
         try:
             tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout)
             pS('connection closed')
@@ -383,6 +418,7 @@ def getAPI(action):
         response = requests.get(f"http://{TOPO_API}:50010/td-api/conftopo?action={_action}")
         return(json.loads(response.text))
     except Exception as e:
+        safe_log('error', f'Error in getAPI: {e}', event='error', handler='getAPI')
         pS("Error calling backend API.")
         traceback.print_exc()
         print("Message: {err}".format(
@@ -438,12 +474,15 @@ def getEventStatus(instanceName, instanceZone):
             response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
         return(response.json())
     except ValueError:
+        safe_log('error', f'Error in getEventStatus: ValueError for {instanceName}', event='error', handler='getEventStatus')
         pS("Value Error retrieving status for {0}".format(instanceName))
         return(False)
     except requests.exceptions.ConnectionError:
+        safe_log('error', f'Error in getEventStatus: ConnectionError for {instanceName}', event='error', handler='getEventStatus')
         pS("Connection Error retrieving status for {0}".format(instanceName))
         return(False)
     except:
+        safe_log('error', f'Error in getEventStatus: Unknown error for {instanceName}', event='error', handler='getEventStatus')
         pS("Error retrieving status for {0}".format(instanceName))
         return(False)
 
@@ -501,6 +540,7 @@ def _get_topo_build_data():
             _TOPO_BUILD_CACHE = YAML().load(f)
         pS(f"Cached topo_build.yml from {topo_path}")
     except Exception as e:
+        safe_log('error', f'Error in _get_topo_build_data: {e}', event='error', handler='_get_topo_build_data')
         pS(f"Error reading topo_build.yml: {e}")
         _TOPO_BUILD_CACHE = {}  # Empty dict to avoid repeated failures
 
@@ -785,10 +825,12 @@ def update_hubspot_handler(email, action, project):
 
     except requests.exceptions.Timeout:
         error_msg = "HubSpot request timed out"
+        safe_log('error', f'Error in update_hubspot_handler: {error_msg}', event='error', handler='update_hubspot_handler')
         print(error_msg)
         return {"error": error_msg}
     except Exception as e:
         error_msg = f"HubSpot update error: {str(e)}"
+        safe_log('error', f'Error in update_hubspot_handler: {error_msg}', event='error', handler='update_hubspot_handler')
         print(error_msg)
         return {"error": error_msg}
 
@@ -812,6 +854,7 @@ class GetClientIdHandler(tornado.web.RequestHandler):
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
         except Exception as e:
+            safe_log('error', f'Error in GetClientIdHandler: {e}', event='error', handler='GetClientIdHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -820,6 +863,7 @@ class GetExamInstructionsHandler(tornado.web.RequestHandler):
         """
         Handler to fetch exam instructions from Honorlock API.
         """
+        safe_log('info', 'Exam instructions requested', event='exam', action='get_instructions')
         try:
             payload = json.loads(self.request.body)
             url = f"https://app.honorlock.com/api/en/v1/exams/{payload['external_exam_id']}/instructions"
@@ -844,6 +888,7 @@ class GetExamInstructionsHandler(tornado.web.RequestHandler):
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
         except Exception as e:
+            safe_log('error', f'Error in GetExamInstructionsHandler: {e}', event='error', handler='GetExamInstructionsHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -854,6 +899,7 @@ class GetUserSessionIdHandler(tornado.web.RequestHandler):
         """
         Handler to create a user session in Honorlock API.
         """
+        safe_log('info', 'User session ID requested', event='exam', action='create_session')
         try:
             auth_header = self.request.headers.get('Authorization')
             if not auth_header or not auth_header.startswith('Bearer '):
@@ -882,11 +928,13 @@ class GetUserSessionIdHandler(tornado.web.RequestHandler):
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
         except Exception as e:
+            safe_log('error', f'Error in GetUserSessionIdHandler: {e}', event='error', handler='GetUserSessionIdHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
 class LabHandler(tornado.web.RequestHandler):
     def get(self):
+        safe_log('info', 'Lab configuration started', event='lab', action='start', lab_value=str(self.get_argument('lab_value', 'unknown')))
         self.set_header("Access-Control-Allow-Origin", "*")
         selected_lab_option = self.get_argument('lab_value')
         docker_conn= docker.from_env()
@@ -905,6 +953,7 @@ class LabHandler(tornado.web.RequestHandler):
 
 class LabStausHandler(tornado.web.RequestHandler):
     def get(self):
+        safe_log('info', 'Lab status queried', event='lab', action='status_check')
         self.set_header("Access-Control-Allow-Origin", "*")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
@@ -929,6 +978,7 @@ class LabStausHandler(tornado.web.RequestHandler):
 
 class ResetLabHandler(tornado.web.RequestHandler):
     def get(self):
+        safe_log('info', 'Lab reset initiated', event='lab', action='reset')
         self.set_header("Access-Control-Allow-Origin", "*")
         lab_names = self.get_argument('lab_names')
         self.write({
@@ -946,8 +996,9 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             self.write({
                 'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded",
                 'examStartTime': host_yaml.get('startExamTime', 0),
-            })   
-        except Exception as e:    
+            })
+        except Exception as e:
+            safe_log('error', f'Error in ExamStatusHandler.get: {e}', event='error', handler='ExamStatusHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -956,6 +1007,7 @@ class ExamStatusHandler(tornado.web.RequestHandler):
             data = json.loads(self.request.body.decode('utf-8'))
             host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
             exam_duration = host_yaml.get("exam_duration", 0)
+            safe_log('info', 'Exam started', event='exam', action='start', duration_minutes=str(exam_duration))
             current_time = int(time.time())
             global EXAM_END_TIME
             global EXAM_START_TIME
@@ -979,18 +1031,21 @@ class ExamStatusHandler(tornado.web.RequestHandler):
                     print(f"Skipping HubSpot update - no valid customer email found")
             except Exception as hubspot_error:
                 # Don't fail the exam start if HubSpot update fails
+                safe_log('error', f'Error in ExamStatusHandler HubSpot update: {hubspot_error}', event='error', handler='ExamStatusHandler')
                 print(f"Warning: HubSpot update failed but exam started successfully: {hubspot_error}")
 
             self.write({
                 'response':f'Status updated to ExamButtonNotNeeded'
                     })
         except Exception as e:
+            safe_log('error', f'Error in ExamStatusHandler.post: {e}', event='error', handler='ExamStatusHandler')
             self.set_status(500)
-            self.write({"error": str(e)}) 
+            self.write({"error": str(e)})
 
 class ExamSubmitHandler(tornado.web.RequestHandler):
     def get(self):
-        self.set_header("Access-Control-Allow-Origin", "*")  
+        safe_log('info', 'Exam submitted', event='exam', action='submit')
+        self.set_header("Access-Control-Allow-Origin", "*")
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
@@ -998,9 +1053,10 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
             self.write({
                 'response':f'Exam has been submitted'
                     }) 
-        except Exception as e:    
+        except Exception as e:
+            safe_log('error', f'Error in ExamSubmitHandler: {e}', event='error', handler='ExamSubmitHandler')
             self.set_status(500)
-            self.write({"error": str(e)}) 
+            self.write({"error": str(e)})
 
 class ToolsHandler(tornado.web.RequestHandler):
     def post(self):
@@ -1031,12 +1087,15 @@ class ToolsHandler(tornado.web.RequestHandler):
             self.write(json.dumps(response))
         
         except json.JSONDecodeError:
+            safe_log('error', 'Error in ToolsHandler: Invalid JSON in request body', event='error', handler='ToolsHandler')
             self.set_status(400)
             self.write({"error": "Invalid JSON in request body"})
         except ValueError as e:
+            safe_log('error', f'Error in ToolsHandler: {e}', event='error', handler='ToolsHandler')
             self.set_status(400)
             self.write({"error": str(e)})
         except Exception as e:
+            safe_log('error', f'Error in ToolsHandler: {e}', event='error', handler='ToolsHandler')
             self.set_status(500)
             self.write({"error": "Internal server error"})
 
@@ -1065,12 +1124,15 @@ class ViewConfigHandler(tornado.web.RequestHandler):
             self.write(json.dumps(response))
         
         except json.JSONDecodeError:
+            safe_log('error', 'Error in ViewConfigHandler: Invalid JSON in request body', event='error', handler='ViewConfigHandler')
             self.set_status(400)
             self.write({"error": "Invalid JSON in request body"})
         except ValueError as e:
+            safe_log('error', f'Error in ViewConfigHandler: {e}', event='error', handler='ViewConfigHandler')
             self.set_status(400)
             self.write({"error": str(e)})
         except Exception as e:
+            safe_log('error', f'Error in ViewConfigHandler: {e}', event='error', handler='ViewConfigHandler')
             self.set_status(500)
             self.write({"error": "Internal server error"})
 class ExamRedoRedirectHandler(BaseHandler):
@@ -1095,6 +1157,7 @@ class ExamRedoRedirectHandler(BaseHandler):
                 session_start_time=session_start_time
             )
         except Exception as e:
+            safe_log('error', f'Error in ExamRedoRedirectHandler: {e}', event='error', handler='ExamRedoRedirectHandler')
             print(f"Error in ExamRedoRedirectHandler: {e}")
             # Fallback rendering with default values
             self.render(
@@ -1108,6 +1171,7 @@ class BeginExamHandler(tornado.web.RequestHandler):
         """
         Handler to create a user Begin Exam in Honorlock API.
         """
+        safe_log('info', 'Exam begin requested', event='exam', action='begin')
         try:
             auth_header = self.request.headers.get('Authorization')
             if not auth_header or not auth_header.startswith('Bearer '):
@@ -1135,6 +1199,7 @@ class BeginExamHandler(tornado.web.RequestHandler):
                 self.set_status(response.status_code)
                 self.write(response.json())
         except Exception as e:
+            safe_log('error', f'Error in BeginExamHandler: {e}', event='error', handler='BeginExamHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 class BaseUrlHandler(tornado.web.RequestHandler):
@@ -1150,6 +1215,7 @@ class BaseUrlHandler(tornado.web.RequestHandler):
             encoded_response = b64encode(json.dumps(response).encode()).decode()
             self.write({"response": encoded_response})
         except Exception as e:
+            safe_log('error', f'Error in BaseUrlHandler: {e}', event='error', handler='BaseUrlHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -1189,6 +1255,7 @@ class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
                     'exam_start_time': EXAM_START_TIME
                 }))
         except Exception as e:
+            safe_log('error', f'Error in UptimeWithRuntimeHandler: {e}', event='error', handler='UptimeWithRuntimeHandler')
             self.set_status(500)
             self.write(json.dumps({
                 "error": str(e),
@@ -1252,6 +1319,7 @@ class GetAccessInfoHandler(tornado.web.RequestHandler):
                 })
 
         except Exception as e:
+            safe_log('error', f'Error in GetAccessInfoHandler: {e}', event='error', handler='GetAccessInfoHandler')
             print(f"Error in GetAccessInfoHandler: {str(e)}")
             self.set_status(500)
             self.write({
@@ -1263,6 +1331,7 @@ class TerminalPageHandler(BaseHandler):
     """Handler for the tabbed terminal page."""
 
     def get(self):
+        safe_log('info', 'Terminal page accessed', event='page_view', page='terminal')
         if not self.current_user:
             if 'auth' in self.request.arguments:
                 self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
@@ -1282,6 +1351,7 @@ class ConsolePageHandler(BaseHandler):
     """Handler for the serial console page (virsh console access)."""
 
     def get(self):
+        safe_log('info', 'Console page accessed', event='page_view', page='console')
         if not self.current_user:
             if 'auth' in self.request.arguments:
                 self.redirect('/login?auth={0}'.format(self.get_argument('auth')))
@@ -1966,6 +2036,7 @@ class TopologyAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        safe_log('info', 'Topology API requested', event='api', endpoint='topology')
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2027,6 +2098,7 @@ class TopologyAPIHandler(BaseHandler):
             self.write(json.dumps(topology_data))
 
         except Exception as e:
+            safe_log('error', f'Error in TopologyAPIHandler: {e}', event='error', handler='TopologyAPIHandler')
             pS(f"Error in TopologyAPIHandler: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -2042,6 +2114,7 @@ class DevicesAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        safe_log('info', 'Devices API requested', event='api', endpoint='devices')
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2157,6 +2230,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except FileNotFoundError as e:
+            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
             pS(f"DevicesAPIHandler: Configuration file not found: {e}")
             self.set_status(503)
             self.write(json.dumps({
@@ -2166,6 +2240,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except (yaml.YAMLError, json.JSONDecodeError) as e:
+            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
             pS(f"DevicesAPIHandler: Configuration parse error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -2176,6 +2251,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except Exception as e:
+            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
             pS(f"DevicesAPIHandler: Unexpected error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -2202,6 +2278,7 @@ class DeviceTypesAPIHandler(BaseHandler):
             metadata = DeviceTypeConfig.export_for_frontend()
             self.write(json.dumps(metadata))
         except Exception as e:
+            safe_log('error', f'Error in DeviceTypesAPIHandler: {e}', event='error', handler='DeviceTypesAPIHandler')
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
 
@@ -2224,6 +2301,7 @@ class InterfaceStatsAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        safe_log('info', 'Interface stats requested', event='api', endpoint='interface_stats', device=str(self.get_argument('device', 'unknown')))
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2398,6 +2476,7 @@ class DeviceStatusAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        safe_log('info', 'Device status check requested', event='api', endpoint='device_status')
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2660,6 +2739,7 @@ class RunningConfigAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        safe_log('info', 'Running config requested', event='api', endpoint='running_config', device=str(self.get_argument('device', 'unknown')))
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2674,6 +2754,7 @@ class RunningConfigAPIHandler(BaseHandler):
             config = self.get_running_config(device)
             self.write(json.dumps(config))
         except Exception as e:
+            safe_log('error', f'Error in RunningConfigAPIHandler: {e}', event='error', handler='RunningConfigAPIHandler')
             pS(f"RunningConfigAPIHandler error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -2729,6 +2810,7 @@ class EndExamHandler(tornado.web.RequestHandler):
         """
         Handler to create a user Begin Exam in Honorlock API.
         """
+        safe_log('info', 'Exam end requested', event='exam', action='end')
         try:
             auth_header = self.request.headers.get('Authorization')
             if not auth_header or not auth_header.startswith('Bearer '):
@@ -2752,6 +2834,7 @@ class EndExamHandler(tornado.web.RequestHandler):
                 login_container = docker_conn.containers.get('atd-login')
                 login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)
             except Exception as e:
+                safe_log('error', f'Error in EndExamHandler upload_exam: {e}', event='error', handler='EndExamHandler')
                 print(f"Error running upload_exam_unattended.py: {e}")
                 self.write({
                     'honorlock_response': response.json(),
@@ -2772,6 +2855,7 @@ class EndExamHandler(tornado.web.RequestHandler):
                 self.set_status(response.status_code)
                 self.write({"error": "Failed to fetch data", "status_code": response.status_code})
         except Exception as e:
+            safe_log('error', f'Error in EndExamHandler: {e}', event='error', handler='EndExamHandler')
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -2823,6 +2907,8 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
 
         self.current_user = user.decode() if isinstance(user, bytes) else str(user)
         self.client_id = str(uuid.uuid4())[:8]
+        safe_log('info', 'Capture WebSocket opened', event='capture', action='ws_connect',
+                 client_id=self.client_id, user=str(self.current_user))
         pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
 
         # Connect to upstream capture service
@@ -2923,6 +3009,8 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
 
     def on_close(self):
         """Handle WebSocket close from browser."""
+        safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect',
+                 client_id=self.client_id)
         pS(f"[Capture WS Proxy] Client {self.client_id} disconnected")
 
         # Close upstream connection
@@ -2992,6 +3080,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
             }))
 
         except Exception as e:
+            safe_log('error', f'Error in CaptureBridgesAPIHandler: {e}', event='error', handler='CaptureBridgesAPIHandler')
             pS(f"[CaptureBridges] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3102,6 +3191,7 @@ class CaptureStartAPIHandler(BaseHandler):
     """API endpoint to start a capture (placeholder - use WebSocket instead)."""
 
     def post(self):
+        safe_log('info', 'Packet capture started', event='capture', action='start')
         if not self.current_user:
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
@@ -3121,6 +3211,7 @@ class CaptureStopAPIHandler(BaseHandler):
     """API endpoint to stop a capture (placeholder - use WebSocket instead)."""
 
     def post(self):
+        safe_log('info', 'Packet capture stopped', event='capture', action='stop')
         if not self.current_user:
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
@@ -3189,6 +3280,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
             }))
 
         except Exception as e:
+            safe_log('error', f'Error in LatencyBridgesAPIHandler: {e}', event='error', handler='LatencyBridgesAPIHandler')
             pS(f"[LatencyBridges] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3253,6 +3345,7 @@ class LatencyEnableAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
+            safe_log('error', f'Error in LatencyEnableAPIHandler: {e}', event='error', handler='LatencyEnableAPIHandler')
             pS(f"[LatencyEnable] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3317,6 +3410,7 @@ class LatencyDisableAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
+            safe_log('error', f'Error in LatencyDisableAPIHandler: {e}', event='error', handler='LatencyDisableAPIHandler')
             pS(f"[LatencyDisable] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3372,6 +3466,7 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
+            safe_log('error', f'Error in LatencyDisableAllAPIHandler: {e}', event='error', handler='LatencyDisableAllAPIHandler')
             pS(f"[LatencyDisableAll] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3425,6 +3520,7 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
+            safe_log('error', f'Error in ImpairmentsBridgesAPIHandler: {e}', event='error', handler='ImpairmentsBridgesAPIHandler')
             pS(f"[ImpairmentsBridges] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3438,6 +3534,13 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
     CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
     async def post(self):
+        try:
+            _body = json.loads(self.request.body.decode('utf-8')) if self.request.body else {}
+            safe_log('info', 'Network impairment configured', event='impairment', action='configure',
+                     bridge=str(_body.get('bridge', '')), latency=str(_body.get('latency', '')),
+                     loss=str(_body.get('loss', '')))
+        except Exception:
+            safe_log('info', 'Network impairment configured', event='impairment', action='configure')
         if not self.current_user:
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
@@ -3484,9 +3587,11 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except json.JSONDecodeError:
+            safe_log('error', 'Error in ImpairmentsConfigureAPIHandler: Invalid JSON', event='error', handler='ImpairmentsConfigureAPIHandler')
             self.set_status(400)
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
+            safe_log('error', f'Error in ImpairmentsConfigureAPIHandler: {e}', event='error', handler='ImpairmentsConfigureAPIHandler')
             pS(f"[ImpairmentsConfigure] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3500,6 +3605,12 @@ class ImpairmentsClearAPIHandler(BaseHandler):
     CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
     async def post(self):
+        try:
+            _body = json.loads(self.request.body.decode('utf-8')) if self.request.body else {}
+            safe_log('info', 'Network impairment cleared', event='impairment', action='clear',
+                     bridge=str(_body.get('bridge', '')))
+        except Exception:
+            safe_log('info', 'Network impairment cleared', event='impairment', action='clear')
         if not self.current_user:
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
@@ -3546,9 +3657,11 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except json.JSONDecodeError:
+            safe_log('error', 'Error in ImpairmentsClearAPIHandler: Invalid JSON', event='error', handler='ImpairmentsClearAPIHandler')
             self.set_status(400)
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
+            safe_log('error', f'Error in ImpairmentsClearAPIHandler: {e}', event='error', handler='ImpairmentsClearAPIHandler')
             pS(f"[ImpairmentsClear] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3562,6 +3675,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
     CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
     async def post(self):
+        safe_log('info', 'All network impairments cleared', event='impairment', action='clear_all')
         if not self.current_user:
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
@@ -3604,6 +3718,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
+            safe_log('error', f'Error in ImpairmentsClearAllAPIHandler: {e}', event='error', handler='ImpairmentsClearAllAPIHandler')
             pS(f"[ImpairmentsClearAll] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3632,6 +3747,8 @@ class NodeBuilderProxyHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        _nb_path = self.request.uri.replace('/nodebuilder/', '')
+        safe_log('info', f'Node builder GET: {_nb_path}', event='nodebuilder', method='GET', path=_nb_path)
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -3643,6 +3760,15 @@ class NodeBuilderProxyHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
+        _nb_path = self.request.uri.replace('/nodebuilder/', '')
+        try:
+            _nb_body = json.loads(self.request.body.decode('utf-8')) if self.request.body else {}
+            _nb_action = _nb_body.get('action', _nb_body.get('type', 'unknown'))
+            _nb_name = _nb_body.get('name', _nb_body.get('hostname', ''))
+            safe_log('info', f'Node builder POST: {_nb_path}', event='nodebuilder', method='POST', path=_nb_path,
+                     action=str(_nb_action), node_name=str(_nb_name))
+        except Exception:
+            safe_log('info', f'Node builder POST: {_nb_path}', event='nodebuilder', method='POST', path=_nb_path)
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -3707,6 +3833,7 @@ class NodeBuilderProxyHandler(BaseHandler):
                 self.write(response.body)
 
         except Exception as e:
+            safe_log('error', f'Error in NodeBuilderProxyHandler: {e}', event='error', handler='NodeBuilderProxyHandler')
             pS(f"[NodeBuilderProxy] Error: {e}")
             traceback.print_exc()
             self.set_status(500)
@@ -3774,6 +3901,7 @@ if __name__ == "__main__":
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
     app.listen(PORT)
+    safe_log('info', 'UILanding server started', port='80', topology=TOPO)
     print('*** Websocket Server Started on {} ***'.format(PORT))
     try:
         TOPO_DATA = getEventStatus(NAME, ZONE)
