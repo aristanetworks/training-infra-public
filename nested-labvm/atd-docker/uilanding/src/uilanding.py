@@ -1049,10 +1049,10 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         try:
             docker_conn= docker.from_env()
             login_container = docker_conn.containers.get('atd-login') 
-            login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)    
+            login_container.exec_run(f'sudo python3 -m exam_upload_v2.main', detach=True)
             self.write({
                 'response':f'Exam has been submitted'
-                    }) 
+                    })
         except Exception as e:
             safe_log('error', f'Error in ExamSubmitHandler: {e}', event='error', handler='ExamSubmitHandler')
             self.set_status(500)
@@ -2829,16 +2829,16 @@ class EndExamHandler(tornado.web.RequestHandler):
 
             response = requests.post(url, headers=headers, json=payload)
             try:
-                print("Calling upload_exam_unattended.py script to upload exam")
+                print("Calling exam_upload_v2 module to upload exam")
                 docker_conn = docker.from_env()
                 login_container = docker_conn.containers.get('atd-login')
-                login_container.exec_run(f'sudo python3 /usr/local/bin/upload_exam_unattended.py', detach=True)
+                login_container.exec_run(f'sudo python3 -m exam_upload_v2.main', detach=True)
             except Exception as e:
                 safe_log('error', f'Error in EndExamHandler upload_exam: {e}', event='error', handler='EndExamHandler')
-                print(f"Error running upload_exam_unattended.py: {e}")
+                print(f"Error running exam_upload_v2: {e}")
                 self.write({
                     'honorlock_response': response.json(),
-                    'exam_submit': 'Exam has been submitted but error running upload_exam_unattended.py',
+                    'exam_submit': 'Exam has been submitted but error running exam_upload_v2',
                 })
             if response.status_code in [200, 201]:
                 try:
