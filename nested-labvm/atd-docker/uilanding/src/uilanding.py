@@ -109,8 +109,11 @@ if 'schema' in host_yaml:
     SCHEMA = host_yaml['schema']
 else:
     SCHEMA = 1
-# Add a check for the title parameter for legacy deployment catches
-if 'title' in host_yaml:
+# Set title: prefer course_name from customer_details, fall back to title, then default
+_course_name = host_yaml.get('customer_details', {}).get('course_name', '')
+if _course_name:
+    TITLE = _course_name
+elif 'title' in host_yaml:
     TITLE = host_yaml['title']
 else:
     TITLE = 'Test Drive Lab'
