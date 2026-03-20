@@ -116,7 +116,7 @@ if _course_name:
 elif 'title' in host_yaml:
     TITLE = host_yaml['title']
 else:
-    TITLE = 'Test Drive Lab'
+    TITLE = 'Arista Training Lab'
 
 def get_metadata_extract(attribute):
     try:
