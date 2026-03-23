@@ -1251,9 +1251,10 @@ class CaptureManager:
         if et_idx > 0:
             return part[:et_idx], part[et_idx:]
 
-        # Legacy kvmbuilder format: {2-letter-prefix}{device-num}{port-num}
+        # Legacy kvmbuilder format: {1-or-2-letter-prefix}{device-num}{port-num}
         # e.g., 'le11' = prefix 'le', device '1', port '1'
-        match = re.match(r'^([a-zA-Z]{2})(\d)(\d+)$', part)
+        # e.g., 'a11' = prefix 'a', device '1', port '1' (L4 topology: A1, P3, etc.)
+        match = re.match(r'^([a-zA-Z]{1,2})(\d)(\d+)$', part)
         if match:
             prefix = match.group(1)
             device_num = match.group(2)
