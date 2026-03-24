@@ -158,11 +158,12 @@
                 {% end %}
                 {% if "cvp" not in disable_links %}
                 <li id="cvpLink" class="cvp-sidebar-link cvp-disabled">
-                  <a id="cvpLinkAnchor" class="site-sidebar__item menu-click">
-                    <i class="fa-solid fa-spinner fa-spin cvp-spinner"></i>
+                  <a id="cvpLinkAnchor" class="site-sidebar__item menu-click"
+                     tabindex="-1" aria-disabled="true" aria-label="CVP is starting, please wait">
+                    <i class="fa-solid fa-spinner fa-spin cvp-spinner" aria-hidden="true"></i>
                     <span>CVP</span>
                   </a>
-                  <span class="cvp-tooltip">CVP is starting, please wait...</span>
+                  <span class="cvp-tooltip" role="tooltip">CVP is starting, please wait...</span>
                 </li>
                 {% end %}
                 {% if "cvaas" not in disable_links %}

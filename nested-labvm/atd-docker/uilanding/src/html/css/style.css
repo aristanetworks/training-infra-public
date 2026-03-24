@@ -581,7 +581,7 @@ label{
 .status-popup-close {
   background: none;
   border: none;
-  color: #6c8eaf;
+  color: var(--muted-text);
   font-size: 20px;
   cursor: pointer;
   padding: 0;
@@ -662,7 +662,7 @@ label{
 }
 
 .status-row-icon .fa-clock {
-  color: #6c8eaf;
+  color: var(--muted-text);
 }
 
 /* Status note at bottom */

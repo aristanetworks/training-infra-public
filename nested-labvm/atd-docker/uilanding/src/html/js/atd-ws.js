@@ -180,15 +180,18 @@ function createWS(SOCK_URL) {
 
             if (elements.labBtn) {
                 elements.labBtn.disabled = true
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
-                    if (elements.cvpLink) {
-                        elements.cvpLink.classList.add('cvp-disabled');
-                        if (elements.cvpLinkAnchor) {
-                            elements.cvpLinkAnchor.removeAttribute('href');
-                            elements.cvpLinkAnchor.removeAttribute('target');
-                        }
-                    }
+            }
+            if (elements.cvpStatus) {
+                elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
+            }
+            if (elements.cvpLink) {
+                elements.cvpLink.classList.add('cvp-disabled');
+                if (elements.cvpLinkAnchor) {
+                    elements.cvpLinkAnchor.removeAttribute('href');
+                    elements.cvpLinkAnchor.removeAttribute('target');
+                    elements.cvpLinkAnchor.setAttribute('tabindex', '-1');
+                    elements.cvpLinkAnchor.setAttribute('aria-disabled', 'true');
+                    elements.cvpLinkAnchor.setAttribute('aria-label', 'CVP is starting, please wait');
                 }
             }
         } else {
@@ -236,15 +239,18 @@ function createWS(SOCK_URL) {
 
             if (elements.labBtn) {
                 elements.labBtn.disabled = false
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = ""
-                    if (elements.cvpLink) {
-                        elements.cvpLink.classList.remove('cvp-disabled');
-                        if (elements.cvpLinkAnchor) {
-                            elements.cvpLinkAnchor.href = '/cv';
-                            elements.cvpLinkAnchor.target = '_blank';
-                        }
-                    }
+            }
+            if (elements.cvpStatus) {
+                elements.cvpStatus.textContent = ""
+            }
+            if (elements.cvpLink) {
+                elements.cvpLink.classList.remove('cvp-disabled');
+                if (elements.cvpLinkAnchor) {
+                    elements.cvpLinkAnchor.href = '/cv';
+                    elements.cvpLinkAnchor.target = '_blank';
+                    elements.cvpLinkAnchor.removeAttribute('tabindex');
+                    elements.cvpLinkAnchor.removeAttribute('aria-disabled');
+                    elements.cvpLinkAnchor.setAttribute('aria-label', 'CVP');
                 }
             }
         }

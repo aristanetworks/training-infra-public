@@ -306,19 +306,21 @@ body {
 }
 
 .cvp-sidebar-link.cvp-disabled .site-sidebar__item {
-  color: #6c8eaf;
+  color: var(--muted-text);
   cursor: not-allowed;
   opacity: 0.5;
+  pointer-events: none;
 }
 
 .cvp-spinner {
   font-size: 14px;
   color: var(--secondary-color);
   margin-right: 8px;
+  display: none;
 }
 
-.cvp-sidebar-link:not(.cvp-disabled) .cvp-spinner {
-  display: none;
+.cvp-sidebar-link.cvp-disabled .cvp-spinner {
+  display: inline-block;
 }
 
 /* CVP tooltip */
