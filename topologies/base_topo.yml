@@ -473,3 +473,136 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self
+  training-level-x-cl:
+    dev:
+      veos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: false
+            image: base-ceos-training-lx-veos-2024-3-4301-20241031
+            eos:
+              - 4.30.1F        
+      ceos:
+        cpu: 40
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2023.2
+            orderable: false
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F
+          2024.1.2:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.1
+            orderable: false
+            image: base-ceos-training-lx-cl-2024-1-4301-20240531
+            eos:
+              - 4.30.1F
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2024.3
+            orderable: false
+            image: base-ceos-training-lx-cl-2024-3-4321-20250306
+            eos:
+              - 4.32.1F              
+          2024.1.2-dual:
+            schema: 2
+            resources_eos:
+              cpu: 20
+              ram: 40
+              disk: 50
+              image: training-level-x-c2024-1-2-dual-ceos-20240610-eos
+            resources_cvp:
+              cpu: 48
+              ram: 70
+              disk: 100
+              image: training-level-x-c2024-1-2-dual-ceos-20240610-cvp
+            branch: nested/2024.1-dual
+            image: training-level-x-c2024-1-2-dual-ceos-20240610-eos
+            orderable: false
+            eos:
+              - 4.30.1F
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: nested/2025.1
+            orderable: false
+            image: base-ceos-training-lx-cl-2025-1-4321-20250408-141208
+            eos:
+              - 4.32.1F            
+    prod:
+      veos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch:  v2023.2-12042024
+            orderable: false
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F
+      ceos:
+        cpu: 60
+        ram: 110
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 64
+            branch:  v2023.2-12042024
+            orderable: false
+            image: base-ceos-training-lx-cl-2023-2-4301-20240528
+            eos:
+              - 4.30.1F  
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: v2024.3-04152025
+            orderable: false
+            image: base-ceos-training-lx-cl-2024-3-4321-20250306
+            eos:
+              - 4.30.1F
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 110
+            branch: v2025.1-11252025-hl
+            orderable: false
+            image: base-ceos-training-lx-cl-2025-1-4321-20250408-141208
+            eos:
+              - 4.32.1F   
+    desc: 'Training Lab. For use by the Arista Training Team.'
+    name: 'Training Lab'
+    title: 'Training Lab'
+    disk_size: 320
+    access: standard
+    disable_links: [lab_grading, Tools, cvaas]
+    labguides: self
