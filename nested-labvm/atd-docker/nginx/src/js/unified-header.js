@@ -87,12 +87,17 @@ function injectCSS() {
         /* Collapse feature */
         .header-collapse-btn {
             padding: 4px 8px;
-            height: 28px;
+            height: 32px;
+            box-sizing: border-box;
             background: transparent;
             border: 1px solid #fbb500;
+            border-radius: 0;
             color: #fbb500;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .header-expand-btn {
@@ -724,12 +729,17 @@ function injectCSS() {
         /* Collapse feature */
         .header-collapse-btn {
             padding: 4px 8px;
-            height: 28px;
+            height: 32px;
+            box-sizing: border-box;
             background: transparent;
             border: 1px solid #fbb500;
+            border-radius: 0;
             color: #fbb500;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .header-expand-btn {
