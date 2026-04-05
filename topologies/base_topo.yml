@@ -14,7 +14,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l4-v2-2025-1-20251006
+            image: base-veos-training-l4-v2-2025-1-20260405-211011
             eos:
               - 4.32.1F   
     prod:
@@ -29,7 +29,7 @@ topologies:
               ram: 110
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-training-l4-v2-2025-1-20251006
+            image: base-veos-training-l4-v2-2025-1-20260405-211011
             eos:
               - 4.32.1F           
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
