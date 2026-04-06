@@ -606,3 +606,62 @@ topologies:
     access: standard
     disable_links: [lab_grading, Tools, cvaas]
     labguides: self
+  training-level4:  training-level4:
+  #upgrade to 2025
+    dev:
+      veos:
+        cpu: 60
+        ram: 90
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: true
+            image: base-veos-training-l4-v2-2023-2-20241126
+            eos:
+              - 4.30.1F              
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2024.3
+            orderable: true
+            image: base-veos-training-l4-v2-2024-3-20250616
+            eos:
+              - 4.32.1F   
+    prod:
+      veos:
+        cpu: 32
+        ram: 64
+        cvp:
+          2023.2.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: nested/2023.2
+            orderable: false
+            image: base-veos-training-l4-v2-2023-2-20241126
+            eos:
+              - 4.30.1F  
+          2024.3.0:
+            schema: 1
+            resources:
+              cpu: 60
+              ram: 90
+            branch: v2024.3-06172025
+            orderable: true
+            image: base-veos-training-l4-v2-2024-3-20250616
+            eos:
+              - 4.32.1F                    
+    desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
+    name: 'Training - Level 4'
+    title: 'Training Level 4 Lab'
+    disk_size: 300
+    access: standard
+    disable_links: [ jenkins, lab_grading, Tools, cvaas]
+    labguides: self
