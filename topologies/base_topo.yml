@@ -606,7 +606,7 @@ topologies:
     access: standard
     disable_links: [lab_grading, Tools, cvaas]
     labguides: self
-  training-level4:  training-level4:
+  training-level4:
   #upgrade to 2025
     dev:
       veos:
