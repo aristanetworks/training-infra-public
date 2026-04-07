@@ -14,6 +14,8 @@ const TerminalManager = {
   splitRight: { device: null, iframe: null },
   nextSplitPane: 'left', // Alternates between 'left' and 'right'
   autoFocusEnabled: false, // Auto-focus topology on active terminal
+  _tabCounter: 0, // Monotonic counter for unique tab IDs
+  _pendingNoVnc: new Set(), // Track in-flight noVNC opens to prevent async race
 
   init() {
     this.loadDevices();
@@ -95,7 +97,23 @@ const TerminalManager = {
       headerEl.className = 'group-header';
       headerEl.setAttribute('role', 'button');
       headerEl.setAttribute('aria-expanded', 'true');
-      headerEl.innerHTML = `<span class="arrow">&#9660;</span>${group.group}`;
+
+      const arrowSpan = document.createElement('span');
+      arrowSpan.className = 'arrow';
+      arrowSpan.innerHTML = '&#9660;';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'group-name';
+      nameSpan.textContent = group.group;
+
+      const openAllSpan = document.createElement('span');
+      openAllSpan.className = 'group-open-all';
+      openAllSpan.textContent = 'All';
+      openAllSpan.title = 'Open SSH to all devices in this group';
+
+      headerEl.appendChild(arrowSpan);
+      headerEl.appendChild(nameSpan);
+      headerEl.appendChild(openAllSpan);
 
       const devicesEl = document.createElement('div');
       devicesEl.className = 'group-devices';
@@ -222,7 +240,16 @@ const TerminalManager = {
         devicesEl.appendChild(deviceEl);
       });
 
-      headerEl.addEventListener('click', () => {
+      // "Open All" button click
+      openAllSpan.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openAllInGroup(devicesEl);
+      });
+
+      // Group header collapse toggle
+      headerEl.addEventListener('click', (e) => {
+        // Don't toggle collapse when clicking "Open All"
+        if (e.target.classList.contains('group-open-all')) return;
         const isCollapsed = headerEl.classList.toggle('collapsed');
         headerEl.setAttribute('aria-expanded', !isCollapsed);
         devicesEl.classList.toggle('hidden');
@@ -244,22 +271,28 @@ const TerminalManager = {
       return;
     }
 
-    // Check if tab already exists for this ip AND type
+    // Check if tab already exists for this device AND type
     // Allow one SSH, one Console, and one noVNC tab per device
-    const existingTab = this.tabs.find(t => t.ip === ip && t.type === type);
+    // Match by name (unique device identifier) not IP (can be shared/empty)
+    const existingTab = this.tabs.find(t => t.name === name && t.type === type);
     if (existingTab) {
       this.activateTab(existingTab.id);
       return;
     }
 
-    // For noVNC, we need to get a token first
+    // For noVNC, we need to get a token first (async — guard against duplicate opens)
     if (type === 'novnc') {
-      this.openNoVncTerminal(name, ip, effectiveVmName);
+      const pendingKey = name + ':novnc';
+      if (this._pendingNoVnc.has(pendingKey)) return;
+      this._pendingNoVnc.add(pendingKey);
+      this.openNoVncTerminal(name, ip, effectiveVmName).finally(() => {
+        this._pendingNoVnc.delete(pendingKey);
+      });
       return;
     }
 
     // Create new tab
-    const tabId = 'tab-' + Date.now();
+    const tabId = 'tab-' + (++this._tabCounter);
     const tab = { id: tabId, name, ip, type, vmName: effectiveVmName };
     this.tabs.push(tab);
 
@@ -316,7 +349,7 @@ const TerminalManager = {
     terminalFrames.appendChild(iframe);
 
     // Mark device as connected for this type
-    this.updateDeviceStatus(ip, type, true);
+    this.updateDeviceStatus(name, type, true);
 
     // Activate the new tab
     this.activateTab(tabId);
@@ -344,7 +377,7 @@ const TerminalManager = {
       const tokenData = await response.json();
 
       // Create new tab
-      const tabId = 'tab-' + Date.now();
+      const tabId = 'tab-' + (++this._tabCounter);
       const tab = { id: tabId, name, ip, type: 'novnc', vmName };
       this.tabs.push(tab);
 
@@ -387,7 +420,7 @@ const TerminalManager = {
       terminalFrames.appendChild(iframe);
 
       // Mark device as connected
-      this.updateDeviceStatus(ip, 'novnc', true);
+      this.updateDeviceStatus(name, 'novnc', true);
 
       // Activate the new tab
       this.activateTab(tabId);
@@ -428,6 +461,9 @@ const TerminalManager = {
 
     this.activeTabId = tabId;
 
+    // Highlight active tab's device in sidebar
+    this.updateSidebarActiveDevice();
+
     // Update overflow menu to reflect active state
     this.updateTabOverflow();
 
@@ -450,7 +486,7 @@ const TerminalManager = {
     if (frameEl) frameEl.remove();
 
     // Update device status for this connection type
-    this.updateDeviceStatus(tab.ip, tab.type || 'ssh', false);
+    this.updateDeviceStatus(tab.name, tab.type || 'ssh', false);
 
     // Remove from tabs array
     this.tabs.splice(tabIndex, 1);
@@ -462,6 +498,8 @@ const TerminalManager = {
     } else {
       this.activeTabId = null;
       document.getElementById('emptyState').style.display = 'block';
+      // Clear sidebar active highlight when no tabs remain
+      this.updateSidebarActiveDevice();
     }
 
     // Update overflow menu
@@ -470,28 +508,28 @@ const TerminalManager = {
 
   /**
    * Check if a device has a specific connection type open
-   * @param {string} ip - Device IP address
-   * @param {string} type - Connection type ('ssh' or 'console')
+   * @param {string} name - Device name
+   * @param {string} type - Connection type ('ssh', 'console', or 'novnc')
    * @returns {boolean} True if connection exists
    */
-  hasConnectionType(ip, type) {
-    return this.tabs.some(t => t.ip === ip && t.type === type);
+  hasConnectionType(name, type) {
+    return this.tabs.some(t => t.name === name && t.type === type);
   },
 
-  updateDeviceStatus(ip, type, connected) {
-    // Check regular device items
-    const deviceEl = document.querySelector(`.device-item[data-ip="${ip}"]`);
+  updateDeviceStatus(name, type, connected) {
+    // Match by device name (unique identifier) not IP (can be shared/empty)
+    const deviceEl = document.querySelector(`.device-item[data-name="${CSS.escape(name)}"]`);
     if (deviceEl) {
       // Check if there are other connections of different type still open
       const hasSSH = type === 'ssh'
         ? connected
-        : this.hasConnectionType(ip, 'ssh');
+        : this.hasConnectionType(name, 'ssh');
       const hasConsole = type === 'console'
         ? connected
-        : this.hasConnectionType(ip, 'console');
+        : this.hasConnectionType(name, 'console');
       const hasNoVnc = type === 'novnc'
         ? connected
-        : this.hasConnectionType(ip, 'novnc');
+        : this.hasConnectionType(name, 'novnc');
 
       // Remove all connection classes
       deviceEl.classList.remove('ssh-connected', 'console-connected', 'novnc-connected', 'both-connected', 'multi-connected');
@@ -516,7 +554,7 @@ const TerminalManager = {
 
     // Check jump server link (SSH only)
     const jumpLink = document.getElementById('jumpServerLink');
-    if (jumpLink && jumpLink.dataset.ip === ip && type === 'ssh') {
+    if (jumpLink && jumpLink.dataset.name === name && type === 'ssh') {
       jumpLink.classList.toggle('connected', connected);
     }
   },
@@ -1060,8 +1098,8 @@ const TerminalManager = {
         enableStatus: true,
         enableFilters: false,  // Using our own compact controls
         // Custom terminal handler for opening devices in this page's tabs
-        onOpenTerminal: (deviceName, ip) => {
-          TerminalManager.openTerminal(deviceName, ip);
+        onOpenTerminal: (deviceName, ip, type, vmName) => {
+          TerminalManager.openTerminal(deviceName, ip, type, vmName);
         }
       });
 
@@ -1239,6 +1277,94 @@ const TerminalManager = {
       // Focus the topology on this device
       this.topologyManager.focusOnDevice(activeTab.name);
     }
+  },
+
+  /**
+   * Highlight the active tab's device in the sidebar
+   * Removes active-tab from all devices, then adds it to the matching one
+   */
+  updateSidebarActiveDevice() {
+    // Clear all active highlights
+    document.querySelectorAll('.device-item.active-tab').forEach(el => {
+      el.classList.remove('active-tab');
+    });
+
+    // Find and highlight the active tab's device
+    const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+    if (activeTab && activeTab.name) {
+      const deviceEl = document.querySelector(`.device-item[data-name="${CSS.escape(activeTab.name)}"]`);
+      if (deviceEl) {
+        deviceEl.classList.add('active-tab');
+      }
+    }
+  },
+
+  /**
+   * Open SSH terminals for all devices in a group
+   *
+   * WebSSH2 requires authentication on the first connection — a session cookie
+   * is set after the user logs in. Subsequent connections reuse that cookie.
+   *
+   * If no SSH session exists yet, we open only the first device and prompt the
+   * user to authenticate before clicking "All" again. This prevents multiple
+   * simultaneous login prompts.
+   */
+  openAllInGroup(groupEl) {
+    const devices = groupEl.querySelectorAll('.device-item');
+
+    // Collect devices that need opening (have IP and no existing SSH tab)
+    const toOpen = [];
+    devices.forEach(deviceEl => {
+      const name = deviceEl.dataset.name;
+      const ip = deviceEl.dataset.ip;
+      if (ip && ip !== 'N/A' && !this.tabs.some(t => t.name === name && t.type === 'ssh')) {
+        toOpen.push({ name, ip });
+      }
+    });
+
+    if (toOpen.length === 0) return;
+
+    // Check if user has an existing SSH session (any SSH tab already open)
+    const hasExistingSession = this.tabs.some(t => t.type === 'ssh');
+
+    if (!hasExistingSession) {
+      // No session yet — open only the first device so user can authenticate
+      this.openTerminal(toOpen[0].name, toOpen[0].ip, 'ssh');
+      this.showOpenAllNotice(toOpen.length - 1);
+      return;
+    }
+
+    // Session exists — open all remaining devices with stagger
+    let delay = 0;
+    toOpen.forEach(device => {
+      setTimeout(() => {
+        this.openTerminal(device.name, device.ip, 'ssh');
+      }, delay);
+      delay += 150;
+    });
+  },
+
+  /**
+   * Show a brief notice prompting the user to authenticate then retry "All"
+   */
+  showOpenAllNotice(remaining) {
+    // Remove any existing notice
+    const existing = document.getElementById('openAllNotice');
+    if (existing) existing.remove();
+
+    const notice = document.createElement('div');
+    notice.id = 'openAllNotice';
+    notice.className = 'open-all-notice';
+    notice.textContent = `Log in to the terminal, then click "All" again to open the remaining ${remaining} device${remaining !== 1 ? 's' : ''}.`;
+
+    // Insert at top of device tree
+    const tree = document.getElementById('deviceGroups');
+    tree.parentElement.insertBefore(notice, tree);
+
+    // Auto-dismiss after 10 seconds
+    setTimeout(() => {
+      if (notice.parentElement) notice.remove();
+    }, 10000);
   }
 };
 

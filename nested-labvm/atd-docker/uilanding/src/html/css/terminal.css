@@ -127,6 +127,25 @@ body.terminal-page {
 }
 
 /* ============================================
+   Open All Authentication Notice
+   ============================================ */
+.open-all-notice {
+  padding: 10px 16px;
+  margin: 8px 12px;
+  background: rgba(251, 181, 0, 0.1);
+  border: 1px solid var(--secondary-color);
+  color: var(--secondary-color);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: noticeIn 0.2s ease-out;
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
    Jump Server Link
    ============================================ */
 .jump-server-link {
@@ -200,6 +219,29 @@ body.terminal-page {
   background: rgba(251, 181, 0, 0.05);
 }
 
+.group-header .group-name {
+  flex: 1;
+}
+
+.group-header .group-open-all {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.group-header .group-open-all:hover {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  background: rgba(251, 181, 0, 0.1);
+}
+
 .group-header .arrow {
   margin-right: 10px;
   transition: transform 0.2s;
@@ -261,6 +303,24 @@ body.terminal-page {
 .device-item.multi-connected {
   background: rgba(217, 217, 217, 0.15);
   border-left-color: var(--secondary-color);  /* Yellow for multiple connections */
+}
+
+/* Hover on connected devices — must be visually distinct from resting connected state */
+.device-item.ssh-connected:hover,
+.device-item.console-connected:hover,
+.device-item.both-connected:hover,
+.device-item.novnc-connected:hover,
+.device-item.multi-connected:hover {
+  background: rgba(217, 217, 217, 0.2);
+}
+
+/* Active tab's device in sidebar — bold name with yellow underline */
+.device-item.active-tab .device-name {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--secondary-color);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
 }
 
 /* Status dots container for stacked dots (macOS-style) */
