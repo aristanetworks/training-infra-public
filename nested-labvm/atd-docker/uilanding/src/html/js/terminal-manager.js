@@ -16,6 +16,8 @@ const TerminalManager = {
   autoFocusEnabled: false, // Auto-focus topology on active terminal
   _tabCounter: 0, // Monotonic counter for unique tab IDs
   _pendingNoVnc: new Set(), // Track in-flight noVNC opens to prevent async race
+  _sshQueue: [], // Queued SSH opens — serialized to avoid WebSSH2 session race
+  _sshQueueProcessing: false, // Whether the queue is currently draining
 
   init() {
     this.loadDevices();
@@ -304,92 +306,151 @@ const TerminalManager = {
       return;
     }
 
-    // Create new tab
-    const tabId = 'tab-' + (++this._tabCounter);
-    const tab = { id: tabId, name, ip, type, vmName: effectiveVmName };
-    this.tabs.push(tab);
-    console.log(`%c[DEBUG openTerminal]   -> CREATED tabId="${tabId}" for "${name}" (counter=${this._tabCounter})`, 'color: #78d82c');
+    // Queue the SSH/console open — WebSSH2 stores the target host in an express
+    // session shared by all iframes. Opening multiple iframes simultaneously
+    // causes session overwrites (last request wins), connecting tabs to the wrong
+    // host. Serializing ensures each iframe's HTTP request + WebSocket handshake
+    // completes before the next one starts.
+    this._sshQueue.push({ name, ip, type, vmName: effectiveVmName });
+    console.log(`[DEBUG openTerminal]   -> QUEUED for "${name}" (queue length=${this._sshQueue.length})`);
+    this._processSshQueue();
 
-    // Create tab element
-    const tabsScrollArea = document.getElementById('tabsScrollArea');
+    console.log(`[DEBUG openTerminal] EXIT name="${name}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
+  },
 
-    const tabEl = document.createElement('div');
-    tabEl.className = 'tab';
-    tabEl.id = tabId;
-    tabEl.dataset.type = type;
-    tabEl.setAttribute('role', 'tab');
-    tabEl.setAttribute('aria-selected', 'false');
+  /**
+   * Process the SSH open queue one at a time.
+   * Each iframe must fully load (WebSSH2 page + WebSocket handshake) before
+   * the next one is created, to avoid express-session race conditions.
+   */
+  async _processSshQueue() {
+    if (this._sshQueueProcessing) return;
+    this._sshQueueProcessing = true;
 
-    // Tab display: status dot (colored by type) + name (+ icon for console/novnc)
-    let displayName = name;
-    let dotClass = 'ssh';
-    if (type === 'console') {
-      displayName = `${name} &#9000;`;
-      dotClass = 'console';
-    } else if (type === 'novnc') {
-      displayName = `${name} &#128421;`;  // Desktop icon
-      dotClass = 'novnc';
+    while (this._sshQueue.length > 0) {
+      const { name, ip, type, vmName } = this._sshQueue.shift();
+
+      // Re-check for duplicate (may have been opened while queued)
+      if (this.tabs.find(t => t.name === name && t.type === type)) {
+        console.log(`[DEBUG _processSshQueue] skip duplicate "${name}" type=${type}`);
+        continue;
+      }
+
+      console.log(`%c[DEBUG _processSshQueue] PROCESSING "${name}" ip=${ip} type=${type} (remaining=${this._sshQueue.length})`, 'color: #78d82c; font-weight: bold');
+
+      await this._createTabAndWaitForLoad(name, ip, type, vmName);
     }
-    tabEl.innerHTML = `
-      <span class="tab-status-dot ${dotClass}" aria-hidden="true"></span>
-      <span class="tab-name">${displayName}</span>
-      <span class="close-btn" title="Close" aria-label="Close ${name} tab">&times;</span>
-    `;
 
-    tabEl.querySelector('.tab-name').addEventListener('click', () => {
-      console.log(`%c[DEBUG tab-click] clicked tab label, captured tabId="${tabId}" device="${name}"`, 'color: #dae0fe');
+    this._sshQueueProcessing = false;
+  },
+
+  /**
+   * Create a tab + iframe and wait for the iframe to finish loading.
+   * Returns a promise that resolves when the iframe fires its 'load' event,
+   * or after a timeout (so the queue doesn't stall forever).
+   */
+  _createTabAndWaitForLoad(name, ip, type, vmName) {
+    return new Promise((resolve) => {
+      const tabId = 'tab-' + (++this._tabCounter);
+      const tab = { id: tabId, name, ip, type, vmName };
+      this.tabs.push(tab);
+      console.log(`[DEBUG _createTab] tabId="${tabId}" for "${name}" (counter=${this._tabCounter})`);
+
+      // Create tab element
+      const tabsScrollArea = document.getElementById('tabsScrollArea');
+      const tabEl = document.createElement('div');
+      tabEl.className = 'tab';
+      tabEl.id = tabId;
+      tabEl.dataset.type = type;
+      tabEl.setAttribute('role', 'tab');
+      tabEl.setAttribute('aria-selected', 'false');
+
+      let displayName = name;
+      let dotClass = 'ssh';
+      if (type === 'console') {
+        displayName = name + ' \u2328';  // keyboard icon
+        dotClass = 'console';
+      } else if (type === 'novnc') {
+        displayName = name + ' \uD83D\uDDA5';  // desktop icon
+        dotClass = 'novnc';
+      }
+
+      // Build tab content with safe DOM methods
+      const dotSpan = document.createElement('span');
+      dotSpan.className = 'tab-status-dot ' + dotClass;
+      dotSpan.setAttribute('aria-hidden', 'true');
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tab-name';
+      nameSpan.textContent = displayName;
+
+      const closeSpan = document.createElement('span');
+      closeSpan.className = 'close-btn';
+      closeSpan.title = 'Close';
+      closeSpan.setAttribute('aria-label', 'Close ' + name + ' tab');
+      closeSpan.textContent = '\u00D7';
+
+      tabEl.appendChild(dotSpan);
+      tabEl.appendChild(nameSpan);
+      tabEl.appendChild(closeSpan);
+
+      nameSpan.addEventListener('click', () => {
+        this.activateTab(tabId);
+      });
+      closeSpan.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeTab(tabId);
+      });
+
+      tabsScrollArea.appendChild(tabEl);
+
+      // Create iframe
+      const terminalFrames = document.getElementById('terminalFrames');
+      const iframe = document.createElement('iframe');
+      iframe.className = 'terminal-frame';
+      iframe.id = 'frame-' + tabId;
+      iframe.setAttribute('title', 'Terminal: ' + name + ' (' + type.toUpperCase() + ')');
+
+      if (type === 'console') {
+        iframe.src = '/console?device=' + encodeURIComponent(vmName);
+      } else {
+        iframe.src = '/ssh/host/' + ip;
+      }
+
+      console.log('[DEBUG _createTab] iframe src="' + iframe.src + '"');
+
+      // Wait for iframe load (WebSSH2 page + WebSocket handshake completes)
+      // or timeout after 5s so the queue doesn't stall
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        console.log('[DEBUG _createTab] "' + name + '" iframe settled, releasing queue');
+        resolve();
+      };
+
+      iframe.addEventListener('load', () => {
+        // Add a small delay after load to ensure WebSocket handshake completes
+        // and the session is fully saved before the next request
+        setTimeout(settle, 300);
+      });
+      // Safety timeout — don't block the queue forever
+      setTimeout(settle, 5000);
+
+      terminalFrames.appendChild(iframe);
+
+      // Mark device as connected
+      this.updateDeviceStatus(name, type, true);
+
+      // Activate the new tab
       this.activateTab(tabId);
+
+      // Hide empty state
+      document.getElementById('emptyState').style.display = 'none';
+
+      // Update overflow menu
+      this.updateTabOverflow();
     });
-    tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.closeTab(tabId);
-    });
-
-    tabsScrollArea.appendChild(tabEl);
-
-    // Create iframe with appropriate URL
-    const terminalFrames = document.getElementById('terminalFrames');
-    const iframe = document.createElement('iframe');
-    iframe.className = 'terminal-frame';
-    iframe.id = 'frame-' + tabId;
-    iframe.setAttribute('title', `Terminal: ${name} (${type.toUpperCase()})`);
-
-    if (type === 'console') {
-      // Console uses the console page with device parameter
-      // Use vmName (original name) for virsh console, not the normalized display name
-      iframe.src = `/console?device=${encodeURIComponent(effectiveVmName)}`;
-    } else {
-      // SSH connection
-      iframe.src = `/ssh/host/${ip}`;
-    }
-
-    console.log(`[DEBUG openTerminal]   iframe id="frame-${tabId}" src="${iframe.src}"`);
-
-    terminalFrames.appendChild(iframe);
-
-    // Verify DOM state immediately after append
-    const domTab = document.getElementById(tabId);
-    const domFrame = document.getElementById('frame-' + tabId);
-    const allTabsWithId = document.querySelectorAll(`#${CSS.escape(tabId)}`);
-    const allFramesWithId = document.querySelectorAll(`#frame-${CSS.escape(tabId)}`);
-    console.log(`[DEBUG openTerminal]   DOM verify: tab found=${!!domTab} frame found=${!!domFrame} duplicate tabs=${allTabsWithId.length} duplicate frames=${allFramesWithId.length}`);
-    if (allTabsWithId.length > 1 || allFramesWithId.length > 1) {
-      console.error(`%c[DEBUG openTerminal]   !!! DUPLICATE DOM IDS DETECTED !!! tabId="${tabId}"`, 'color: red; font-weight: bold; font-size: 14px');
-    }
-
-    // Mark device as connected for this type
-    this.updateDeviceStatus(name, type, true);
-
-    // Activate the new tab
-    this.activateTab(tabId);
-
-    // Hide empty state
-    document.getElementById('emptyState').style.display = 'none';
-
-    // Update overflow menu
-    this.updateTabOverflow();
-
-    console.log(`[DEBUG openTerminal] EXIT name="${name}" tabId="${tabId}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
   },
 
   /**
@@ -1394,13 +1455,9 @@ const TerminalManager = {
       return;
     }
 
-    // Session exists — open all remaining devices with stagger
-    let delay = 0;
+    // Session exists — open all devices (queue serializes them automatically)
     toOpen.forEach(device => {
-      setTimeout(() => {
-        this.openTerminal(device.name, device.ip, 'ssh');
-      }, delay);
-      delay += 150;
+      this.openTerminal(device.name, device.ip, 'ssh');
     });
   },
 
