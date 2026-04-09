@@ -18,9 +18,12 @@ const TerminalManager = {
   _pendingNoVnc: new Set(), // Track in-flight noVNC opens to prevent async race
   _sshQueue: [], // Queued SSH opens — serialized to avoid WebSSH2 session race
   _sshQueueProcessing: false, // Whether the queue is currently draining
+  _sshQueueTotal: 0, // Total items added to current queue batch (for progress display)
   // Tunable delay (ms) after iframe load before starting the next tab.
-  // Adjust via browser console: TerminalManager._sshSettleMs = 1000
-  _sshSettleMs: 2000,
+  // Adjust via browser console: TerminalManager._sshSettleMs = 500
+  _sshSettleMs: 1000,
+  // Debug logging — enable via console: TerminalManager._debug = true
+  _debug: false,
 
   init() {
     this.loadDevices();
@@ -175,7 +178,7 @@ const TerminalManager = {
               e.target.classList.contains('desktop-icon') ||
               e.target.classList.contains('webui-icon')) return;
 
-          console.log(`%c[DEBUG click] device="${device.name}" ip="${device.ip}" target=${e.target.className} time=${performance.now().toFixed(2)}ms`, 'color: #fbb500');
+          this._debug && console.log(`%c[DEBUG click] device="${device.name}" ip="${device.ip}" target=${e.target.className} time=${performance.now().toFixed(2)}ms`, 'color: #fbb500');
 
           if (device.supportsNoVnc) {
             // Linux hosts: open desktop by default
@@ -273,13 +276,13 @@ const TerminalManager = {
     const effectiveVmName = vmName || name;
     const callTime = performance.now();
 
-    console.log(`%c[DEBUG openTerminal] ENTER name="${name}" ip="${ip}" type="${type}" time=${callTime.toFixed(2)}ms`, 'color: #fbb500; font-weight: bold');
-    console.log(`[DEBUG openTerminal]   tabs.length=${this.tabs.length} _tabCounter=${this._tabCounter} activeTabId=${this.activeTabId}`);
-    console.log(`[DEBUG openTerminal]   current tabs:`, this.tabs.map(t => `${t.id}(${t.name}/${t.type})`).join(', '));
+    this._debug && console.log(`%c[DEBUG openTerminal] ENTER name="${name}" ip="${ip}" type="${type}" time=${callTime.toFixed(2)}ms`, 'color: #fbb500; font-weight: bold');
+    this._debug && console.log(`[DEBUG openTerminal]   tabs.length=${this.tabs.length} _tabCounter=${this._tabCounter} activeTabId=${this.activeTabId}`);
+    this._debug && console.log(`[DEBUG openTerminal]   current tabs:`, this.tabs.map(t => `${t.id}(${t.name}/${t.type})`).join(', '));
 
     // If in split mode, open in split pane instead
     if (this.splitMode) {
-      console.log(`[DEBUG openTerminal]   -> split mode, delegating`);
+      this._debug && console.log(`[DEBUG openTerminal]   -> split mode, delegating`);
       this.openInSplitPane(name, ip, type, effectiveVmName);
       return;
     }
@@ -289,7 +292,7 @@ const TerminalManager = {
     // Match by name (unique device identifier) not IP (can be shared/empty)
     const existingTab = this.tabs.find(t => t.name === name && t.type === type);
     if (existingTab) {
-      console.log(`[DEBUG openTerminal]   -> DUPLICATE found: ${existingTab.id} for "${existingTab.name}" type=${existingTab.type}, activating`);
+      this._debug && console.log(`[DEBUG openTerminal]   -> DUPLICATE found: ${existingTab.id} for "${existingTab.name}" type=${existingTab.type}, activating`);
       this.activateTab(existingTab.id);
       return;
     }
@@ -298,11 +301,11 @@ const TerminalManager = {
     if (type === 'novnc') {
       const pendingKey = name + ':novnc';
       if (this._pendingNoVnc.has(pendingKey)) {
-        console.log(`[DEBUG openTerminal]   -> noVNC pending guard hit for "${name}"`);
+        this._debug && console.log(`[DEBUG openTerminal]   -> noVNC pending guard hit for "${name}"`);
         return;
       }
       this._pendingNoVnc.add(pendingKey);
-      console.log(`[DEBUG openTerminal]   -> noVNC async path for "${name}"`);
+      this._debug && console.log(`[DEBUG openTerminal]   -> noVNC async path for "${name}"`);
       this.openNoVncTerminal(name, ip, effectiveVmName).finally(() => {
         this._pendingNoVnc.delete(pendingKey);
       });
@@ -315,14 +318,19 @@ const TerminalManager = {
     // host. Serializing ensures each iframe's HTTP request + WebSocket handshake
     // completes before the next one starts.
     this._sshQueue.push({ name, ip, type, vmName: effectiveVmName });
-    console.log(`[DEBUG openTerminal]   -> QUEUED for "${name}" (queue length=${this._sshQueue.length})`);
+    this._debug && console.log(`[DEBUG openTerminal]   -> QUEUED for "${name}" (queue length=${this._sshQueue.length})`);
 
     // Mark device as queued in sidebar
     this._setSidebarQueueState(name, 'queued');
 
+    // Update total if queue is already processing (user clicked more devices)
+    if (this._sshQueueProcessing) {
+      this._sshQueueTotal++;
+    }
+
     this._processSshQueue();
 
-    console.log(`[DEBUG openTerminal] EXIT name="${name}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
+    this._debug && console.log(`[DEBUG openTerminal] EXIT name="${name}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
   },
 
   /**
@@ -334,20 +342,30 @@ const TerminalManager = {
     if (this._sshQueueProcessing) return;
     this._sshQueueProcessing = true;
 
+    // Track progress for the counter
+    this._sshQueueTotal = this._sshQueue.length;
+    let processed = 0;
+
     while (this._sshQueue.length > 0) {
       const { name, ip, type, vmName } = this._sshQueue.shift();
 
       // Re-check for duplicate (may have been opened while queued)
       if (this.tabs.find(t => t.name === name && t.type === type)) {
-        console.log(`[DEBUG _processSshQueue] skip duplicate "${name}" type=${type}`);
+        this._debug && console.log(`[DEBUG _processSshQueue] skip duplicate "${name}" type=${type}`);
         this._setSidebarQueueState(name, null);
+        processed++;
+        this._updateQueueProgress(processed, this._sshQueueTotal);
         continue;
       }
 
-      console.log(`%c[DEBUG _processSshQueue] PROCESSING "${name}" ip=${ip} type=${type} (remaining=${this._sshQueue.length})`, 'color: #78d82c; font-weight: bold');
+      this._debug && console.log(`%c[DEBUG _processSshQueue] PROCESSING "${name}" ip=${ip} type=${type} (remaining=${this._sshQueue.length})`, 'color: #78d82c; font-weight: bold');
 
       // Transition sidebar from queued → loading
       this._setSidebarQueueState(name, 'loading');
+
+      // Update progress counter
+      processed++;
+      this._updateQueueProgress(processed, this._sshQueueTotal);
 
       await this._createTabAndWaitForLoad(name, ip, type, vmName);
 
@@ -356,6 +374,8 @@ const TerminalManager = {
     }
 
     this._sshQueueProcessing = false;
+    this._sshQueueTotal = 0;
+    this._updateQueueProgress(0, 0);
   },
 
   /**
@@ -368,7 +388,7 @@ const TerminalManager = {
       const tabId = 'tab-' + (++this._tabCounter);
       const tab = { id: tabId, name, ip, type, vmName };
       this.tabs.push(tab);
-      console.log(`[DEBUG _createTab] tabId="${tabId}" for "${name}" (counter=${this._tabCounter})`);
+      this._debug && console.log(`[DEBUG _createTab] tabId="${tabId}" for "${name}" (counter=${this._tabCounter})`);
 
       // Create tab element
       const tabsScrollArea = document.getElementById('tabsScrollArea');
@@ -431,7 +451,7 @@ const TerminalManager = {
         iframe.src = '/ssh/host/' + ip;
       }
 
-      console.log('[DEBUG _createTab] iframe src="' + iframe.src + '"');
+      this._debug && console.log('[DEBUG _createTab] iframe src="' + iframe.src + '"');
 
       // Wait for iframe load (WebSSH2 page + WebSocket handshake completes)
       // or timeout after 5s so the queue doesn't stall
@@ -439,7 +459,7 @@ const TerminalManager = {
       const settle = () => {
         if (settled) return;
         settled = true;
-        console.log('[DEBUG _createTab] "' + name + '" iframe settled, releasing queue');
+        this._debug && console.log('[DEBUG _createTab] "' + name + '" iframe settled, releasing queue');
         resolve();
       };
 
@@ -450,7 +470,7 @@ const TerminalManager = {
         // The session must be fully consumed before the next iframe's HTTP
         // request overwrites session.sshCredentials.host.
         // Tunable: TerminalManager._sshSettleMs = <value> in browser console
-        console.log('[DEBUG _createTab] "' + name + '" load event, waiting ' + this._sshSettleMs + 'ms');
+        this._debug && console.log('[DEBUG _createTab] "' + name + '" load event, waiting ' + this._sshSettleMs + 'ms');
         setTimeout(settle, this._sshSettleMs);
       });
       // Safety timeout — don't block the queue forever
@@ -485,6 +505,24 @@ const TerminalManager = {
       deviceEl.classList.add('ssh-queued');
     } else if (state === 'loading') {
       deviceEl.classList.add('ssh-loading');
+    }
+  },
+
+  /**
+   * Update the queue progress counter in the tab bar
+   * @param {number} current - Current item being processed (1-based)
+   * @param {number} total - Total items in this queue batch
+   */
+  _updateQueueProgress(current, total) {
+    const el = document.getElementById('queueProgress');
+    if (!el) return;
+    if (total <= 1) {
+      // Don't show progress for a single tab
+      el.classList.remove('visible');
+      el.textContent = '';
+    } else {
+      el.textContent = 'Opening ' + current + ' of ' + total;
+      el.classList.add('visible');
     }
   },
 
@@ -567,12 +605,12 @@ const TerminalManager = {
   activateTab(tabId) {
     const tabData = this.tabs.find(t => t.id === tabId);
     const tabName = tabData ? tabData.name : 'UNKNOWN';
-    console.log(`%c[DEBUG activateTab] tabId="${tabId}" device="${tabName}" prev=${this.activeTabId} time=${performance.now().toFixed(2)}ms`, 'color: #4c5cae');
+    this._debug && console.log(`%c[DEBUG activateTab] tabId="${tabId}" device="${tabName}" prev=${this.activeTabId} time=${performance.now().toFixed(2)}ms`, 'color: #4c5cae');
 
     // Deactivate all tabs
     const allTabs = document.querySelectorAll('.tab');
     const allFrames = document.querySelectorAll('.terminal-frame');
-    console.log(`[DEBUG activateTab]   deactivating ${allTabs.length} tabs, ${allFrames.length} frames`);
+    this._debug && console.log(`[DEBUG activateTab]   deactivating ${allTabs.length} tabs, ${allFrames.length} frames`);
     allTabs.forEach(t => {
       t.classList.remove('active');
       t.setAttribute('aria-selected', 'false');
@@ -588,14 +626,14 @@ const TerminalManager = {
       tabEl.setAttribute('aria-selected', 'true');
       // Log what the tab element actually contains
       const tabNameEl = tabEl.querySelector('.tab-name');
-      console.log(`[DEBUG activateTab]   tab DOM: id="${tabEl.id}" textContent="${tabNameEl ? tabNameEl.textContent.trim() : 'N/A'}"`);
+      this._debug && console.log(`[DEBUG activateTab]   tab DOM: id="${tabEl.id}" textContent="${tabNameEl ? tabNameEl.textContent.trim() : 'N/A'}"`);
     } else {
       console.error(`%c[DEBUG activateTab]   !!! TAB ELEMENT NOT FOUND for id="${tabId}" !!!`, 'color: red; font-weight: bold');
     }
 
     if (frameEl) {
       frameEl.classList.add('active');
-      console.log(`[DEBUG activateTab]   frame DOM: id="${frameEl.id}" src="${frameEl.src}"`);
+      this._debug && console.log(`[DEBUG activateTab]   frame DOM: id="${frameEl.id}" src="${frameEl.src}"`);
       // Focus the iframe so keyboard input goes to the terminal
       setTimeout(() => frameEl.focus(), 50);
     } else {
@@ -611,7 +649,7 @@ const TerminalManager = {
       if (!srcMatch) {
         console.error(`%c[DEBUG activateTab]   !!! MISMATCH !!! tab="${tabData.name}" expects src containing "${expectedSrc}" but frame.src="${frameEl.src}"`, 'color: red; font-weight: bold; font-size: 14px');
       } else {
-        console.log(`[DEBUG activateTab]   src cross-ref OK: "${tabData.name}" -> "${expectedSrc}"`);
+        this._debug && console.log(`[DEBUG activateTab]   src cross-ref OK: "${tabData.name}" -> "${expectedSrc}"`);
       }
     }
 
