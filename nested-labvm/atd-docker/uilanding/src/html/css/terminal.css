@@ -279,6 +279,40 @@ body.terminal-page {
   background: rgba(217, 217, 217, 0.1);
 }
 
+/* Queue states — shown while SSH tabs are waiting to open */
+.device-item.ssh-queued {
+  border-left-color: var(--secondary-color);
+  opacity: 0.7;
+}
+
+.device-item.ssh-queued .status-dot.ssh {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
+  animation: queuePulse 1.2s ease-in-out infinite;
+}
+
+.device-item.ssh-loading {
+  border-left-color: var(--secondary-color);
+}
+
+.device-item.ssh-loading .status-dot.ssh {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
+  animation: loadingSpin 0.8s linear infinite;
+  border-radius: 50%;
+  border-top-color: transparent;
+}
+
+@keyframes queuePulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes loadingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Connection status colors */
 .device-item.ssh-connected {
   background: rgba(217, 217, 217, 0.1);

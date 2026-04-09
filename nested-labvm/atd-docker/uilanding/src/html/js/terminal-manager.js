@@ -18,6 +18,9 @@ const TerminalManager = {
   _pendingNoVnc: new Set(), // Track in-flight noVNC opens to prevent async race
   _sshQueue: [], // Queued SSH opens — serialized to avoid WebSSH2 session race
   _sshQueueProcessing: false, // Whether the queue is currently draining
+  // Tunable delay (ms) after iframe load before starting the next tab.
+  // Adjust via browser console: TerminalManager._sshSettleMs = 1000
+  _sshSettleMs: 2000,
 
   init() {
     this.loadDevices();
@@ -313,6 +316,10 @@ const TerminalManager = {
     // completes before the next one starts.
     this._sshQueue.push({ name, ip, type, vmName: effectiveVmName });
     console.log(`[DEBUG openTerminal]   -> QUEUED for "${name}" (queue length=${this._sshQueue.length})`);
+
+    // Mark device as queued in sidebar
+    this._setSidebarQueueState(name, 'queued');
+
     this._processSshQueue();
 
     console.log(`[DEBUG openTerminal] EXIT name="${name}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
@@ -333,12 +340,19 @@ const TerminalManager = {
       // Re-check for duplicate (may have been opened while queued)
       if (this.tabs.find(t => t.name === name && t.type === type)) {
         console.log(`[DEBUG _processSshQueue] skip duplicate "${name}" type=${type}`);
+        this._setSidebarQueueState(name, null);
         continue;
       }
 
       console.log(`%c[DEBUG _processSshQueue] PROCESSING "${name}" ip=${ip} type=${type} (remaining=${this._sshQueue.length})`, 'color: #78d82c; font-weight: bold');
 
+      // Transition sidebar from queued → loading
+      this._setSidebarQueueState(name, 'loading');
+
       await this._createTabAndWaitForLoad(name, ip, type, vmName);
+
+      // Clear loading state (updateDeviceStatus inside _createTab sets connected)
+      this._setSidebarQueueState(name, null);
     }
 
     this._sshQueueProcessing = false;
@@ -435,10 +449,12 @@ const TerminalManager = {
         // WebSocket connect + SSH session establishment takes another 1-2s.
         // The session must be fully consumed before the next iframe's HTTP
         // request overwrites session.sshCredentials.host.
-        setTimeout(settle, 2000);
+        // Tunable: TerminalManager._sshSettleMs = <value> in browser console
+        console.log('[DEBUG _createTab] "' + name + '" load event, waiting ' + this._sshSettleMs + 'ms');
+        setTimeout(settle, this._sshSettleMs);
       });
       // Safety timeout — don't block the queue forever
-      setTimeout(settle, 8000);
+      setTimeout(settle, this._sshSettleMs + 6000);
 
       terminalFrames.appendChild(iframe);
 
@@ -454,6 +470,22 @@ const TerminalManager = {
       // Update overflow menu
       this.updateTabOverflow();
     });
+  },
+
+  /**
+   * Set sidebar queue visual state for a device
+   * @param {string} name - Device name
+   * @param {string|null} state - 'queued', 'loading', or null to clear
+   */
+  _setSidebarQueueState(name, state) {
+    const deviceEl = document.querySelector('.device-item[data-name="' + CSS.escape(name) + '"]');
+    if (!deviceEl) return;
+    deviceEl.classList.remove('ssh-queued', 'ssh-loading');
+    if (state === 'queued') {
+      deviceEl.classList.add('ssh-queued');
+    } else if (state === 'loading') {
+      deviceEl.classList.add('ssh-loading');
+    }
   },
 
   /**
