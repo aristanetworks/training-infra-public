@@ -1,1 +1,0 @@
-# Captureservice tests package
