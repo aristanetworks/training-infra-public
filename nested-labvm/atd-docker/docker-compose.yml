@@ -248,7 +248,7 @@ services:
       - atd_nginx
   captureservice:
     container_name: atd-captureservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:e02489e2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:807bad6e
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
@@ -284,7 +284,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.3
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
