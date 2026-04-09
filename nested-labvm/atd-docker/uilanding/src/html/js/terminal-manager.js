@@ -170,6 +170,8 @@ const TerminalManager = {
               e.target.classList.contains('desktop-icon') ||
               e.target.classList.contains('webui-icon')) return;
 
+          console.log(`%c[DEBUG click] device="${device.name}" ip="${device.ip}" target=${e.target.className} time=${performance.now().toFixed(2)}ms`, 'color: #fbb500');
+
           if (device.supportsNoVnc) {
             // Linux hosts: open desktop by default
             const vmName = device.vmName || device.name;
@@ -264,9 +266,15 @@ const TerminalManager = {
   openTerminal(name, ip, type = 'ssh', vmName = null) {
     // vmName is the original name for virsh console (defaults to name if not provided)
     const effectiveVmName = vmName || name;
+    const callTime = performance.now();
+
+    console.log(`%c[DEBUG openTerminal] ENTER name="${name}" ip="${ip}" type="${type}" time=${callTime.toFixed(2)}ms`, 'color: #fbb500; font-weight: bold');
+    console.log(`[DEBUG openTerminal]   tabs.length=${this.tabs.length} _tabCounter=${this._tabCounter} activeTabId=${this.activeTabId}`);
+    console.log(`[DEBUG openTerminal]   current tabs:`, this.tabs.map(t => `${t.id}(${t.name}/${t.type})`).join(', '));
 
     // If in split mode, open in split pane instead
     if (this.splitMode) {
+      console.log(`[DEBUG openTerminal]   -> split mode, delegating`);
       this.openInSplitPane(name, ip, type, effectiveVmName);
       return;
     }
@@ -276,6 +284,7 @@ const TerminalManager = {
     // Match by name (unique device identifier) not IP (can be shared/empty)
     const existingTab = this.tabs.find(t => t.name === name && t.type === type);
     if (existingTab) {
+      console.log(`[DEBUG openTerminal]   -> DUPLICATE found: ${existingTab.id} for "${existingTab.name}" type=${existingTab.type}, activating`);
       this.activateTab(existingTab.id);
       return;
     }
@@ -283,8 +292,12 @@ const TerminalManager = {
     // For noVNC, we need to get a token first (async — guard against duplicate opens)
     if (type === 'novnc') {
       const pendingKey = name + ':novnc';
-      if (this._pendingNoVnc.has(pendingKey)) return;
+      if (this._pendingNoVnc.has(pendingKey)) {
+        console.log(`[DEBUG openTerminal]   -> noVNC pending guard hit for "${name}"`);
+        return;
+      }
       this._pendingNoVnc.add(pendingKey);
+      console.log(`[DEBUG openTerminal]   -> noVNC async path for "${name}"`);
       this.openNoVncTerminal(name, ip, effectiveVmName).finally(() => {
         this._pendingNoVnc.delete(pendingKey);
       });
@@ -295,6 +308,7 @@ const TerminalManager = {
     const tabId = 'tab-' + (++this._tabCounter);
     const tab = { id: tabId, name, ip, type, vmName: effectiveVmName };
     this.tabs.push(tab);
+    console.log(`%c[DEBUG openTerminal]   -> CREATED tabId="${tabId}" for "${name}" (counter=${this._tabCounter})`, 'color: #78d82c');
 
     // Create tab element
     const tabsScrollArea = document.getElementById('tabsScrollArea');
@@ -322,7 +336,10 @@ const TerminalManager = {
       <span class="close-btn" title="Close" aria-label="Close ${name} tab">&times;</span>
     `;
 
-    tabEl.querySelector('.tab-name').addEventListener('click', () => this.activateTab(tabId));
+    tabEl.querySelector('.tab-name').addEventListener('click', () => {
+      console.log(`%c[DEBUG tab-click] clicked tab label, captured tabId="${tabId}" device="${name}"`, 'color: #dae0fe');
+      this.activateTab(tabId);
+    });
     tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       this.closeTab(tabId);
@@ -346,7 +363,19 @@ const TerminalManager = {
       iframe.src = `/ssh/host/${ip}`;
     }
 
+    console.log(`[DEBUG openTerminal]   iframe id="frame-${tabId}" src="${iframe.src}"`);
+
     terminalFrames.appendChild(iframe);
+
+    // Verify DOM state immediately after append
+    const domTab = document.getElementById(tabId);
+    const domFrame = document.getElementById('frame-' + tabId);
+    const allTabsWithId = document.querySelectorAll(`#${CSS.escape(tabId)}`);
+    const allFramesWithId = document.querySelectorAll(`#frame-${CSS.escape(tabId)}`);
+    console.log(`[DEBUG openTerminal]   DOM verify: tab found=${!!domTab} frame found=${!!domFrame} duplicate tabs=${allTabsWithId.length} duplicate frames=${allFramesWithId.length}`);
+    if (allTabsWithId.length > 1 || allFramesWithId.length > 1) {
+      console.error(`%c[DEBUG openTerminal]   !!! DUPLICATE DOM IDS DETECTED !!! tabId="${tabId}"`, 'color: red; font-weight: bold; font-size: 14px');
+    }
 
     // Mark device as connected for this type
     this.updateDeviceStatus(name, type, true);
@@ -359,6 +388,8 @@ const TerminalManager = {
 
     // Update overflow menu
     this.updateTabOverflow();
+
+    console.log(`[DEBUG openTerminal] EXIT name="${name}" tabId="${tabId}" elapsed=${(performance.now() - callTime).toFixed(2)}ms`);
   },
 
   /**
@@ -438,12 +469,19 @@ const TerminalManager = {
   },
 
   activateTab(tabId) {
+    const tabData = this.tabs.find(t => t.id === tabId);
+    const tabName = tabData ? tabData.name : 'UNKNOWN';
+    console.log(`%c[DEBUG activateTab] tabId="${tabId}" device="${tabName}" prev=${this.activeTabId} time=${performance.now().toFixed(2)}ms`, 'color: #4c5cae');
+
     // Deactivate all tabs
-    document.querySelectorAll('.tab').forEach(t => {
+    const allTabs = document.querySelectorAll('.tab');
+    const allFrames = document.querySelectorAll('.terminal-frame');
+    console.log(`[DEBUG activateTab]   deactivating ${allTabs.length} tabs, ${allFrames.length} frames`);
+    allTabs.forEach(t => {
       t.classList.remove('active');
       t.setAttribute('aria-selected', 'false');
     });
-    document.querySelectorAll('.terminal-frame').forEach(f => f.classList.remove('active'));
+    allFrames.forEach(f => f.classList.remove('active'));
 
     // Activate selected tab
     const tabEl = document.getElementById(tabId);
@@ -452,11 +490,33 @@ const TerminalManager = {
     if (tabEl) {
       tabEl.classList.add('active');
       tabEl.setAttribute('aria-selected', 'true');
+      // Log what the tab element actually contains
+      const tabNameEl = tabEl.querySelector('.tab-name');
+      console.log(`[DEBUG activateTab]   tab DOM: id="${tabEl.id}" textContent="${tabNameEl ? tabNameEl.textContent.trim() : 'N/A'}"`);
+    } else {
+      console.error(`%c[DEBUG activateTab]   !!! TAB ELEMENT NOT FOUND for id="${tabId}" !!!`, 'color: red; font-weight: bold');
     }
+
     if (frameEl) {
       frameEl.classList.add('active');
+      console.log(`[DEBUG activateTab]   frame DOM: id="${frameEl.id}" src="${frameEl.src}"`);
       // Focus the iframe so keyboard input goes to the terminal
       setTimeout(() => frameEl.focus(), 50);
+    } else {
+      console.error(`%c[DEBUG activateTab]   !!! FRAME ELEMENT NOT FOUND for id="frame-${tabId}" !!!`, 'color: red; font-weight: bold');
+    }
+
+    // Cross-reference: does the tab name match the frame's target?
+    if (tabData && frameEl) {
+      const expectedSrc = tabData.type === 'console'
+        ? `/console?device=${encodeURIComponent(tabData.vmName)}`
+        : `/ssh/host/${tabData.ip}`;
+      const srcMatch = frameEl.src.includes(expectedSrc);
+      if (!srcMatch) {
+        console.error(`%c[DEBUG activateTab]   !!! MISMATCH !!! tab="${tabData.name}" expects src containing "${expectedSrc}" but frame.src="${frameEl.src}"`, 'color: red; font-weight: bold; font-size: 14px');
+      } else {
+        console.log(`[DEBUG activateTab]   src cross-ref OK: "${tabData.name}" -> "${expectedSrc}"`);
+      }
     }
 
     this.activeTabId = tabId;
@@ -1365,6 +1425,63 @@ const TerminalManager = {
     setTimeout(() => {
       if (notice.parentElement) notice.remove();
     }, 10000);
+  },
+
+  /**
+   * DEBUG: Full state audit — call from browser console: TerminalManager._debugAudit()
+   * Dumps the complete mapping of tabs array to DOM elements to find any drift
+   */
+  _debugAudit() {
+    console.log('%c=== TERMINAL MANAGER STATE AUDIT ===', 'color: #fbb500; font-weight: bold; font-size: 16px');
+    console.log(`activeTabId: ${this.activeTabId}`);
+    console.log(`_tabCounter: ${this._tabCounter}`);
+    console.log(`tabs.length: ${this.tabs.length}`);
+
+    // Check each tab in the array
+    this.tabs.forEach((tab, i) => {
+      const tabEl = document.getElementById(tab.id);
+      const frameEl = document.getElementById('frame-' + tab.id);
+      const tabLabel = tabEl ? tabEl.querySelector('.tab-name')?.textContent.trim() : 'NO DOM';
+      const frameSrc = frameEl ? frameEl.src : 'NO DOM';
+      const isActive = tab.id === this.activeTabId;
+      const tabHasActiveClass = tabEl ? tabEl.classList.contains('active') : false;
+      const frameHasActiveClass = frameEl ? frameEl.classList.contains('active') : false;
+
+      const status = [];
+      if (!tabEl) status.push('MISSING TAB DOM');
+      if (!frameEl) status.push('MISSING FRAME DOM');
+      if (isActive !== tabHasActiveClass) status.push(`TAB ACTIVE MISMATCH (data=${isActive} dom=${tabHasActiveClass})`);
+      if (isActive !== frameHasActiveClass) status.push(`FRAME ACTIVE MISMATCH (data=${isActive} dom=${frameHasActiveClass})`);
+
+      const color = status.length > 0 ? 'color: red' : 'color: #78d82c';
+      console.log(
+        `%c[${i}] ${tab.id} | name="${tab.name}" type=${tab.type} ip=${tab.ip}` +
+        ` | label="${tabLabel}" | src="${frameSrc}"` +
+        ` | active=${isActive}` +
+        (status.length > 0 ? ` | ISSUES: ${status.join(', ')}` : ' | OK'),
+        color
+      );
+    });
+
+    // Check for orphan DOM elements (tabs/frames not in the array)
+    const domTabs = document.querySelectorAll('.tab[id^="tab-"]');
+    const domFrames = document.querySelectorAll('.terminal-frame[id^="frame-tab-"]');
+    const tabIds = new Set(this.tabs.map(t => t.id));
+
+    domTabs.forEach(el => {
+      if (!tabIds.has(el.id)) {
+        console.error(`%c ORPHAN TAB DOM: id="${el.id}" text="${el.textContent.trim()}" (not in tabs array!)`, 'color: red; font-weight: bold');
+      }
+    });
+    domFrames.forEach(el => {
+      const expectedTabId = el.id.replace('frame-', '');
+      if (!tabIds.has(expectedTabId)) {
+        console.error(`%c ORPHAN FRAME DOM: id="${el.id}" src="${el.src}" (not in tabs array!)`, 'color: red; font-weight: bold');
+      }
+    });
+
+    console.log(`DOM tabs: ${domTabs.length}, DOM frames: ${domFrames.length}, Array tabs: ${this.tabs.length}`);
+    console.log('%c=== END AUDIT ===', 'color: #fbb500; font-weight: bold');
   }
 };
 
