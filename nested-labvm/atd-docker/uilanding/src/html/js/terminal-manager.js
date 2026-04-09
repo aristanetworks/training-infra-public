@@ -430,12 +430,15 @@ const TerminalManager = {
       };
 
       iframe.addEventListener('load', () => {
-        // Add a small delay after load to ensure WebSocket handshake completes
-        // and the session is fully saved before the next request
-        setTimeout(settle, 300);
+        // Wait for WebSSH2's WebSocket handshake + SSH connection to complete.
+        // The iframe 'load' fires when the HTML page is rendered, but the
+        // WebSocket connect + SSH session establishment takes another 1-2s.
+        // The session must be fully consumed before the next iframe's HTTP
+        // request overwrites session.sshCredentials.host.
+        setTimeout(settle, 2000);
       });
       // Safety timeout — don't block the queue forever
-      setTimeout(settle, 5000);
+      setTimeout(settle, 8000);
 
       terminalFrames.appendChild(iframe);
 
