@@ -3340,6 +3340,11 @@ async def on_startup(app):
                 f"Nodebuilder startup: Detached {orphan_result['detached_count']} stale interface(s) "
                 f"from {orphan_result['devices_cleaned']}"
             )
+        if orphan_result.get('vms_restarted'):
+            logger.info(
+                f"Nodebuilder startup: Restarted {len(orphan_result['vms_restarted'])} VM(s) "
+                f"after cleanup: {orphan_result['vms_restarted']}"
+            )
         if orphan_result['errors']:
             for err in orphan_result['errors']:
                 logger.warning(f"Nodebuilder startup: Orphan cleanup issue: {err}")

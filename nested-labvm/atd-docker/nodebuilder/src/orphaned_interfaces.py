@@ -938,4 +938,33 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
     except Exception as e:
         result['errors'].append(f"Startup cleanup error: {e}")
 
+    # After detaching stale interfaces, try to start any affected VMs
+    # that are shut off. Original topology VMs boot via libvirt autostart
+    # BEFORE nodebuilder starts, so they may have failed to start due to
+    # the stale interfaces. Now that we've cleaned them, try starting them.
+    result['vms_restarted'] = []
+    for vm_name in result['devices_cleaned']:
+        try:
+            state_result = subprocess.run(
+                ['virsh', 'domstate', vm_name],
+                capture_output=True, text=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            if state_result.returncode == 0 and 'shut off' in state_result.stdout:
+                logger.info(f"Startup cleanup: Starting {vm_name} after interface cleanup")
+                start_result = subprocess.run(
+                    ['virsh', 'start', vm_name],
+                    capture_output=True, text=True,
+                    timeout=60
+                )
+                if start_result.returncode == 0:
+                    result['vms_restarted'].append(vm_name)
+                    logger.info(f"Startup cleanup: Successfully started {vm_name}")
+                else:
+                    result['errors'].append(
+                        f"Failed to start {vm_name} after cleanup: {start_result.stderr.strip()}"
+                    )
+        except Exception as e:
+            result['errors'].append(f"Error starting {vm_name}: {e}")
+
     return result
