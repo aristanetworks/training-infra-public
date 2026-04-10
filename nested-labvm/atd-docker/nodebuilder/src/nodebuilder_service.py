@@ -66,6 +66,9 @@ from config import (
     DEFAULT_NETWORK_LATENCY_MS
 )
 
+from cloudeos_manager import create_cloudeos, delete_cloudeos, get_cloudeos_status
+from link_manager import add_link, remove_link, get_user_links, get_available_ports
+
 # Configure logging (level configurable via environment variable)
 LOG_LEVEL = os.environ.get('NODEBUILDER_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
@@ -2984,6 +2987,309 @@ async def _vco_proxy(request, method: str):
         return web.json_response({
             'error': sanitize_error(e)
         }, status=500)
+
+
+# ============================================================================
+# Helper functions
+# ============================================================================
+
+def get_available_ips_internal():
+    """Return available IPs for use by other handlers without going through HTTP."""
+    from validation import get_available_ips
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+    topo_build_path = get_topo_build_path()
+    return get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+
+
+# ============================================================================
+# CloudEOS Endpoints
+# ============================================================================
+
+@routes.get('/cloudeos-status')
+async def cloudeos_status(request):
+    """GET /cloudeos-status - Return CloudEOS device count and availability."""
+    try:
+        status = get_cloudeos_status()
+        return web.json_response(status)
+    except Exception as e:
+        logger.error(f"Error getting CloudEOS status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-cloudeos')
+async def add_cloudeos(request):
+    """POST /add-cloudeos - Create a CloudEOS VM."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name')
+    ip = data.get('ip')
+    device_type = data.get('device_type', 'other')
+    connections = data.get('connections', [])
+
+    if not name or not ip:
+        return web.json_response({'error': 'name and ip are required'}, status=400)
+
+    try:
+        result = create_cloudeos(name=name, ip=ip, device_type=device_type, connections=connections)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error creating CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-cloudeos')
+async def delete_cloudeos_endpoint(request):
+    """POST /delete-cloudeos - Delete a CloudEOS VM."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name')
+    if not name:
+        return web.json_response({'error': 'name is required'}, status=400)
+
+    try:
+        result = delete_cloudeos(name=name)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error deleting CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# WAN CloudEOS Endpoints
+# ============================================================================
+
+@routes.get('/wan-cloudeos-preview')
+async def wan_cloudeos_preview(request):
+    """GET /wan-cloudeos-preview - Preview D1/D2 deployment details."""
+    from validation import get_topo_nodes
+    from interface_manager import find_next_available_port
+    from persistence import get_user_cloudeos_device
+    from config import get_topo_build_path
+
+    try:
+        topo_build_path = get_topo_build_path()
+        topo_nodes = get_topo_nodes(topo_build_path)
+
+        # Find PE1 and PE2 nodes (returned as flat dicts with 'name' key)
+        pe1 = None
+        pe2 = None
+        for node in topo_nodes:
+            if node.get('name', '').upper() == 'PE1':
+                pe1 = node
+            elif node.get('name', '').upper() == 'PE2':
+                pe2 = node
+
+        if not pe1 or not pe2:
+            return web.json_response({'error': 'PE1 and PE2 not found in topology'}, status=400)
+
+        # Check if D1/D2 already exist
+        d1_exists = get_user_cloudeos_device('D1') is not None
+        d2_exists = get_user_cloudeos_device('D2') is not None
+
+        if d1_exists or d2_exists:
+            existing = []
+            if d1_exists:
+                existing.append('D1')
+            if d2_exists:
+                existing.append('D2')
+            return web.json_response({
+                'error': f'{", ".join(existing)} already deployed',
+                'd1_exists': d1_exists,
+                'd2_exists': d2_exists
+            }, status=400)
+
+        # Find available ports on PE1/PE2
+        pe1_port = find_next_available_port('PE1')
+        pe2_port = find_next_available_port('PE2')
+
+        # Get available IPs
+        available_ips = get_available_ips_internal()
+        d1_ip = available_ips[0]['ip'] if len(available_ips) > 0 else None
+        d2_ip = available_ips[1]['ip'] if len(available_ips) > 1 else None
+
+        return web.json_response({
+            'status': 'ready',
+            'd1': {'name': 'D1', 'ip': d1_ip, 'target': 'PE1', 'target_port': pe1_port},
+            'd2': {'name': 'D2', 'ip': d2_ip, 'target': 'PE2', 'target_port': pe2_port},
+            'targets_need_reboot': ['PE1', 'PE2']
+        })
+    except Exception as e:
+        logger.error(f"Error previewing WAN CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-wan-cloudeos')
+async def add_wan_cloudeos(request):
+    """POST /add-wan-cloudeos - Deploy D1 and D2 CloudEOS nodes connected to PE1 and PE2."""
+    from validation import get_topo_nodes
+    from interface_manager import find_next_available_port
+    from persistence import get_user_cloudeos_device
+    from config import get_topo_build_path
+
+    try:
+        topo_build_path = get_topo_build_path()
+        topo_nodes = get_topo_nodes(topo_build_path)
+        node_names = {n.get('name', '').upper() for n in topo_nodes}
+
+        if 'PE1' not in node_names or 'PE2' not in node_names:
+            return web.json_response({'error': 'PE1 and PE2 not found in topology'}, status=400)
+
+        # Check D1/D2 don't already exist
+        if get_user_cloudeos_device('D1') is not None:
+            return web.json_response({'error': 'D1 already deployed'}, status=400)
+        if get_user_cloudeos_device('D2') is not None:
+            return web.json_response({'error': 'D2 already deployed'}, status=400)
+
+        # Get available IPs
+        available_ips = get_available_ips_internal()
+        if len(available_ips) < 2:
+            return web.json_response({'error': 'Not enough IPs available'}, status=400)
+
+        d1_ip = available_ips[0]['ip']
+        d2_ip = available_ips[1]['ip']
+        pe1_port = find_next_available_port('PE1')
+        pe2_port = find_next_available_port('PE2')
+
+        # Create D1 connected to PE1
+        d1_result = create_cloudeos(
+            name='D1', ip=d1_ip, device_type='pe',
+            connections=[{'target_device': 'PE1', 'target_port': pe1_port, 'local_port': 'Ethernet1'}]
+        )
+
+        if d1_result.get('status') == 'error':
+            return web.json_response(
+                {'error': f'Failed to create D1: {d1_result.get("message")}'},
+                status=500
+            )
+
+        # Create D2 connected to PE2
+        d2_result = create_cloudeos(
+            name='D2', ip=d2_ip, device_type='pe',
+            connections=[{'target_device': 'PE2', 'target_port': pe2_port, 'local_port': 'Ethernet1'}]
+        )
+
+        if d2_result.get('status') == 'error':
+            # Rollback D1
+            logger.warning("D2 creation failed, rolling back D1")
+            delete_cloudeos('D1')
+            return web.json_response({
+                'error': f'Failed to create D2 (D1 rolled back): {d2_result.get("message")}'
+            }, status=500)
+
+        # Merge reboot lists from both deployments
+        all_need_reboot = list(set(
+            d1_result.get('targets_need_reboot', []) + d2_result.get('targets_need_reboot', [])
+        ))
+        all_reused = list(set(
+            d1_result.get('targets_reused_slots', []) + d2_result.get('targets_reused_slots', [])
+        ))
+
+        return web.json_response({
+            'status': 'success',
+            'd1': d1_result,
+            'd2': d2_result,
+            'targets_need_reboot': all_need_reboot,
+            'targets_reused_slots': all_reused
+        })
+
+    except Exception as e:
+        logger.error(f"Error deploying WAN CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# Link Management Endpoints
+# ============================================================================
+
+@routes.get('/user-links')
+async def get_user_links_endpoint(request):
+    """GET /user-links - List user-added links between topology nodes."""
+    try:
+        links = get_user_links()
+        return web.json_response({'links': links})
+    except Exception as e:
+        logger.error(f"Error getting user links: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-link')
+async def add_link_endpoint(request):
+    """POST /add-link - Add a link between two original topology nodes."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    source_device = data.get('source_device')
+    source_port = data.get('source_port')
+    target_device = data.get('target_device')
+    target_port = data.get('target_port')
+
+    if not all([source_device, source_port, target_device, target_port]):
+        return web.json_response(
+            {'error': 'source_device, source_port, target_device, target_port required'},
+            status=400
+        )
+
+    try:
+        result = add_link(source_device, source_port, target_device, target_port)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error adding link: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/remove-link')
+async def remove_link_endpoint(request):
+    """POST /remove-link - Remove a user-added link between topology nodes."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    source_device = data.get('source_device')
+    source_port = data.get('source_port')
+    target_device = data.get('target_device')
+    target_port = data.get('target_port')
+
+    if not all([source_device, source_port, target_device, target_port]):
+        return web.json_response(
+            {'error': 'source_device, source_port, target_device, target_port required'},
+            status=400
+        )
+
+    try:
+        result = remove_link(source_device, source_port, target_device, target_port)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error removing link: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/available-ports/{device}')
+async def available_ports(request):
+    """GET /available-ports/{device} - List free ports on a topology device."""
+    try:
+        device = request.match_info['device']
+        ports = get_available_ports(device)
+        return web.json_response({'device': device, 'ports': ports})
+    except Exception as e:
+        logger.error(f"Error getting available ports: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
 
 
 async def on_startup(app):
