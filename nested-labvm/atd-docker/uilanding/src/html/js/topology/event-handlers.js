@@ -35,7 +35,10 @@ export class EventManager {
             addHost: false,
             addFirewall: false,
             addVelocloud: false,
-            resetTopology: false
+            resetTopology: false,
+            addCloudeos: false,
+            addWanCloudeos: false,
+            addLink: false
         };
 
         // Capture panel reference (set externally by TopologyManager)
@@ -243,6 +246,14 @@ export class EventManager {
                     this.hideContextMenu();
                 },
                 disabled: !data.ip || data.ip === 'N/A'
+            },
+            {
+                label: 'Add Link',
+                action: () => {
+                    this.showAddLinkModal(data.label);
+                    this.hideContextMenu();
+                },
+                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
             },
             {
                 type: 'separator',
@@ -925,6 +936,30 @@ export class EventManager {
                 },
                 disabled: this.isCeosLab
             }] : []),
+            // Add CloudEOS Node
+            {
+                label: this.isCeosLab ? 'Add CloudEOS Node (KVM only)' : 'Add CloudEOS Node',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addCloudeosWizard) {
+                        window.addCloudeosWizard.show();
+                    } else {
+                        console.error('AddCloudeosWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addCloudeos
+            },
+            // Deploy WAN CloudEOS (D1/D2)
+            {
+                label: 'Deploy WAN CloudEOS (D1/D2)',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showWanCloudeosConfirmation();
+                },
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addWanCloudeos
+            },
             {
                 type: 'separator'
             },
@@ -1065,6 +1100,16 @@ export class EventManager {
             {
                 type: 'separator'
             },
+            // Remove user-added link
+            {
+                label: 'Remove Link',
+                action: () => {
+                    this.confirmRemoveLink(data);
+                    this.hideContextMenu();
+                },
+                hidden: !data.user_added || !this.nodebuilderFeatures.addLink,
+                className: 'danger'
+            },
             {
                 label: 'Focus Source',
                 action: () => {
@@ -1089,13 +1134,18 @@ export class EventManager {
 
         // Build menu HTML
         menuItems.forEach(item => {
+            // Skip hidden items
+            if (item.hidden) return;
+
             if (item.type === 'separator') {
                 const sep = document.createElement('div');
                 sep.className = 'context-menu-separator';
                 menu.appendChild(sep);
             } else {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                let className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
 
                 // Only add icon if provided
                 if (item.icon) {
@@ -3195,6 +3245,343 @@ export class EventManager {
             console.error('Failed to load user nodes status:', error);
             modal.showError('Failed to check user nodes: ' + error.message);
         }
+    }
+
+
+    /**
+     * Show modal for adding a link between two devices
+     * Fetches available ports for source and target devices from the API.
+     * @param {string} sourceDevice - Name of the source device
+     */
+    async showAddLinkModal(sourceDevice) {
+        const modal = new BaseModal({
+            title: `Add Link from ${this.escapeHtml(sourceDevice)}`,
+            size: BaseModal.SIZES.MEDIUM,
+            className: 'add-link-modal'
+        });
+
+        modal.show();
+        modal.showLoading('Loading available ports...');
+
+        try {
+            // Fetch available ports for source device
+            const sourceResp = await fetch(`/td-api/nodes/available-ports/${encodeURIComponent(sourceDevice)}`);
+            const sourceData = await sourceResp.json();
+
+            // Fetch target devices
+            const targetsResp = await fetch('/td-api/nodes/target-devices');
+            const targetsData = await targetsResp.json();
+
+            // Build form content
+            const content = document.createElement('div');
+            const sourcePortOptions = (sourceData.ports || []).map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('');
+            const targetDeviceOptions = (targetsData.devices || []).filter(d => d.name !== sourceDevice).map(d =>
+                `<option value="${this.escapeHtml(d.name)}" data-next-port="${this.escapeHtml(d.next_port || '')}">${this.escapeHtml(d.name)}</option>`
+            ).join('');
+            content.innerHTML = [
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Source Port</label>',
+                '    <select id="link-source-port" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
+                '        <option value="">Select port...</option>',
+                sourcePortOptions,
+                '    </select>',
+                '</div>',
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Device</label>',
+                '    <select id="link-target-device" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
+                '        <option value="">Select device...</option>',
+                targetDeviceOptions,
+                '    </select>',
+                '</div>',
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Port</label>',
+                '    <select id="link-target-port" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
+                '        <option value="">Select device first...</option>',
+                '    </select>',
+                '</div>',
+                '<div id="link-status-info"></div>'
+            ].join('\n');
+
+            modal.setContent(content);
+            modal.clearFooter();
+
+            const cancelBtn = modal.addFooterButton({
+                text: 'Cancel',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
+
+            const addBtn = modal.addFooterButton({
+                text: 'Add Link',
+                type: 'primary',
+                disabled: true,
+                onClick: async () => {
+                    const sourcePort = content.querySelector('#link-source-port').value;
+                    const targetDevice = content.querySelector('#link-target-device').value;
+                    const targetPort = content.querySelector('#link-target-port').value;
+
+                    addBtn.disabled = true;
+                    addBtn.textContent = 'Adding...';
+
+                    try {
+                        const resp = await fetch('/td-api/nodes/add-link', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                source_device: sourceDevice,
+                                source_port: sourcePort,
+                                target_device: targetDevice,
+                                target_port: targetPort
+                            })
+                        });
+                        const result = await resp.json();
+                        if (result.status === 'success') {
+                            modal.showSuccess('Link Added',
+                                `${sourceDevice}:${sourcePort} ↔ ${targetDevice}:${targetPort}`);
+                            modal.clearFooter();
+                            modal.addFooterButton({
+                                text: 'Close',
+                                type: 'primary',
+                                onClick: () => {
+                                    modal.hide();
+                                    if (window.topologyManager) {
+                                        window.topologyManager.refreshTopology();
+                                    }
+                                }
+                            });
+                        } else {
+                            modal.showError('Failed to Add Link', result.error || result.message || 'Unknown error');
+                            modal.clearFooter();
+                            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                        }
+                    } catch (err) {
+                        modal.showError('Error', err.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                }
+            });
+
+            // Target device change handler - load target ports
+            content.querySelector('#link-target-device').addEventListener('change', async (e) => {
+                const targetDevice = e.target.value;
+                const targetPortSelect = content.querySelector('#link-target-port');
+                if (!targetDevice) {
+                    targetPortSelect.innerHTML = '<option value="">Select device first...</option>';
+                    addBtn.disabled = true;
+                    return;
+                }
+                targetPortSelect.innerHTML = '<option value="">Loading...</option>';
+                try {
+                    const resp = await fetch(`/td-api/nodes/available-ports/${encodeURIComponent(targetDevice)}`);
+                    const data = await resp.json();
+                    targetPortSelect.innerHTML = '<option value="">Select port...</option>' +
+                        (data.ports || []).map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('');
+                } catch (err) {
+                    targetPortSelect.innerHTML = '<option value="">Error loading ports</option>';
+                }
+                this.updateAddLinkButton(content, addBtn);
+            });
+
+            // Update button state on any select change
+            content.querySelectorAll('select').forEach(sel => {
+                sel.addEventListener('change', () => this.updateAddLinkButton(content, addBtn));
+            });
+
+        } catch (err) {
+            modal.showError('Error Loading Data', err.message);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+        }
+    }
+
+    /**
+     * Update the Add Link button enabled state based on form selections
+     * @param {HTMLElement} content - Form content element
+     * @param {HTMLButtonElement} btn - The Add Link button
+     */
+    updateAddLinkButton(content, btn) {
+        const sourcePort = content.querySelector('#link-source-port')?.value;
+        const targetDevice = content.querySelector('#link-target-device')?.value;
+        const targetPort = content.querySelector('#link-target-port')?.value;
+        btn.disabled = !sourcePort || !targetDevice || !targetPort;
+    }
+
+    /**
+     * Show confirmation modal for deploying WAN CloudEOS nodes (D1/D2)
+     * Fetches a preview from the API before deploying.
+     */
+    async showWanCloudeosConfirmation() {
+        const modal = new BaseModal({
+            title: 'Deploy WAN CloudEOS Nodes',
+            size: BaseModal.SIZES.MEDIUM,
+            className: 'wan-cloudeos-modal'
+        });
+
+        modal.show();
+        modal.showLoading('Loading deployment preview...');
+
+        try {
+            const resp = await fetch('/td-api/nodes/wan-cloudeos-preview');
+            const preview = await resp.json();
+
+            if (preview.error) {
+                modal.showError('Cannot Deploy', preview.error);
+                modal.clearFooter();
+                modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                return;
+            }
+
+            const content = document.createElement('div');
+            const rebootWarning = preview.targets_need_reboot && preview.targets_need_reboot.length
+                ? `<div class="link-info warning" style="margin-top: 12px;">⚠ ${this.escapeHtml(preview.targets_need_reboot.join(', '))} will need to reboot</div>`
+                : '';
+            const d1Ip = this.escapeHtml(preview.d1?.ip || 'N/A');
+            const d1Target = this.escapeHtml(preview.d1?.target || 'PE1');
+            const d1Port = this.escapeHtml(preview.d1?.target_port || 'N/A');
+            const d2Ip = this.escapeHtml(preview.d2?.ip || 'N/A');
+            const d2Target = this.escapeHtml(preview.d2?.target || 'PE2');
+            const d2Port = this.escapeHtml(preview.d2?.target_port || 'N/A');
+            content.innerHTML = [
+                '<p style="color: #ccc; margin-bottom: 16px;">This will create two CloudEOS nodes for WAN training:</p>',
+                '<div class="deployment-preview">',
+                '    <div class="deployment-item">',
+                `        <strong style="color: #fff; min-width: 30px;">D1</strong>`,
+                `        <code>${d1Ip}</code>`,
+                '        <span class="deployment-arrow">→</span>',
+                `        <code>${d1Target}:${d1Port}</code>`,
+                '    </div>',
+                '    <div class="deployment-item">',
+                `        <strong style="color: #fff; min-width: 30px;">D2</strong>`,
+                `        <code>${d2Ip}</code>`,
+                '        <span class="deployment-arrow">→</span>',
+                `        <code>${d2Target}:${d2Port}</code>`,
+                '    </div>',
+                '</div>',
+                rebootWarning
+            ].join('\n');
+
+            modal.setContent(content);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Cancel', type: 'secondary', onClick: () => modal.hide()});
+            modal.addFooterButton({
+                text: 'Deploy D1 & D2',
+                type: 'primary',
+                onClick: async () => {
+                    modal.showLoading('Deploying CloudEOS nodes...');
+                    modal.clearFooter();
+                    try {
+                        const deployResp = await fetch('/td-api/nodes/add-wan-cloudeos', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: '{}'
+                        });
+                        const result = await deployResp.json();
+                        if (result.status === 'success') {
+                            modal.showSuccess('Deployment Complete', 'D1 and D2 have been created successfully.');
+                            modal.clearFooter();
+                            modal.addFooterButton({
+                                text: 'Close',
+                                type: 'primary',
+                                onClick: () => {
+                                    modal.hide();
+                                    if (window.topologyManager) {
+                                        window.topologyManager.refreshTopology();
+                                    }
+                                }
+                            });
+                        } else {
+                            modal.showError('Deployment Failed', result.error || 'Unknown error');
+                            modal.clearFooter();
+                            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                        }
+                    } catch (err) {
+                        modal.showError('Error', err.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                }
+            });
+        } catch (err) {
+            modal.showError('Error Loading Preview', err.message);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+        }
+    }
+
+    /**
+     * Show confirmation dialog for removing a user-added link
+     * @param {Object} edgeData - Edge data object containing source, target, and port info
+     */
+    confirmRemoveLink(edgeData) {
+        const modal = new BaseModal({
+            title: 'Remove Link',
+            size: BaseModal.SIZES.SMALL,
+            headerTheme: BaseModal.HEADER_THEMES.DANGER
+        });
+
+        const content = document.createElement('div');
+        const src = this.escapeHtml(edgeData.source);
+        const srcPort = this.escapeHtml(edgeData.source_port);
+        const tgt = this.escapeHtml(edgeData.target);
+        const tgtPort = this.escapeHtml(edgeData.target_port);
+        content.innerHTML = [
+            '<p style="color: #ccc;">Remove this user-added link?</p>',
+            '<div class="link-info" style="margin: 12px 0;">',
+            `    <strong>${src}:${srcPort}</strong>`,
+            '    ↔',
+            `    <strong>${tgt}:${tgtPort}</strong>`,
+            '</div>',
+            '<p style="color: #888; font-size: 13px;">This will remove the OVS bridge connecting these devices.</p>'
+        ].join('\n');
+
+        modal.show();
+        modal.setContent(content);
+        modal.clearFooter();
+        modal.addFooterButton({text: 'Cancel', type: 'secondary', onClick: () => modal.hide()});
+        modal.addFooterButton({
+            text: 'Remove Link',
+            type: 'danger',
+            onClick: async () => {
+                modal.showLoading('Removing link...');
+                modal.clearFooter();
+                try {
+                    const resp = await fetch('/td-api/nodes/remove-link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            source_device: edgeData.source,
+                            source_port: edgeData.source_port,
+                            target_device: edgeData.target,
+                            target_port: edgeData.target_port
+                        })
+                    });
+                    const result = await resp.json();
+                    if (result.status === 'success') {
+                        modal.showSuccess('Link Removed');
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            text: 'Close',
+                            type: 'primary',
+                            onClick: () => {
+                                modal.hide();
+                                if (window.topologyManager) {
+                                    window.topologyManager.refreshTopology();
+                                }
+                            }
+                        });
+                    } else {
+                        modal.showError('Failed', result.error || result.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                } catch (err) {
+                    modal.showError('Error', err.message);
+                    modal.clearFooter();
+                    modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                }
+            }
+        });
     }
 
     /**
