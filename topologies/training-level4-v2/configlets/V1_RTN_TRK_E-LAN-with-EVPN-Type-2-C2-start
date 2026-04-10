@@ -1,3 +1,4 @@
+hostname C2
 !
 int loop0
    ip address 192.168.30.2/32

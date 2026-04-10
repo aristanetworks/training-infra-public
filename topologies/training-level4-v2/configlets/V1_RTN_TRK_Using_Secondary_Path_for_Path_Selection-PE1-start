@@ -121,6 +121,5 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-!
-End
+
 

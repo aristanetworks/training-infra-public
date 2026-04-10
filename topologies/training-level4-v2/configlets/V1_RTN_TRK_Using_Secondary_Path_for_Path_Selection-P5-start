@@ -1,26 +1,25 @@
+hostname P5
 !
 interface Ethernet1
    mtu 1500
    no switchport
-   ip address 172.16.15.5/24
+   ip address 172.16.13.3/24
    isis enable isis
    isis network point-to-point
    traffic-engineering
    traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group blue,red
 !
 interface Ethernet2
    mtu 1500
    no switchport
-   ip address 172.16.56.5/24
+   ip address 172.16.23.3/24
    isis enable isis
    isis network point-to-point
    traffic-engineering
    traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group blue,red
 !
 interface Loopback0
-   ip address 192.168.100.5/32
+   ip address 192.168.100.3/32
    isis enable isis
 !
 ip routing
@@ -36,14 +35,11 @@ mpls ldp
    no shutdown
 !
 router traffic-engineering
-   router-id ipv4 192.168.100.5
-   administrative-group alias blue group 1
-   administrative-group alias red group 2
-
+   router-id ipv4 192.168.100.3
 !
 router isis isis
-   net 49.0000.0000.0000.0005.00
-   router-id ipv4 192.168.100.5
+   net 49.0000.0000.0000.0003.00
+   router-id ipv4 192.168.100.3
    is-type level-1
    !
    address-family ipv4 unicast
@@ -55,5 +51,4 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-!
-End
+

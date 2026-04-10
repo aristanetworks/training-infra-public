@@ -1,3 +1,5 @@
+hostname P3
+!
 interface Ethernet1
    mtu 1500
    no switchport
@@ -49,5 +51,4 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-!
-En
+
