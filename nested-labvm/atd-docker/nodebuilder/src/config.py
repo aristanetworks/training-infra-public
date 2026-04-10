@@ -203,6 +203,16 @@ FIREWALL_RAM_MB = 1024
 FIREWALL_DISK_GB = 5
 MAX_FIREWALLS_PER_TOPOLOGY = 1
 
+# CloudEOS configuration (using vEOS-lab as placeholder image)
+CLOUDEOS_CPU = 2
+CLOUDEOS_RAM_MB = 8192  # 8GB
+CLOUDEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'  # Placeholder until real CloudEOS image
+MAX_CLOUDEOS_PER_TOPOLOGY = 4
+
+# Persistence paths
+USER_CLOUDEOS_PATH = os.getenv('USER_CLOUDEOS_PATH', '/etc/atd/user_cloudeos.yaml')
+USER_LINKS_PATH = os.getenv('USER_LINKS_PATH', '/etc/atd/user_links.yaml')
+
 
 def get_firewall_base_image_path(auto_download: bool = True) -> str:
     """
