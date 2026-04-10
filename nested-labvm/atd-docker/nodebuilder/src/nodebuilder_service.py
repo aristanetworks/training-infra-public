@@ -3304,6 +3304,7 @@ async def on_startup(app):
         cleanup_stale_velo_devices
     )
     from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH
+    from orphaned_interfaces import cleanup_stale_orphaned_interfaces
 
     # Clean up any stale device entries from crashed creations
     # This prevents orphaned 'creating' entries from blocking new device creation
@@ -3329,6 +3330,21 @@ async def on_startup(app):
 
     if total_cleaned > 0:
         logger.info(f"Nodebuilder startup: Cleaned up {total_cleaned} stale device entry/entries")
+
+    # Clean up interfaces pointing to deleted OVS bridges
+    # This prevents VMs from failing to start with "Cannot get interface MTU" errors
+    try:
+        orphan_result = cleanup_stale_orphaned_interfaces()
+        if orphan_result['detached_count'] > 0:
+            logger.info(
+                f"Nodebuilder startup: Detached {orphan_result['detached_count']} stale interface(s) "
+                f"from {orphan_result['devices_cleaned']}"
+            )
+        if orphan_result['errors']:
+            for err in orphan_result['errors']:
+                logger.warning(f"Nodebuilder startup: Orphan cleanup issue: {err}")
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale orphaned interfaces: {e}")
 
     logger.info("Nodebuilder startup: Initiating background image pre-staging")
     await start_background_prestaging()
