@@ -7,6 +7,8 @@ Provides a consistent view of ALL devices across all sources:
 - User-added Linux hosts (user_hosts.yaml)
 - User-added VyOS firewalls (user_firewalls.yaml)
 - User-added VeloCloud devices (user_velo.yaml)
+- User-added CloudEOS devices (user_cloudeos.yaml)
+- User-added links between devices (user_links.yaml)
 
 This module standardizes the data format and provides a single source of truth
 for topology queries, making it easier to extend with new device types.
@@ -28,6 +30,7 @@ class DeviceType(Enum):
     VELO_EDGE = 'velo_edge'
     VELO_GATEWAY = 'velo_gateway'
     VELO_ORCHESTRATOR = 'velo_orchestrator'
+    CLOUDEOS = 'cloudeos'
 
 
 class DeviceCategory(Enum):
@@ -36,6 +39,7 @@ class DeviceCategory(Enum):
     HOST = 'host'          # End-user hosts (Linux desktop)
     FIREWALL = 'firewall'  # Security devices (VyOS)
     SDWAN = 'sdwan'        # SD-WAN devices (VeloCloud)
+    CLOUDEOS = 'cloudeos'  # Cloud EOS devices
 
 
 @dataclass
@@ -67,7 +71,9 @@ def get_unified_topology(
     user_nodes_path: str,
     user_hosts_path: str,
     user_firewalls_path: str,
-    user_velo_path: str = None
+    user_velo_path: str = None,
+    user_cloudeos_path: str = None,
+    user_links_path: str = None
 ) -> Dict:
     """
     Get complete unified topology with ALL device types.
@@ -78,6 +84,8 @@ def get_unified_topology(
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
         user_velo_path: Path to user_velo.yaml (optional for backwards compatibility)
+        user_cloudeos_path: Path to user_cloudeos.yaml (optional)
+        user_links_path: Path to user_links.yaml (optional)
 
     Returns:
         Dict with:
@@ -303,6 +311,59 @@ def get_unified_topology(
         except Exception as e:
             logger.warning(f"Error loading user VeloCloud devices: {e}")
 
+    # 6. Load user CloudEOS devices
+    if user_cloudeos_path:
+        try:
+            from persistence import load_user_cloudeos
+            cloudeos_data = load_user_cloudeos(user_cloudeos_path)
+            for device_entry in cloudeos_data.get('devices', []):
+                for name, info in device_entry.items():
+                    if isinstance(info, dict) and info.get('status') == 'creating':
+                        continue
+                    neighbors = []
+                    for neighbor in info.get('neighbors', []):
+                        neighbors.append({
+                            'port': neighbor.get('port', ''),
+                            'neighborDevice': neighbor.get('neighborDevice', ''),
+                            'neighborPort': neighbor.get('neighborPort', '')
+                        })
+                        connections.append({
+                            'source_device': name,
+                            'source_port': neighbor.get('port', ''),
+                            'target_device': neighbor.get('neighborDevice', ''),
+                            'target_port': neighbor.get('neighborPort', ''),
+                            'source_type': DeviceType.CLOUDEOS.value
+                        })
+                    device = UnifiedDevice(
+                        name=name,
+                        ip=info.get('ip_addr', ''),
+                        device_type=DeviceType.CLOUDEOS.value,
+                        device_category=DeviceCategory.CLOUDEOS.value,
+                        user_added=True,
+                        neighbors=neighbors if neighbors else None
+                    )
+                    devices.append(device.to_dict())
+        except Exception as e:
+            logger.warning(f"Error loading CloudEOS devices: {e}")
+
+    # 7. Load user-added links between original devices
+    if user_links_path:
+        try:
+            from persistence import load_user_links
+            links_data = load_user_links(user_links_path)
+            for link in links_data.get('links', []):
+                connections.append({
+                    'source_device': link.get('source_device', ''),
+                    'source_port': link.get('source_port', ''),
+                    'target_device': link.get('target_device', ''),
+                    'target_port': link.get('target_port', ''),
+                    'source_type': 'user_link',
+                    'user_added': True,
+                    'bridge': link.get('bridge', '')
+                })
+        except Exception as e:
+            logger.warning(f"Error loading user links: {e}")
+
     # Build summary
     summary = {
         'total_devices': len(devices),
@@ -311,6 +372,8 @@ def get_unified_topology(
         'user_hosts': len([d for d in devices if d['device_type'] == DeviceType.LINUX_HOST.value]),
         'user_firewalls': len([d for d in devices if d['device_type'] == DeviceType.FIREWALL.value]),
         'user_velocloud': len([d for d in devices if d['device_category'] == DeviceCategory.SDWAN.value]),
+        'user_cloudeos': sum(1 for d in devices if d['device_type'] == DeviceType.CLOUDEOS.value),
+        'user_links': len([c for c in connections if c.get('user_added')]),
         'total_connections': len(connections),
         'orphaned_connections': len([c for c in connections if c.get('orphaned')])
     }
@@ -328,7 +391,9 @@ def get_device_by_name(
     user_nodes_path: str,
     user_hosts_path: str,
     user_firewalls_path: str,
-    user_velo_path: str = None
+    user_velo_path: str = None,
+    user_cloudeos_path: str = None,
+    user_links_path: str = None
 ) -> Optional[Dict]:
     """
     Get a specific device by name from the unified topology.
@@ -340,13 +405,15 @@ def get_device_by_name(
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
         user_velo_path: Path to user_velo.yaml (optional)
+        user_cloudeos_path: Path to user_cloudeos.yaml (optional)
+        user_links_path: Path to user_links.yaml (optional)
 
     Returns:
         Device dict if found, None otherwise
     """
     topology = get_unified_topology(
         topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path,
-        user_velo_path
+        user_velo_path, user_cloudeos_path, user_links_path
     )
 
     name_lower = name.lower()
@@ -362,7 +429,9 @@ def get_all_device_names_unified(
     user_nodes_path: str,
     user_hosts_path: str,
     user_firewalls_path: str,
-    user_velo_path: str = None
+    user_velo_path: str = None,
+    user_cloudeos_path: str = None,
+    user_links_path: str = None
 ) -> Set[str]:
     """
     Get all device names from unified topology.
@@ -373,13 +442,15 @@ def get_all_device_names_unified(
         user_hosts_path: Path to user_hosts.yaml
         user_firewalls_path: Path to user_firewalls.yaml
         user_velo_path: Path to user_velo.yaml (optional)
+        user_cloudeos_path: Path to user_cloudeos.yaml (optional)
+        user_links_path: Path to user_links.yaml (optional)
 
     Returns:
         Set of device names (lowercase for case-insensitive comparison)
     """
     topology = get_unified_topology(
         topo_build_path, user_nodes_path, user_hosts_path, user_firewalls_path,
-        user_velo_path
+        user_velo_path, user_cloudeos_path, user_links_path
     )
 
     return {device['name'].lower() for device in topology['devices']}
