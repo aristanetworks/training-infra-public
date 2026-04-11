@@ -29,9 +29,9 @@ topologies:
               ram: 110
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-training-l4-v2-2025-1-20251006
+            image: base-veos-training-l4-v2-2025-1-20260410
             eos:
-              - 4.32.1F           
+              - 4.32.1F
     desc: 'Level 4 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Level 4 v2'
     title: 'Training Level 4 Lab'
@@ -67,9 +67,9 @@ topologies:
               ram: 150
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-training-l7-2025-1-4321-20250909
+            image: base-veos-training-l7-2025-1-4321-20260410-203331
             eos:
-              - 4.32.1F     
+              - 4.32.1F
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
     name: 'Training - Expert: Qualification'
     title: 'Training - Expert: Qualification'
@@ -105,9 +105,9 @@ topologies:
               ram: 160
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-training-l7-part-3-avd-2025-1-4321-20250910
+            image: base-veos-training-l7-part-3-avd-2025-1-4321-20260410
             eos:
-              - 4.32.1F                            
+              - 4.32.1F
     desc: 'Level 7 - Day 2 AVD Training Lab. For use by the Arista Training Team.'
     name: 'Training - Expert: Day 2'
     title: 'Training - Expert: Day 2'
@@ -270,7 +270,7 @@ topologies:
               ram: 160
             branch:  v2025.1-03262026
             orderable: true
-            image: base-veos-training-lx-veos-2025-1-4321-20251003
+            image: base-veos-training-lx-veos-2025-1-4321-20260410
             eos:
               - 4.32.1F  
     desc: 'Training Lab vEOS. For use by the Arista Training Team.'
@@ -425,7 +425,7 @@ topologies:
               ram: 160
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
+            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20260410
             eos:
               - 4.32.1F
     desc: 'Training Lab Campus vEOS Exam. For use by the Arista Training Team.'
@@ -463,7 +463,7 @@ topologies:
               ram: 160
             branch: v2025.1-03262026
             orderable: false
-            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
+            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20260410
             eos:
               - 4.32.1F
     desc: 'Training Lab Campus vEOS Exam. For use by the Arista Training Team.'
@@ -694,7 +694,7 @@ topologies:
               ram: 110
             branch: v2025.1-03242026
             orderable: true
-            image: base-veos-training-l4-exam-2025-1-4321-20251020
+            image: base-veos-training-l4-exam-2025-1-4321-20260410
             eos:
               - 4.30.1F
     desc: 'Level 4 Exam Lab. For use by the Arista Training Team.'
