@@ -14,9 +14,9 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l4-v2-2025-1-20251006
+            image: base-veos-training-l4-v2-2025-1-20260410
             eos:
-              - 4.32.1F   
+              - 4.32.1F
     prod:
       veos:
         cpu: 32
@@ -52,9 +52,9 @@ topologies:
               ram: 150
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l7-2025-1-4321-20250909
+            image: base-veos-training-l7-2025-1-4321-20260410-203331
             eos:
-              - 4.32.1F              
+              - 4.32.1F
     prod:
       veos:
         cpu: 76
@@ -90,9 +90,9 @@ topologies:
               ram: 150
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l7-part-3-avd-2025-1-4321-20250910
+            image: base-veos-training-l7-part-3-avd-2025-1-4321-20260410
             eos:
-              - 4.32.1F   
+              - 4.32.1F
     prod:
       veos:
         cpu: 80
@@ -225,9 +225,9 @@ topologies:
               ram: 160
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-lx-veos-2025-1-4321-20251003
+            image: base-veos-training-lx-veos-2025-1-4321-20260410
             eos:
-              - 4.32.1F    
+              - 4.32.1F
           2025.1.0-43502:
             schema: 1
             resources:
@@ -410,7 +410,7 @@ topologies:
               ram: 160
             branch: nested/2025.1
             orderable: true
-            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
+            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20260410
             eos:
               - 4.32.1F                
     prod:
@@ -427,7 +427,7 @@ topologies:
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
             eos:
-              - 4.32.1F    
+              - 4.32.1F
     desc: 'Training Lab Campus vEOS Exam. For use by the Arista Training Team.'
     name: 'Training Lab Campus Exam'
     title: 'Campus Exam'
@@ -448,7 +448,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: false
-            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
+            image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20260410
             eos:
               - 4.32.1F                
     prod:
@@ -465,7 +465,7 @@ topologies:
             orderable: false
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20251106
             eos:
-              - 4.32.1F    
+              - 4.32.1F
     desc: 'Training Lab Campus vEOS Exam. For use by the Arista Training Team.'
     name: 'Training Lab Campus Exam'
     title: 'Campus Exam'
@@ -679,7 +679,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-l4-exam-2025-1-4321-20251020
+            image: base-veos-training-l4-exam-2025-1-4321-20260410
             eos:
               - 4.30.1F
     prod:
