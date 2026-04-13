@@ -1,42 +1,45 @@
+!
+hostname P4
+!
 ip routing
 mpls ip
 !
 service routing protocols model multi-agent
 !
-router isis isis
-net 49.0000.0000.0000.0004.00
-router-id ipv4 192.168.100.4
-is-type level-1
+ip prefix-list ldp-fec-prefix-list
+   permit 192.168.100.0/24 ge 32
 !
-address-family ipv4 unicast
-segment-routing mpls
-no shutdown
+router isis isis
+   net 49.0000.0000.0000.0004.00
+   router-id ipv4 192.168.100.4
+   is-type level-1
+   address-family ipv4 unicast
+   segment-routing mpls
+      no shutdown
 !
 interface Loopback0
-ip address 192.168.100.4/32
-isis enable isis
-node-segment ipv4 index 4
+   ip address 192.168.100.4/32
+   isis enable isis
+   node-segment ipv4 index 4
 !
 interface Ethernet1
-no switchport
-ip address 172.16.14.4/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
+   no switchport
+   description to PE1
+   ip address 172.16.14.4/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 interface Ethernet2
-no switchport
-ip address 172.16.24.4/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
-!
-ip prefix-list ldp-fec-prefix-list
-permit 192.168.100.0/24 ge 24
+   no switchport
+   description to PE2
+   ip address 172.16.24.4/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 mpls ldp
-router-id interface Loopback0 force
-fec filter prefix-list ldp-fec-prefix-list
-no shutdown
+   router-id interface loopback 0
+   fec filter prefix-list ldp-fec-prefix-list
+   shutdown
+!
