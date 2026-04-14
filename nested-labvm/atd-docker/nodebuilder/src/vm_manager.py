@@ -608,10 +608,16 @@ def restore_all_user_nodes() -> Dict:
     Returns:
         Dict with list of restored devices and any errors
     """
-    from persistence import load_user_nodes, load_user_hosts, load_user_firewalls
-    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    from persistence import (
+        load_user_nodes, load_user_hosts, load_user_firewalls,
+        load_user_cloudeos, list_user_links
+    )
+    from config import (
+        USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+        USER_CLOUDEOS_PATH, USER_LINKS_PATH
+    )
 
-    logger.info("Restoring all user nodes, hosts, and firewalls")
+    logger.info("Restoring all user nodes, hosts, firewalls, CloudEOS devices, and links")
 
     # Collect all devices to restore
     all_devices = []
@@ -652,10 +658,32 @@ def restore_all_user_nodes() -> Dict:
                 'ip_field': 'mgmt_ip'
             })
 
-    if not all_devices:
+    # Get CloudEOS devices
+    try:
+        cloudeos_data = load_user_cloudeos(USER_CLOUDEOS_PATH)
+        cloudeos_devices = cloudeos_data.get('devices') or []
+        for ce_entry in cloudeos_devices:
+            for ce_name, ce_info in ce_entry.items():
+                all_devices.append({
+                    'name': ce_name,
+                    'info': ce_info,
+                    'type': 'cloudeos',
+                    'ip_field': 'ip_addr'
+                })
+    except Exception as e:
+        logger.warning(f"Failed to load CloudEOS devices for restore: {e}")
+
+    # Get user-added links between original topology nodes
+    user_links = []
+    try:
+        user_links = list_user_links(USER_LINKS_PATH)
+    except Exception as e:
+        logger.warning(f"Failed to load user links for restore: {e}")
+
+    if not all_devices and not user_links:
         return {
             'status': 'no_nodes',
-            'message': 'No user-added devices to restore',
+            'message': 'No user-added devices or links to restore',
             'restored': [],
             'errors': []
         }
@@ -743,7 +771,76 @@ def restore_all_user_nodes() -> Dict:
                     except Exception as e:
                         logger.warning(f"Failed to create/attach bridge {bridge_name}: {e}")
 
-    logger.info(f"Phase 1 complete: {len(bridges_created)} bridges created, {len(interfaces_attached)} interfaces attached")
+        # CloudEOS devices use same 'neighbors' format as vEOS nodes
+        elif device_type == 'cloudeos':
+            neighbors = device_info.get('neighbors', [])
+            for neighbor in neighbors:
+                local_port = neighbor.get('port', '')
+                target_device = neighbor.get('neighborDevice', '')
+                target_port = neighbor.get('neighborPort', '')
+
+                if local_port and target_device and target_port:
+                    bridge_name = generate_bridge_name(
+                        device_name, local_port,
+                        target_device, target_port
+                    )
+                    try:
+                        result = create_ovs_bridge(bridge_name)
+                        if result['status'] == 'created':
+                            logger.info(f"Created OVS bridge: {bridge_name}")
+                            bridges_created.append(bridge_name)
+                        attach_interface_to_vm(target_device.lower(), bridge_name)
+                        interfaces_attached.append(f"{target_device}:{bridge_name}")
+                        logger.info(f"Attached interface to {target_device} on {bridge_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to create/attach bridge {bridge_name}: {e}")
+
+    # Phase 1b: Restore user-added links between original topology nodes
+    # These are OVS bridges connecting two existing topology devices
+    links_restored = 0
+    if user_links:
+        logger.info(f"Phase 1b: Restoring {len(user_links)} user-added links")
+        for link in user_links:
+            source_device = link.get('source_device', '')
+            source_port = link.get('source_port', '')
+            target_device = link.get('target_device', '')
+            target_port = link.get('target_port', '')
+            bridge_name = link.get('bridge_name', '')
+
+            if not bridge_name:
+                bridge_name = generate_bridge_name(
+                    source_device, source_port,
+                    target_device, target_port
+                )
+
+            try:
+                result = create_ovs_bridge(bridge_name)
+                if result['status'] == 'created':
+                    logger.info(f"Created link bridge: {bridge_name}")
+                    bridges_created.append(bridge_name)
+
+                # Attach to both endpoints (lowercase for virsh domain names)
+                attach_interface_to_vm(source_device.lower(), bridge_name)
+                interfaces_attached.append(f"{source_device}:{bridge_name}")
+                attach_interface_to_vm(target_device.lower(), bridge_name)
+                interfaces_attached.append(f"{target_device}:{bridge_name}")
+
+                links_restored += 1
+                logger.info(
+                    f"Restored link: {source_device}:{source_port} <-> "
+                    f"{target_device}:{target_port}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore link {source_device}:{source_port} <-> "
+                    f"{target_device}:{target_port}: {e}"
+                )
+
+    logger.info(
+        f"Phase 1 complete: {len(bridges_created)} bridges created, "
+        f"{len(interfaces_attached)} interfaces attached, "
+        f"{links_restored} user links restored"
+    )
 
     # Phase 2: Start all VMs in creation order
     logger.info("Phase 2: Starting user VMs in creation order")

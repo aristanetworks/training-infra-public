@@ -54,7 +54,7 @@ class TestAddLink:
                                 topo_build_path=mock_topo_build_file
                             )
 
-        assert result['status'] == 'created'
+        assert result['status'] == 'success'
         assert 'bridge_name' in result
         assert result['source_device'] == 'spine1'
         assert result['target_device'] == 'leaf1'
@@ -179,7 +179,7 @@ class TestAddLink:
                             topo_build_path=mock_topo_build_file
                         )
 
-        assert result['status'] == 'created'
+        assert result['status'] == 'success'
         assert 'leaf1' in result['targets_need_reboot']
         assert 'leaf2' in result['targets_reused_slots']
 
@@ -212,7 +212,7 @@ class TestRemoveLink:
                 user_links_path=mock_user_links_file
             )
 
-        assert result['status'] == 'deleted'
+        assert result['status'] == 'success'
         assert result['bridge_name'] == 'sp1x5-le1x5'
         assert result['bridge_deleted'] is True
         mock_delete.assert_called_once_with('sp1x5-le1x5')
@@ -262,7 +262,7 @@ class TestRemoveLink:
             )
 
         # Should report deleted_with_errors (bridge error logged)
-        assert result['status'] in ('deleted', 'deleted_with_errors')
+        assert result['status'] in ('success', 'deleted_with_errors')
         assert result['bridge_deleted'] is False
 
         # Persistence should be cleaned up regardless
@@ -292,7 +292,7 @@ class TestRemoveLink:
                 user_links_path=mock_user_links_file
             )
 
-        assert result['status'] == 'deleted'
+        assert result['status'] == 'success'
         assert result['bridge_name'] == 'le1x6-le2x6'
 
 
