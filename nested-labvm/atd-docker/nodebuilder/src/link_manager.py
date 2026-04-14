@@ -220,7 +220,7 @@ def add_link(
     )
 
     return {
-        'status': 'created',
+        'status': 'success',
         'bridge_name': bridge_name,
         'source_device': source_device,
         'source_port': source_port,
@@ -325,7 +325,7 @@ def remove_link(
         )
 
     result = {
-        'status': 'deleted',
+        'status': 'success',
         'bridge_name': bridge_name,
         'bridge_deleted': bridge_deleted,
         'source_device': source_device,
