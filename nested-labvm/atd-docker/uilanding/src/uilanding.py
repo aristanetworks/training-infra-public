@@ -2039,15 +2039,17 @@ class TopologyAPIHandler(BaseHandler):
 
                             # Use unique edge ID that includes ports to support parallel links
                             edge_id = f"{source_node}-{target_node}-{source_port}-{target_port}"
-                            edges.append({
-                                'data': {
-                                    'id': edge_id,
-                                    'source': source_node,
-                                    'target': target_node,
-                                    'source_port': source_port,
-                                    'target_port': target_port
-                                }
-                            })
+                            edge_data = {
+                                'id': edge_id,
+                                'source': source_node,
+                                'target': target_node,
+                                'source_port': source_port,
+                                'target_port': target_port
+                            }
+                            # Mark user-added links so the UI can show Remove Link option
+                            if neighbor.get('user_added'):
+                                edge_data['user_added'] = True
+                            edges.append({'data': edge_data})
                     elif neighbor_device_raw:
                         pS(f"Warning: Skipping edge {display_name}->{neighbor_device_display}: target node not in topology")
 
