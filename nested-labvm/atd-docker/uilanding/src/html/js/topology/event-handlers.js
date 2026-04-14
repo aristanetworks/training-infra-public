@@ -235,10 +235,9 @@ export class EventManager {
                 hidden: ['firewall', 'linux_host', 'velo_edge', 'velo_gateway', 'velo_orchestrator'].includes(data.device_type)
             },
             {
-                // Add Link - only on original topology nodes in KVM labs
-                // User-added nodes should use "Edit Connections" instead
+                // Add Link - available on all nodes in KVM labs
                 type: 'separator',
-                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
+                hidden: this.isCeosLab || !this.nodebuilderFeatures.addLink
             },
             {
                 label: 'Add Link',
@@ -246,7 +245,7 @@ export class EventManager {
                     this.showAddLinkModal(data.label);
                     this.hideContextMenu();
                 },
-                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
+                hidden: this.isCeosLab || !this.nodebuilderFeatures.addLink
             },
             {
                 type: 'separator'
@@ -3282,10 +3281,8 @@ export class EventManager {
             // Use the first available port as the auto-selected source port
             const sourcePort = (sourceData.ports && sourceData.ports.length > 0) ? sourceData.ports[0] : null;
 
-            // Only show original topology nodes as targets (not user-added nodes)
-            // User-added nodes should manage their connections via Edit Connections
             const targetDeviceOptions = (targetsData.devices || [])
-                .filter(d => d.name !== sourceDevice && !d.user_added)
+                .filter(d => d.name !== sourceDevice)
                 .map(d => `<option value="${this.escapeHtml(d.name)}">${this.escapeHtml(d.name)}</option>`)
                 .join('');
 

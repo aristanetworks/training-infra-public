@@ -1,11 +1,12 @@
 """
 Link Manager for Nodebuilder Service
 
-Manages adding and removing OVS bridge connections between original topology
-nodes. Only links between devices that exist in topo_build.yml are permitted.
+Manages adding and removing OVS bridge connections between any topology nodes
+(original or user-added). Both devices must exist as libvirt domains.
 
 Protection rules:
-- add_link: Both devices must be in topo_build.yml (original topology nodes only)
+- add_link: Both devices must exist as libvirt VMs (any combination of
+  original and user-added nodes)
 - remove_link: Only user-added links (in user_links.yaml) can be removed.
   Original topology links (in topo_build.yml only) are rejected.
 """
@@ -63,23 +64,15 @@ def add_link(
     topo_build_path: str = None
 ) -> Dict:
     """
-    Add a link between two original topology nodes.
+    Add a link between two topology nodes.
 
-    Steps:
-    1. Validate both devices exist in topo_build.yml (original nodes only)
-    2. Validate ports are available (not already connected)
-    3. Check for orphaned interface slots (reuse if available)
-    4. Create OVS bridge via interface_manager.create_ovs_bridge()
-    5. Generate bridge name via bridge_utils.generate_bridge_name()
-    6. Attach interfaces on both devices via slot_reuse.attach_interface_with_slot_reuse()
-    7. Apply mutual exclusivity via slot_reuse.apply_mutual_exclusivity()
-    8. Persist to user_links.yaml via persistence.save_user_link()
-    9. Return dict with status, bridge name, targets_need_reboot, targets_reused_slots
+    Works between any combination of original and user-added nodes.
+    Both devices must exist as libvirt domains.
 
     Args:
-        source_device: Name of the source device (must be in topo_build.yml)
+        source_device: Name of the source device
         source_port: Port on the source device (e.g., "Ethernet5")
-        target_device: Name of the target device (must be in topo_build.yml)
+        target_device: Name of the target device
         target_port: Port on the target device (e.g., "Ethernet5")
         user_links_path: Override path to user_links.yaml (optional)
         topo_build_path: Override path to topo_build.yml (optional)
@@ -92,25 +85,21 @@ def add_link(
     if topo_build_path is None:
         topo_build_path = get_topo_build_path()
 
-    # Step 1: Validate both devices are original topology nodes
-    topo_node_names = _get_topo_node_names(topo_build_path)
+    # Step 1: Validate both devices exist as libvirt domains
+    resource_mgr = get_resource_manager()
 
-    if source_device.lower() not in topo_node_names:
-        logger.error(
-            f"add_link: source device '{source_device}' is not in topo_build.yml"
-        )
+    if not resource_mgr.vm_exists(source_device.lower()):
+        logger.error(f"add_link: source device '{source_device}' not found as libvirt domain")
         return {
             'status': 'error',
-            'error': f"Device '{source_device}' not found in original topology (topo_build.yml)"
+            'error': f"Device '{source_device}' not found (VM does not exist)"
         }
 
-    if target_device.lower() not in topo_node_names:
-        logger.error(
-            f"add_link: target device '{target_device}' is not in topo_build.yml"
-        )
+    if not resource_mgr.vm_exists(target_device.lower()):
+        logger.error(f"add_link: target device '{target_device}' not found as libvirt domain")
         return {
             'status': 'error',
-            'error': f"Device '{target_device}' not found in original topology (topo_build.yml)"
+            'error': f"Device '{target_device}' not found (VM does not exist)"
         }
 
     # Step 5: Generate bridge name
