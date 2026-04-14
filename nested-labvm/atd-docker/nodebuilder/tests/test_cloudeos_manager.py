@@ -260,7 +260,7 @@ class TestCreateCloudEOS:
                                                             ]
                                                         )
 
-                                                        assert result['status'] == 'created'
+                                                        assert result['status'] == 'success'
                                                         assert result['name'] == 'test-ceos'
                                                         assert result['ip'] == '192.168.0.50'
                                                         assert 'leaf1' in result['targets_need_reboot']
@@ -370,7 +370,7 @@ class TestCreateCloudEOS:
                                             connections=[]
                                         )
 
-                                        assert result['status'] == 'created'
+                                        assert result['status'] == 'success'
                                         assert result['connections'] == []
                                         assert result['targets_need_reboot'] == []
                                         assert result['targets_reused_slots'] == []
@@ -422,7 +422,7 @@ class TestCreateCloudEOS:
                                                             ]
                                                         )
 
-                                                        assert result['status'] == 'created'
+                                                        assert result['status'] == 'success'
                                                         assert 'leaf1' in result['targets_reused_slots']
                                                         assert 'spine1' in result['targets_need_reboot']
 

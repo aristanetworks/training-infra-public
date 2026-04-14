@@ -268,10 +268,11 @@ def create_cloudeos(
         )
 
     # Save pending entry before starting creation
+    # Use ip_addr and neighbors field names to match vEOS convention
+    # (unified_topology.py and vm_manager.py read these field names)
     save_user_cloudeos_pending(name, {
-        'ip': ip,
+        'ip_addr': ip,
         'device_type': device_type,
-        'connections': connections
     }, USER_CLOUDEOS_PATH)
 
     with ResourceTransaction(name, device_type='cloudeos') as txn:
@@ -359,13 +360,25 @@ def create_cloudeos(
         if os.path.exists(xml_path):
             os.remove(xml_path)
 
-        # Step 7: Update persistence status to active
-        update_user_cloudeos_status(name, status='active', path=USER_CLOUDEOS_PATH)
+        # Step 7: Update persistence status to active with neighbor data
+        # Convert processed connections to neighbors format for unified_topology
+        neighbors = []
+        for conn in processed_connections:
+            neighbors.append({
+                'port': conn.get('local_port', ''),
+                'neighborDevice': conn.get('target_device', ''),
+                'neighborPort': conn.get('target_port', '')
+            })
+        update_user_cloudeos_status(
+            name, status='active',
+            additional_info={'neighbors': neighbors},
+            path=USER_CLOUDEOS_PATH
+        )
 
         logger.info(f"Successfully created CloudEOS device: {name}")
 
         return {
-            'status': 'created',
+            'status': 'success',
             'name': name,
             'ip': ip,
             'connections': processed_connections,
