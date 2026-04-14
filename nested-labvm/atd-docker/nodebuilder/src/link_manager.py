@@ -302,7 +302,29 @@ def remove_link(
         f"{target_device}:{target_port} (bridge: {bridge_name})"
     )
 
-    # Step 4: Delete OVS bridge
+    # Step 4: Detach interfaces from both VMs before deleting bridge
+    # This prevents "Cannot get interface MTU" errors on VM restart
+    from interface_manager import get_vm_interfaces, detach_interface_from_vm
+
+    source_domain = source_device.lower()
+    target_domain = target_device.lower()
+
+    for domain_name in [source_domain, target_domain]:
+        try:
+            interfaces = get_vm_interfaces(domain_name)
+            for intf in interfaces:
+                if intf.get('source') == bridge_name and intf.get('mac'):
+                    logger.info(
+                        f"remove_link: detaching interface from {domain_name} "
+                        f"(bridge: {bridge_name}, MAC: {intf['mac']})"
+                    )
+                    detach_interface_from_vm(domain_name, intf['mac'])
+        except Exception as e:
+            logger.warning(
+                f"remove_link: failed to detach interface from {domain_name}: {e}"
+            )
+
+    # Step 5: Delete OVS bridge
     bridge_deleted = False
     bridge_error = None
     try:
