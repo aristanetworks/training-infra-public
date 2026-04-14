@@ -18,8 +18,16 @@ from unittest.mock import patch, Mock, MagicMock
 class TestAddLink:
     """Tests for add_link function."""
 
+    def _mock_resource_mgr(self, known_vms=None):
+        """Create a mock resource manager that knows about specific VMs."""
+        if known_vms is None:
+            known_vms = ['spine1', 'leaf1', 'leaf2']
+        mgr = MagicMock()
+        mgr.vm_exists.side_effect = lambda name: name in known_vms
+        return mgr
+
     def test_add_link_success(self, temp_dir, mock_topo_build_file, mock_user_links_file):
-        """Test adding a link between two devices that are both in topo_build.yml."""
+        """Test adding a link between two existing VMs."""
         from link_manager import add_link
 
         mock_slot_result = Mock()
@@ -32,7 +40,7 @@ class TestAddLink:
         mock_slot_result2.needs_reboot = True
         mock_slot_result2.target_device = 'leaf1'
 
-        with patch('link_manager.get_topo_build_path', return_value=mock_topo_build_file):
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
             with patch('link_manager.create_ovs_bridge') as mock_create:
                 mock_create.return_value = {'status': 'created'}
 
@@ -61,39 +69,40 @@ class TestAddLink:
         mock_create.assert_called_once()
         mock_save.assert_called_once()
 
-    def test_add_link_device_not_in_topology(
+    def test_add_link_source_vm_not_found(
         self, temp_dir, mock_topo_build_file, mock_user_links_file
     ):
-        """Test that add_link rejects source device not in topo_build.yml."""
+        """Test that add_link rejects source device that doesn't exist as VM."""
         from link_manager import add_link
 
-        result = add_link(
-            source_device='unknowndevice',
-            source_port='Ethernet1',
-            target_device='leaf1',
-            target_port='Ethernet5',
-            user_links_path=mock_user_links_file,
-            topo_build_path=mock_topo_build_file
-        )
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
+            result = add_link(
+                source_device='unknowndevice',
+                source_port='Ethernet1',
+                target_device='leaf1',
+                target_port='Ethernet5',
+                user_links_path=mock_user_links_file,
+                topo_build_path=mock_topo_build_file
+            )
 
         assert result['status'] == 'error'
         assert 'unknowndevice' in result['error']
-        assert 'topo_build.yml' in result['error'] or 'original topology' in result['error']
 
-    def test_add_link_target_not_in_topology(
+    def test_add_link_target_vm_not_found(
         self, temp_dir, mock_topo_build_file, mock_user_links_file
     ):
-        """Test that add_link rejects target device not in topo_build.yml."""
+        """Test that add_link rejects target device that doesn't exist as VM."""
         from link_manager import add_link
 
-        result = add_link(
-            source_device='spine1',
-            source_port='Ethernet5',
-            target_device='nonexistentdevice',
-            target_port='Ethernet5',
-            user_links_path=mock_user_links_file,
-            topo_build_path=mock_topo_build_file
-        )
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
+            result = add_link(
+                source_device='spine1',
+                source_port='Ethernet5',
+                target_device='nonexistentdevice',
+                target_port='Ethernet5',
+                user_links_path=mock_user_links_file,
+                topo_build_path=mock_topo_build_file
+            )
 
         assert result['status'] == 'error'
         assert 'nonexistentdevice' in result['error']
@@ -104,7 +113,7 @@ class TestAddLink:
         """Test that add_link returns error when OVS bridge creation fails."""
         from link_manager import add_link
 
-        with patch('link_manager.get_topo_build_path', return_value=mock_topo_build_file):
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
             with patch('link_manager.create_ovs_bridge') as mock_create:
                 mock_create.side_effect = RuntimeError("OVS not available")
 
@@ -126,7 +135,7 @@ class TestAddLink:
         """Test that add_link rolls back OVS bridge when interface attachment fails."""
         from link_manager import add_link
 
-        with patch('link_manager.get_topo_build_path', return_value=mock_topo_build_file):
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
             with patch('link_manager.create_ovs_bridge') as mock_create:
                 mock_create.return_value = {'status': 'created'}
 
@@ -149,7 +158,7 @@ class TestAddLink:
     def test_add_link_both_devices_same_topology(
         self, temp_dir, mock_topo_build_file, mock_user_links_file
     ):
-        """Test adding a link between leaf1 and leaf2 (both in topo_build)."""
+        """Test adding a link between leaf1 and leaf2 (both existing VMs)."""
         from link_manager import add_link
 
         mock_slot_result = Mock()
@@ -162,22 +171,23 @@ class TestAddLink:
         mock_slot_result2.needs_reboot = False
         mock_slot_result2.target_device = 'leaf2'
 
-        with patch('link_manager.create_ovs_bridge', return_value={'status': 'created'}):
-            with patch('link_manager.attach_interface_with_slot_reuse') as mock_attach:
-                mock_attach.side_effect = [mock_slot_result, mock_slot_result2]
+        with patch('link_manager.get_resource_manager', return_value=self._mock_resource_mgr()):
+            with patch('link_manager.create_ovs_bridge', return_value={'status': 'created'}):
+                with patch('link_manager.attach_interface_with_slot_reuse') as mock_attach:
+                    mock_attach.side_effect = [mock_slot_result, mock_slot_result2]
 
-                with patch('link_manager.apply_mutual_exclusivity') as mock_mutex:
-                    mock_mutex.return_value = (['leaf2'], ['leaf1'])
+                    with patch('link_manager.apply_mutual_exclusivity') as mock_mutex:
+                        mock_mutex.return_value = (['leaf2'], ['leaf1'])
 
-                    with patch('link_manager.save_user_link', return_value=True):
-                        result = add_link(
-                            source_device='leaf1',
-                            source_port='Ethernet5',
-                            target_device='leaf2',
-                            target_port='Ethernet5',
-                            user_links_path=mock_user_links_file,
-                            topo_build_path=mock_topo_build_file
-                        )
+                        with patch('link_manager.save_user_link', return_value=True):
+                            result = add_link(
+                                source_device='leaf1',
+                                source_port='Ethernet5',
+                                target_device='leaf2',
+                                target_port='Ethernet5',
+                                user_links_path=mock_user_links_file,
+                                topo_build_path=mock_topo_build_file
+                            )
 
         assert result['status'] == 'success'
         assert 'leaf1' in result['targets_need_reboot']
