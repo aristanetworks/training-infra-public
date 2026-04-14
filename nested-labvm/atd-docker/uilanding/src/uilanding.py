@@ -1383,6 +1383,8 @@ class TopologyAPIHandler(BaseHandler):
     _user_hosts_mtime = 0
     _user_firewalls_mtime = 0
     _user_velo_mtime = 0
+    _user_cloudeos_mtime = 0
+    _user_links_mtime = 0
 
     @staticmethod
     def classify_device_type(device_name):
@@ -1853,6 +1855,66 @@ class TopologyAPIHandler(BaseHandler):
         except Exception as e:
             pS(f"Warning: Error loading user_velo.yaml: {e}")
 
+        # Merge user-added CloudEOS devices from user_cloudeos.yaml
+        user_cloudeos_path = '/etc/atd/user_cloudeos.yaml'
+        try:
+            if os.path.exists(user_cloudeos_path):
+                with open(user_cloudeos_path, 'r') as f:
+                    cloudeos_data = YAML().load(f)
+                if cloudeos_data and 'devices' in cloudeos_data and cloudeos_data['devices']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    for device_entry in cloudeos_data['devices']:
+                        if isinstance(device_entry, dict):
+                            for name, info in device_entry.items():
+                                if isinstance(info, dict) and info.get('status') == 'creating':
+                                    continue
+                                node_info = {
+                                    'ip_addr': info.get('ip_addr', 'N/A'),
+                                    'device_type': info.get('device_type', 'other'),
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged user-added CloudEOS devices from {user_cloudeos_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_cloudeos.yaml: {e}")
+
+        # Merge user-added links from user_links.yaml
+        # These add neighbor entries to existing topology nodes
+        user_links_path = '/etc/atd/user_links.yaml'
+        try:
+            if os.path.exists(user_links_path):
+                with open(user_links_path, 'r') as f:
+                    links_data = YAML().load(f)
+                if links_data and 'links' in links_data and links_data['links']:
+                    links_merged = 0
+                    for link in links_data['links']:
+                        source = link.get('source_device', '')
+                        source_port = link.get('source_port', '')
+                        target = link.get('target_device', '')
+                        target_port = link.get('target_port', '')
+                        if source and target:
+                            # Add neighbor entry to source node
+                            for node_entry in topo_data['nodes']:
+                                if isinstance(node_entry, dict):
+                                    for node_name in node_entry:
+                                        if node_name.lower() == source.lower():
+                                            neighbors = node_entry[node_name].setdefault('neighbors', [])
+                                            neighbors.append({
+                                                'neighborDevice': target,
+                                                'neighborPort': target_port,
+                                                'port': source_port,
+                                                'user_added': True
+                                            })
+                                            links_merged += 1
+                    if links_merged > 0:
+                        pS(f"Merged {links_merged} user-added links from {user_links_path}")
+        except Exception as e:
+            pS(f"Warning: Error loading user_links.yaml: {e}")
+
         # Validate topo_data structure
         if topo_data is None:
             return {'error': 'Topology file is empty', 'error_type': 'empty_file'}
@@ -2051,11 +2113,15 @@ class TopologyAPIHandler(BaseHandler):
             user_hosts_path = '/etc/atd/user_hosts.yaml'
             user_firewalls_path = '/etc/atd/user_firewalls.yaml'
             user_velo_path = '/etc/atd/user_velo.yaml'
+            user_cloudeos_path = '/etc/atd/user_cloudeos.yaml'
+            user_links_path = '/etc/atd/user_links.yaml'
 
             user_nodes_mtime = os.path.getmtime(user_nodes_path) if os.path.exists(user_nodes_path) else 0
             user_hosts_mtime = os.path.getmtime(user_hosts_path) if os.path.exists(user_hosts_path) else 0
             user_firewalls_mtime = os.path.getmtime(user_firewalls_path) if os.path.exists(user_firewalls_path) else 0
             user_velo_mtime = os.path.getmtime(user_velo_path) if os.path.exists(user_velo_path) else 0
+            user_cloudeos_mtime = os.path.getmtime(user_cloudeos_path) if os.path.exists(user_cloudeos_path) else 0
+            user_links_mtime = os.path.getmtime(user_links_path) if os.path.exists(user_links_path) else 0
 
             # Thread-safe cache check - invalidate if any user file changed
             with TopologyAPIHandler._cache_lock:
@@ -2065,7 +2131,9 @@ class TopologyAPIHandler(BaseHandler):
                     user_nodes_mtime <= TopologyAPIHandler._user_nodes_mtime and
                     user_hosts_mtime <= TopologyAPIHandler._user_hosts_mtime and
                     user_firewalls_mtime <= TopologyAPIHandler._user_firewalls_mtime and
-                    user_velo_mtime <= TopologyAPIHandler._user_velo_mtime
+                    user_velo_mtime <= TopologyAPIHandler._user_velo_mtime and
+                    user_cloudeos_mtime <= TopologyAPIHandler._user_cloudeos_mtime and
+                    user_links_mtime <= TopologyAPIHandler._user_links_mtime
                 )
                 if cache_valid:
                     self.write(json.dumps(TopologyAPIHandler._cache))
@@ -2097,6 +2165,8 @@ class TopologyAPIHandler(BaseHandler):
                 TopologyAPIHandler._user_hosts_mtime = user_hosts_mtime
                 TopologyAPIHandler._user_firewalls_mtime = user_firewalls_mtime
                 TopologyAPIHandler._user_velo_mtime = user_velo_mtime
+                TopologyAPIHandler._user_cloudeos_mtime = user_cloudeos_mtime
+                TopologyAPIHandler._user_links_mtime = user_links_mtime
 
             self.write(json.dumps(topology_data))
 

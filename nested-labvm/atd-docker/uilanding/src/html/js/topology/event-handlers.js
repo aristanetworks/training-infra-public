@@ -3249,8 +3249,9 @@ export class EventManager {
 
 
     /**
-     * Show modal for adding a link between two devices
-     * Fetches available ports for source and target devices from the API.
+     * Show modal for adding a link between two devices.
+     * Auto-selects the next available port on both devices; the user only
+     * picks the target device.
      * @param {string} sourceDevice - Name of the source device
      */
     async showAddLinkModal(sourceDevice) {
@@ -3264,27 +3265,31 @@ export class EventManager {
         modal.showLoading('Loading available ports...');
 
         try {
-            // Fetch available ports for source device
-            const sourceResp = await fetch(`/td-api/nodes/available-ports/${encodeURIComponent(sourceDevice)}`);
+            // Fetch next available port for source device and target device list in parallel
+            const [sourceResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/available-ports/${encodeURIComponent(sourceDevice)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
             const sourceData = await sourceResp.json();
-
-            // Fetch target devices
-            const targetsResp = await fetch('/td-api/nodes/target-devices');
             const targetsData = await targetsResp.json();
 
-            // Build form content
+            // Use the first available port as the auto-selected source port
+            const sourcePort = (sourceData.ports && sourceData.ports.length > 0) ? sourceData.ports[0] : null;
+
+            const targetDeviceOptions = (targetsData.devices || [])
+                .filter(d => d.name !== sourceDevice)
+                .map(d => `<option value="${this.escapeHtml(d.name)}">${this.escapeHtml(d.name)}</option>`)
+                .join('');
+
+            const sourcePortDisplay = sourcePort
+                ? `<span style="color: #fff; font-size: 14px;">${this.escapeHtml(sourcePort)}</span> <span style="color: #888; font-size: 12px;">(next available)</span>`
+                : `<span style="color: #e30909; font-size: 13px;">No ports available</span>`;
+
             const content = document.createElement('div');
-            const sourcePortOptions = (sourceData.ports || []).map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('');
-            const targetDeviceOptions = (targetsData.devices || []).filter(d => d.name !== sourceDevice).map(d =>
-                `<option value="${this.escapeHtml(d.name)}" data-next-port="${this.escapeHtml(d.next_port || '')}">${this.escapeHtml(d.name)}</option>`
-            ).join('');
             content.innerHTML = [
                 '<div class="form-group" style="margin-bottom: 16px;">',
                 '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Source Port</label>',
-                '    <select id="link-source-port" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
-                '        <option value="">Select port...</option>',
-                sourcePortOptions,
-                '    </select>',
+                `    <div style="padding: 8px 0;">${sourcePortDisplay}</div>`,
                 '</div>',
                 '<div class="form-group" style="margin-bottom: 16px;">',
                 '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Device</label>',
@@ -3295,9 +3300,7 @@ export class EventManager {
                 '</div>',
                 '<div class="form-group" style="margin-bottom: 16px;">',
                 '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Port</label>',
-                '    <select id="link-target-port" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
-                '        <option value="">Select device first...</option>',
-                '    </select>',
+                '    <div id="link-target-port-display" style="padding: 8px 0; color: #888; font-size: 13px;">Select a target device first...</div>',
                 '</div>',
                 '<div id="link-status-info"></div>'
             ].join('\n');
@@ -3305,7 +3308,7 @@ export class EventManager {
             modal.setContent(content);
             modal.clearFooter();
 
-            const cancelBtn = modal.addFooterButton({
+            modal.addFooterButton({
                 text: 'Cancel',
                 type: 'secondary',
                 onClick: () => modal.hide()
@@ -3316,9 +3319,8 @@ export class EventManager {
                 type: 'primary',
                 disabled: true,
                 onClick: async () => {
-                    const sourcePort = content.querySelector('#link-source-port').value;
                     const targetDevice = content.querySelector('#link-target-device').value;
-                    const targetPort = content.querySelector('#link-target-port').value;
+                    const targetPort = content.querySelector('#link-target-port-display').dataset.port || '';
 
                     addBtn.disabled = true;
                     addBtn.textContent = 'Adding...';
@@ -3336,8 +3338,28 @@ export class EventManager {
                         });
                         const result = await resp.json();
                         if (result.status === 'success') {
-                            modal.showSuccess('Link Added',
-                                `${sourceDevice}:${sourcePort} ↔ ${targetDevice}:${targetPort}`);
+                            const rebootTargets = result.targets_need_reboot || [];
+
+                            let successHtml = `<div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
+                                <h3 style="color: #fff; margin: 0 0 8px;">Link Added</h3>
+                                <p style="color: #ccc;">${this.escapeHtml(sourceDevice)}:${this.escapeHtml(sourcePort)} &#8596; ${this.escapeHtml(targetDevice)}:${this.escapeHtml(targetPort)}</p>
+                            </div>`;
+
+                            if (rebootTargets.length > 0) {
+                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                successHtml += rebootManager.renderRebootSection(rebootTargets);
+                            }
+
+                            const successContent = document.createElement('div');
+                            successContent.innerHTML = successHtml;
+                            modal.setContent(successContent);
+
+                            if (rebootTargets.length > 0) {
+                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                rebootManager.attachEventHandlers(successContent);
+                            }
+
                             modal.clearFooter();
                             modal.addFooterButton({
                                 text: 'Close',
@@ -3362,30 +3384,41 @@ export class EventManager {
                 }
             });
 
-            // Target device change handler - load target ports
+            // Target device change handler - fetch and display next available port
             content.querySelector('#link-target-device').addEventListener('change', async (e) => {
                 const targetDevice = e.target.value;
-                const targetPortSelect = content.querySelector('#link-target-port');
+                const portDisplay = content.querySelector('#link-target-port-display');
+                addBtn.disabled = true;
+
                 if (!targetDevice) {
-                    targetPortSelect.innerHTML = '<option value="">Select device first...</option>';
-                    addBtn.disabled = true;
+                    portDisplay.textContent = 'Select a target device first...';
+                    portDisplay.style.color = '#888';
+                    delete portDisplay.dataset.port;
                     return;
                 }
-                targetPortSelect.innerHTML = '<option value="">Loading...</option>';
+
+                portDisplay.textContent = 'Loading...';
+                portDisplay.style.color = '#888';
+                delete portDisplay.dataset.port;
+
                 try {
                     const resp = await fetch(`/td-api/nodes/available-ports/${encodeURIComponent(targetDevice)}`);
                     const data = await resp.json();
-                    targetPortSelect.innerHTML = '<option value="">Select port...</option>' +
-                        (data.ports || []).map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('');
+                    const nextPort = (data.ports && data.ports.length > 0) ? data.ports[0] : null;
+                    if (nextPort) {
+                        portDisplay.innerHTML = `<span style="color: #fff; font-size: 14px;">${this.escapeHtml(nextPort)}</span> <span style="color: #888; font-size: 12px;">(next available)</span>`;
+                        portDisplay.dataset.port = nextPort;
+                        if (sourcePort) {
+                            addBtn.disabled = false;
+                        }
+                    } else {
+                        portDisplay.innerHTML = '<span style="color: #e30909; font-size: 13px;">No ports available</span>';
+                        delete portDisplay.dataset.port;
+                    }
                 } catch (err) {
-                    targetPortSelect.innerHTML = '<option value="">Error loading ports</option>';
+                    portDisplay.innerHTML = '<span style="color: #e30909; font-size: 13px;">Error loading ports</span>';
+                    delete portDisplay.dataset.port;
                 }
-                this.updateAddLinkButton(content, addBtn);
-            });
-
-            // Update button state on any select change
-            content.querySelectorAll('select').forEach(sel => {
-                sel.addEventListener('change', () => this.updateAddLinkButton(content, addBtn));
             });
 
         } catch (err) {
@@ -3393,18 +3426,6 @@ export class EventManager {
             modal.clearFooter();
             modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
         }
-    }
-
-    /**
-     * Update the Add Link button enabled state based on form selections
-     * @param {HTMLElement} content - Form content element
-     * @param {HTMLButtonElement} btn - The Add Link button
-     */
-    updateAddLinkButton(content, btn) {
-        const sourcePort = content.querySelector('#link-source-port')?.value;
-        const targetDevice = content.querySelector('#link-target-device')?.value;
-        const targetPort = content.querySelector('#link-target-port')?.value;
-        btn.disabled = !sourcePort || !targetDevice || !targetPort;
     }
 
     /**
