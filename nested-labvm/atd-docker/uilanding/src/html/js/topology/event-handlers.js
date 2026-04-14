@@ -235,6 +235,20 @@ export class EventManager {
                 hidden: ['firewall', 'linux_host', 'velo_edge', 'velo_gateway', 'velo_orchestrator'].includes(data.device_type)
             },
             {
+                // Add Link - only on original topology nodes in KVM labs
+                // User-added nodes should use "Edit Connections" instead
+                type: 'separator',
+                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
+            },
+            {
+                label: 'Add Link',
+                action: () => {
+                    this.showAddLinkModal(data.label);
+                    this.hideContextMenu();
+                },
+                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
+            },
+            {
                 type: 'separator'
             },
             {
@@ -246,14 +260,6 @@ export class EventManager {
                     this.hideContextMenu();
                 },
                 disabled: !data.ip || data.ip === 'N/A'
-            },
-            {
-                label: 'Add Link',
-                action: () => {
-                    this.showAddLinkModal(data.label);
-                    this.hideContextMenu();
-                },
-                hidden: data.user_added || this.isCeosLab || !this.nodebuilderFeatures.addLink
             },
             {
                 type: 'separator',
