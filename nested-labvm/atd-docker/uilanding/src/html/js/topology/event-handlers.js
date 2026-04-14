@@ -3282,8 +3282,10 @@ export class EventManager {
             // Use the first available port as the auto-selected source port
             const sourcePort = (sourceData.ports && sourceData.ports.length > 0) ? sourceData.ports[0] : null;
 
+            // Only show original topology nodes as targets (not user-added nodes)
+            // User-added nodes should manage their connections via Edit Connections
             const targetDeviceOptions = (targetsData.devices || [])
-                .filter(d => d.name !== sourceDevice)
+                .filter(d => d.name !== sourceDevice && !d.user_added)
                 .map(d => `<option value="${this.escapeHtml(d.name)}">${this.escapeHtml(d.name)}</option>`)
                 .join('');
 
