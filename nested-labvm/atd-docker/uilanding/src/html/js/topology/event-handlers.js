@@ -277,7 +277,7 @@ export class EventManager {
             {
                 label: 'Delete Node',
                 action: () => {
-                    this.confirmDeleteNode(data.label, data.ip, data.device_type);
+                    this.confirmDeleteNode(data.label, data.ip, data.device_type, data.device_category);
                     this.hideContextMenu();
                 },
                 // Only show for user-added nodes in KVM labs
@@ -386,10 +386,11 @@ export class EventManager {
      * @param {string} nodeIp - IP address of the node
      * @param {string} deviceType - Type of device: 'node', 'host', or 'firewall'
      */
-    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
+    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node', deviceCategory = null) {
         // Determine display name and endpoint based on device type
         // Note: 'linux_host' is the device_type for user-added Linux hosts
         // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
+        // CloudEOS devices have device_category === 'cloudeos' (device_type varies: pe, other, etc.)
         const typeLabels = {
             'host': 'Linux Host',
             'linux_host': 'Linux Host',
@@ -399,7 +400,10 @@ export class EventManager {
             'velo_orchestrator': 'VeloCloud Orchestrator',
             'node': 'Node'
         };
-        const typeLabel = typeLabels[deviceType] || 'Node';
+        // CloudEOS nodes have various device_types set by the wizard (pe, other, etc.)
+        // Use device_category to reliably identify them
+        const isCloudEos = deviceCategory === 'cloudeos';
+        const typeLabel = isCloudEos ? 'CloudEOS Node' : (typeLabels[deviceType] || 'Node');
 
         // Create modal using BaseModal
         const modal = new BaseModal({
@@ -464,19 +468,25 @@ export class EventManager {
                 cancelBtn.disabled = true;
 
                 try {
-                    // Use correct endpoint based on device type
+                    // Use correct endpoint based on device category/type
+                    // CloudEOS nodes have device_category === 'cloudeos' (device_type varies)
                     // Note: 'linux_host' is the device_type for user-added Linux hosts
                     // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
-                    const endpoints = {
-                        'host': '/td-api/nodes/delete-host',
-                        'linux_host': '/td-api/nodes/delete-host',
-                        'firewall': '/td-api/nodes/delete-firewall',
-                        'velo_edge': '/td-api/nodes/delete-velo-device',
-                        'velo_gateway': '/td-api/nodes/delete-velo-device',
-                        'velo_orchestrator': '/td-api/nodes/delete-velo-device',
-                        'node': '/td-api/nodes/delete-node'
-                    };
-                    const endpoint = endpoints[deviceType] || endpoints['node'];
+                    let endpoint;
+                    if (isCloudEos) {
+                        endpoint = '/td-api/nodes/delete-cloudeos';
+                    } else {
+                        const endpoints = {
+                            'host': '/td-api/nodes/delete-host',
+                            'linux_host': '/td-api/nodes/delete-host',
+                            'firewall': '/td-api/nodes/delete-firewall',
+                            'velo_edge': '/td-api/nodes/delete-velo-device',
+                            'velo_gateway': '/td-api/nodes/delete-velo-device',
+                            'velo_orchestrator': '/td-api/nodes/delete-velo-device',
+                            'node': '/td-api/nodes/delete-node'
+                        };
+                        endpoint = endpoints[deviceType] || endpoints['node'];
+                    }
 
                     const response = await fetch(endpoint, {
                         method: 'POST',
@@ -3448,8 +3458,12 @@ export class EventManager {
         modal.showLoading('Loading deployment preview...');
 
         try {
-            const resp = await fetch('/td-api/nodes/wan-cloudeos-preview');
-            const preview = await resp.json();
+            const [previewResp, targetsResp] = await Promise.all([
+                fetch('/td-api/nodes/wan-cloudeos-preview'),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+            const preview = await previewResp.json();
+            const targetsData = await targetsResp.json();
 
             if (preview.error) {
                 modal.showError('Cannot Deploy', preview.error);
@@ -3504,7 +3518,28 @@ export class EventManager {
                         });
                         const result = await deployResp.json();
                         if (result.status === 'success') {
-                            modal.showSuccess('Deployment Complete', 'D1 and D2 have been created successfully.');
+                            const rebootTargets = result.targets_need_reboot || [];
+
+                            let successHtml = `<div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
+                                <h3 style="color: #fff; margin: 0 0 8px;">Deployment Complete</h3>
+                                <p style="color: #ccc;">D1 and D2 have been created successfully.</p>
+                            </div>`;
+
+                            if (rebootTargets.length > 0) {
+                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                successHtml += rebootManager.renderRebootSection(rebootTargets);
+                            }
+
+                            const successContent = document.createElement('div');
+                            successContent.innerHTML = successHtml;
+                            modal.setContent(successContent);
+
+                            if (rebootTargets.length > 0) {
+                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                rebootManager.attachEventHandlers(successContent);
+                            }
+
                             modal.clearFooter();
                             modal.addFooterButton({
                                 text: 'Close',
@@ -3583,8 +3618,11 @@ export class EventManager {
                         })
                     });
                     const result = await resp.json();
-                    if (result.status === 'success') {
-                        modal.showSuccess('Link Removed');
+                    if (result.status === 'success' || result.status === 'deleted_with_errors') {
+                        const successMsg = result.status === 'deleted_with_errors'
+                            ? 'Link Removed (with warnings)'
+                            : 'Link Removed';
+                        modal.showSuccess(successMsg);
                         modal.clearFooter();
                         modal.addFooterButton({
                             text: 'Close',

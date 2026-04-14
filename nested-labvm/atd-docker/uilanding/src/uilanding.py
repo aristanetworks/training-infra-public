@@ -1874,6 +1874,7 @@ class TopologyAPIHandler(BaseHandler):
                                 node_info = {
                                     'ip_addr': info.get('ip_addr', 'N/A'),
                                     'device_type': info.get('device_type', 'other'),
+                                    'device_category': 'cloudeos',
                                     'user_added': True,
                                     'neighbors': info.get('neighbors', [])
                                 }
@@ -2055,6 +2056,8 @@ class TopologyAPIHandler(BaseHandler):
 
                 # Create node with normalized display name as ID
                 # Keep vm_name for virsh console access (uses original name from YAML)
+                # Include device_category so the UI can route delete requests correctly
+                device_category = device_info.get('device_category', 'node')
                 nodes.append({
                     'data': {
                         'id': display_name,
@@ -2062,6 +2065,7 @@ class TopologyAPIHandler(BaseHandler):
                         'ip': ip_addr,
                         'sys_mac': sys_mac,
                         'device_type': device_type,
+                        'device_category': device_category,
                         'status': 'unknown',
                         'ports': ports,
                         'user_added': user_added,
