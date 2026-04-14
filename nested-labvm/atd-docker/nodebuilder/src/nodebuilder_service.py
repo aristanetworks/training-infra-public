@@ -583,7 +583,7 @@ async def delete_node(request):
     """
     from persistence import get_user_node, remove_user_node, remove_all_device_references
     from resource_manager import get_resource_manager
-    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_CLOUDEOS_PATH, USER_LINKS_PATH
 
     try:
         data = await request.json()
@@ -621,10 +621,12 @@ async def delete_node(request):
         # Remove from persistence
         remove_user_node(name, USER_NODES_PATH)
 
-        # Clean up references in ALL device types (nodes, hosts, firewalls)
+        # Clean up references in ALL device types (nodes, hosts, firewalls, cloudeos, links)
         # (prevents orphaned references when a node connected to other devices is deleted)
         cleanup_result = remove_all_device_references(
-            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+            user_cloudeos_path=USER_CLOUDEOS_PATH,
+            user_links_path=USER_LINKS_PATH
         )
         if cleanup_result['total'] > 0:
             result['orphaned_references_removed'] = cleanup_result
@@ -3058,6 +3060,19 @@ async def delete_cloudeos_endpoint(request):
         result = delete_cloudeos(name=name)
         if result.get('status') == 'error':
             return web.json_response(result, status=400)
+
+        # Clean up cross-references to this CloudEOS device in all persistence files
+        # (prevents orphaned neighbor/connection entries when a CloudEOS node is deleted)
+        from persistence import remove_all_device_references
+        from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_CLOUDEOS_PATH, USER_LINKS_PATH
+        cleanup_result = remove_all_device_references(
+            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+            user_cloudeos_path=USER_CLOUDEOS_PATH,
+            user_links_path=USER_LINKS_PATH
+        )
+        if cleanup_result['total'] > 0:
+            result['orphaned_references_removed'] = cleanup_result
+
         return web.json_response(result)
     except Exception as e:
         logger.error(f"Error deleting CloudEOS: {e}", exc_info=True)
