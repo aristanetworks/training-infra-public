@@ -157,7 +157,7 @@ export class TopologyManager {
                 nodebuilderFeatures.addLink = await window.featureFlags.check('nb_add_link');
 
                 // Log feature flags status
-                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
+                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, addCloudeos=${nodebuilderFeatures.addCloudeos}, addWanCloudeos=${nodebuilderFeatures.addWanCloudeos}, addLink=${nodebuilderFeatures.addLink}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
                 console.log('[TopologyManager]', logMessage);
                 if (window.logger) {
                     window.logger.info('topology_manager', 'NodeBuilder feature flags checked', nodebuilderFeatures);
