@@ -138,14 +138,19 @@ def add_link(
     targets_need_reboot = []
     targets_reused_slots = []
 
+    # libvirt domain names are lowercase, but topo_build.yml may use mixed case
+    # (e.g., "Borderleaf1" in YAML but "borderleaf1" as the virsh domain name)
+    source_domain = source_device.lower()
+    target_domain = target_device.lower()
+
     connections = [
         {
-            'target_device': source_device,
+            'target_device': source_domain,
             'target_port': source_port,
             'bridge': bridge_name
         },
         {
-            'target_device': target_device,
+            'target_device': target_domain,
             'target_port': target_port,
             'bridge': bridge_name
         }
