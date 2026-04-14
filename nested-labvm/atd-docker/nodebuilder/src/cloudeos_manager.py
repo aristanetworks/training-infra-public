@@ -163,8 +163,9 @@ def generate_cloudeos_xml(name: str, connections: Optional[List[Dict]] = None) -
     })
 
     # Add data interfaces - one per connection, starting at PCI slot 0x04
-    # Slots 0x04, 0x05, ... up to slot 0x05 before USB controller at 0x06
-    for idx, conn in enumerate(connections):
+    # Max 2 data interfaces (slots 0x04, 0x05) before USB controller at 0x06
+    MAX_DATA_INTERFACES = 2
+    for idx, conn in enumerate(connections[:MAX_DATA_INTERFACES]):
         if not conn.get('bridge'):
             continue
 

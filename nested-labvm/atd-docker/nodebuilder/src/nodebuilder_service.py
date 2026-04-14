@@ -3301,9 +3301,10 @@ async def on_startup(app):
     from persistence import (
         cleanup_stale_user_hosts,
         cleanup_stale_user_firewalls,
-        cleanup_stale_velo_devices
+        cleanup_stale_velo_devices,
+        cleanup_stale_cloudeos
     )
-    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH
+    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH, USER_CLOUDEOS_PATH
     from orphaned_interfaces import cleanup_stale_orphaned_interfaces
 
     # Clean up any stale device entries from crashed creations
@@ -3327,6 +3328,12 @@ async def on_startup(app):
         total_cleaned += cleaned
     except Exception as e:
         logger.warning(f"Nodebuilder startup: Failed to clean stale VeloCloud devices: {e}")
+
+    try:
+        cleaned = cleanup_stale_cloudeos(USER_CLOUDEOS_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale CloudEOS devices: {e}")
 
     if total_cleaned > 0:
         logger.info(f"Nodebuilder startup: Cleaned up {total_cleaned} stale device entry/entries")

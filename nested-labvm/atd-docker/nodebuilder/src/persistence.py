@@ -408,7 +408,9 @@ def remove_all_device_references(
     deleted_device_name: str,
     user_nodes_path: str = DEFAULT_USER_NODES_PATH,
     user_hosts_path: str = None,
-    user_firewalls_path: str = None
+    user_firewalls_path: str = None,
+    user_cloudeos_path: str = None,
+    user_links_path: str = None
 ) -> Dict:
     """
     Remove all references to a deleted device from ALL persistence files.
@@ -499,10 +501,55 @@ def remove_all_device_references(
         except Exception as e:
             logger.warning(f"Error cleaning firewall references: {e}")
 
+    # 4. Clean up neighbor references in user_cloudeos.yaml
+    result['cloudeos_cleaned'] = 0
+    if user_cloudeos_path:
+        try:
+            cloudeos_data = load_user_cloudeos(user_cloudeos_path)
+            cloudeos_modified = False
+
+            for ce_entry in cloudeos_data.get('devices', []) or []:
+                for ce_name, ce_info in ce_entry.items():
+                    neighbors = ce_info.get('neighbors', [])
+                    original_count = len(neighbors)
+                    ce_info['neighbors'] = [
+                        n for n in neighbors
+                        if n.get('neighborDevice', '').lower() != deleted_lower
+                    ]
+                    removed = original_count - len(ce_info['neighbors'])
+                    if removed > 0:
+                        result['cloudeos_cleaned'] += removed
+                        cloudeos_modified = True
+
+            if cloudeos_modified:
+                save_user_cloudeos(cloudeos_data, user_cloudeos_path)
+        except Exception as e:
+            logger.warning(f"Error cleaning CloudEOS references: {e}")
+
+    # 5. Clean up user links referencing the deleted device
+    result['links_cleaned'] = 0
+    if user_links_path:
+        try:
+            links_data = load_user_links(user_links_path)
+            original_count = len(links_data.get('links', []))
+            links_data['links'] = [
+                link for link in links_data.get('links', [])
+                if (link.get('source_device', '').lower() != deleted_lower
+                    and link.get('target_device', '').lower() != deleted_lower)
+            ]
+            removed = original_count - len(links_data['links'])
+            if removed > 0:
+                result['links_cleaned'] = removed
+                save_user_links(links_data, user_links_path)
+        except Exception as e:
+            logger.warning(f"Error cleaning link references: {e}")
+
     result['total'] = (
         result['nodes_cleaned'] +
         result['hosts_cleaned'] +
-        result['firewalls_cleaned']
+        result['firewalls_cleaned'] +
+        result['cloudeos_cleaned'] +
+        result['links_cleaned']
     )
 
     if result['total'] > 0:
@@ -510,7 +557,9 @@ def remove_all_device_references(
             f"Cross-type cleanup for '{deleted_device_name}': "
             f"{result['nodes_cleaned']} node refs, "
             f"{result['hosts_cleaned']} host refs, "
-            f"{result['firewalls_cleaned']} firewall refs"
+            f"{result['firewalls_cleaned']} firewall refs, "
+            f"{result['cloudeos_cleaned']} CloudEOS refs, "
+            f"{result['links_cleaned']} link refs"
         )
 
     return result
