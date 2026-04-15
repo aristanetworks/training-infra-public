@@ -297,9 +297,12 @@ ORPHANED_INTERFACES_PATH = os.getenv(
     '/etc/atd/orphaned_interfaces.yaml'
 )
 
-# Feature flag for interface slot preservation (can be disabled for rollback)
+# Interface slot preservation - disabled by default
+# When disabled, interfaces are detached on device deletion (requires target reboot)
+# When enabled, interfaces are preserved as orphaned slots for reuse (avoids reboot
+# but adds tracking complexity and can cause boot failures if bridges are deleted)
 ENABLE_SLOT_PRESERVATION = os.getenv(
-    'ENABLE_SLOT_PRESERVATION', 'true'
+    'ENABLE_SLOT_PRESERVATION', 'false'
 ).lower() == 'true'
 
 # Orphaned slot aging policy limits
