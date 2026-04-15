@@ -867,8 +867,8 @@ class ResourceManager:
                     for cloudeos_name, cloudeos_info in device_entry.items():
                         try:
                             # Track affected target devices
-                            for conn in (cloudeos_info.get('connections') or []):
-                                target = conn.get('target_device', '')
+                            for conn in (cloudeos_info.get('neighbors') or []):
+                                target = conn.get('neighborDevice', '')
                                 if target:
                                     results['affected_devices'].add(target)
 

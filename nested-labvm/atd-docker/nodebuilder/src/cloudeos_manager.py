@@ -418,24 +418,36 @@ def delete_cloudeos(name: str) -> Dict:
 
     if device_entry:
         for dev_name, dev_info in device_entry.items():
-            stored_connections = dev_info.get('connections', [])
-            logger.info(f"Found CloudEOS connections: {stored_connections}")
+            stored_connections = dev_info.get('neighbors', [])
+            logger.info(f"Found CloudEOS neighbors: {stored_connections}")
             break
 
     # Step 2: Clean up each connection
-    for conn in stored_connections:
-        if not conn:
+    # Neighbors are stored as {'port', 'neighborDevice', 'neighborPort'}
+    # but cleanup_connection expects {'bridge', 'target_device', 'target_port'}
+    for neighbor in stored_connections:
+        if not neighbor:
             continue
-        result = resource_mgr.cleanup_connection(conn, conn.get('local_port', 'eth'))
+        local_port = neighbor.get('port', 'eth')
+        target_device = neighbor.get('neighborDevice', '')
+        target_port = neighbor.get('neighborPort', '')
+        # Reconstruct the bridge name from the neighbor data
+        bridge_name = generate_bridge_name(name, local_port, target_device, target_port)
+        conn = {
+            'bridge': bridge_name,
+            'target_device': target_device,
+            'target_port': target_port,
+            'local_port': local_port
+        }
+        result = resource_mgr.cleanup_connection(conn, local_port)
         if result.get('target_device'):
             if result['target_device'] not in devices_needing_reboot:
                 devices_needing_reboot.append(result['target_device'])
         if result.get('bridge_deleted'):
-            bridge = conn.get('bridge')
-            if bridge:
-                bridges_deleted.append(bridge)
+            if bridge_name:
+                bridges_deleted.append(bridge_name)
         if result.get('interface_detached'):
-            interfaces_detached.append(conn.get('target_device'))
+            interfaces_detached.append(target_device)
 
     # Step 3: Delete VM and disk images
     vm_result = resource_mgr.delete_vm_with_cleanup(
@@ -450,7 +462,7 @@ def delete_cloudeos(name: str) -> Dict:
     logger.info(f"Deleted CloudEOS device: {name}")
 
     return {
-        'status': 'deleted',
+        'status': 'success',
         'name': name,
         'details': {
             'vm_destroyed': vm_result['vm_destroyed'],
@@ -475,6 +487,7 @@ def get_cloudeos_status() -> Dict:
 
     return {
         'count': count,
-        'max': MAX_CLOUDEOS_PER_TOPOLOGY,
-        'available': available
+        'max_allowed': MAX_CLOUDEOS_PER_TOPOLOGY,
+        'available': available,
+        'can_add_more': count < MAX_CLOUDEOS_PER_TOPOLOGY
     }

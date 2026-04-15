@@ -882,9 +882,31 @@ async def get_node_connections(request):
                         'target_port': outside.get('target_port', '')
                     })
             else:
-                return web.json_response({
-                    'error': f"Device '{name}' not found in user nodes, hosts, or firewalls"
-                }, status=400)
+                # Check CloudEOS devices
+                from persistence import load_user_cloudeos
+                from config import USER_CLOUDEOS_PATH
+                cloudeos_data = load_user_cloudeos(USER_CLOUDEOS_PATH)
+                found = False
+                for device_entry in cloudeos_data.get('devices', []):
+                    for dev_name, dev_info in device_entry.items():
+                        if dev_name.lower() == name.lower():
+                            device_ip = dev_info.get('ip_addr', '')
+                            device_type = 'cloudeos'
+                            for neighbor in dev_info.get('neighbors', []):
+                                connections.append({
+                                    'target_device': neighbor.get('neighborDevice', ''),
+                                    'target_port': neighbor.get('neighborPort', ''),
+                                    'local_port': neighbor.get('port', '')
+                                })
+                            found = True
+                            break
+                    if found:
+                        break
+
+                if not found:
+                    return web.json_response({
+                        'error': f"Device '{name}' not found in user nodes, hosts, firewalls, or CloudEOS"
+                    }, status=400)
 
     return web.json_response({
         'name': name,
@@ -3026,7 +3048,7 @@ async def add_cloudeos(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name')
+    name = data.get('name', '').lower()
     ip = data.get('ip')
     device_type = data.get('device_type', 'other')
     connections = data.get('connections', [])
@@ -3052,7 +3074,7 @@ async def delete_cloudeos_endpoint(request):
     except Exception as e:
         return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
 
-    name = data.get('name')
+    name = data.get('name', '').lower()
     if not name:
         return web.json_response({'error': 'name is required'}, status=400)
 

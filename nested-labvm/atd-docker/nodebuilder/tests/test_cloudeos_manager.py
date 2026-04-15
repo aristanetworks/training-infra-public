@@ -437,12 +437,11 @@ class TestDeleteCloudEOS:
         with patch('cloudeos_manager.get_user_cloudeos_device') as mock_get:
             mock_get.return_value = {
                 'test-ceos': {
-                    'connections': [
+                    'neighbors': [
                         {
-                            'bridge': 'ceos_eth1-leaf1_Et5',
-                            'target_device': 'leaf1',
-                            'target_port': 'Ethernet5',
-                            'local_port': 'eth1'
+                            'port': 'eth1',
+                            'neighborDevice': 'leaf1',
+                            'neighborPort': 'Ethernet5'
                         }
                     ]
                 }
@@ -465,9 +464,10 @@ class TestDeleteCloudEOS:
                 mock_rm.return_value = mock_mgr
 
                 with patch('cloudeos_manager.remove_user_cloudeos'):
-                    result = delete_cloudeos('test-ceos')
+                    with patch('cloudeos_manager.generate_bridge_name', return_value='test-ceos_eth1-leaf1_Et5'):
+                        result = delete_cloudeos('test-ceos')
 
-                    assert result['status'] == 'deleted'
+                    assert result['status'] == 'success'
                     assert result['name'] == 'test-ceos'
                     assert result['details']['vm_destroyed'] is True
                     assert result['details']['vm_undefined'] is True
@@ -499,7 +499,7 @@ class TestDeleteCloudEOS:
                 with patch('cloudeos_manager.remove_user_cloudeos'):
                     result = delete_cloudeos('nonexistent-ceos')
 
-                    assert result['status'] == 'deleted'
+                    assert result['status'] == 'success'
                     assert result['details']['bridges_deleted'] == []
                     assert result['details']['devices_needing_reboot'] == []
 
@@ -510,18 +510,16 @@ class TestDeleteCloudEOS:
         with patch('cloudeos_manager.get_user_cloudeos_device') as mock_get:
             mock_get.return_value = {
                 'test-ceos': {
-                    'connections': [
+                    'neighbors': [
                         {
-                            'bridge': 'ceos_eth1-leaf1_Et5',
-                            'target_device': 'leaf1',
-                            'target_port': 'Ethernet5',
-                            'local_port': 'eth1'
+                            'port': 'eth1',
+                            'neighborDevice': 'leaf1',
+                            'neighborPort': 'Ethernet5'
                         },
                         {
-                            'bridge': 'ceos_eth2-spine1_Et3',
-                            'target_device': 'spine1',
-                            'target_port': 'Ethernet3',
-                            'local_port': 'eth2'
+                            'port': 'eth2',
+                            'neighborDevice': 'spine1',
+                            'neighborPort': 'Ethernet3'
                         }
                     ]
                 }
@@ -553,9 +551,13 @@ class TestDeleteCloudEOS:
                 mock_rm.return_value = mock_mgr
 
                 with patch('cloudeos_manager.remove_user_cloudeos'):
-                    result = delete_cloudeos('test-ceos')
+                    with patch('cloudeos_manager.generate_bridge_name', side_effect=[
+                        'test-ceos_eth1-leaf1_Et5',
+                        'test-ceos_eth2-spine1_Et3'
+                    ]):
+                        result = delete_cloudeos('test-ceos')
 
-                    assert result['status'] == 'deleted'
+                    assert result['status'] == 'success'
                     assert 'leaf1' in result['details']['devices_needing_reboot']
                     assert 'spine1' in result['details']['devices_needing_reboot']
 
@@ -572,8 +574,9 @@ class TestGetCloudEOSStatus:
                 status = get_cloudeos_status()
 
                 assert status['count'] == 0
-                assert status['max'] == 4
+                assert status['max_allowed'] == 4
                 assert status['available'] == 4
+                assert status['can_add_more'] is True
 
     def test_status_with_devices(self):
         """Test status with some devices created."""
@@ -584,8 +587,9 @@ class TestGetCloudEOSStatus:
                 status = get_cloudeos_status()
 
                 assert status['count'] == 2
-                assert status['max'] == 4
+                assert status['max_allowed'] == 4
                 assert status['available'] == 2
+                assert status['can_add_more'] is True
 
     def test_status_at_max(self):
         """Test status when at maximum capacity."""
@@ -596,8 +600,9 @@ class TestGetCloudEOSStatus:
                 status = get_cloudeos_status()
 
                 assert status['count'] == 4
-                assert status['max'] == 4
+                assert status['max_allowed'] == 4
                 assert status['available'] == 0
+                assert status['can_add_more'] is False
 
     def test_status_available_never_negative(self):
         """Test that available never goes below zero."""
@@ -608,3 +613,4 @@ class TestGetCloudEOSStatus:
                 status = get_cloudeos_status()
 
                 assert status['available'] == 0
+                assert status['can_add_more'] is False

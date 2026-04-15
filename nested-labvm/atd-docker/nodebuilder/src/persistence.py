@@ -1749,12 +1749,20 @@ def remove_user_link(
     original_count = len(data.get('links') or [])
 
     def _matches(link: Dict) -> bool:
-        return (
+        # Check both directions since topology diagram may swap source/target
+        forward = (
             link.get('source_device', '').lower() == source_device.lower() and
             link.get('source_port', '').lower() == source_port.lower() and
             link.get('target_device', '').lower() == target_device.lower() and
             link.get('target_port', '').lower() == target_port.lower()
         )
+        reverse = (
+            link.get('source_device', '').lower() == target_device.lower() and
+            link.get('source_port', '').lower() == target_port.lower() and
+            link.get('target_device', '').lower() == source_device.lower() and
+            link.get('target_port', '').lower() == source_port.lower()
+        )
+        return forward or reverse
 
     data['links'] = [link for link in (data.get('links') or []) if not _matches(link)]
 
@@ -1796,12 +1804,20 @@ def get_user_link(
     data = load_user_links(path)
 
     for link in data.get('links') or []:
-        if (
+        # Check both directions since topology diagram may swap source/target
+        forward = (
             link.get('source_device', '').lower() == source_device.lower() and
             link.get('source_port', '').lower() == source_port.lower() and
             link.get('target_device', '').lower() == target_device.lower() and
             link.get('target_port', '').lower() == target_port.lower()
-        ):
+        )
+        reverse = (
+            link.get('source_device', '').lower() == target_device.lower() and
+            link.get('source_port', '').lower() == target_port.lower() and
+            link.get('target_device', '').lower() == source_device.lower() and
+            link.get('target_port', '').lower() == source_port.lower()
+        )
+        if forward or reverse:
             return link
 
     return None
