@@ -421,20 +421,28 @@ export class EventManager {
         let targetDevices = [];
 
         try {
+            // Use AbortController to timeout quickly - this is non-critical info
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             const [connectionsResp, targetsResp] = await Promise.all([
-                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
-                fetch('/td-api/nodes/target-devices')
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`, {signal: controller.signal}),
+                fetch('/td-api/nodes/target-devices', {signal: controller.signal})
             ]);
+            clearTimeout(timeoutId);
 
-            const connectionsData = await connectionsResp.json();
-            const targetsData = await targetsResp.json();
-
-            if (connectionsResp.ok && connectionsData.connections) {
-                affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+            if (connectionsResp.ok) {
+                const connectionsData = await connectionsResp.json();
+                if (connectionsData.connections) {
+                    affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+                }
             }
-            targetDevices = targetsData.devices || [];
+            if (targetsResp.ok) {
+                const targetsData = await targetsResp.json();
+                targetDevices = targetsData.devices || [];
+            }
         } catch (err) {
-            console.warn('Could not fetch node connections for reboot info:', err);
+            console.warn('Could not fetch node connections for reboot info:', err.name === 'AbortError' ? 'timeout' : err);
         }
 
         // Set content with warning - include reboot info for affected devices
