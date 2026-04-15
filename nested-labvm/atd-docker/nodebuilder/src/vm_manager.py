@@ -255,7 +255,7 @@ def define_vm(xml_path: str) -> Dict:
 
 def start_vm(vm_name: str) -> Dict:
     """
-    Start a VM.
+    Start a VM. Lowercases the name since libvirt domains are always lowercase.
 
     Args:
         vm_name: Name of the VM
@@ -263,6 +263,7 @@ def start_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
+    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'start', vm_name],
         capture_output=True,
@@ -286,6 +287,7 @@ def autostart_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
+    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'autostart', vm_name],
         capture_output=True,
@@ -309,6 +311,7 @@ def destroy_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
+    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'destroy', vm_name],
         capture_output=True,
@@ -330,6 +333,7 @@ def undefine_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
+    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'undefine', vm_name],
         capture_output=True,
@@ -468,7 +472,7 @@ def create_veos_node(
 
 def get_vm_state(vm_name: str) -> str:
     """
-    Get the current state of a VM.
+    Get the current state of a VM. Lowercases the name for libvirt.
 
     Args:
         vm_name: Name of the VM
@@ -478,7 +482,7 @@ def get_vm_state(vm_name: str) -> str:
     """
     try:
         result = subprocess.run(
-            ['virsh', 'domstate', vm_name],
+            ['virsh', 'domstate', vm_name.lower()],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -495,7 +499,7 @@ def get_vm_state(vm_name: str) -> str:
 
 def vm_exists(vm_name: str) -> bool:
     """
-    Check if a VM is defined in libvirt.
+    Check if a VM is defined in libvirt. Lowercases the name for libvirt.
 
     Args:
         vm_name: Name of the VM
@@ -505,7 +509,7 @@ def vm_exists(vm_name: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ['virsh', 'dominfo', vm_name],
+            ['virsh', 'dominfo', vm_name.lower()],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT

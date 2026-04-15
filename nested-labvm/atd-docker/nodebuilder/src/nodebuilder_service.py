@@ -608,8 +608,8 @@ async def delete_node(request):
             'error': f"Node '{name}' is not a user-added node or does not exist"
         }, status=400)
 
-    # Get node info for cleanup
-    node_info = user_node.get(name, {})
+    # Get node info for cleanup (use values() since key case may differ)
+    node_info = list(user_node.values())[0] if user_node else {}
 
     try:
         logger.info(f"Deleting user-added node: {name}")
@@ -719,7 +719,7 @@ async def edit_node(request):
         logger.info(f"Editing connections for node: {name}")
 
         conn_mgr = get_connection_manager()
-        node_info = user_node.get(name, {})
+        node_info = list(user_node.values())[0] if user_node else {}
 
         # Use transaction for atomic operation
         with NodeEditTransaction(name) as txn:

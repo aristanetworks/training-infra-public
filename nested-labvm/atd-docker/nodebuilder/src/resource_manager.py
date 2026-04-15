@@ -263,10 +263,11 @@ class ResourceManager:
         return {'status': 'undefined'}
 
     def vm_exists(self, vm_name: str) -> bool:
-        """Check if a VM is defined in libvirt."""
+        """Check if a VM is defined in libvirt.
+        Lowercases the name since libvirt domains are always lowercase."""
         try:
             result = subprocess.run(
-                ['virsh', 'dominfo', vm_name],
+                ['virsh', 'dominfo', vm_name.lower()],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -276,10 +277,11 @@ class ResourceManager:
             return False
 
     def get_vm_state(self, vm_name: str) -> str:
-        """Get the current state of a VM."""
+        """Get the current state of a VM.
+        Lowercases the name since libvirt domains are always lowercase."""
         try:
             result = subprocess.run(
-                ['virsh', 'domstate', vm_name],
+                ['virsh', 'domstate', vm_name.lower()],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
