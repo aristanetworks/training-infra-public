@@ -835,7 +835,8 @@ async def get_node_connections(request):
     # Check vEOS nodes first
     user_node = get_user_node(name, USER_NODES_PATH)
     if user_node:
-        node_info = user_node.get(name, {})
+        # get_user_node returns {original_name: info} - use the actual key
+        node_info = list(user_node.values())[0] if user_node else {}
         device_ip = node_info.get('ip_addr', '')
         neighbors = node_info.get('neighbors', [])
         for neighbor in neighbors:
@@ -848,7 +849,7 @@ async def get_node_connections(request):
         # Check Linux hosts
         user_host = get_user_host(name, USER_HOSTS_PATH)
         if user_host:
-            host_info = user_host.get(name, {})
+            host_info = list(user_host.values())[0] if user_host else {}
             device_ip = host_info.get('mgmt_ip', '')
             device_type = 'host'
             connection = host_info.get('connection', {})
@@ -862,7 +863,7 @@ async def get_node_connections(request):
             # Check VyOS firewalls
             user_fw = get_user_firewall(name, USER_FIREWALLS_PATH)
             if user_fw:
-                fw_info = user_fw.get(name, {})
+                fw_info = list(user_fw.values())[0] if user_fw else {}
                 device_ip = fw_info.get('mgmt_ip', '')
                 device_type = 'firewall'
                 # Add inside interface connection
