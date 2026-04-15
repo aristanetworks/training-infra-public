@@ -3366,8 +3366,9 @@ export class EventManager {
                                 <p style="color: #ccc;">${this.escapeHtml(sourceDevice)}:${this.escapeHtml(sourcePort)} &#8596; ${this.escapeHtml(targetDevice)}:${this.escapeHtml(targetPort)}</p>
                             </div>`;
 
+                            let rebootManager = null;
                             if (rebootTargets.length > 0) {
-                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                rebootManager = new DeviceRebootManager(targetsData.devices || []);
                                 successHtml += rebootManager.renderRebootSection(rebootTargets);
                             }
 
@@ -3375,8 +3376,7 @@ export class EventManager {
                             successContent.innerHTML = successHtml;
                             modal.setContent(successContent);
 
-                            if (rebootTargets.length > 0) {
-                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                            if (rebootManager) {
                                 rebootManager.attachEventHandlers(successContent);
                             }
 
@@ -3531,8 +3531,9 @@ export class EventManager {
                                 <p style="color: #ccc;">D1 and D2 have been created successfully.</p>
                             </div>`;
 
+                            let rebootManager = null;
                             if (rebootTargets.length > 0) {
-                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                rebootManager = new DeviceRebootManager(targetsData.devices || []);
                                 successHtml += rebootManager.renderRebootSection(rebootTargets);
                             }
 
@@ -3540,8 +3541,7 @@ export class EventManager {
                             successContent.innerHTML = successHtml;
                             modal.setContent(successContent);
 
-                            if (rebootTargets.length > 0) {
-                                const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                            if (rebootManager) {
                                 rebootManager.attachEventHandlers(successContent);
                             }
 
@@ -3638,10 +3638,11 @@ export class EventManager {
                             '</div>'
                         ].join('\n');
 
+                        let rebootManager = null;
                         if (rebootTargets.length > 0) {
                             const targetsResp = await fetch('/td-api/nodes/target-devices');
                             const targetsData = await targetsResp.json();
-                            const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                            rebootManager = new DeviceRebootManager(targetsData.devices || []);
                             successHtml += rebootManager.renderRebootSection(rebootTargets);
                         }
 
@@ -3649,11 +3650,8 @@ export class EventManager {
                         successContent.innerHTML = successHtml;
                         modal.setContent(successContent);
 
-                        if (rebootTargets.length > 0) {
-                            const targetsResp2 = await fetch('/td-api/nodes/target-devices');
-                            const targetsData2 = await targetsResp2.json();
-                            const rebootManager2 = new DeviceRebootManager(targetsData2.devices || []);
-                            rebootManager2.attachEventHandlers(successContent);
+                        if (rebootManager) {
+                            rebootManager.attachEventHandlers(successContent);
                         }
 
                         modal.clearFooter();

@@ -336,7 +336,8 @@ def remove_link(
         )
 
     # Both devices need rebooting after interface detachment
-    targets_need_reboot = [source_device.lower(), target_device.lower()]
+    # Keep original case to match DeviceRebootManager's target-devices lookup
+    targets_need_reboot = [source_device, target_device]
 
     result = {
         'status': 'success',
