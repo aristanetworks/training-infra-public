@@ -437,7 +437,11 @@ export class EventManager {
             console.warn('Could not fetch node connections for reboot info:', err);
         }
 
-        // Set content with warning
+        // Set content with warning - include reboot info for affected devices
+        const rebootWarning = affectedDevices.length > 0
+            ? `<li>Reboot <strong>${affectedDevices.map(d => modal.escapeHtml(d)).join(', ')}</strong> to apply interface changes</li>`
+            : '';
+
         modal.setContent(`
             <div class="delete-node-content">
                 <p>Are you sure you want to delete <strong>${modal.escapeHtml(nodeName)}</strong>?</p>
@@ -446,6 +450,7 @@ export class EventManager {
                     <li>Stop and remove the VM</li>
                     <li>Delete the disk image</li>
                     <li>Remove all network connections</li>
+                    ${rebootWarning}
                 </ul>
                 <p class="atd-modal__warning-text">This action cannot be undone.</p>
             </div>
@@ -3577,23 +3582,27 @@ export class EventManager {
     confirmRemoveLink(edgeData) {
         const modal = new BaseModal({
             title: 'Remove Link',
-            size: BaseModal.SIZES.SMALL,
+            size: BaseModal.SIZES.MEDIUM,
             headerTheme: BaseModal.HEADER_THEMES.DANGER
         });
 
-        const content = document.createElement('div');
         const src = this.escapeHtml(edgeData.source);
         const srcPort = this.escapeHtml(edgeData.source_port);
         const tgt = this.escapeHtml(edgeData.target);
         const tgtPort = this.escapeHtml(edgeData.target_port);
+
+        const content = document.createElement('div');
         content.innerHTML = [
             '<p style="color: #ccc;">Remove this user-added link?</p>',
             '<div class="link-info" style="margin: 12px 0;">',
             `    <strong>${src}:${srcPort}</strong>`,
-            '    ↔',
+            '    &harr;',
             `    <strong>${tgt}:${tgtPort}</strong>`,
             '</div>',
-            '<p style="color: #888; font-size: 13px;">This will remove the OVS bridge connecting these devices.</p>'
+            '<div class="link-info warning" style="margin: 12px 0;">',
+            `    &#9888; <strong>${src}</strong> and <strong>${tgt}</strong> will need to be rebooted after removal`,
+            '</div>',
+            '<p style="color: #888; font-size: 13px;">This will detach interfaces and remove the OVS bridge. Both devices will need a reboot to apply the changes.</p>'
         ].join('\n');
 
         modal.show();
@@ -3619,10 +3628,34 @@ export class EventManager {
                     });
                     const result = await resp.json();
                     if (result.status === 'success' || result.status === 'deleted_with_errors') {
-                        const successMsg = result.status === 'deleted_with_errors'
-                            ? 'Link Removed (with warnings)'
-                            : 'Link Removed';
-                        modal.showSuccess(successMsg);
+                        const rebootTargets = result.targets_need_reboot || [];
+
+                        let successHtml = [
+                            '<div style="text-align: center; padding: 20px;">',
+                            '    <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>',
+                            '    <h3 style="color: #fff; margin: 0 0 8px;">Link Removed</h3>',
+                            `    <p style="color: #ccc;">${src}:${srcPort} &harr; ${tgt}:${tgtPort}</p>`,
+                            '</div>'
+                        ].join('\n');
+
+                        if (rebootTargets.length > 0) {
+                            const targetsResp = await fetch('/td-api/nodes/target-devices');
+                            const targetsData = await targetsResp.json();
+                            const rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                            successHtml += rebootManager.renderRebootSection(rebootTargets);
+                        }
+
+                        const successContent = document.createElement('div');
+                        successContent.innerHTML = successHtml;
+                        modal.setContent(successContent);
+
+                        if (rebootTargets.length > 0) {
+                            const targetsResp2 = await fetch('/td-api/nodes/target-devices');
+                            const targetsData2 = await targetsResp2.json();
+                            const rebootManager2 = new DeviceRebootManager(targetsData2.devices || []);
+                            rebootManager2.attachEventHandlers(successContent);
+                        }
+
                         modal.clearFooter();
                         modal.addFooterButton({
                             text: 'Close',

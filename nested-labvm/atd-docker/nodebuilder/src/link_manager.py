@@ -335,6 +335,9 @@ def remove_link(
             f"(was found in is_user_link check - possible race condition)"
         )
 
+    # Both devices need rebooting after interface detachment
+    targets_need_reboot = [source_device.lower(), target_device.lower()]
+
     result = {
         'status': 'success',
         'bridge_name': bridge_name,
@@ -342,7 +345,8 @@ def remove_link(
         'source_device': source_device,
         'source_port': source_port,
         'target_device': target_device,
-        'target_port': target_port
+        'target_port': target_port,
+        'targets_need_reboot': targets_need_reboot
     }
 
     if bridge_error:
