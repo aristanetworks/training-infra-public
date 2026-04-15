@@ -2048,9 +2048,12 @@ class TopologyAPIHandler(BaseHandler):
                                 'target_port': target_port
                             }
                             # Mark user-added links so the UI can show Remove Link option
+                            # and style them differently on the diagram
+                            edge_entry = {'data': edge_data}
                             if neighbor.get('user_added'):
                                 edge_data['user_added'] = True
-                            edges.append({'data': edge_data})
+                                edge_entry['classes'] = 'edge-user-added'
+                            edges.append(edge_entry)
                     elif neighbor_device_raw:
                         pS(f"Warning: Skipping edge {display_name}->{neighbor_device_display}: target node not in topology")
 
