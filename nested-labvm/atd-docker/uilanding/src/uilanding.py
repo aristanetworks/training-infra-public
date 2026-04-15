@@ -18,8 +18,17 @@ import os
 import subprocess
 import time
 import threading
+import queue
 import pyeapi
 from device_types import DeviceTypeConfig
+from topology_converter import (
+    TopologyConverterCurrentHandler,
+    TopologyConverterAvailableHandler,
+    TopologyConverterInfoHandler,
+    TopologyConverterConvertHandler,
+    TopologyConverterStatusHandler,
+    TopologyConverterPageHandler,
+)
 # Note: capture_manager is no longer imported here.
 # Packet capture runs in the dedicated captureservice container with host network mode.
 # uilanding proxies WebSocket connections to the capture service.
@@ -3900,6 +3909,13 @@ if __name__ == "__main__":
         (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
         (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
+        # Topology Converter endpoints
+        (r'/topology-converter', TopologyConverterPageHandler),
+        (r'/td-api/topology-converter/current', TopologyConverterCurrentHandler),
+        (r'/td-api/topology-converter/available', TopologyConverterAvailableHandler),
+        (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
+        (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
+        (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
         # Nodebuilder endpoints (dynamic node addition for KVM labs)
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)

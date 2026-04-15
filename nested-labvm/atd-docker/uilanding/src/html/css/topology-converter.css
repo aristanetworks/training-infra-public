@@ -1,0 +1,292 @@
+/**
+ * Topology Converter - CSS Styles
+ */
+
+/* General Styles */
+body {
+    background-color: #f4f4f4;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.large-select {
+    font-size: 1.1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+
+/* Cards */
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+}
+
+.card-divider {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 1rem 1.5rem;
+}
+
+.card-divider h5 {
+    margin: 0;
+    color: #333;
+    font-weight: 600;
+}
+
+.card-section {
+    padding: 1.5rem;
+}
+
+/* Callouts */
+.callout {
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.callout.primary {
+    border-left-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+.callout.secondary {
+    border-left-color: #6b7280;
+    background-color: #f9fafb;
+}
+
+.callout.warning {
+    border-left-color: #f59e0b;
+    background-color: #fffbeb;
+}
+
+.callout.success {
+    border-left-color: #10b981;
+    background-color: #ecfdf5;
+}
+
+.callout.alert {
+    border-left-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+/* Buttons */
+.button {
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.button.success {
+    background-color: #10b981;
+}
+
+.button.success:hover {
+    background-color: #059669;
+}
+
+.button.secondary {
+    background-color: #6b7280;
+}
+
+.button.secondary:hover {
+    background-color: #4b5563;
+}
+
+/* Progress Phases */
+#progress-phases {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+}
+
+.phase-item {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    padding: 0.5rem;
+}
+
+.phase-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    right: -50%;
+    width: 100%;
+    height: 2px;
+    background-color: #e0e0e0;
+    z-index: 0;
+}
+
+.phase-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e0e0e0;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.5rem;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.phase-name {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* Phase States */
+.phase-item.complete .phase-icon {
+    background-color: #10b981;
+    color: white;
+}
+
+.phase-item.complete .phase-name {
+    color: #10b981;
+}
+
+.phase-item.complete:not(:last-child)::after {
+    background-color: #10b981;
+}
+
+.phase-item.active .phase-icon {
+    background-color: #3b82f6;
+    color: white;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.phase-item.active .phase-name {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+    }
+}
+
+/* Log Container */
+.log-container {
+    background-color: #1e1e1e;
+    border-radius: 6px;
+    padding: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+}
+
+#log-output {
+    color: #d4d4d4;
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Log scrollbar styling */
+.log-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+    background: #2d2d2d;
+    border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 640px) {
+    #progress-phases {
+        flex-direction: column;
+    }
+
+    .phase-item:not(:last-child)::after {
+        display: none;
+    }
+
+    .phase-item {
+        margin-bottom: 1rem;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .phase-item .phase-name {
+        font-size: 0.75rem;
+    }
+
+    .phase-icon {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Status Indicator */
+#current-status {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Icons */
+.fa {
+    margin-right: 0.5rem;
+}
+
+/* Loading animation */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+/* Utility classes */
+.text-right {
+    text-align: right;
+}
+
+.hide {
+    display: none;
+}
+
+/* Progress wrapper */
+.progress-wrapper {
+    padding: 1rem 0;
+}
+
+/* Tooltips */
+[title] {
+    cursor: help;
+}
