@@ -69,6 +69,5 @@ router isis isis
    is-type level-1
    !
    address-family ipv4 unicast
-   !
- End
+
 

@@ -2,7 +2,7 @@ version: "3"
 services:
   uptime:
     container_name: atd-uptime
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uptime:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uptime:e02489e2
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -10,9 +10,19 @@ services:
       - /etc/atd:/etc/atd:ro
     networks:
       - atd_nginx
+  configservice:
+    container_name: atd-configservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /etc/atd:/etc/atd:rw
+    networks:
+      - atd_nginx
   conftopo:
     container_name: atd-conftopo
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_conftopo:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_conftopo:e02489e2
     restart: always
     networks:
       - atd_nginx
@@ -24,7 +34,7 @@ services:
       - /home/arista/arista-dir:/home/arista:rw
   login:
     container_name: atd-login
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_login:1.0.30
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_login:38ad9d50
     user: $ArID:$ArGD
     restart: always
     hostname: devbox
@@ -39,9 +49,10 @@ services:
       - /home/arista/.ssh:/home/arista/.ssh:rw
       - /opt/sftp/uploads:/opt/sftp:ro
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
+      - /opt/templates/grading:/opt/templates/grading:ro
   cvpupdater:
     container_name: atd-cvpupdater
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_cvpupdater:2.0.2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvpupdater:e02489e2
     user: $ArID:$ArGD
     restart: always
     environment:
@@ -53,7 +64,7 @@ services:
       - cvp_dir:/home/arista/CVP_DATA:rw
   gitconfigletsync:
     container_name: atd-gitconfigletsync
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_gitconfigletsync:2.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_gitconfigletsync:e02489e2
     user: $ArID:$ArGD
     restart: always
     environment:
@@ -64,7 +75,7 @@ services:
       - cvp_dir:/home/arista/CVP_DATA:rw
   kvmbuilder:
     container_name: atd-kvmbuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_kvmbuilder:1.0.3
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_kvmbuilder:e02489e2
     user: $AtID:$AtGD
     restart: on-failure
     environment:
@@ -75,7 +86,7 @@ services:
       - /home/atdadmin/KVM_scripts:/home/atdadmin/kvm:rw
   ceosbuilder:
     container_name: atd-ceosbuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ceosbuilder:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ceosbuilder:e02489e2
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
@@ -85,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.29-toposwitcher
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.32
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -98,71 +109,71 @@ services:
     networks:
       - atd_nginx
   labguides:
-    container_name: atd-labguides
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides:1.0.1
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /etc/atd:/etc/atd:ro
-      - /opt/atd:/opt/atd:ro
-      - /opt/labguides/web/:/root/labguides/web/:rw
-    networks:
-      - atd_nginx
+     container_name: atd-labguides
+     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:e02489e2
+     restart: always
+     environment:
+       - PYTHONUNBUFFERED=1
+     volumes:
+       - /etc/atd:/etc/atd:ro
+       - /opt/atd:/opt/atd:ro
+       - /opt/labguides/web/:/root/labguides/web/:rw
+     networks:
+       - atd_nginx
 
   labguides-v2:
     container_name: atd-labguides-v2
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_labguides-v2:1.0.3
+    # image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v2:1.0.3
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:e02489e2
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - /etc/atd:/etc/atd:ro
-      - /opt/atd:/opt/atd:ro
-      - /opt/labguides/web/:/html/:rw
-      - /etc/atd/ACCESS_INFO.yaml:/ACCESS_INFO.yaml:ro
-      - /home/arista/arista-dir/menus/:/menus/:rw
+      - /opt/labguides/web/:/app/html/:rw
+      - /etc/atd/ACCESS_INFO.yaml:/app/ACCESS_INFO.yaml:ro
+      - /home/arista/arista-dir/menus/:/app/menus/:rw
+      - /opt/templates/grading:/app/grading:rw
     networks:
       - atd_nginx
 
-  syslog:
-    container_name: atd-syslog
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /home/arista/arista-dir/apps/syslog/:/var/log/remote/:rw
-    ports:
-      - "1514:1514"
-      - "1514:1514/udp"
-    networks:
-      - atd_nginx
-  tacacs:
-    container_name: atd-tacacs
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_tacacs:1.0.0
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - /home/arista/arista-dir/apps/tacacs/config:/etc/tac_plus/tac_user.cfg:ro
-      - /home/arista/arista-dir/apps/tacacs/tac.log:/var/log/tac_plus.log:rw
-    ports:
-      - "49:49"
-    networks:
-      - atd_nginx
+  # syslog:
+  #   container_name: atd-syslog
+  #   image: us.gcr.io/atd-testdrivetraining-dev/atddocker_syslog:1.0.1
+  #   restart: always
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - /home/arista/arista-dir/apps/syslog/:/var/log/remote/:rw
+  #   ports:
+  #     - "1514:1514"
+  #     - "1514:1514/udp"
+  #   networks:
+  #     - atd_nginx
+  # tacacs:
+  #   container_name: atd-tacacs
+  #   image: us.gcr.io/atd-testdrivetraining-dev/atddocker_tacacs:1.0.0
+  #   restart: always
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - /home/arista/arista-dir/apps/tacacs/config:/etc/tac_plus/tac_user.cfg:ro
+  #     - /home/arista/arista-dir/apps/tacacs/tac.log:/var/log/tac_plus.log:rw
+  #   ports:
+  #     - "49:49"
+  #   networks:
+  #     - atd_nginx
   freerad:
     container_name: atd-freeradius
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_freerad:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:e02489e2
     restart: always
     volumes:
-      - /opt/atd/nested-labvm/atd-docker/freeradius/src/mods-config/files/authorize:/etc/freeradius/mods-config/files/authorize:ro
+      - /opt/atd/nested-labvm/atd-docker/runtime-configs/freeradius/authorize:/etc/freeradius/mods-config/files/authorize:ro
     ports:
       - "1812:1812/udp"
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.12
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.16
     restart: always
     depends_on:
       - uilanding
@@ -177,7 +188,7 @@ services:
       - atd_nginx
   monitor:
     container_name: atd-monitor
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_monitor:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_monitor:e02489e2
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -189,7 +200,7 @@ services:
       - /var/log/wtmp:/var/log/wtmp:ro
   jenkins:
     container_name: atd-jenkins
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_jenkins:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_jenkins:e02489e2
     restart: always
     environment:
       - JENKINS_OPTS="--prefix=/jenkins"
@@ -198,10 +209,10 @@ services:
     volumes:
       - jenkins_home:/var/jenkins_home
       - /home/arista/arista-dir/apps/coder/labfiles:/opt/labfiles:rw
-      - ./jenkins/src/groovy/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
+      - /opt/atd/nested-labvm/atd-docker/runtime-configs/jenkins/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
   coder:
     container_name: atd-coder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:2.0.8
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_coder:e02489e2
     restart: always
     user: $ArID:$ArGD
     command: /home/coder/project
@@ -219,7 +230,7 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
   ssh:
     container_name: atd-ssh
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_ssh:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ssh:e02489e2
     restart: always
     networks:
       - atd_nginx
@@ -237,7 +248,7 @@ services:
       - atd_nginx
   captureservice:
     container_name: atd-captureservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_captureservice:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:807bad6e
     restart: always
     # Host network mode required to access OVS bridges on the host
     network_mode: host
@@ -256,7 +267,7 @@ services:
       - /var/run/openvswitch:/var/run/openvswitch:rw
   cvp-device-registration:
     container_name: atd-cvp-device-registration
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_cvp-device-registration:1.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvp-device-registration:e02489e2
     restart: "no"
     environment:
       - PYTHONUNBUFFERED=1
@@ -271,6 +282,66 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - cvpupdater
+  nodebuilder:
+    container_name: atd-nodebuilder
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.3
+    restart: always
+    # Host network mode required to access libvirt socket and OVS bridges on host
+    network_mode: host
+    # Privileged mode required for VM creation and interface management
+    privileged: true
+    environment:
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      # Required for OVS bridge management
+      - NET_ADMIN
+    volumes:
+      # Persistence for user-added nodes
+      - /etc/atd:/etc/atd:rw
+      # Topology files (read-only)
+      - /opt/atd:/opt/atd:ro
+      # libvirt socket for virsh commands
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
+      # VM disk images
+      - /var/lib/libvirt/images:/var/lib/libvirt/images:rw
+      # OVS socket for bridge management
+      - /var/run/openvswitch:/var/run/openvswitch:rw
+      # dnsmasq config for IP/MAC lookup (NetworkManager managed)
+      - /etc/NetworkManager/dnsmasq.d:/etc/NetworkManager/dnsmasq.d:ro
+      # noVNC token directory shared with novnc container for WebSocket auth
+      - /tmp/novnc:/tmp/novnc:rw
+      # GCP credentials for gsutil to download base images from bucket
+      - /root/.config/gcloud:/root/.config/gcloud:ro
+      # Note: Cloud-init templates are built into the Docker image
+      # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
+  consoleservice:
+    container_name: atd-consoleservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:e02489e2
+    restart: on-failure
+    # Host network mode required to access libvirt socket on host
+    network_mode: host
+    # Privileged mode required for virsh console access
+    privileged: true
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # libvirt socket for virsh console commands
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:rw
+      # ATD config (read-only)
+      - /etc/atd:/etc/atd:ro
+  # noVNC/websockify service - WebSocket proxy for VNC access to Linux hosts
+  # Uses token-based authentication to map tokens to VM management IPs
+  # Host network mode required to reach VM management IPs (192.168.0.x)
+  novnc:
+    container_name: atd-novnc
+    build: ./novnc
+    restart: on-failure
+    # Host network mode to reach VMs on vmgmt bridge (192.168.0.x)
+    network_mode: host
+    volumes:
+      # Token file for websockify authentication (format: "token: host:port")
+      # Tokens are written by nodebuilder's novnc_manager.py
+      - /tmp/novnc:/tmp/novnc:ro
 networks:
   atd_nginx:
 volumes:

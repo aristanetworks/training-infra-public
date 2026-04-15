@@ -4,10 +4,10 @@ ip routing
 service routing protocols model multi-agent
 !
 Router isis isis
-   Net 49.0000.0000.0000.0001.00
-   router-id 192.168.100.1
-   Is-type level-1
-   Address-family ipv4 unicast
+   net 49.0000.0000.0000.0001.00
+   router-id ipv4 192.168.100.1
+   is-type level-1
+   address-family ipv4 unicast
 !
 int loop0
  ip address 192.168.100.1/32

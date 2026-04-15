@@ -1,0 +1,117 @@
+---
+title: ConfigService Architecture
+---
+graph TB
+    subgraph "External Dependencies"
+        FS[(Firestore)]
+        AI[ACCESS_INFO.yaml]
+    end
+
+    subgraph "ConfigService Container"
+        subgraph "HTTP Layer - Tornado"
+            H1[HealthHandler]
+            H2[FeaturesHandler]
+            H3[FeatureCheckHandler]
+            H4[RefreshHandler]
+            H5[AnnouncementsHandler]
+            H6[AnnouncementCheckHandler]
+            H7[AnnouncementRefreshHandler]
+            H8[ConfigHandler]
+            H9[RefreshAllHandler]
+        end
+
+        subgraph "Business Logic"
+            FL[Feature Logic]
+            AL[Announcement Logic]
+            TC[Topology Cache]
+        end
+
+        subgraph "Data Access Layer"
+            FFC[FeatureFlagClient]
+            AC[AnnouncementClient]
+            BFC[BaseFirestoreClient]
+        end
+
+        subgraph "Data Models"
+            ANN[Announcement Model]
+            FILTER[filter_active_announcements]
+        end
+
+        subgraph "Local Cache"
+            FCACHE[feature_flags_cache.yaml]
+            ACACHE[announcements_cache.yaml]
+        end
+    end
+
+    subgraph "Client Applications"
+        UI[UILanding/Frontend]
+        API[API Consumers]
+    end
+
+    %% HTTP Routes to Handlers
+    UI -->|GET /health| H1
+    UI -->|GET /features| H2
+    UI -->|GET /features/:id| H3
+    UI -->|POST /refresh| H4
+    UI -->|GET /announcements| H5
+    UI -->|GET /announcements/:id| H6
+    UI -->|POST /announcements/refresh| H7
+    UI -->|GET /config| H8
+    UI -->|POST /refresh/all| H9
+
+    API -->|GET /features| H2
+    API -->|GET /config| H8
+
+    %% Handler to Logic connections
+    H2 --> FL
+    H3 --> FL
+    H4 --> FL
+    H5 --> AL
+    H6 --> AL
+    H7 --> AL
+    H8 --> FL
+    H8 --> AL
+    H9 --> FL
+    H9 --> AL
+
+    %% Logic to Data Access
+    FL -->|fetch_and_cache_features| FFC
+    AL -->|fetch_and_cache_announcements| AC
+    FL --> TC
+    AL --> TC
+
+    %% Data Access to External
+    FFC -->|extends| BFC
+    AC -->|extends| BFC
+    BFC -->|Firestore API| FS
+    TC -->|reads| AI
+
+    %% Announcement filtering
+    AC -->|uses| FILTER
+    FILTER -->|parses| ANN
+    ANN -->|is_active check| FILTER
+
+    %% Caching flow
+    FL -->|save/load| FCACHE
+    AL -->|save/load| ACACHE
+
+    %% Startup flow
+    FS -.->|startup fetch| FFC
+    FS -.->|startup fetch| AC
+    FFC -.->|cache to disk| FCACHE
+    AC -.->|cache to disk| ACACHE
+
+    %% Styling
+    classDef handler fill:#4c5cae,stroke:#071c35,color:#fff
+    classDef logic fill:#78d82c,stroke:#071c35,color:#000
+    classDef client fill:#fbb500,stroke:#071c35,color:#000
+    classDef model fill:#dae0fe,stroke:#071c35,color:#000
+    classDef cache fill:#e0e0e0,stroke:#071c35,color:#000
+    classDef external fill:#071c35,stroke:#fbb500,color:#fff,stroke-width:3px
+
+    class H1,H2,H3,H4,H5,H6,H7,H8,H9 handler
+    class FL,AL,TC logic
+    class FFC,AC,BFC client
+    class ANN,FILTER model
+    class FCACHE,ACACHE cache
+    class FS,AI external

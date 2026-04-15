@@ -251,6 +251,72 @@ export function getCytoscapeStyles() {
             }
         },
 
+        // --- Linux Host icon (user-added Linux VMs) ---
+        {
+            selector: '.device-type-linux_host',
+            style: {
+                'background-image': 'images/hosts.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 70,
+                'height': 70
+            }
+        },
+
+        // --- Firewall icon (user-added VyOS firewalls) ---
+        {
+            selector: '.device-type-firewall',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
+        // --- VeloCloud SD-WAN icons (user-added VeloCloud devices) ---
+        {
+            selector: '.device-type-velo_orchestrator',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 68,
+                'height': 68
+            }
+        },
+        {
+            selector: '.device-type-velo_gateway',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 65,
+                'height': 65
+            }
+        },
+        {
+            selector: '.device-type-velo_edge',
+            style: {
+                'background-image': 'images/router.png',
+                'background-fit': 'contain',
+                'background-clip': 'none',
+                'background-color': 'transparent',
+                'border-width': 0,
+                'width': 60,
+                'height': 60
+            }
+        },
+
         // ==========================================
         // Status Styles - Visual indicators for device reachability
         // Uses underlay to show status behind PNG icons
@@ -299,6 +365,16 @@ export function getCytoscapeStyles() {
                 'underlay-color': '#808080',
                 'underlay-padding': 4,
                 'underlay-opacity': 0.2,
+                'underlay-shape': 'ellipse'
+            }
+        },
+        {
+            // Unconfigured: device is reachable but auth failed (needs configuration)
+            selector: '.status-unconfigured',
+            style: {
+                'underlay-color': '#4c5cae',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.35,
                 'underlay-shape': 'ellipse'
             }
         },

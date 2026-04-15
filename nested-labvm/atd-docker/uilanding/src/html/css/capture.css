@@ -11,7 +11,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 350px;
+    height: 420px;
     background-color: #ffffff;
     border-top: 3px solid #fbb500;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
@@ -301,9 +301,9 @@
 }
 
 .capture-body.side-by-side .capture-detail-panel {
-    width: 400px;
-    min-width: 300px;
-    max-width: 50%;
+    width: 500px;
+    min-width: 400px;
+    max-width: 55%;
     height: auto;
     border-top: none;
     border-left: 2px solid #071c35;
@@ -735,12 +735,22 @@
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
-    max-width: 200px;
+    max-width: 300px;
 }
 
 .capture-bridge-select:focus {
     border-color: #fbb500;
     outline: none;
+}
+
+/* Refresh bridges button */
+#capture-refresh-bridges-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    min-width: unset;
 }
 
 .capture-bridge-select:disabled {
@@ -805,7 +815,12 @@
 
 /* --- Index Page (Foundation grid with .large-3 sidebar) --- */
 /* Position capture panel to avoid left sidebar (fixed 350px width from home.css) */
+/* Modern browsers with :has() support */
 body:has(.left-sidebar) > .capture-panel {
+    left: 350px;
+}
+/* Fallback for older browsers - uses JS-added class */
+body.has-left-sidebar > .capture-panel {
     left: 350px;
 }
 
@@ -816,7 +831,7 @@ body:has(.left-sidebar) > .capture-panel {
 
 /* When capture panel is visible, add padding to right-panel */
 .right-panel.capture-panel-visible {
-    padding-bottom: 350px;
+    padding-bottom: 420px;
 }
 
 .right-panel.capture-panel-visible.capture-panel-minimized {
@@ -829,12 +844,22 @@ body:has(.left-sidebar) > .capture-panel {
 
 /* --- Terminal Page (fixed 280px sidebar) --- */
 /* Position capture panel to avoid device sidebar */
+/* Modern browsers with :has() support */
 body:has(.device-sidebar) > .capture-panel {
+    left: 280px;
+}
+/* Fallback for older browsers - uses JS-added class */
+body.has-device-sidebar > .capture-panel {
     left: 280px;
 }
 
 /* Adjust for collapsed sidebar */
+/* Modern browsers with :has() support */
 body:has(.device-sidebar.collapsed) > .capture-panel {
+    left: 48px;
+}
+/* Fallback for older browsers - uses JS-added class */
+body.has-device-sidebar-collapsed > .capture-panel {
     left: 48px;
 }
 
@@ -845,7 +870,7 @@ body:has(.device-sidebar.collapsed) > .capture-panel {
 
 /* When capture panel is visible, add padding to main-content */
 .main-content.capture-panel-visible {
-    padding-bottom: 350px;
+    padding-bottom: 420px;
 }
 
 .main-content.capture-panel-visible.capture-panel-minimized {
@@ -859,8 +884,14 @@ body:has(.device-sidebar.collapsed) > .capture-panel {
 /* --- Responsive Overrides --- */
 @media (max-width: 1023px) {
     /* On medium/small screens, capture panel spans full width */
+    /* Modern browsers with :has() support */
     body:has(.left-sidebar) > .capture-panel,
     body:has(.device-sidebar) > .capture-panel {
+        left: 0;
+    }
+    /* Fallback for older browsers */
+    body.has-left-sidebar > .capture-panel,
+    body.has-device-sidebar > .capture-panel {
         left: 0;
     }
 }

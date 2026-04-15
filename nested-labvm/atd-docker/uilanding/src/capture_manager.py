@@ -10,9 +10,17 @@ import threading
 import os
 import time
 import uuid
+import json
+import urllib.request
+import urllib.error
 from datetime import datetime
 from typing import Dict, Optional, List, Callable
 from dataclasses import dataclass, field
+
+# Nodebuilder API endpoint for bridge information
+# Nodebuilder runs on host network, accessible via docker0 bridge gateway
+NODEBUILDER_BRIDGES_URL = "http://172.17.0.1:8090/bridges"
+NODEBUILDER_TIMEOUT = 5  # seconds
 
 
 @dataclass
@@ -430,10 +438,52 @@ class CaptureManager:
         """
         Get list of available OVS bridges with topology edge mapping.
 
+        Fetches bridge information from nodebuilder API which is the single
+        source of truth for bridge name parsing. Falls back to local OVS
+        command if nodebuilder is unreachable.
+
+        Note: This class is NOT actively used - uilanding proxies to captureservice.
+        Kept for potential future use or standalone testing.
+
         Returns:
             List of dicts with bridge name and connected devices/ports
         """
         bridges = []
+
+        # Try nodebuilder API first with retry logic
+        max_retries = 2
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(
+                    NODEBUILDER_BRIDGES_URL,
+                    headers={'Accept': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=NODEBUILDER_TIMEOUT) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+                    for bridge_info in data.get('bridges', []):
+                        bridge_info['is_capturing'] = self._is_bridge_capturing(
+                            bridge_info.get('name', '')
+                        )
+                        bridges.append(bridge_info)
+                    return bridges
+
+            except urllib.error.URLError as e:
+                last_error = f"Nodebuilder API unavailable: {e}"
+            except json.JSONDecodeError as e:
+                last_error = f"Invalid JSON from nodebuilder: {e}"
+            except Exception as e:
+                last_error = f"Error calling nodebuilder API: {e}"
+
+            if attempt < max_retries - 1:
+                print(f"[CaptureManager] Retry {attempt + 1}/{max_retries}: {last_error}")
+                time.sleep(0.5)  # Brief delay before retry
+
+        # All retries failed
+        print(f"[CaptureManager] {last_error}")
+
+        # Fallback: Get bridge list locally (without parsing - will show as ?:?)
+        print("[CaptureManager] Falling back to local OVS bridge list")
         try:
             result = subprocess.run(
                 ["ovs-vsctl", "list-br"],
@@ -442,17 +492,26 @@ class CaptureManager:
                 timeout=10
             )
             if result.returncode == 0:
+                # Filter out system bridges (same as nodebuilder)
+                system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
                 for bridge_name in result.stdout.strip().split('\n'):
                     bridge_name = bridge_name.strip()
-                    if not bridge_name:
+                    if not bridge_name or bridge_name in system_bridges:
                         continue
 
-                    # Parse bridge name to extract device info
-                    # Format: {dev1}{port1}-{dev2}{port2}
-                    # Example: sp1Et1-le1Et1
-                    bridge_info = self._parse_bridge_name(bridge_name)
-                    bridge_info['name'] = bridge_name
-                    bridge_info['is_capturing'] = self._is_bridge_capturing(bridge_name)
+                    # Without nodebuilder, return minimal info (will show as ?:?)
+                    bridge_info = {
+                        'name': bridge_name,
+                        'source_device': '',
+                        'source_port': '',
+                        'target_device': '',
+                        'target_port': '',
+                        'source_device_name': '',
+                        'source_port_name': '',
+                        'target_device_name': '',
+                        'target_port_name': '',
+                        'is_capturing': self._is_bridge_capturing(bridge_name)
+                    }
                     bridges.append(bridge_info)
 
         except FileNotFoundError:
@@ -463,48 +522,6 @@ class CaptureManager:
             print(f"[CaptureManager] Error listing bridges: {e}")
 
         return bridges
-
-    def _parse_bridge_name(self, bridge_name: str) -> Dict:
-        """
-        Parse OVS bridge name to extract device and port info.
-
-        Bridge naming convention: {dev1-short}{port1}-{dev2-short}{port2}
-        Example: sp1Et1-le1Et1 -> spine1:Ethernet1 <-> leaf1:Ethernet1
-        """
-        result = {
-            "source_device": "",
-            "source_port": "",
-            "target_device": "",
-            "target_port": ""
-        }
-
-        if '-' not in bridge_name:
-            return result
-
-        try:
-            parts = bridge_name.split('-')
-            if len(parts) == 2:
-                # Parse source (e.g., "sp1Et1" -> device="sp1", port="Et1")
-                src = parts[0]
-                tgt = parts[1]
-
-                # Find where letters end and Ethernet starts
-                for i, char in enumerate(src):
-                    if char == 'E' and i > 0:
-                        result["source_device"] = src[:i]
-                        result["source_port"] = src[i:]
-                        break
-
-                for i, char in enumerate(tgt):
-                    if char == 'E' and i > 0:
-                        result["target_device"] = tgt[:i]
-                        result["target_port"] = tgt[i:]
-                        break
-
-        except Exception:
-            pass
-
-        return result
 
     def _is_bridge_capturing(self, bridge_name: str) -> bool:
         """Check if a bridge currently has an active capture."""

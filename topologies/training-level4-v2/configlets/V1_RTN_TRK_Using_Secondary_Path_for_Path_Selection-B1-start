@@ -22,5 +22,3 @@ router bgp 65102
    neighbor 192.168.21.1 remote-as 100
    network 192.168.2.1/32
    network 192.168.2.11/32
-!
-end

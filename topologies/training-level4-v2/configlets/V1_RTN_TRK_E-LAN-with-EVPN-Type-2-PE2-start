@@ -1,3 +1,5 @@
+hostanme PE2
+!
 ip routing
 !
 service routing protocols model multi-agent

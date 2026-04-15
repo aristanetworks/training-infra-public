@@ -27,4 +27,3 @@ router bgp 65103
    network 192.168.3.1/32
    network 192.168.3.11/32
 !
-end

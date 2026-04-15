@@ -7,14 +7,16 @@
   <title>Arista {{ topo_title }}</title>
   <link rel="stylesheet" href="css/foundation.min.css" />
   <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
-  <script src="js/atd-ws.js"></script>
-  <link rel="stylesheet" href="css/variables.css" />
-  <link rel="stylesheet" href="css/typography.css" />
-  <link rel="stylesheet" href="css/overlay.css">
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/home.css" />
-  <link rel="stylesheet" href="css/topology.css" />
-  <link rel="stylesheet" href="css/capture.css" />
+  <script src="js/atd-ws.min.js"></script>
+  <link rel="stylesheet" href="css/variables.min.css" />
+  <link rel="stylesheet" href="css/typography.min.css" />
+  <link rel="stylesheet" href="css/overlay.min.css">
+  <link rel="stylesheet" href="css/style.min.css" />
+  <link rel="stylesheet" href="css/home.min.css" />
+  <link rel="stylesheet" href="css/topology.min.css" />
+  <link rel="stylesheet" href="css/capture.min.css" />
+  <link rel="stylesheet" href="css/base-modal.min.css" />
+  <link rel="stylesheet" href="css/add-node-wizard.min.css" />
 </head>
 
 <body>
@@ -151,10 +153,7 @@
                 {% end %}
                 {% if "console" not in disable_links %}
                 <li>
-                  <a class="site-sidebar__item menu-click" href="/terminal" target="_blank">Switch Access (BETA)</a>
-                </li>
-                <li>
-                  <a class="site-sidebar__item menu-click" href="/ssh/host/192.168.0.1" target="_blank">Switch Access</a>
+                  <a class="site-sidebar__item menu-click" href="/terminal" target="_blank">Switch Access</a>
                 </li>
                 {% end %}
                 {% if "cvp" not in disable_links %}
@@ -252,12 +251,8 @@
             <section class="topology">
               <div class="topology-overview">
                 <div class="white-box">
-                  <!-- View Toggle -->
                   <div class="topology-controls">
-                    <button id="toggle-topo-view" class="button">
-                      <i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)
-                    </button>
-                    <div id="filter-controls" style="display: none;">
+                    <div id="filter-controls" style="display: flex;">
                       <input type="text" id="device-search" placeholder="Search devices..." />
                       <div id="device-type-filters"></div>
                       <button id="reset-layout" class="button">Reset Layout</button>
@@ -265,13 +260,8 @@
                     </div>
                   </div>
 
-                  <!-- Static Topology (default view) -->
-                  <div id="static-topology" class="text-center" style="display: block;">
-                    <img src="topo/atd-topo.png" usemap="#image_map" />
-                  </div>
-
-                  <!-- Interactive Topology (hidden by default) -->
-                  <div id="interactive-topology" style="display: none;"></div>
+                  <!-- Interactive Topology -->
+                  <div id="interactive-topology"></div>
 
                 </div>
               </div>
@@ -443,25 +433,38 @@
 
   <script src="js/foundation.min.js"></script>
 
-  <script src="js/script.js"></script>
+  <script src="js/script.min.js"></script>
   <!-- Bootstrap core JavaScript -->
   <script src="js/popper.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
-  <script src="js/backend.js"></script>
+  <script src="js/backend.min.js"></script>
   <script type="module" src="js/honorlock-examsubmit-v1.js"></script>
-  <script src="js/connectivity-monitor.js"></script>
+  <script src="js/connectivity-monitor.min.js"></script>
 
   <!-- Cytoscape.js for Interactive Topology -->
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
   <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 
+  <!-- Shared components for topology wizards -->
+  <script src="js/topology/node-builder-api.min.js"></script>
+  <script src="js/topology/device-reboot-manager.min.js"></script>
+  <script src="js/topology/base-modal.min.js"></script>
+
+  <!-- Node management wizards for dynamic node/cluster addition (KVM labs only) -->
+  <script src="js/topology/add-node-wizard.min.js"></script>
+  <script src="js/topology/add-cluster-wizard.min.js"></script>
+  <script src="js/topology/add-host-wizard.min.js"></script>
+  <script src="js/topology/add-firewall-wizard.min.js"></script>
+  <script src="js/topology/add-velocloud-wizard.min.js"></script>
+
   <!-- Interactive Topology Initialization -->
+  <script src="js/feature-flags.js"></script>
   <script type="module">
     import { TopologyManager } from './js/topology/topology-manager.js';
 
     let topoManager = null;
-    let isInteractiveView = false;  // Start with static view
+    let isInteractiveView = true;
 
     // Store observer reference for cleanup
     let capturePanelObserver = null;
@@ -558,6 +561,9 @@
         });
         await topoManager.init();
 
+        // Expose globally for wizards that need to reference it
+        window.topologyManager = topoManager;
+
         // Setup filter checkboxes
         setupFilters();
 
@@ -571,37 +577,6 @@
 
     // Initialize on DOM ready
     initTopology();
-
-    // Toggle between static and interactive views
-    document.getElementById('toggle-topo-view').addEventListener('click', async function() {
-      const staticDiv = document.getElementById('static-topology');
-      const interactiveDiv = document.getElementById('interactive-topology');
-      const filterControls = document.getElementById('filter-controls');
-      const toggleBtn = this;
-
-      if (isInteractiveView) {
-        // Switch to static view
-        staticDiv.style.display = 'block';
-        interactiveDiv.style.display = 'none';
-        filterControls.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Switch to Interactive (Beta)';
-
-        isInteractiveView = false;
-      } else {
-        // Switch to interactive view
-        staticDiv.style.display = 'none';
-        interactiveDiv.style.display = 'block';
-        filterControls.style.display = 'flex';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-image"></i> Switch to Static';
-
-        // Re-fit view when switching back
-        if (topoManager) {
-          topoManager.fit();
-        }
-
-        isInteractiveView = true;
-      }
-    });
 
     // Device type display names
     const deviceTypeNames = {
@@ -634,6 +609,12 @@
       // Clear existing checkboxes
       filtersContainer.innerHTML = '';
 
+      // Helper to update label class for :has() fallback (older browsers)
+      function updateLabelClass(label, checked) {
+        label.classList.remove('filter-checked', 'filter-unchecked');
+        label.classList.add(checked ? 'filter-checked' : 'filter-unchecked');
+      }
+
       // Create checkbox for each device type that exists
       Object.keys(counts).forEach(deviceType => {
         if (counts[deviceType] > 0) {
@@ -643,7 +624,12 @@
           checkbox.checked = true;
           checkbox.dataset.filter = deviceType;
 
+          // Set initial class for :has() fallback
+          updateLabelClass(label, true);
+
           checkbox.addEventListener('change', function() {
+            // Update class for :has() fallback
+            updateLabelClass(label, checkbox.checked);
             if (topoManager) {
               topoManager.toggleDeviceType(deviceType);
             }
@@ -685,6 +671,11 @@
             topoManager.setLayout('preset');  // Reset to organized layout
             topoManager.resetFilters();
             document.querySelectorAll('#device-type-filters input[type="checkbox"]').forEach(cb => cb.checked = true);
+            // Update classes for :has() fallback
+            document.querySelectorAll('#device-type-filters label').forEach(label => {
+              label.classList.remove('filter-unchecked');
+              label.classList.add('filter-checked');
+            });
             document.getElementById('device-search').value = '';
           }
         });

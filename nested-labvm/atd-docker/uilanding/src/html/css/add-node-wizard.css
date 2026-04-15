@@ -1,0 +1,2933 @@
+/**
+ * Add Node Wizard Styles
+ *
+ * Styles for the multi-step wizard dialog for adding vEOS nodes
+ * to KVM-based ATD labs.
+ */
+
+/* Overlay */
+.add-node-wizard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Wizard Container */
+.add-node-wizard {
+    background: #1e1e1e;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Header */
+.wizard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #333;
+    background: linear-gradient(135deg, #252525 0%, #1a1a1a 100%);
+}
+
+.wizard-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.wizard-close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.wizard-close-btn:hover {
+    color: #fff;
+}
+
+/* Progress Indicator */
+.wizard-progress {
+    padding: 20px 24px;
+    border-bottom: 1px solid #333;
+    background: #252525;
+}
+
+.progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #333;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.progress-step.active .step-number {
+    background: #fbb500;
+    color: #071c35;
+    box-shadow: 0 0 0 3px rgba(251, 181, 0, 0.3);
+}
+
+.progress-step.completed .step-number {
+    background: #28a745;
+    color: #fff;
+}
+
+.progress-step.completed .step-number::after {
+    content: '\2713';
+    position: absolute;
+}
+
+.step-label {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+    transition: color 0.3s;
+}
+
+.progress-step.active .step-label {
+    color: #fff;
+}
+
+.progress-step.completed .step-label {
+    color: #28a745;
+}
+
+.progress-connector {
+    flex: 1;
+    height: 2px;
+    background: #333;
+    margin: 0 8px;
+    margin-bottom: 20px;
+}
+
+/* Content Area */
+.wizard-content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    min-height: 300px;
+}
+
+.wizard-step h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+.step-description {
+    margin: 0 0 24px 0;
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ccc;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 12px 14px;
+    background: #2a2a2a !important;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #fff !important;
+    font-size: 15px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-text-fill-color: #fff !important;
+}
+
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: #fbb500;
+    box-shadow: 0 0 0 3px rgba(251, 181, 0, 0.2);
+    background: #2a2a2a !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+/* Override browser autofill styles */
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #2a2a2a inset !important;
+    -webkit-text-fill-color: #fff !important;
+    background-color: #2a2a2a !important;
+    color: #fff !important;
+}
+
+.form-input::placeholder {
+    color: #666;
+}
+
+.form-select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.form-select option {
+    background: #2a2a2a;
+    color: #fff;
+    padding: 8px;
+}
+
+/* Validation Messages */
+.validation-message {
+    margin-top: 8px;
+    font-size: 13px;
+    min-height: 20px;
+}
+
+.validation-message.error {
+    color: #dc3545;
+}
+
+.validation-message.success {
+    color: #28a745;
+}
+
+/* Existing Nodes Hint */
+.existing-nodes-hint {
+    margin-top: 20px;
+    padding: 12px;
+    background: #252525;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #888;
+}
+
+.existing-nodes-hint p {
+    margin: 0;
+}
+
+/* MAC Display (Step 2) */
+.mac-display {
+    margin-top: 16px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 6px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.mac-display.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mac-display label {
+    display: block;
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 6px;
+}
+
+.mac-value {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 15px;
+    color: #4ec9b0;
+}
+
+.ip-info {
+    margin-top: 20px;
+    padding: 12px;
+    background: #252525;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #888;
+}
+
+.ip-info p {
+    margin: 0;
+}
+
+/* Connection Step (Step 3) */
+.wizard-step-connections h3 {
+    color: #fff !important;
+}
+
+.wizard-step-connections .step-description {
+    color: #aaa !important;
+}
+
+.wizard-step-connections strong {
+    color: #6bb3f8 !important;
+}
+
+.connection-hint {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: rgba(251, 181, 0, 0.1);
+    border: 1px solid rgba(251, 181, 0, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #fbb500;
+}
+
+.device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.device-card {
+    padding: 14px;
+    background: #252525;
+    border: 2px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.device-card:hover {
+    border-color: #555;
+    background: #2a2a2a;
+}
+
+.device-card.selected {
+    border-color: #fbb500;
+    background: rgba(251, 181, 0, 0.1);
+}
+
+.device-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.device-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #fbb500;
+}
+
+.device-card-header label {
+    font-weight: 600;
+    color: #fff !important;
+    cursor: pointer;
+    font-size: 14px;
+    -webkit-text-fill-color: #fff !important;
+}
+
+.device-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #888 !important;
+    margin-left: 28px;
+    -webkit-text-fill-color: #888 !important;
+}
+
+.next-port {
+    color: #28a745 !important;
+    -webkit-text-fill-color: #28a745 !important;
+}
+
+.used-ports {
+    color: #666 !important;
+    -webkit-text-fill-color: #666 !important;
+}
+
+.no-devices {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #888;
+    padding: 40px;
+}
+
+/* Connection Summary */
+.connection-summary {
+    background: #252525;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.connection-summary h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #aaa;
+    font-weight: 500;
+}
+
+.connection-list {
+    min-height: 60px;
+}
+
+.add-connection-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.add-connection-row .form-select {
+    flex: 1;
+    width: auto;  /* Override width: 100% to allow flex to control size */
+    min-width: 0;  /* Prevent flex item from overflowing */
+}
+
+.add-connection-row .add-connection-btn {
+    flex-shrink: 0;
+    padding: 10px 20px;
+}
+
+.connection-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.local-port {
+    color: #4ec9b0;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.connection-arrow {
+    color: #666;
+}
+
+.remote-info {
+    color: #ddd;
+    flex: 1;
+}
+
+.remove-connection-btn {
+    background: transparent;
+    border: none;
+    color: #e30909;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.remove-connection-btn:hover {
+    background: rgba(227, 9, 9, 0.2);
+}
+
+.no-connections {
+    color: #666;
+    font-size: 13px;
+    font-style: italic;
+    margin: 0;
+    padding: 16px 0;
+    text-align: center;
+}
+
+/* Review Step (Step 4) */
+.review-section {
+    margin-bottom: 24px;
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.review-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #fbb500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.review-table th,
+.review-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.review-table th {
+    color: #aaa;
+    font-weight: 500;
+    width: 140px;
+    background: #1e1e1e;
+}
+
+.review-table td {
+    color: #fff;
+    background: #1a1a1a;
+}
+
+.connections-table th {
+    width: auto;
+    color: #888;
+    background: #252525;
+}
+
+.connections-table td.no-data {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+}
+
+.review-notes {
+    background: #252525;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.review-notes h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #aaa;
+}
+
+.review-notes ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.review-notes li {
+    color: #ccc;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+/* Footer */
+.wizard-footer {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-top: 1px solid #333;
+    background: #252525;
+}
+
+.wizard-footer-spacer {
+    flex: 1;
+}
+
+.wizard-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.wizard-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.wizard-btn-primary {
+    background: #fbb500;
+    color: #071c35;
+    margin-left: 10px;
+    font-weight: 600;
+}
+
+.wizard-btn-primary:hover:not(:disabled) {
+    background: #ffc52f;
+}
+
+.wizard-btn-primary.wizard-btn-create {
+    background: #28a745;
+}
+
+.wizard-btn-primary.wizard-btn-create:hover:not(:disabled) {
+    background: #218838;
+}
+
+.wizard-btn-secondary {
+    background: #333;
+    color: #ccc;
+}
+
+.wizard-btn-secondary:hover:not(:disabled) {
+    background: #444;
+}
+
+/* Loading State */
+.wizard-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    color: #888;
+}
+
+.wizard-loading p {
+    margin-top: 16px;
+    font-size: 14px;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #333;
+    border-top-color: #fbb500;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.spinner.large {
+    width: 48px;
+    height: 48px;
+    border-width: 4px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Creating State */
+.wizard-creating {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    text-align: center;
+}
+
+.wizard-creating h3 {
+    margin-top: 20px;
+    color: #fff;
+}
+
+.wizard-creating p {
+    color: #888;
+    font-size: 14px;
+}
+
+.creation-log {
+    width: 100%;
+    max-height: 120px;
+    overflow-y: auto;
+    margin-top: 20px;
+    padding: 12px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    text-align: left;
+}
+
+.log-entry {
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.log-entry.log-success {
+    color: #28a745;
+}
+
+.log-entry.log-error {
+    color: #dc3545;
+}
+
+/* Success State */
+.wizard-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    text-align: center;
+}
+
+.success-icon {
+    width: 64px;
+    height: 64px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+}
+
+.wizard-success h3 {
+    margin: 20px 0 12px;
+    color: #fff;
+}
+
+.wizard-success p {
+    color: #aaa;
+    font-size: 14px;
+    margin: 0 0 8px;
+}
+
+.success-details {
+    margin-top: 16px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 8px;
+}
+
+.success-details p {
+    margin: 4px 0;
+}
+
+.success-details code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #4ec9b0;
+    background: #1a1a1a;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.success-details h4 {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 12px;
+}
+
+.created-nodes-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.created-nodes-list li {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #ccc;
+}
+
+.created-nodes-list li strong {
+    color: #4ec9b0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Error State */
+.wizard-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    text-align: center;
+    padding: 20px;
+}
+
+.error-icon {
+    width: 64px;
+    height: 64px;
+    background: #dc3545;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+}
+
+.wizard-error h3 {
+    margin: 20px 0 12px;
+    color: #dc3545;
+}
+
+.wizard-error p {
+    color: #aaa;
+    font-size: 14px;
+    margin: 0 0 8px;
+}
+
+.error-detail {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #dc3545;
+    background: #2a2020;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.error-hint {
+    color: #666;
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .add-node-wizard {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .wizard-header {
+        padding: 16px;
+    }
+
+    .wizard-content {
+        padding: 16px;
+    }
+
+    .wizard-footer {
+        padding: 12px 16px;
+    }
+
+    .progress-steps {
+        justify-content: center;
+    }
+
+    .step-label {
+        display: none;
+    }
+
+    .progress-connector {
+        margin-bottom: 0;
+    }
+
+    .device-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===========================================
+   User Nodes Restore Banner & Dialog
+   =========================================== */
+
+.user-nodes-restore-banner {
+    position: relative;
+    z-index: 100;
+    margin: 0 0 12px 0;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-nodes-restore-banner.needs-restore {
+    background: linear-gradient(135deg, #553300 0%, #442200 100%);
+    border: 1px solid #996600;
+}
+
+.user-nodes-restore-banner.all-running {
+    background: linear-gradient(135deg, #003322 0%, #002211 100%);
+    border: 1px solid #006644;
+}
+
+.restore-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.restore-banner-icon {
+    font-size: 18px;
+    color: #ffcc00;
+}
+
+.restore-banner-icon.success {
+    color: #00cc66;
+}
+
+.restore-banner-text {
+    flex: 1;
+    color: #fff;
+}
+
+.restore-banner-text strong {
+    color: #ffcc00;
+}
+
+.user-nodes-restore-banner.all-running .restore-banner-text strong {
+    color: #00cc66;
+}
+
+.restore-banner-btn {
+    background: #fbb500;
+    color: #071c35;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.restore-banner-btn:hover {
+    background: #ffc52f;
+}
+
+.restore-banner-dismiss {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.restore-banner-dismiss:hover {
+    color: #fff;
+}
+
+/* Restore Dialog */
+.restore-nodes-dialog {
+    max-width: 500px;
+}
+
+.restore-description {
+    margin: 0 0 16px 0;
+    color: #aaa;
+}
+
+.restore-nodes-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #333;
+    border-radius: 4px;
+    background: #1a1a1a;
+}
+
+.restore-node-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #333;
+}
+
+.restore-node-item:last-child {
+    border-bottom: none;
+}
+
+.restore-node-item.running {
+    opacity: 0.6;
+}
+
+.restore-node-item.stopped .node-status-icon {
+    color: #ff6b6b;
+}
+
+.restore-node-item.running .node-status-icon {
+    color: #00cc66;
+}
+
+.node-status-icon {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+
+.node-name {
+    flex: 1;
+    font-weight: 500;
+    color: #fff;
+}
+
+.node-ip {
+    color: #888;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.node-state {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.restore-node-item.stopped .node-state {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+}
+
+.restore-node-item.running .node-state {
+    background: rgba(0, 204, 102, 0.2);
+    color: #00cc66;
+}
+
+/* Restore Progress */
+.restore-progress {
+    text-align: center;
+    padding: 24px 0;
+}
+
+.restore-progress .progress-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #333;
+    border-top-color: #fbb500;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px auto;
+}
+
+.restore-progress p {
+    color: #aaa;
+    margin: 0 0 16px 0;
+}
+
+.restore-log {
+    text-align: left;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 12px;
+    max-height: 150px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+/* Restore Success/Error */
+.restore-success,
+.restore-error {
+    text-align: center;
+    padding: 24px 0;
+}
+
+.restore-success .success-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(0, 204, 102, 0.2);
+    color: #00cc66;
+    font-size: 32px;
+    line-height: 60px;
+    margin: 0 auto 16px auto;
+}
+
+.restore-error .error-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    font-size: 32px;
+    line-height: 60px;
+    margin: 0 auto 16px auto;
+}
+
+.restore-success h3,
+.restore-error h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.restore-success p,
+.restore-error p {
+    color: #aaa;
+    margin: 0;
+}
+
+/* Delete Node Success State */
+.delete-node-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+    text-align: center;
+}
+
+.delete-node-success .success-icon {
+    width: 64px;
+    height: 64px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+}
+
+.delete-node-success h3 {
+    margin: 20px 0 12px;
+    color: #fff;
+}
+
+.delete-node-success p {
+    color: #aaa;
+    font-size: 14px;
+    margin: 0 0 8px;
+}
+
+/* Edit Connections Reboot Section */
+.edit-reboot-section {
+    margin-top: 16px;
+}
+
+/* ===========================================
+   Reboot Section (after node creation)
+   =========================================== */
+
+.reboot-section {
+    margin-top: 24px;
+    padding: 20px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #444;
+    text-align: left;
+    width: 100%;
+    max-width: 500px;
+}
+
+.reboot-section h4 {
+    margin: 0 0 12px 0;
+    color: #ffcc00;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.reboot-section > p {
+    color: #aaa;
+    font-size: 13px;
+    margin: 0 0 16px 0;
+}
+
+.target-devices-list {
+    background: #1e1e1e;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 16px;
+}
+
+.target-device-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #252525;
+    border-radius: 4px;
+    margin-bottom: 6px;
+}
+
+.target-device-row:last-child {
+    margin-bottom: 0;
+}
+
+.target-device-row .device-name {
+    font-weight: 600;
+    color: #fff;
+    min-width: 100px;
+}
+
+.target-device-row .device-ip {
+    color: #888;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    flex: 1;
+}
+
+.save-config-btn {
+    background: #fbb500;
+    color: #071c35;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background-color 0.2s, opacity 0.2s;
+    white-space: nowrap;
+}
+
+.save-config-btn:hover:not(:disabled) {
+    background: #ffc52f;
+}
+
+.save-config-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.save-status {
+    font-size: 12px;
+    min-width: 20px;
+}
+
+.save-status.success {
+    color: #28a745;
+}
+
+.save-status.error {
+    color: #dc3545;
+}
+
+.reboot-actions {
+    text-align: center;
+}
+
+.reboot-warning {
+    color: #ffcc00;
+    font-size: 12px;
+    margin: 0 0 12px 0;
+    background: rgba(255, 204, 0, 0.1);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 204, 0, 0.3);
+}
+
+.reboot-all-btn {
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.reboot-all-btn:hover:not(:disabled) {
+    background: #c82333;
+}
+
+.reboot-all-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.reboot-status {
+    display: block;
+    margin-top: 10px;
+    font-size: 13px;
+    min-height: 20px;
+}
+
+.reboot-status.success {
+    color: #28a745;
+}
+
+.reboot-status.warning {
+    color: #ffcc00;
+}
+
+.reboot-status.error {
+    color: #dc3545;
+}
+
+/* ===========================================
+   Cluster Wizard Styles
+   =========================================== */
+
+/* Cluster wizard uses the same base styles as add-node-wizard */
+.cluster-wizard {
+    max-width: 600px;
+}
+
+/* Cluster connection rows */
+.cluster-connection-row {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.cluster-connection-row label {
+    display: block;
+    margin-bottom: 10px;
+    color: #ccc;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.cluster-connection-row .connection-node-name {
+    color: #4ec9b0;
+    font-weight: 600;
+}
+
+.cluster-connection-row .connection-required {
+    color: #dc3545;
+    margin-left: 4px;
+}
+
+.cluster-connection-row .form-select {
+    width: 100%;
+}
+
+.cluster-connection-row .form-select.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+/* Cluster impairment grid */
+.cluster-impairment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.cluster-impairment-input {
+    display: flex;
+    flex-direction: column;
+}
+
+.cluster-impairment-input label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.cluster-impairment-input .form-input {
+    text-align: center;
+}
+
+/* Cluster summary box */
+.cluster-summary-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: #252525;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.cluster-summary-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.cluster-summary-box p {
+    margin: 6px 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+.cluster-summary-box strong {
+    color: #4ec9b0;
+}
+
+.cluster-summary-box .error-text {
+    color: #dc3545;
+}
+
+/* Responsive adjustments for cluster wizard */
+@media (max-width: 600px) {
+    .cluster-impairment-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===========================================
+   Add Host Wizard Styles (Linux Desktop VMs)
+   =========================================== */
+
+.add-host-wizard .wizard-header {
+    background: linear-gradient(135deg, #1a2d3d 0%, #0f1c2a 100%);
+}
+
+.host-limit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #252525;
+    border: 1px solid #444;
+    border-radius: 20px;
+    padding: 6px 14px;
+    margin-bottom: 20px;
+}
+
+.host-limit-badge .limit-count {
+    font-weight: 600;
+    color: #4ec9b0;
+    font-size: 15px;
+}
+
+.host-limit-badge .limit-label {
+    color: #888;
+    font-size: 13px;
+}
+
+.host-info-box,
+.interface-info-box {
+    background: #1e2a3a;
+    border: 1px solid #2d4a66;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.host-info-box h4,
+.interface-info-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #6db3f2;
+    font-weight: 600;
+}
+
+.host-info-box ul,
+.interface-info-box ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.host-info-box li,
+.interface-info-box li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+.interface-info-box p {
+    color: #aaa;
+    font-size: 13px;
+    margin: 0 0 12px 0;
+}
+
+.ip-info {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #252525;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.ip-info p {
+    margin: 0;
+    color: #aaa;
+    font-size: 14px;
+}
+
+.ip-info strong {
+    color: #4ec9b0;
+}
+
+/* Checkbox label for optional connection */
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: #fbb500;
+    flex-shrink: 0;
+}
+
+.field-hint {
+    margin: 6px 0 0 0;
+    font-size: 12px;
+    color: #666;
+}
+
+.connection-hint {
+    margin-top: 20px;
+    padding: 12px 16px;
+    background: #252525;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #888;
+}
+
+.connection-hint strong {
+    color: #aaa;
+}
+
+/* ===========================================
+   Add Firewall Wizard Styles (VyOS VMs)
+   =========================================== */
+
+.add-firewall-wizard .wizard-header {
+    background: linear-gradient(135deg, #3d1a2a 0%, #2a0f1c 100%);
+}
+
+.firewall-limit-badge {
+    background: #352525;
+    border-color: #664444;
+}
+
+.firewall-limit-badge .limit-count {
+    color: #f26b6b;
+}
+
+.firewall-info-box {
+    background: #2a1e2a;
+    border-color: #4a2d4a;
+}
+
+.firewall-info-box h4 {
+    color: #d06bd0;
+}
+
+/* Interface configuration step */
+.wizard-step-interface h3 {
+    margin-bottom: 8px;
+}
+
+/* Interface diagram visualization */
+.interface-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+    padding: 20px;
+    background: #1a1a1a;
+    border-radius: 8px;
+}
+
+.diagram-box {
+    padding: 16px 24px;
+    border-radius: 8px;
+    text-align: center;
+    min-width: 140px;
+}
+
+.diagram-box.inside {
+    background: linear-gradient(135deg, #1a3d2a 0%, #0f2a1c 100%);
+    border: 1px solid #2d664a;
+}
+
+.diagram-box.outside {
+    background: linear-gradient(135deg, #3d1a1a 0%, #2a0f0f 100%);
+    border: 1px solid #662d2d;
+}
+
+.diagram-box.firewall {
+    background: linear-gradient(135deg, #2a1e3d 0%, #1c0f2a 100%);
+    border: 1px solid #4a2d66;
+}
+
+.diagram-label {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.diagram-ip {
+    display: block;
+    font-size: 14px;
+    color: #fff;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.diagram-arrow {
+    font-size: 24px;
+    color: #666;
+}
+
+/* Hidden class for conditional visibility */
+.hidden {
+    display: none !important;
+}
+
+/* Split pane loading/error states */
+.split-pane-loading,
+.split-pane-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+}
+
+.split-pane-error {
+    color: #e74c3c;
+}
+
+/* ===========================================
+   Add Node Wizard Enhanced Styles (vEOS VMs)
+   Subtle green/teal header matching ATL branding
+   =========================================== */
+
+.add-node-wizard:not(.add-host-wizard):not(.add-firewall-wizard):not(.cluster-wizard) .wizard-header {
+    background: linear-gradient(135deg, #1a3d2d 0%, #0f2a1c 100%);
+}
+
+/* Node info box with matching theme */
+.node-info-box {
+    background: #1e2a2a;
+    border: 1px solid #2d664a;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.node-info-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #78d82c;
+    font-weight: 600;
+}
+
+.node-info-box ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.node-info-box li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+/* ===========================================
+   Add Cluster Wizard Enhanced Styles
+   Subtle orange/yellow header matching ATL branding
+   =========================================== */
+
+.cluster-wizard .wizard-header {
+    background: linear-gradient(135deg, #3d2a1a 0%, #2a1c0f 100%);
+}
+
+.cluster-info-box {
+    background: #2a2a1e;
+    border: 1px solid #66662d;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.cluster-info-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #fbb500;
+    font-weight: 600;
+}
+
+.cluster-info-box ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.cluster-info-box li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+/* Template preview pane for cluster wizard */
+.cluster-template-preview {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+    min-height: 150px;
+    max-height: 350px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.cluster-template-preview h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #fbb500;
+    font-weight: 600;
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+}
+
+.cluster-template-preview .preview-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 150px;
+    color: #666;
+    font-size: 14px;
+    font-style: italic;
+}
+
+.cluster-template-preview .preview-content {
+    color: #aaa;
+    font-size: 13px;
+}
+
+.cluster-template-preview .preview-content p {
+    margin: 8px 0;
+}
+
+.cluster-template-preview .preview-content strong {
+    color: #fff;
+}
+
+/* Template node list */
+.template-nodes-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0 0;
+}
+
+.template-nodes-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #252525;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.template-nodes-list .node-icon {
+    color: #78d82c;
+    font-size: 12px;
+}
+
+.template-nodes-list .node-name {
+    color: #fff;
+    font-weight: 500;
+}
+
+.template-nodes-list .node-type {
+    color: #888;
+    margin-left: auto;
+}
+
+/* Template connections diagram */
+.template-connections {
+    margin-top: 12px;
+    padding: 12px;
+    background: #1e1e1e;
+    border-radius: 6px;
+}
+
+.template-connections h5 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #888;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.connection-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: #aaa;
+}
+
+.connection-line .conn-from,
+.connection-line .conn-to {
+    color: #4ec9b0;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.connection-line .conn-arrow {
+    color: #666;
+}
+
+/* ===========================================
+   Cluster Template Visual Diagram
+   =========================================== */
+
+/* Preview content wrapper */
+.cluster-template-preview .preview-content {
+    color: #aaa;
+}
+
+.cluster-topology-diagram {
+    margin-bottom: 12px;
+}
+
+/* Container layouts */
+.cluster-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px;
+    background: transparent;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.cluster-diagram.horizontal {
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.cluster-diagram.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.cluster-diagram.list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Diagram boxes */
+.cluster-diagram .diagram-box {
+    padding: 10px 16px;
+    border-radius: 6px;
+    text-align: center;
+    min-width: 80px;
+    border: 2px solid;
+}
+
+.cluster-diagram .diagram-box .diagram-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.cluster-diagram .diagram-box .diagram-type {
+    display: block;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Small boxes for list layout */
+.cluster-diagram .diagram-box-small {
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-align: center;
+    min-width: 80px;
+    border: 2px solid;
+}
+
+.cluster-diagram .diagram-box-small .diagram-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+}
+
+/* Node type color classes */
+.node-spine {
+    background: linear-gradient(135deg, #2d4a1a 0%, #1a3d0f 100%);
+    border-color: #4a8c2d !important;
+}
+
+.node-leaf {
+    background: linear-gradient(135deg, #1a3d4a 0%, #0f2a3d 100%);
+    border-color: #2d6b8c !important;
+}
+
+.node-borderleaf {
+    background: linear-gradient(135deg, #4a3d1a 0%, #3d2a0f 100%);
+    border-color: #8c6b2d !important;
+}
+
+.node-host {
+    background: linear-gradient(135deg, #3d1a4a 0%, #2a0f3d 100%);
+    border-color: #6b2d8c !important;
+}
+
+.node-isp {
+    background: linear-gradient(135deg, #4a1a1a 0%, #3d0f0f 100%);
+    border-color: #8c2d2d !important;
+}
+
+.node-core {
+    background: linear-gradient(135deg, #1a1a4a 0%, #0f0f3d 100%);
+    border-color: #2d2d8c !important;
+}
+
+.node-pe {
+    background: linear-gradient(135deg, #1a4a4a 0%, #0f3d3d 100%);
+    border-color: #2d8c8c !important;
+}
+
+.node-p {
+    background: linear-gradient(135deg, #4a4a1a 0%, #3d3d0f 100%);
+    border-color: #8c8c2d !important;
+}
+
+/* Fallback colors for unknown types */
+.node-primary {
+    background: linear-gradient(135deg, #1a3d2d 0%, #0f2a1c 100%);
+    border-color: #2d664a !important;
+}
+
+.node-secondary {
+    background: linear-gradient(135deg, #3d2a1a 0%, #2a1c0f 100%);
+    border-color: #66502d !important;
+}
+
+.node-tertiary {
+    background: linear-gradient(135deg, #2a1a3d 0%, #1c0f2a 100%);
+    border-color: #502d66 !important;
+}
+
+.node-quaternary {
+    background: linear-gradient(135deg, #1a2d3d 0%, #0f1c2a 100%);
+    border-color: #2d4a66 !important;
+}
+
+/* Arrow connectors between nodes */
+.diagram-arrow-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 40px;
+}
+
+.diagram-arrow-line {
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #4ec9b0, #fbb500);
+    border-radius: 2px;
+    position: relative;
+}
+
+.diagram-arrow-line::before,
+.diagram-arrow-line::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    background: #4ec9b0;
+    border-radius: 50%;
+    transform: translateY(-50%);
+}
+
+.diagram-arrow-line::before {
+    left: -4px;
+}
+
+.diagram-arrow-line::after {
+    right: -4px;
+    background: #fbb500;
+}
+
+.diagram-arrow-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1a1a1a;
+    padding: 2px 6px;
+    color: #888;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Connection count display */
+.diagram-connection-count {
+    text-align: center;
+    margin-top: 12px;
+    color: #888;
+    font-size: 13px;
+}
+
+.diagram-connection-count .conn-count {
+    display: inline-block;
+    background: #2d664a;
+    color: #4ec9b0;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 12px;
+    margin-right: 4px;
+}
+
+/* Connection badge for preview */
+.conn-badge {
+    display: inline-block;
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin: 2px;
+    font-size: 11px;
+    color: #ccc;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.conn-badge.required {
+    border-color: #fbb500;
+    background: rgba(251, 181, 0, 0.1);
+    color: #fbb500;
+}
+
+/* Connections legend in preview */
+.connections-legend {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #252525;
+    border-radius: 4px;
+}
+
+.connections-legend .legend-label {
+    display: inline-block;
+    font-size: 11px;
+    color: #888;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 8px;
+}
+
+.connections-legend.external .legend-label {
+    color: #fbb500;
+}
+
+.connections-legend h5 {
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    color: #888;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.connections-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #aaa;
+}
+
+.connections-legend .legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.connections-legend .legend-color.internal {
+    background: #4ec9b0;
+}
+
+.connections-legend .legend-color.external {
+    background: #fbb500;
+}
+
+/* ===========================================
+   Reset All User Nodes Modal Styles
+   =========================================== */
+
+.reset-warning {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.reset-warning-icon {
+    font-size: 48px;
+    color: #e67e22;
+    margin-bottom: 10px;
+}
+
+.reset-warning h3 {
+    color: #e74c3c;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+}
+
+.reset-items-list {
+    text-align: left;
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 8px;
+    padding: 15px 15px 15px 35px;
+    margin: 0 0 20px 0;
+}
+
+.reset-items-list li {
+    margin-bottom: 8px;
+    color: #ddd;
+}
+
+.reset-items-list li:last-child {
+    margin-bottom: 0;
+}
+
+.reset-consequences {
+    text-align: left;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.reset-consequences p {
+    margin: 0 0 10px 0;
+    color: #ccc;
+}
+
+.reset-consequences ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.reset-consequences li {
+    color: #aaa;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.reset-confirm-checkbox {
+    background: rgba(231, 76, 60, 0.15);
+    border: 2px solid rgba(231, 76, 60, 0.4);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.reset-confirm-checkbox label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.reset-confirm-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: #e74c3c;
+    margin-top: 2px;
+}
+
+.reset-confirm-checkbox span {
+    flex: 1;
+}
+
+.reset-info {
+    text-align: center;
+    padding: 20px;
+}
+
+.reset-info p {
+    color: #ccc;
+    margin: 0 0 10px 0;
+}
+
+.reset-note {
+    color: #888;
+    font-size: 13px;
+}
+
+.reset-success {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.reset-success-icon {
+    font-size: 48px;
+    color: #27ae60;
+    margin-bottom: 10px;
+}
+
+.reset-success h3 {
+    color: #27ae60;
+    margin: 0 0 15px 0;
+}
+
+.reset-success p {
+    color: #ccc;
+    margin: 0 0 15px 0;
+}
+
+.reset-summary {
+    text-align: left;
+    background: rgba(39, 174, 96, 0.1);
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.reset-summary p {
+    margin: 0 0 10px 0;
+}
+
+.reset-summary ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.reset-summary li {
+    color: #aaa;
+    margin-bottom: 5px;
+}
+
+.reset-reboot-note {
+    background: rgba(241, 196, 15, 0.1);
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: left;
+}
+
+.reset-reboot-note p {
+    margin: 0;
+    color: #f1c40f;
+    font-size: 13px;
+}
+
+.reset-reboot-note p:first-child {
+    margin-bottom: 5px;
+}
+
+
+/* Reused Slots Info - shown when orphaned interface slots were reused */
+.reused-slots-info {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin: 15px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.reused-slots-info .info-icon {
+    color: #2ecc71;
+    font-size: 18px;
+}
+
+.reused-slots-info strong {
+    color: #2ecc71;
+}
+
+/* ===========================================
+   Add VeloCloud Wizard Styles (SD-WAN Devices)
+   Cyan/teal header matching SD-WAN branding
+   =========================================== */
+
+.add-velocloud-wizard .wizard-header {
+    background: linear-gradient(135deg, #4a1a5e 0%, #330844 100%);
+}
+
+/* Device type selection grid */
+.device-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.device-type-card {
+    padding: 20px;
+    background: #252525;
+    border: 2px solid #333;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
+    text-align: center;
+}
+
+.device-type-card:hover:not(.disabled) {
+    border-color: #a855f7;
+    background: #2a2a2a;
+    transform: translateY(-2px);
+}
+
+.device-type-card.selected {
+    border-color: #a855f7;
+    background: rgba(168, 85, 247, 0.1);
+}
+
+.device-type-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.device-type-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.device-type-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.device-type-desc {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.4;
+    margin-bottom: 12px;
+}
+
+.device-type-limit {
+    font-size: 11px;
+    color: #a855f7;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: rgba(168, 85, 247, 0.1);
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.device-type-limit.at-limit {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+}
+
+/* VeloCloud limit badge */
+.velocloud-limit-badge {
+    background: #2a1a3a;
+    border-color: #7c3aed;
+}
+
+.velocloud-limit-badge .limit-count {
+    color: #c084fc;
+}
+
+/* VeloCloud info boxes */
+.velocloud-info-box {
+    background: #2a1a3a;
+    border: 1px solid #7c3aed;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.velocloud-info-box h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #c084fc;
+    font-weight: 600;
+}
+
+.velocloud-info-box ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.velocloud-info-box li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+.velocloud-info-box li strong {
+    color: #c084fc;
+}
+
+.velocloud-interface-info {
+    background: #2a1a3a;
+    border-color: #7c3aed;
+}
+
+.velocloud-interface-info h4 {
+    color: #c084fc;
+}
+
+/* Interface configuration cards */
+.interfaces-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.interface-config-card {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.2s;
+}
+
+.interface-config-card:focus-within {
+    border-color: #a855f7;
+}
+
+.interface-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.interface-name {
+    font-weight: 600;
+    color: #c084fc;
+    font-size: 14px;
+}
+
+.interface-desc {
+    font-size: 12px;
+    color: #888;
+}
+
+.interface-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.interface-fields .form-group {
+    margin-bottom: 0;
+}
+
+.interface-fields label {
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.interface-fields .form-input,
+.interface-fields .form-select {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+/* VeloCloud interface note */
+.velocloud-interface-note {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(168, 85, 247, 0.1);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 6px;
+}
+
+.velocloud-interface-note p {
+    margin: 0;
+    font-size: 13px;
+    color: #c084fc;
+}
+
+/* VeloCloud success icon */
+.wizard-success .success-icon.velocloud-success {
+    background: #7c3aed;
+}
+
+/* No interfaces configured message */
+.no-interfaces-configured {
+    color: #888;
+    font-style: italic;
+    padding: 16px;
+    text-align: center;
+    background: #1a1a1a;
+    border-radius: 6px;
+}
+
+/* Gateway Configuration Step Styles */
+.wizard-step-gateway-config .config-section {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.wizard-step-gateway-config .config-section h4 {
+    color: #c084fc;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.wizard-step-gateway-config .section-desc {
+    font-size: 12px;
+    color: #888;
+    margin: 0 0 12px 0;
+}
+
+.wizard-step-gateway-config .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.wizard-step-gateway-config .form-hint {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.wizard-step-gateway-config .form-group {
+    margin-bottom: 0;
+}
+
+.wizard-step-gateway-config .form-input {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    width: 100%;
+    font-size: 14px;
+}
+
+.wizard-step-gateway-config .form-input:focus {
+    border-color: #a855f7;
+    outline: none;
+}
+
+.wizard-step-gateway-config .form-input::placeholder {
+    color: #666;
+}
+
+/* Edge Configuration Step Styles */
+.wizard-step-edge-config .config-section {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.wizard-step-edge-config .config-section h4 {
+    color: #38bdf8;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.wizard-step-edge-config .section-desc {
+    font-size: 12px;
+    color: #888;
+    margin: 0 0 12px 0;
+}
+
+.wizard-step-edge-config .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.wizard-step-edge-config .form-hint {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.wizard-step-edge-config .form-group {
+    margin-bottom: 0;
+}
+
+.wizard-step-edge-config .form-input,
+.wizard-step-edge-config .form-select {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    width: 100%;
+    font-size: 13px;
+}
+
+.wizard-step-edge-config .form-input:focus,
+.wizard-step-edge-config .form-select:focus {
+    border-color: #38bdf8;
+    outline: none;
+}
+
+.wizard-step-edge-config .form-input::placeholder {
+    color: #666;
+}
+
+.wizard-step-edge-config .form-input:disabled {
+    background: #222;
+    color: #555;
+    cursor: not-allowed;
+}
+
+/* Edge interfaces grid layout */
+.wizard-step-edge-config .edge-interfaces-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Edge interface grid header */
+.wizard-step-edge-config .edge-interface-header {
+    display: grid;
+    grid-template-columns: 45px 70px 90px 100px 90px 110px 70px;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #252525;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Edge interface grid with connections - 7 column layout */
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .edge-interface-row {
+    display: grid;
+    grid-template-columns: 45px 70px 90px 100px 90px 110px 70px;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 8px;
+    background: #1e1e1e;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.wizard-step-edge-config .edge-interface-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 8px;
+    background: #1e1e1e;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.wizard-step-edge-config .interface-label {
+    font-weight: 600;
+    color: #38bdf8;
+    font-size: 13px;
+}
+
+/* Compact form elements for the new grid layout */
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .form-select,
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .form-input {
+    padding: 5px 6px;
+    font-size: 11px;
+    min-width: 0;
+}
+
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .interface-target-device {
+    font-size: 11px;
+}
+
+.wizard-step-edge-config .edge-interfaces-grid--with-connections .interface-target-port {
+    font-size: 11px;
+    background: #222;
+    color: #aaa;
+}
+
+.wizard-step-edge-config .interface-fields {
+    display: grid;
+    grid-template-columns: 80px 1fr 110px 110px;
+    gap: 8px;
+    align-items: center;
+}
+
+.wizard-step-edge-config .interface-fields .form-select {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.wizard-step-edge-config .interface-fields .form-input {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+/* Responsive adjustments for device type grid */
+@media (max-width: 700px) {
+    .device-type-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .interface-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+ * VeloCloud Wizard Specific Styles
+ * ============================================ */
+
+/* VeloCloud wizard header - use purple/blue accent color */
+.add-velocloud-wizard .wizard-header {
+    background: linear-gradient(135deg, #2d3a5a 0%, #1e2a3a 100%);
+    border-bottom: 3px solid #6db3f2;
+}
+
+/* Code elements in VeloCloud wizard - teal/cyan on dark, no white boxes */
+.add-velocloud-wizard code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #4ec9b0;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+/* Fixed IP display for Orchestrator reserved IP */
+.fixed-ip-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+}
+
+.fixed-ip-display code {
+    font-size: 16px;
+    font-weight: 600;
+    color: #4ec9b0;
+}
+
+.fixed-ip-badge {
+    background: #2d4a66;
+    color: #6db3f2;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Orchestrator IP info box - left-align content, remove center */
+.orchestrator-ip-info {
+    text-align: left;
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.orchestrator-ip-info p {
+    color: #aaa;
+    margin: 0 0 12px 0;
+}
+
+.orchestrator-ip-info ul {
+    margin: 0 0 16px 0;
+    padding-left: 24px;
+    text-align: left;
+}
+
+.orchestrator-ip-info li {
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 4px;
+}
+
+.orchestrator-ip-info .credential-info {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #444;
+    color: #fbb500;
+}
+
+/* VeloCloud interface note box at bottom of config steps */
+.velocloud-interface-note {
+    background: #1e2a3a;
+    border: 1px solid #2d4a66;
+    border-left: 3px solid #6db3f2;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.velocloud-interface-note p {
+    margin: 0 0 8px 0;
+    color: #aaa;
+    font-size: 13px;
+}
+
+.velocloud-interface-note p:last-child {
+    margin-bottom: 0;
+}
+
+.velocloud-interface-note strong {
+    color: #6db3f2;
+}
+
+/* Orchestrator config section styling */
+.wizard-step-orchestrator-config .config-section {
+    margin-bottom: 24px;
+}
+
+.wizard-step-orchestrator-config .config-section h4 {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+}
+
+.wizard-step-orchestrator-config .section-desc {
+    color: #888;
+    font-size: 13px;
+    margin: 0 0 12px 0;
+}
+
+/* Orchestrator management summary table */
+.orchestrator-mgmt-summary .review-table th {
+    color: #aaa;
+    background: #252525;
+}
+
+.orchestrator-mgmt-summary .review-table td {
+    color: #fff;
+    background: #1e1e1e;
+}
+
+/* Configuration note styling (firewall wizard) */
+.config-note {
+    background: #2a3a4a;
+    border: 1px solid #3d5a73;
+    border-left: 3px solid #fbb500;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+
+.config-note strong {
+    color: #fbb500;
+}
+
+.config-note code {
+    background: #1e2a3a;
+    color: #6db3f2;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+}
+
+/* Error hint styling for validation messages */
+.error-hint {
+    color: #e30909 !important;
+    font-weight: 500;
+}

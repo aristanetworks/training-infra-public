@@ -50,4 +50,3 @@ mpls rsvp
    fast-reroute mode node-protection
    no shutdown
 !
-En

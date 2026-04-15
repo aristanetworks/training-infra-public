@@ -1,3 +1,4 @@
+hostname A2
 !
 interface Ethernet1
   no switchport

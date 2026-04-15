@@ -20,6 +20,8 @@ import re
 import subprocess
 import threading
 import time
+import urllib.request
+import urllib.error
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -37,6 +39,11 @@ define("allowed_hosts", default="127.0.0.1,localhost", help="Allowed hosts for A
 # Global state
 TOPOLOGY_DATA_PATH = "/etc/atd/ACCESS_INFO.yaml"
 TOPOLOGY_FILE_PATH = "/opt/atd/topologies/topo_build.yml"
+
+# Nodebuilder API endpoint for bridge information
+# Captureservice runs with host network, so nodebuilder is at localhost
+NODEBUILDER_BRIDGES_URL = "http://localhost:8090/bridges"
+NODEBUILDER_TIMEOUT = 5  # seconds
 
 
 @dataclass
@@ -1007,13 +1014,78 @@ class CaptureManager:
             except:
                 return False
 
-    def get_bridges(self) -> List[Dict]:
-        """Get list of OVS bridges with edge mapping."""
+    def invalidate_bridge_cache(self):
+        """Invalidate the bridge cache to force a refresh."""
+        with self._lock:
+            self._bridge_cache = None
+            self._bridge_cache_time = 0
+
+    def get_bridges(self, refresh: bool = False) -> List[Dict]:
+        """
+        Get list of OVS bridges with edge mapping.
+
+        Fetches bridge information from nodebuilder API which is the single
+        source of truth for bridge name parsing. Falls back to local OVS
+        command with local parsing if nodebuilder is unreachable.
+
+        Thread-safe: Uses lock for cache and session access.
+        """
         now = time.time()
-        if self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
-            return self._bridge_cache
+
+        # Thread-safe cache check
+        with self._lock:
+            if not refresh and self._bridge_cache and (now - self._bridge_cache_time) < self._bridge_cache_ttl:
+                return list(self._bridge_cache)  # Return copy to avoid mutations
 
         bridges = []
+
+        # Try nodebuilder API first with retry logic
+        max_retries = 2
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(
+                    NODEBUILDER_BRIDGES_URL,
+                    headers={'Accept': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=NODEBUILDER_TIMEOUT) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+
+                    # Get set of capturing bridges with single lock acquisition
+                    with self._lock:
+                        capturing_bridges = {
+                            s.bridge_name for s in self.sessions.values()
+                            if s.is_active
+                        }
+
+                    for bridge_info in data.get('bridges', []):
+                        bridge_info['is_capturing'] = bridge_info.get('name', '') in capturing_bridges
+                        bridges.append(bridge_info)
+
+                    print(f"[CaptureManager] Got {len(bridges)} bridges from nodebuilder API")
+
+                    # Thread-safe cache update
+                    with self._lock:
+                        self._bridge_cache = bridges
+                        self._bridge_cache_time = time.time()
+                    return bridges
+
+            except urllib.error.URLError as e:
+                last_error = f"Nodebuilder API unavailable: {e}"
+            except json.JSONDecodeError as e:
+                last_error = f"Invalid JSON from nodebuilder: {e}"
+            except Exception as e:
+                last_error = f"Error calling nodebuilder API: {e}"
+
+            if attempt < max_retries - 1:
+                print(f"[CaptureManager] Retry {attempt + 1}/{max_retries}: {last_error}")
+                time.sleep(0.5)  # Brief delay before retry
+
+        # All retries failed
+        print(f"[CaptureManager] {last_error}")
+
+        # Fallback: Get bridges locally with local parsing
+        print("[CaptureManager] Falling back to local OVS bridge list with local parsing")
         try:
             result = subprocess.run(
                 ["ovs-vsctl", "list-br"],
@@ -1022,6 +1094,13 @@ class CaptureManager:
                 timeout=10
             )
             if result.returncode == 0:
+                # Get set of capturing bridges with single lock acquisition
+                with self._lock:
+                    capturing_bridges = {
+                        s.bridge_name for s in self.sessions.values()
+                        if s.is_active
+                    }
+
                 for name in result.stdout.strip().split('\n'):
                     name = name.strip()
                     if not name:
@@ -1029,12 +1108,9 @@ class CaptureManager:
 
                     info = self._parse_bridge_name(name)
                     info['name'] = name
-                    info['is_capturing'] = any(
-                        s.bridge_name == name and s.is_active
-                        for s in self.sessions.values()
-                    )
+                    info['is_capturing'] = name in capturing_bridges
                     bridges.append(info)
-                print(f"[CaptureManager] Found {len(bridges)} OVS bridges")
+                print(f"[CaptureManager] Found {len(bridges)} OVS bridges (local fallback)")
             else:
                 print(f"[CaptureManager] ovs-vsctl failed: {result.stderr.strip()}")
         except FileNotFoundError:
@@ -1042,24 +1118,60 @@ class CaptureManager:
         except Exception as e:
             print(f"[CaptureManager] Error listing bridges: {e}")
 
-        self._bridge_cache = bridges
-        self._bridge_cache_time = now
+        # Thread-safe cache update
+        with self._lock:
+            self._bridge_cache = bridges
+            self._bridge_cache_time = time.time()
         return bridges
+
+    # Mapping of 2-letter abbreviations to full device type names
+    # IMPORTANT: The canonical source of truth is nodebuilder/src/bridge_utils.py
+    # This copy exists for performance (avoids API calls) but MUST stay in sync.
+    # Run tests/test_bridge_consistency.py to verify consistency.
+    DEVICE_ABBREVIATIONS = {
+        'sp': 'spine',
+        'le': 'leaf',
+        'bo': 'borderleaf',  # 'bo' = first 2 letters of 'borderleaf'
+        'ho': 'host',
+        'fi': 'firewall',    # 'fi' = first 2 letters of 'firewall'
+        've': 'vce',         # VeloCloud Edge
+        'vc': 'vcg',         # VeloCloud Gateway
+        'vo': 'vco',         # VeloCloud Orchestrator
+        'cl': 'client',
+        'co': 'core',
+        'pe': 'pe',
+        'ce': 'ce',
+        'dc': 'dci',
+        'rr': 'rr',
+        'ga': 'gateway',     # 'ga' = first 2 letters of 'gateway'
+        'ro': 'router',
+        'is': 'isp',
+        'in': 'internet',
+        'me': 'memleaf',
+        'cu': 'customer',
+        'oo': 'oob',
+        # Legacy kvmbuilder mappings (may use different abbreviations)
+        'bl': 'borderleaf',  # Legacy: some old bridges use 'bl'
+        'gw': 'gateway',     # Legacy: some old bridges use 'gw'
+        'fw': 'firewall',    # Legacy: some old bridges use 'fw'
+    }
 
     def _parse_bridge_name(self, bridge_name: str) -> Dict:
         """
         Parse bridge name to extract device/port info.
 
-        Bridge format: {prefix}{device#}{port#}-{prefix}{device#}{port#}
-        Examples:
-          - le11-le21 -> Leaf1:Ethernet1 <-> Leaf2:Ethernet1
-          - sp13-le14 -> Spine1:Ethernet3 <-> Leaf1:Ethernet4
-          - me11-me21 -> Memleaf1:Ethernet1 <-> Memleaf2:Ethernet1
+        Supports multiple bridge naming conventions:
 
-        Short codes are generated by kvm-topo-builder.py:
-        - 2 letter prefix (le=leaf, sp=spine, ho=host, me=memleaf, ro=router)
-        - Device number (1 digit)
-        - Port number (1+ digits)
+        1. Nodebuilder format (with 'x' separator):
+           le5x1-sp4x9 -> leaf5:Ethernet1 <-> spine4:Ethernet9
+           fi1xet1-bo1x7 -> firewall1:eth1 <-> borderleaf1:Ethernet7
+
+        2. Legacy kvmbuilder format (no separator):
+           le11-le21 -> leaf1:Ethernet1 <-> leaf2:Ethernet1
+           sp13-le14 -> spine1:Ethernet3 <-> leaf1:Ethernet4
+
+        3. Full name format:
+           leaf3Et3-leaf1Et3 -> leaf3:Ethernet3 <-> leaf1:Ethernet3
         """
         result = {
             "source_device": "",
@@ -1081,31 +1193,169 @@ class CaptureManager:
                 src = parts[0]
                 tgt = parts[1]
 
-                # Parse format: {2-letter-prefix}{device-num}{port-num}
-                # e.g., le11 = prefix "le", device "1", port "1"
-                # e.g., sp13 = prefix "sp", device "1", port "3"
-                src_parsed = self._parse_short_code(src)
-                if src_parsed:
-                    result["source_device"] = src_parsed['device_code']
-                    result["source_port"] = src_parsed['port_num']
-                    result["source_device_name"] = src_parsed['device_name']
-                    result["source_port_name"] = f"Ethernet{src_parsed['port_num']}"
+                # Parse each part
+                src_device, src_port = self._split_device_port(src)
+                tgt_device, tgt_port = self._split_device_port(tgt)
 
-                tgt_parsed = self._parse_short_code(tgt)
-                if tgt_parsed:
-                    result["target_device"] = tgt_parsed['device_code']
-                    result["target_port"] = tgt_parsed['port_num']
-                    result["target_device_name"] = tgt_parsed['device_name']
-                    result["target_port_name"] = f"Ethernet{tgt_parsed['port_num']}"
+                # Store abbreviated codes
+                result["source_device"] = src_device
+                result["source_port"] = src_port
+                result["target_device"] = tgt_device
+                result["target_port"] = tgt_port
+
+                # Expand to full names for display
+                result["source_device_name"] = self._expand_device_code(src_device)
+                result["source_port_name"] = self._expand_port_code(src_port)
+                result["target_device_name"] = self._expand_device_code(tgt_device)
+                result["target_port_name"] = self._expand_port_code(tgt_port)
 
         except Exception as e:
             print(f"[CaptureManager] Parse error for {bridge_name}: {e}")
 
         return result
 
+    def _split_device_port(self, part: str) -> tuple:
+        """
+        Split a device+port string into (device, port).
+
+        Handles multiple formats:
+        1. 'x' separator: 'le5x1' -> ('le5', '1'), 'fw1xet1' -> ('fw1', 'et1')
+        2. 'eth' prefix: 'client1eth1' -> ('client1', 'eth1')
+        3. 'et' prefix: 'sp1et1' -> ('sp1', 'et1')
+        4. Full names: 'leaf3Et3' -> ('leaf3', 'Et3')
+        5. Legacy kvmbuilder: 'le11' -> ('le1', '1')
+        """
+        lower = part.lower()
+
+        # Check for 'x' separator (nodebuilder format)
+        # The separator 'x' should have a digit before it and:
+        # - digit after (e.g., le5x1)
+        # - 'e' after (e.g., fi1xet1 for eth port)
+        # - 'w' after (e.g., ve1xwa1 for VeloCloud WAN)
+        # - 'l' after (e.g., ve1xla1 for VeloCloud LAN)
+        # - 't' after (e.g., vc1xtr1 for VeloCloud Gateway transport)
+        for i, c in enumerate(lower):
+            if c == 'x' and i > 0 and i < len(part) - 1:
+                prev_char = lower[i - 1]
+                next_char = lower[i + 1]
+                if prev_char.isdigit() and (next_char.isdigit() or next_char in 'ewlt'):
+                    return part[:i], part[i + 1:]
+
+        # Look for 'eth' (longer prefix, for Linux hosts)
+        eth_idx = lower.find('eth')
+        if eth_idx > 0:
+            return part[:eth_idx], part[eth_idx:]
+
+        # Look for 'et' (for Ethernet)
+        et_idx = lower.find('et')
+        if et_idx > 0:
+            return part[:et_idx], part[et_idx:]
+
+        # Legacy kvmbuilder format: {2-letter-prefix}{device-num}{port-num}
+        # e.g., 'le11' = prefix 'le', device '1', port '1'
+        match = re.match(r'^([a-zA-Z]{2})(\d)(\d+)$', part)
+        if match:
+            prefix = match.group(1)
+            device_num = match.group(2)
+            port_num = match.group(3).lstrip('0') or '0'
+            return f"{prefix}{device_num}", port_num
+
+        # Fallback: return whole part as device with empty port
+        return part, ""
+
+    def _expand_device_code(self, code: str) -> str:
+        """
+        Expand abbreviated device code to full device name.
+
+        Examples:
+            le5 -> leaf5
+            sp4 -> spine4
+            fi1 -> firewall1
+        """
+        if not code:
+            return code
+
+        # Extract prefix and number
+        prefix = ''
+        number = ''
+        for char in code:
+            if char.isalpha():
+                prefix += char
+            elif char.isdigit():
+                number += char
+
+        # Look up the full name
+        prefix_lower = prefix.lower()
+        if prefix_lower in self.DEVICE_ABBREVIATIONS:
+            full_prefix = self.DEVICE_ABBREVIATIONS[prefix_lower]
+            return f"{full_prefix}{number}"
+
+        # If not found in mapping, return as-is (might already be full name)
+        return code
+
+    def _expand_port_code(self, code: str) -> str:
+        """
+        Expand abbreviated port code to full port name.
+
+        Examples:
+            1 -> Ethernet1
+            et5 -> Ethernet5
+            eth1 -> eth1 (Linux host interface, keep as-is)
+            wa1 -> wan1 (VeloCloud WAN port)
+            la1 -> lan1 (VeloCloud LAN port)
+        """
+        if not code:
+            return code
+
+        code_lower = code.lower()
+
+        # Linux host interface - keep as-is
+        if code_lower.startswith('eth'):
+            return code
+
+        # Full VeloCloud port names - keep as-is
+        if code_lower.startswith('wan') or code_lower.startswith('lan'):
+            return code
+
+        # Abbreviated VeloCloud WAN port: wa1 -> wan1
+        if code_lower.startswith('wa') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"wan{number}"
+            return code
+
+        # Abbreviated VeloCloud LAN port: la1 -> lan1
+        if code_lower.startswith('la') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"lan{number}"
+            return code
+
+        # Abbreviated VeloCloud Gateway transport port: tr1 -> transport1
+        if code_lower.startswith('tr') and len(code) >= 3:
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"transport{number}"
+            return code
+
+        # Ethernet abbreviation: et5 -> Ethernet5
+        if code_lower.startswith('et'):
+            number = ''.join(c for c in code if c.isdigit())
+            if number:
+                return f"Ethernet{number}"
+            return code
+
+        # Just a number: 1 -> Ethernet1
+        if code.isdigit():
+            return f"Ethernet{code}"
+
+        # Default: return as-is
+        return code
+
     def _parse_short_code(self, code: str) -> Optional[Dict]:
         """
         Parse a short device code like 'le11' or 'sp23'.
+        DEPRECATED: Use _split_device_port + _expand_device_code instead.
 
         Format: {2-letter-prefix}{device-num}{port-num}
         Returns dict with device_code, device_name, device_num, port_num
@@ -1125,21 +1375,7 @@ class CaptureManager:
         device_num = digits[0]
         port_num = digits[1:].lstrip('0') or '0'  # Remove leading zeros from port
 
-        # Map prefix to full device type name
-        prefix_map = {
-            'sp': 'Spine',
-            'le': 'Leaf',
-            'ho': 'Host',
-            'me': 'Memleaf',
-            'ro': 'Router',
-            'pe': 'PE',
-            'ce': 'CE',
-            'bl': 'Borderleaf',
-            'co': 'Core',
-            'gw': 'Gateway',
-        }
-
-        device_type = prefix_map.get(prefix, prefix.upper())
+        device_type = self.DEVICE_ABBREVIATIONS.get(prefix, prefix.upper())
         device_name = f"{device_type}{device_num}"
 
         return {
@@ -1420,48 +1656,36 @@ class LatencyManager:
 
     def get_bridges_with_status(self) -> List[Dict]:
         """Get list of bridges with their latency status."""
-        bridges = []
+        result_bridges = []
 
         try:
-            result = subprocess.run(
-                ["ovs-vsctl", "list-br"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return bridges
-
-            # Reuse CaptureManager's bridge parsing logic
+            # Use CaptureManager's get_bridges() which calls nodebuilder API
             capture_manager = get_manager()
+            bridges = capture_manager.get_bridges()
 
-            for name in result.stdout.strip().split('\n'):
-                name = name.strip()
-                if not name:
-                    continue
-
-                # Parse bridge name to get device/port info
-                info = capture_manager._parse_bridge_name(name)
-                info['name'] = name
+            for info in bridges:
+                # Make a copy to avoid modifying the cached data
+                bridge_info = dict(info)
+                name = bridge_info.get('name', '')
 
                 # Get interface for this bridge
                 interface = self._get_interface_for_bridge(name)
                 if interface:
                     delay = self.get_tc_delay(interface)
-                    info['latency_enabled'] = delay is not None
-                    info['latency_delay_ms'] = delay
-                    info['interface'] = interface
+                    bridge_info['latency_enabled'] = delay is not None
+                    bridge_info['latency_delay_ms'] = delay
+                    bridge_info['interface'] = interface
                 else:
-                    info['latency_enabled'] = False
-                    info['latency_delay_ms'] = None
-                    info['interface'] = None
+                    bridge_info['latency_enabled'] = False
+                    bridge_info['latency_delay_ms'] = None
+                    bridge_info['interface'] = None
 
-                bridges.append(info)
+                result_bridges.append(bridge_info)
 
         except Exception as e:
             print(f"[LatencyManager] Error getting bridges with status: {e}")
 
-        return bridges
+        return result_bridges
 
 
 class PacketLossManager:
@@ -2023,41 +2247,29 @@ class ImpairmentCoordinator:
 
     def get_all_bridges_with_status(self) -> List[Dict]:
         """Get list of all bridges with their impairment status."""
-        bridges = []
+        result_bridges = []
 
         try:
-            result = subprocess.run(
-                ["ovs-vsctl", "list-br"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return bridges
-
-            # Reuse CaptureManager's bridge parsing logic
+            # Use CaptureManager's get_bridges() which calls nodebuilder API
             capture_manager = get_manager()
+            bridges = capture_manager.get_bridges()
 
-            for name in result.stdout.strip().split('\n'):
-                name = name.strip()
-                if not name:
-                    continue
-
-                # Parse bridge name to get device/port info
-                info = capture_manager._parse_bridge_name(name)
-                info['name'] = name
+            for info in bridges:
+                # Make a copy to avoid modifying the cached data
+                bridge_info = dict(info)
+                name = bridge_info.get('name', '')
 
                 # Get impairment status
                 impairments = self.get_bridge_impairments(name)
-                info['impairments'] = impairments
-                info['has_impairments'] = impairments['has_impairments']
+                bridge_info['impairments'] = impairments
+                bridge_info['has_impairments'] = impairments['has_impairments']
 
-                bridges.append(info)
+                result_bridges.append(bridge_info)
 
         except Exception as e:
             print(f"[ImpairmentCoordinator] Error getting bridges with status: {e}")
 
-        return bridges
+        return result_bridges
 
 
 # Global managers
@@ -2169,7 +2381,10 @@ class HealthHandler(SecureHandler):
 class BridgesHandler(SecureHandler):
     """List available bridges."""
     def get(self):
-        bridges = get_manager().get_bridges()
+        # Support refresh=1 or refresh=true query param to bypass cache
+        refresh_param = self.get_argument('refresh', '').lower()
+        refresh = refresh_param in ('1', 'true')
+        bridges = get_manager().get_bridges(refresh=refresh)
         self.write({"bridges": bridges})
 
 

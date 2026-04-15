@@ -1,5 +1,5 @@
+hostname PE2
 !
-
 vrf instance B
 !
 interface Ethernet1
@@ -99,7 +99,6 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-!
-End
+
 
 

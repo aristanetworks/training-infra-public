@@ -74,12 +74,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const configOutput = document.getElementById("configOutput");
 
   function showNotification(message) {
-    notification.textContent = message;
-    notification.style.display = "block";
+    if (notification) {
+      notification.textContent = message;
+      notification.style.display = "block";
+    }
   }
 
   function hideNotification() {
-    notification.style.display = "none";
+    if (notification) {
+      notification.style.display = "none";
+    }
   }
 
   function getSelectedOptions(selectId) {
@@ -89,12 +93,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function displayOutput() {
+    if (!rangeSlider || !output) return;
 
     const latency = document.querySelector(
       'input[name="latencyRadio"]:checked'
     ).value;
     const selected = getSelectedOptions("multiSelect");
-    const sliderValue = rangeSlider.value;
+    const sliderVal = rangeSlider.value;
     let outputHtml = "<h4>your request is in process</h4>";
     output.innerHTML = outputHtml;
     $.post({
@@ -102,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
       data: JSON.stringify({
         changeLatency: latency === 'enable' ? true : false,
         devices: selected,
-        score: sliderValue
+        score: sliderVal
       }),
       contentType: "application/json",
       dataType: "json"
@@ -134,6 +139,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function displayConfigOutput() {
+    if (!configOutput) return;
+
     const selectedDevices = getSelectedOptions("deviceSelect");
     let outputHtml = "<h4>your request is in process</h4>";
     configOutput.innerHTML = outputHtml;
@@ -163,54 +170,61 @@ document.addEventListener("DOMContentLoaded", function () {
 
   }
 
-  enableLatency.addEventListener("change", function () {
-    sliderContainer.style.display = this.checked ? "block" : "none";
-    rangeSlider.required = this.checked;
-  });
+  // Only attach latency form handlers if elements exist (tools page only)
+  if (enableLatency && disableLatency && sliderContainer && rangeSlider) {
+    enableLatency.addEventListener("change", function () {
+      sliderContainer.style.display = this.checked ? "block" : "none";
+      rangeSlider.required = this.checked;
+    });
 
-  disableLatency.addEventListener("change", function () {
-    sliderContainer.style.display = "none";
-    rangeSlider.required = false;
-  });
+    disableLatency.addEventListener("change", function () {
+      sliderContainer.style.display = "none";
+      rangeSlider.required = false;
+    });
 
-  rangeSlider.addEventListener("input", function () {
-    sliderValue.textContent = this.value;
-  });
+    rangeSlider.addEventListener("input", function () {
+      sliderValue.textContent = this.value;
+    });
+  }
 
-  latencyForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    hideNotification();
-    output.innerHTML = "";
+  if (latencyForm) {
+    latencyForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      hideNotification();
+      output.innerHTML = "";
 
-    if (!document.querySelector('input[name="latencyRadio"]:checked')) {
-      showNotification("Please select a latency option.");
-      return;
-    }
+      if (!document.querySelector('input[name="latencyRadio"]:checked')) {
+        showNotification("Please select a latency option.");
+        return;
+      }
 
-    if (getSelectedOptions("multiSelect").length === 0) {
-      showNotification(
-        "Please select at least one option from the multiselect."
-      );
-      return;
-    }
+      if (getSelectedOptions("multiSelect").length === 0) {
+        showNotification(
+          "Please select at least one option from the multiselect."
+        );
+        return;
+      }
 
-    if (enableLatency.checked && !rangeSlider.value) {
-      showNotification("Please set a value for the slider.");
-      return;
-    }
+      if (enableLatency.checked && !rangeSlider.value) {
+        showNotification("Please set a value for the slider.");
+        return;
+      }
 
-    displayOutput();
-  });
+      displayOutput();
+    });
+  }
 
-  configForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (getSelectedOptions("deviceSelect").length === 0) {
-      configOutput.innerHTML =
-        '<div class="alert alert-danger">Please select at least one device.</div>';
-      return;
-    }
-    displayConfigOutput();
-  });
+  if (configForm) {
+    configForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (getSelectedOptions("deviceSelect").length === 0) {
+        configOutput.innerHTML =
+          '<div class="alert alert-danger">Please select at least one device.</div>';
+        return;
+      }
+      displayConfigOutput();
+    });
+  }
 });
 
 

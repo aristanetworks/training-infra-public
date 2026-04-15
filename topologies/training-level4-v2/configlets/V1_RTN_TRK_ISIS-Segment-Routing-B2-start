@@ -1,17 +1,4 @@
 !
-interface Ethernet1
-  no switchport
-  ip address 192.168.22.2/30
-
-interface Loopback0
-   ip address 192.168.2.2/32
-!
-interface Loopback1
-   ip address 192.168.2.12/32
-!
-
-new
-!
 ip route 0.0.0.0/0 192.168.22.1
 !
 int loop0

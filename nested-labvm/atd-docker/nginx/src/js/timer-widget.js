@@ -329,11 +329,61 @@
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     }
 
+    // Terminal page inline timer references
+    let inlineTimerValue = null;
+    let inlineTimerWidget = null;
+    let isTerminalMode = false;
+
+    // Update terminal page's inline timer widget
+    function updateInlineTimer(timeRemaining) {
+        if (!inlineTimerValue) return;
+
+        const formattedTime = formatTime(timeRemaining);
+        inlineTimerValue.textContent = formattedTime;
+
+        if (timeRemaining <= 0) {
+            inlineTimerWidget.classList.add('expired');
+            inlineTimerWidget.classList.remove('warning');
+        } else if (timeRemaining <= WARNING_THRESHOLD) {
+            inlineTimerWidget.classList.add('warning');
+            inlineTimerWidget.classList.remove('expired');
+        } else {
+            inlineTimerWidget.classList.remove('warning', 'expired');
+        }
+    }
+
     // Initialize timer
     function init() {
         // Only show timer in top-level window, not in iframes
         if (window !== window.top) {
             console.log('[ATD Timer] Skipping timer in iframe');
+            return;
+        }
+
+        // Check if terminal page has an inline timer widget
+        inlineTimerValue = document.getElementById('timeRemainingValue');
+        inlineTimerWidget = document.getElementById('timeRemainingWidget');
+
+        if (inlineTimerValue && inlineTimerWidget) {
+            // Terminal page: use the inline timer, skip floating widget
+            isTerminalMode = true;
+            console.log('[ATD Timer] Terminal mode: updating inline timer widget');
+
+            // Override updateTimer to use inline timer
+            const originalUpdateTimer = updateTimer;
+            updateTimer = function(timeRemaining) {
+                updateInlineTimer(timeRemaining);
+            };
+
+            // Start timer updates
+            startTimer();
+
+            // Clean up on page unload
+            window.addEventListener('beforeunload', () => {
+                if (updateInterval) {
+                    clearInterval(updateInterval);
+                }
+            });
             return;
         }
 

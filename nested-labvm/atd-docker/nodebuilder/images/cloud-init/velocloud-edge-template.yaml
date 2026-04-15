@@ -1,0 +1,58 @@
+#cloud-config
+# VeloCloud Edge Cloud-Init Template
+#
+# Virtual Edge is an SD-WAN appliance for branch and edge locations.
+# Requires VCO registration with activation key for production use.
+#
+# Variables replaced at runtime:
+#   {hostname}         - VM hostname
+#   {password}         - Console password for root user
+#   {vco}              - VeloCloud Orchestrator address (FQDN or IP)
+#   {activation_code}  - Edge activation key from VCO
+#
+# Interface mapping (per VeloCloud Edge specs):
+#   GE1, GE2 - LAN ports (internal network) - bridged by VeloCloud, not usable for VCO
+#   GE3-GE8  - WAN ports (uplinks to internet/MPLS) - use for VCO connectivity
+#
+# VM interface order: eth0=GE1, eth1=GE2, eth2=GE3 (management/vmgmt)
+# GE3 is connected to vmgmt bridge for VCO and SSH access.
+#
+# Network configuration is handled via meta-data network-interfaces section.
+#
+# Firewall requirements:
+#   - Outbound: TCP/443 to Orchestrator
+#   - Outbound: UDP/2426 (VCMP) to internet
+#
+# Default credentials: root / {password}
+
+hostname: {hostname}
+password: {password}
+chpasswd: {expire: False}
+ssh_pwauth: True
+
+velocloud:
+  vce:
+    vco: {vco}
+    activation_code: {activation_code}
+    vco_ignore_cert_errors: true
+
+# Flush VCMP and zone firewall rules that block management traffic on GE3 (eth2)
+# VeloCloud actively manages iptables, so we add rules at highest priority
+# In a training environment, we need management access to work
+runcmd:
+  # Flush VCMP chains
+  - iptables -F VCMP_IN_ACL 2>/dev/null || true
+  - iptables -F VCMP_OUT_ACL 2>/dev/null || true
+  - iptables -F VCMP_FWD_ACL 2>/dev/null || true
+  # Flush GE3/eth2 zone chains that reject traffic
+  - iptables -F zone_GE3_input 2>/dev/null || true
+  - iptables -F zone_GE3_src_REJECT 2>/dev/null || true
+  - iptables -F zone_GE3_forward 2>/dev/null || true
+  - iptables -F zone_GE3_output 2>/dev/null || true
+  # Add accept rules at top of chains for eth2 (management interface)
+  - iptables -I INPUT 1 -i eth2 -j ACCEPT 2>/dev/null || true
+  - iptables -I OUTPUT 1 -o eth2 -j ACCEPT 2>/dev/null || true
+  - iptables -I FORWARD 1 -i eth2 -j ACCEPT 2>/dev/null || true
+  # Create a cron job to re-apply rules every minute (VeloCloud may reset them)
+  - echo '* * * * * root iptables -C INPUT -i eth2 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i eth2 -j ACCEPT' > /etc/cron.d/allow-mgmt
+  - echo '* * * * * root iptables -C OUTPUT -o eth2 -j ACCEPT 2>/dev/null || iptables -I OUTPUT 1 -o eth2 -j ACCEPT' >> /etc/cron.d/allow-mgmt

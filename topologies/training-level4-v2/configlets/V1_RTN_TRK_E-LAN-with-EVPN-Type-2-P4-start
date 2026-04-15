@@ -1,3 +1,4 @@
+hostname P4
 !
 ip routing
 mpls ip

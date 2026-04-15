@@ -1,3 +1,4 @@
+hostname P6
 !
 interface Ethernet1
    mtu 1500
@@ -75,5 +76,4 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-!
-end
+
