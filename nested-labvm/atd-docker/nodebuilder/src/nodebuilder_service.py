@@ -1382,9 +1382,11 @@ async def reboot_devices(request):
     for device in devices:
         try:
             import subprocess
+            # libvirt domain names are always lowercase
+            domain_name = device.lower()
 
             result = subprocess.run(
-                ['virsh', 'reboot', device],
+                ['virsh', 'reboot', domain_name],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
