@@ -1,107 +1,281 @@
 /**
  * Topology Converter - CSS Styles
+ * Matches uilanding dark navy theme (variables.css colors)
  */
 
-/* General Styles */
+/* ===== Layout ===== */
 body {
-    background-color: #f4f4f4;
+    background-color: var(--navy-blue, #051431);
+    min-height: 100vh;
 }
 
-header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-    padding: 1rem 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.topo-converter-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
 }
 
-.large-select {
-    font-size: 1.1rem;
-    padding: 0.75rem;
-    border-radius: 4px;
+.topo-converter-header {
+    margin-bottom: 2rem;
 }
 
-/* Cards */
-.card {
+.topo-converter-header h1 {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.topo-converter-header .subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+
+.back-link {
+    display: inline-block;
+    color: var(--secondary-color, #fbb500);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: #ffc52f;
+}
+
+.back-link i {
+    margin-right: 0.35rem;
+}
+
+/* ===== Cards ===== */
+.topo-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(251, 181, 0, 0.15);
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border: 1px solid #e0e0e0;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
 }
 
-.card-divider {
-    background-color: #f8f9fa;
-    border-bottom: 2px solid #e0e0e0;
-    padding: 1rem 1.5rem;
+.topo-card-header {
+    background: rgba(7, 28, 53, 0.8);
+    border-bottom: 1px solid rgba(251, 181, 0, 0.2);
+    padding: 0.85rem 1.25rem;
 }
 
-.card-divider h5 {
+.topo-card-header.active {
+    border-bottom-color: var(--secondary-color, #fbb500);
+}
+
+.topo-card-header h5 {
     margin: 0;
-    color: #333;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.topo-card-header h5 i {
+    color: var(--secondary-color, #fbb500);
+    margin-right: 0.5rem;
+}
+
+.topo-card-body {
+    padding: 1.25rem;
+}
+
+.topo-card-body h6 {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+/* ===== Info Items ===== */
+.info-item {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 0.6rem;
+}
+
+.info-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    min-width: 90px;
+    font-weight: 500;
+}
+
+.info-value {
+    color: #fff;
+    font-size: 0.95rem;
     font-weight: 600;
 }
 
-.card-section {
-    padding: 1.5rem;
+/* ===== Select ===== */
+.select-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
-/* Callouts */
-.callout {
+.topo-select {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(251, 181, 0, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    padding: 0.65rem 0.75rem;
+    width: 100%;
+    margin-top: 0.35rem;
+    transition: border-color 0.2s;
+}
+
+.topo-select:focus {
+    border-color: var(--secondary-color, #fbb500);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(251, 181, 0, 0.15);
+}
+
+.topo-select option {
+    background-color: #071c35;
+    color: #fff;
+}
+
+/* ===== Callouts ===== */
+.topo-callout {
     border-radius: 6px;
     border-left: 4px solid;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
 }
 
-.callout.primary {
+.topo-callout h5,
+.topo-callout h6 {
+    margin-bottom: 0.5rem;
+}
+
+.topo-callout p {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.topo-callout p:last-child {
+    margin-bottom: 0;
+}
+
+.topo-callout ul {
+    margin-bottom: 0.5rem;
+    margin-left: 1.25rem;
+}
+
+.topo-callout ul li {
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+}
+
+/* Callout Variants */
+.topo-callout.info {
     border-left-color: #3b82f6;
-    background-color: #eff6ff;
+    background: rgba(59, 130, 246, 0.1);
+    color: rgba(255, 255, 255, 0.9);
 }
 
-.callout.secondary {
-    border-left-color: #6b7280;
-    background-color: #f9fafb;
+.topo-callout.info h6 {
+    color: #93c5fd;
 }
 
-.callout.warning {
+.topo-callout.warning {
     border-left-color: #f59e0b;
-    background-color: #fffbeb;
+    background: rgba(245, 158, 11, 0.1);
+    color: rgba(255, 255, 255, 0.9);
 }
 
-.callout.success {
-    border-left-color: #10b981;
-    background-color: #ecfdf5;
+.topo-callout.warning h6 {
+    color: #fbbf24;
 }
 
-.callout.alert {
-    border-left-color: #ef4444;
-    background-color: #fef2f2;
+.topo-callout.warning ul li {
+    color: rgba(255, 255, 255, 0.8);
 }
 
-/* Buttons */
-.button {
-    border-radius: 6px;
-    font-weight: 600;
+.topo-callout.success {
+    border-left-color: var(--neon-green, #78d82c);
+    background: rgba(120, 216, 44, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.topo-callout.success h5 {
+    color: var(--neon-green, #78d82c);
+}
+
+.topo-callout.status {
+    border-left-color: var(--secondary-color, #fbb500);
+    background: rgba(251, 181, 0, 0.08);
+    color: #fff;
+}
+
+.topo-callout.alert {
+    border-left-color: var(--red, #e30909);
+    background: rgba(227, 9, 9, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Buttons ===== */
+.topo-btn {
+    display: inline-block;
+    padding: 10px 25px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
     transition: all 0.2s ease;
+    margin-right: 0.5rem;
 }
 
-.button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+.topo-btn.primary {
+    background-color: var(--secondary-color, #fbb500);
+    color: #000;
 }
 
-.button.success {
-    background-color: #10b981;
+.topo-btn.primary:hover:not(:disabled) {
+    background: #ffc52f;
 }
 
-.button.success:hover {
-    background-color: #059669;
+.topo-btn.secondary {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.button.secondary {
-    background-color: #6b7280;
+.topo-btn.secondary:hover {
+    background-color: rgba(255, 255, 255, 0.15);
 }
 
-.button.secondary:hover {
-    background-color: #4b5563;
+.topo-btn.small {
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
 }
 
-/* Progress Phases */
+.topo-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.topo-btn i {
+    margin-right: 0.4rem;
+}
+
+.action-buttons {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ===== Progress Phases ===== */
 #progress-phases {
     display: flex;
     justify-content: space-between;
@@ -123,7 +297,7 @@ header {
     right: -50%;
     width: 100%;
     height: 2px;
-    background-color: #e0e0e0;
+    background-color: rgba(255, 255, 255, 0.1);
     z-index: 0;
 }
 
@@ -131,8 +305,8 @@ header {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background-color: #e0e0e0;
-    color: #6b7280;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -143,48 +317,49 @@ header {
 }
 
 .phase-name {
-    font-size: 0.85rem;
-    color: #6b7280;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
     font-weight: 500;
 }
 
 /* Phase States */
 .phase-item.complete .phase-icon {
-    background-color: #10b981;
-    color: white;
+    background-color: var(--neon-green, #78d82c);
+    color: #000;
 }
 
 .phase-item.complete .phase-name {
-    color: #10b981;
+    color: var(--neon-green, #78d82c);
 }
 
 .phase-item.complete:not(:last-child)::after {
-    background-color: #10b981;
+    background-color: var(--neon-green, #78d82c);
 }
 
 .phase-item.active .phase-icon {
-    background-color: #3b82f6;
-    color: white;
+    background-color: var(--secondary-color, #fbb500);
+    color: #000;
     animation: pulse 2s ease-in-out infinite;
 }
 
 .phase-item.active .phase-name {
-    color: #3b82f6;
+    color: var(--secondary-color, #fbb500);
     font-weight: 600;
 }
 
 @keyframes pulse {
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+        box-shadow: 0 0 0 0 rgba(251, 181, 0, 0.6);
     }
     50% {
-        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+        box-shadow: 0 0 0 10px rgba(251, 181, 0, 0);
     }
 }
 
-/* Log Container */
+/* ===== Log Container ===== */
 .log-container {
-    background-color: #1e1e1e;
+    background-color: #0a0e17;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 6px;
     padding: 1rem;
     max-height: 400px;
@@ -193,35 +368,66 @@ header {
 }
 
 #log-output {
-    color: #d4d4d4;
+    color: rgba(255, 255, 255, 0.75);
     margin: 0;
-    font-size: 0.85rem;
-    line-height: 1.5;
+    font-size: 0.82rem;
+    line-height: 1.6;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
-/* Log scrollbar styling */
+/* Log scrollbar */
 .log-container::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .log-container::-webkit-scrollbar-track {
-    background: #2d2d2d;
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
 }
 
 .log-container::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 4px;
+    background: rgba(251, 181, 0, 0.3);
+    border-radius: 3px;
 }
 
 .log-container::-webkit-scrollbar-thumb:hover {
-    background: #777;
+    background: rgba(251, 181, 0, 0.5);
 }
 
-/* Responsive adjustments */
+/* ===== Status Indicator ===== */
+#current-status {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #fff;
+}
+
+/* ===== Progress Wrapper ===== */
+.progress-wrapper {
+    padding: 0.5rem 0;
+}
+
+/* ===== Loading Animation ===== */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* ===== Responsive ===== */
 @media screen and (max-width: 640px) {
+    .topo-converter-container {
+        padding: 1rem;
+    }
+
+    .topo-converter-header h1 {
+        font-size: 1.4rem;
+    }
+
     #progress-phases {
         flex-direction: column;
     }
@@ -231,62 +437,28 @@ header {
     }
 
     .phase-item {
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .topo-btn {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+        text-align: center;
     }
 }
 
 @media screen and (max-width: 1024px) {
     .phase-item .phase-name {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
     }
 
     .phase-icon {
         width: 35px;
         height: 35px;
     }
-}
-
-/* Status Indicator */
-#current-status {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0;
-}
-
-/* Icons */
-.fa {
-    margin-right: 0.5rem;
-}
-
-/* Loading animation */
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.fa-spinner {
-    animation: spin 1s linear infinite;
-}
-
-/* Utility classes */
-.text-right {
-    text-align: right;
-}
-
-.hide {
-    display: none;
-}
-
-/* Progress wrapper */
-.progress-wrapper {
-    padding: 1rem 0;
-}
-
-/* Tooltips */
-[title] {
-    cursor: help;
 }

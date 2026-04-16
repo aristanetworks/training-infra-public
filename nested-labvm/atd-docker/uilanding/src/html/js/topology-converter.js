@@ -294,7 +294,7 @@
         updatePhases('build');
 
         // Update the UI to show waiting state
-        $('#status-callout').removeClass('callout alert').addClass('callout warning');
+        $('#status-callout').removeClass('topo-callout alert').addClass('topo-callout warning');
         $('#current-status').html(
             '<i class="fas fa-sync fa-spin"></i> Server restarting... ' +
             '<span id="retry-count"></span>'
@@ -316,9 +316,9 @@
 
         // Show a button to reload
         $('#status-callout').after(
-            '<div class="callout secondary" style="margin-top: 1rem;">' +
+            '<div class="topo-callout info" style="margin-top: 1rem;">' +
             '<p>The server may still be starting up. Please wait a moment and then:</p>' +
-            '<button class="button primary" onclick="location.reload();">' +
+            '<button class="topo-btn primary" onclick="location.reload();">' +
             '<i class="fas fa-refresh"></i> Refresh Page</button>' +
             '</div>'
         );
@@ -337,13 +337,13 @@
                 conversionCompleted = true;
 
                 // Keep progress visible and update header
-                $('#conversion-progress .card-divider h5').html(
-                    '<i class="fas fa-check-circle" style="color: #10b981;"></i> Conversion Complete - Waiting for Devices'
+                $('#conversion-progress .topo-card-header h5').html(
+                    '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Conversion Complete - Waiting for Devices'
                 );
 
                 // Show completion message (keep logs visible)
                 $('#completion-message').fadeIn();
-                $('#completion-message .callout').html(
+                $('#completion-message .topo-callout').html(
                     '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
                     '<p>The topology has been converted to: <strong>' + data.name + '</strong></p>' +
                     '<p>CVP is now configuring the devices. This may take several minutes.</p>'
@@ -356,7 +356,7 @@
                 appendLog('='.repeat(60));
 
                 updateStatus('Conversion completed! Now waiting for devices to come online...');
-                $('#status-callout').removeClass('callout alert warning').addClass('callout success');
+                $('#status-callout').removeClass('topo-callout alert warning').addClass('topo-callout success');
                 updatePhases('devices');
 
                 // Start monitoring device status
@@ -441,15 +441,15 @@
 
         if (success) {
             // Keep progress section visible but update header
-            $('#conversion-progress .card-divider h5').html(
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i> Conversion Complete - Waiting for Devices'
+            $('#conversion-progress .topo-card-header h5').html(
+                '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Conversion Complete - Waiting for Devices'
             );
             updateStatus('Conversion completed! Now waiting for devices to come online...');
-            $('#status-callout').removeClass('callout alert warning').addClass('callout success');
+            $('#status-callout').removeClass('topo-callout alert warning').addClass('topo-callout success');
 
             // Show completion message above logs (don't hide progress)
             $('#completion-message').fadeIn();
-            $('#completion-message .callout').html(
+            $('#completion-message .topo-callout').html(
                 '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
                 '<p>The topology infrastructure has been rebuilt. CVP is now configuring the devices.</p>' +
                 '<p><strong>Note:</strong> Devices may take several minutes to boot and receive their configuration from CVP.</p>'
@@ -467,7 +467,7 @@
             startDeviceMonitoring();
         } else {
             updateStatus('Conversion failed. Check logs for details.');
-            $('#status-callout').removeClass('callout success warning').addClass('callout alert');
+            $('#status-callout').removeClass('topo-callout success warning').addClass('topo-callout alert');
             appendLog('='.repeat(60));
             appendLog('CONVERSION FAILED - Check logs above for details');
             appendLog('='.repeat(60));
@@ -482,7 +482,7 @@
             const deviceStatusHtml = `
                 <div id="device-status-section" style="margin-top: 1.5rem;">
                     <h6><i class="fas fa-server"></i> Device Status:</h6>
-                    <div id="device-status-grid" class="callout secondary">
+                    <div id="device-status-grid" class="topo-callout info">
                         <p><i class="fas fa-spinner fa-spin"></i> Checking device status...</p>
                     </div>
                 </div>
@@ -519,7 +519,7 @@
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to get device status:', error);
                 $('#device-status-grid').html(
-                    '<p><i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ' +
+                    '<p><i class="fas fa-exclamation-triangle" style="color: #fbb500;"></i> ' +
                     'Unable to check device status. Devices may still be booting...</p>'
                 );
             }
@@ -546,8 +546,8 @@
             const device = devices[name];
             const isOnline = device.status === 'up';
             const statusIcon = isOnline ?
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i>' :
-                '<i class="fas fa-times-circle" style="color: #ef4444;"></i>';
+                '<i class="fas fa-check-circle" style="color: #78d82c;"></i>' :
+                '<i class="fas fa-times-circle" style="color: #e30909;"></i>';
             const statusText = isOnline ? 'Online' : 'Offline';
 
             if (isOnline) {
@@ -558,9 +558,9 @@
 
             gridHtml += `
                 <div class="cell small-6 medium-4 large-3" style="padding: 0.5rem;">
-                    <div style="padding: 0.5rem; background: ${isOnline ? '#ecfdf5' : '#fef2f2'}; border-radius: 4px; text-align: center;">
+                    <div style="padding: 0.5rem; background: ${isOnline ? 'rgba(120,216,44,0.1)' : 'rgba(227,9,9,0.1)'}; border: 1px solid ${isOnline ? 'rgba(120,216,44,0.3)' : 'rgba(227,9,9,0.3)'}; border-radius: 4px; text-align: center; color: #fff;">
                         ${statusIcon} <strong>${name}</strong><br>
-                        <small>${statusText}</small>
+                        <small style="color: rgba(255,255,255,0.6);">${statusText}</small>
                     </div>
                 </div>
             `;
@@ -570,14 +570,14 @@
 
         // Add summary
         const summaryHtml = `
-            <div style="margin-bottom: 1rem; padding: 0.5rem; background: #f3f4f6; border-radius: 4px;">
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(251,181,0,0.15); border-radius: 4px; color: #fff;">
                 <strong>Summary:</strong>
-                <span style="color: #10b981;">${onlineCount} online</span> /
-                <span style="color: #ef4444;">${offlineCount} offline</span> /
+                <span style="color: #78d82c;">${onlineCount} online</span> /
+                <span style="color: #e30909;">${offlineCount} offline</span> /
                 ${totalCount} total
                 ${offlineCount > 0 ?
-                    ' <span style="color: #6b7280;">(devices are still booting, please wait...)</span>' :
-                    ' <span style="color: #10b981;">✓ All devices ready!</span>'
+                    ' <span style="color: rgba(255,255,255,0.5);">(devices are still booting, please wait...)</span>' :
+                    ' <span style="color: #78d82c;">All devices ready!</span>'
                 }
             </div>
         `;
@@ -592,16 +592,16 @@
             stopDeviceMonitoring();
 
             // Update completion message
-            $('#completion-message .callout').html(
+            $('#completion-message .topo-callout').html(
                 '<h5><i class="fas fa-check-circle"></i> Lab Ready!</h5>' +
                 '<p>All ' + totalCount + ' devices are online and configured.</p>' +
-                '<button class="button success" onclick="window.location.href=\'/\';">' +
+                '<button class="topo-btn primary" onclick="window.location.href=\'/\';">' +
                 '<i class="fas fa-home"></i> Return to Home</button>'
             );
 
             // Update header
-            $('#conversion-progress .card-divider h5').html(
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i> Lab Ready!'
+            $('#conversion-progress .topo-card-header h5').html(
+                '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Lab Ready!'
             );
         }
     }

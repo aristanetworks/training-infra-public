@@ -12,34 +12,41 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <header>
-        <div class="grid-container">
-            <div class="grid-x grid-padding-x align-middle">
-                <div class="cell small-6">
-                    <a href="/"><img src="images/arista.svg" alt="Arista Logo" style="height: 40px;"></a>
-                </div>
-                <div class="cell small-6 text-right">
-                    <h4 style="margin: 0; color: #fff;">Topology Converter</h4>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- No custom header - unified-header.js is injected by nginx -->
 
     <main>
-        <div class="grid-container" style="margin-top: 2rem;">
+        <div class="topo-converter-container">
+            <div class="topo-converter-header">
+                <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+                <h1>Topology Converter</h1>
+                <p class="subtitle">Switch between available lab topologies</p>
+            </div>
+
             <!-- Current Topology Info -->
-            <div class="grid-x grid-padding-x">
-                <div class="cell small-12">
-                    <div class="callout primary">
-                        <h5><i class="fas fa-network-wired"></i> Current Topology</h5>
-                        <div class="grid-x grid-padding-x">
-                            <div class="cell small-12 medium-6">
-                                <p><strong>Name:</strong> <span id="current-topology-name">Loading...</span></p>
-                                <p><strong>Devices:</strong> <span id="current-topology-devices">-</span></p>
+            <div class="topo-card">
+                <div class="topo-card-header">
+                    <h5><i class="fas fa-network-wired"></i> Current Topology</h5>
+                </div>
+                <div class="topo-card-body">
+                    <div class="grid-x grid-padding-x">
+                        <div class="cell small-12 medium-6">
+                            <div class="info-item">
+                                <span class="info-label">Name</span>
+                                <span class="info-value" id="current-topology-name">Loading...</span>
                             </div>
-                            <div class="cell small-12 medium-6">
-                                <p><strong>Type:</strong> <span id="current-topology-type">-</span></p>
-                                <p><strong>Configlets:</strong> <span id="current-topology-configlets">-</span></p>
+                            <div class="info-item">
+                                <span class="info-label">Devices</span>
+                                <span class="info-value" id="current-topology-devices">-</span>
+                            </div>
+                        </div>
+                        <div class="cell small-12 medium-6">
+                            <div class="info-item">
+                                <span class="info-label">Type</span>
+                                <span class="info-value" id="current-topology-type">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Configlets</span>
+                                <span class="info-value" id="current-topology-configlets">-</span>
                             </div>
                         </div>
                     </div>
@@ -47,92 +54,98 @@
             </div>
 
             <!-- Topology Selection -->
-            <div class="grid-x grid-padding-x" style="margin-top: 1rem;">
-                <div class="cell small-12">
-                    <div class="card">
-                        <div class="card-divider">
-                            <h5><i class="fas fa-exchange-alt"></i> Convert to New Topology</h5>
-                        </div>
-                        <div class="card-section">
-                            <label>Select Target Topology:
-                                <select id="target-topology-select" class="large-select">
-                                    <option value="">Loading available topologies...</option>
-                                </select>
-                            </label>
+            <div class="topo-card">
+                <div class="topo-card-header">
+                    <h5><i class="fas fa-exchange-alt"></i> Convert to New Topology</h5>
+                </div>
+                <div class="topo-card-body">
+                    <label class="select-label">Select Target Topology:
+                        <select id="target-topology-select" class="topo-select">
+                            <option value="">Loading available topologies...</option>
+                        </select>
+                    </label>
 
-                            <!-- Target Topology Info (shown after selection) -->
-                            <div id="target-topology-info" style="display: none; margin-top: 1rem;">
-                                <div class="callout secondary">
-                                    <h6>Target Topology Details</h6>
-                                    <div class="grid-x grid-padding-x">
-                                        <div class="cell small-12 medium-6">
-                                            <p><strong>Name:</strong> <span id="target-topology-name">-</span></p>
-                                            <p><strong>Devices:</strong> <span id="target-topology-devices">-</span></p>
-                                        </div>
-                                        <div class="cell small-12 medium-6">
-                                            <p><strong>Device List:</strong> <span id="target-topology-device-list">-</span></p>
-                                            <p><strong>Configlets:</strong> <span id="target-topology-configlets">-</span></p>
-                                        </div>
+                    <!-- Target Topology Info (shown after selection) -->
+                    <div id="target-topology-info" style="display: none; margin-top: 1.5rem;">
+                        <div class="topo-callout info">
+                            <h6>Target Topology Details</h6>
+                            <div class="grid-x grid-padding-x">
+                                <div class="cell small-12 medium-6">
+                                    <div class="info-item">
+                                        <span class="info-label">Name</span>
+                                        <span class="info-value" id="target-topology-name">-</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Devices</span>
+                                        <span class="info-value" id="target-topology-devices">-</span>
+                                    </div>
+                                </div>
+                                <div class="cell small-12 medium-6">
+                                    <div class="info-item">
+                                        <span class="info-label">Device List</span>
+                                        <span class="info-value" id="target-topology-device-list">-</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Configlets</span>
+                                        <span class="info-value" id="target-topology-configlets">-</span>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Warning -->
-                            <div class="callout warning" style="margin-top: 1rem;">
-                                <h6><i class="fas fa-exclamation-triangle"></i> Warning</h6>
-                                <p>This operation will:</p>
-                                <ul>
-                                    <li>Destroy all existing VMs</li>
-                                    <li>Delete all OVS networks</li>
-                                    <li>Update lab configuration</li>
-                                    <li>Create new topology (takes 10-15 minutes)</li>
-                                    <li>Reconfigure CVP with new devices</li>
-                                </ul>
-                                <p><strong>A backup of ACCESS_INFO.yaml will be created automatically.</strong></p>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div style="margin-top: 1.5rem;">
-                                <button id="convert-btn" class="button large success" disabled>
-                                    <i class="fas fa-play"></i> Start Conversion
-                                </button>
-                                <button id="cancel-btn" class="button large secondary">
-                                    <i class="fas fa-times"></i> Cancel
-                                </button>
-                            </div>
                         </div>
+                    </div>
+
+                    <!-- Warning -->
+                    <div class="topo-callout warning" style="margin-top: 1.5rem;">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Warning</h6>
+                        <p>This operation will:</p>
+                        <ul>
+                            <li>Destroy all existing VMs</li>
+                            <li>Delete all OVS networks</li>
+                            <li>Update lab configuration</li>
+                            <li>Create new topology (takes 10-15 minutes)</li>
+                            <li>Reconfigure CVP with new devices</li>
+                        </ul>
+                        <p><strong>A backup of ACCESS_INFO.yaml will be created automatically.</strong></p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button id="convert-btn" class="topo-btn primary" disabled>
+                            <i class="fas fa-play"></i> Start Conversion
+                        </button>
+                        <button id="cancel-btn" class="topo-btn secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- Conversion Progress (hidden initially) -->
-            <div id="conversion-progress" class="grid-x grid-padding-x" style="margin-top: 2rem; display: none;">
-                <div class="cell small-12">
-                    <div class="card">
-                        <div class="card-divider">
-                            <h5><i class="fas fa-spinner fa-spin"></i> Conversion in Progress</h5>
-                        </div>
-                        <div class="card-section">
-                            <div class="progress-wrapper">
-                                <div id="progress-phases">
-                                    <!-- Phase indicators will be added here dynamically -->
-                                </div>
+            <div id="conversion-progress" style="display: none;">
+                <div class="topo-card">
+                    <div class="topo-card-header active">
+                        <h5><i class="fas fa-spinner fa-spin"></i> Conversion in Progress</h5>
+                    </div>
+                    <div class="topo-card-body">
+                        <div class="progress-wrapper">
+                            <div id="progress-phases">
+                                <!-- Phase indicators will be added here dynamically -->
+                            </div>
 
-                                <h6>Current Status:</h6>
-                                <div class="callout" id="status-callout">
-                                    <p id="current-status">Initializing...</p>
-                                </div>
+                            <h6>Current Status:</h6>
+                            <div class="topo-callout status" id="status-callout">
+                                <p id="current-status">Initializing...</p>
+                            </div>
 
-                                <h6>Detailed Log:</h6>
-                                <div id="conversion-log" class="log-container">
-                                    <pre id="log-output">Starting conversion...</pre>
-                                </div>
+                            <h6>Detailed Log:</h6>
+                            <div id="conversion-log" class="log-container">
+                                <pre id="log-output">Starting conversion...</pre>
+                            </div>
 
-                                <div style="margin-top: 1rem;">
-                                    <button id="refresh-status-btn" class="button small">
-                                        <i class="fas fa-sync"></i> Refresh Status
-                                    </button>
-                                </div>
+                            <div style="margin-top: 1rem;">
+                                <button id="refresh-status-btn" class="topo-btn small">
+                                    <i class="fas fa-sync"></i> Refresh Status
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -140,11 +153,11 @@
             </div>
 
             <!-- Completion Message (hidden initially) -->
-            <div id="completion-message" style="display: none; margin-top: 2rem;">
-                <div class="callout success">
+            <div id="completion-message" style="display: none;">
+                <div class="topo-callout success">
                     <h5><i class="fas fa-check-circle"></i> Conversion Completed!</h5>
                     <p>The topology has been successfully converted. The new lab is now ready.</p>
-                    <button id="reload-page-btn" class="button success">
+                    <button id="reload-page-btn" class="topo-btn primary">
                         <i class="fas fa-home"></i> Return to Home
                     </button>
                 </div>
