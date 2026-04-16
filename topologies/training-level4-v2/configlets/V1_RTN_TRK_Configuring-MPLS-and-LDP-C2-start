@@ -1,3 +1,5 @@
+hostname C2
+!
 ip route 0.0.0.0/0 192.168.32.1
 !
 int loop0
