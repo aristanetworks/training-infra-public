@@ -2931,3 +2931,106 @@
     color: #e30909 !important;
     font-weight: 500;
 }
+
+/* ============================================
+   CloudEOS Wizard Styles
+   ============================================ */
+
+/* CloudEOS wizard header - teal/cyan accent color */
+.add-cloudeos-wizard .wizard-header {
+    background: linear-gradient(135deg, #1a3d3d 0%, #0f2a2a 100%);
+    border-bottom: 3px solid #4ec9b0;
+}
+
+/* CloudEOS info box */
+.cloudeos-info-box {
+    background: #1e2a2a;
+    border: 1px solid #2d6666;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.cloudeos-info-box h4 {
+    color: #4ec9b0;
+    margin: 0 0 8px 0;
+    font-size: 14px;
+}
+
+/* CloudEOS limit badge */
+.cloudeos-limit-badge {
+    background: #252a2a;
+    border-color: #446666;
+}
+
+.cloudeos-limit-badge .limit-count {
+    color: #4ec9b0;
+}
+
+/* Code elements in CloudEOS wizard - teal on dark */
+.add-cloudeos-wizard code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #4ec9b0;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+/* ============================================
+   Add Link Modal Styles
+   ============================================ */
+
+.add-link-modal .atd-modal__header {
+    background: linear-gradient(135deg, #1a2d3d 0%, #0f1c2a 100%);
+    border-bottom: 2px solid #4c5cae;
+}
+
+.add-link-modal .link-info {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.add-link-modal .link-info.warning {
+    border-left: 3px solid #fbb500;
+    color: #fbb500;
+}
+
+.add-link-modal .link-info.success {
+    border-left: 3px solid #78d82c;
+    color: #78d82c;
+}
+
+/* ============================================
+   WAN CloudEOS Confirmation Modal Styles
+   ============================================ */
+
+.wan-cloudeos-modal .deployment-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.wan-cloudeos-modal .deployment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+}
+
+.wan-cloudeos-modal .deployment-item code {
+    color: #4ec9b0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.wan-cloudeos-modal .deployment-arrow {
+    color: #666;
+    font-size: 18px;
+}

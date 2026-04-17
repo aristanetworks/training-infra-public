@@ -410,6 +410,22 @@ export function getCytoscapeStyles() {
         },
 
         // ==========================================
+        // User-Added Link Style
+        // Teal dotted line to distinguish from original topology links
+        // Does not conflict with impairment styles (which use dashed)
+        // ==========================================
+        {
+            selector: 'edge.edge-user-added',
+            style: {
+                'line-color': '#4ec9b0',
+                'line-style': 'dotted',
+                'line-dash-pattern': [2, 4],
+                'width': 2,
+                'opacity': 0.85
+            }
+        },
+
+        // ==========================================
         // Interactive States
         // Uses underlay to show highlights behind PNG icons
         // ==========================================
