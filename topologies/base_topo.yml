@@ -17,6 +17,16 @@ topologies:
             image: base-veos-training-l4-v2-2025-1-20260410
             eos:
               - 4.32.1F
+          2026.1.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2026.1
+            orderable: true
+            image: base-veos-training-l4-v2-2026-1-20260417
+            eos:
+              - 4.32.1F
     prod:
       veos:
         cpu: 32
@@ -253,9 +263,9 @@ topologies:
             resources:
               cpu: 72
               ram: 160
-            branch: nested/2025.1
+            branch: nested/2026.1
             orderable: true
-            image: base-veos-training-lx-veos-2026-1-4321-20260203
+            image: base-veos-training-lx-veos-2026-1-4321-20260417
             eos:
               - 4.32.1F                
     prod:
@@ -295,7 +305,17 @@ topologies:
             orderable: true
             image: base-veos-training-lx-cl-campus-2025-1-4321-20250708
             eos:
-              - 4.32.1F          
+              - 4.32.1F
+          2026.1.0:
+            schema: 1
+            resources:
+              cpu: 72
+              ram: 160
+            branch: nested/2026.1
+            orderable: true
+            image: base-veos-training-lx-cl-campus-2026-1-4321-20260417
+            eos:
+              - 4.32.1F
     prod:
       veos:
         cpu: 68
@@ -412,12 +432,22 @@ topologies:
             orderable: true
             image: base-veos-trn-lx-cl-cps-ex-2025-1-4321-20260410
             eos:
-              - 4.32.1F                
+              - 4.32.1F
+          2026.1.0:
+            schema: 1
+            resources:
+              cpu: 48
+              ram: 160
+            branch: nested/2026.1
+            orderable: true
+            image: base-veos-trn-lx-cl-cps-ex-2026-1-4321-20260417
+            eos:
+              - 4.32.1F
     prod:
       veos:
         cpu: 72
         ram: 160
-        cvp: 
+        cvp:
           2025.1.0:
             schema: 1
             resources:
