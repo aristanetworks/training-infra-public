@@ -1,29 +1,50 @@
+hostname PE2
+!
+vrf instance B
 !
 interface Ethernet1
-  no switchport
-  ip address 192.168.12.1/30
+   no switchport
+   ip address 192.168.12.1/30
 !
 interface Ethernet2
-  no switchport
-  ip address 192.168.22.1/30
+   no switchport
+   ip address 192.168.22.1/30
 !
 interface Ethernet3
-  no switchport
-  ip address 192.168.32.1/30
+   no switchport
+   ip address 192.168.32.1/30
 !
 interface Ethernet4
-  no switchport
-  ip address 172.16.23.2/24
+   no switchport
+   ip address 172.16.23.2/24
 !
 interface Ethernet5
-  no switchport
-  ip address 172.16.24.2/24
+   no switchport
+   ip address 172.16.24.2/24
 !
 interface Ethernet6
-  no switchport
-  ip address 172.16.26.2/24
+   no switchport
+   ip address 172.16.26.2/24
 !
 interface Loopback0
    ip address 192.168.100.2/32
-
-
+!
+ip routing
+ip routing vrf B
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 ge 24
+!
+router bgp 100
+   neighbor 192.168.100.1 remote-as 100
+   neighbor 192.168.100.1 update-source Loopback0
+   neighbor 192.168.100.1 send-community extended
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.1 activate
+   !
+   vrf B
+      rd 100:2
+      route-target import vpn-ipv4 100:2
+      route-target export vpn-ipv4 100:2
+      neighbor 192.168.22.2 remote-as 65202
