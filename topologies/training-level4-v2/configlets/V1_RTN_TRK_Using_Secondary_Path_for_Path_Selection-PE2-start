@@ -5,6 +5,7 @@ vrf instance B
 interface Ethernet1
    mtu 1500
    no switchport
+   ip address 192.168.12.1/30
 !
 interface Ethernet2
    mtu 1500
@@ -15,6 +16,7 @@ interface Ethernet2
 interface Ethernet3
    mtu 1500
    no switchport
+   ip address 192.168.32.1/30
 !
 interface Ethernet4
    mtu 1500
@@ -99,6 +101,3 @@ router isis isis
 mpls rsvp
    fast-reroute mode node-protection
    no shutdown
-
-
-

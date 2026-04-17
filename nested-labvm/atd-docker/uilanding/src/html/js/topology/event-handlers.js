@@ -35,7 +35,10 @@ export class EventManager {
             addHost: false,
             addFirewall: false,
             addVelocloud: false,
-            resetTopology: false
+            resetTopology: false,
+            addCloudeos: false,
+            addWanCloudeos: false,
+            addLink: false
         };
 
         // Capture panel reference (set externally by TopologyManager)
@@ -232,6 +235,19 @@ export class EventManager {
                 hidden: ['firewall', 'linux_host', 'velo_edge', 'velo_gateway', 'velo_orchestrator'].includes(data.device_type)
             },
             {
+                // Add Link - available on all nodes in KVM labs
+                type: 'separator',
+                hidden: this.isCeosLab || !this.nodebuilderFeatures.addLink
+            },
+            {
+                label: 'Add Link',
+                action: () => {
+                    this.showAddLinkModal(data.label);
+                    this.hideContextMenu();
+                },
+                hidden: this.isCeosLab || !this.nodebuilderFeatures.addLink
+            },
+            {
                 type: 'separator'
             },
             {
@@ -261,7 +277,7 @@ export class EventManager {
             {
                 label: 'Delete Node',
                 action: () => {
-                    this.confirmDeleteNode(data.label, data.ip, data.device_type);
+                    this.confirmDeleteNode(data.label, data.ip, data.device_type, data.device_category);
                     this.hideContextMenu();
                 },
                 // Only show for user-added nodes in KVM labs
@@ -370,10 +386,11 @@ export class EventManager {
      * @param {string} nodeIp - IP address of the node
      * @param {string} deviceType - Type of device: 'node', 'host', or 'firewall'
      */
-    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node') {
+    async confirmDeleteNode(nodeName, nodeIp, deviceType = 'node', deviceCategory = null) {
         // Determine display name and endpoint based on device type
         // Note: 'linux_host' is the device_type for user-added Linux hosts
         // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
+        // CloudEOS devices have device_category === 'cloudeos' (device_type varies: pe, other, etc.)
         const typeLabels = {
             'host': 'Linux Host',
             'linux_host': 'Linux Host',
@@ -383,7 +400,10 @@ export class EventManager {
             'velo_orchestrator': 'VeloCloud Orchestrator',
             'node': 'Node'
         };
-        const typeLabel = typeLabels[deviceType] || 'Node';
+        // CloudEOS nodes have various device_types set by the wizard (pe, other, etc.)
+        // Use device_category to reliably identify them
+        const isCloudEos = deviceCategory === 'cloudeos';
+        const typeLabel = isCloudEos ? 'CloudEOS Node' : (typeLabels[deviceType] || 'Node');
 
         // Create modal using BaseModal
         const modal = new BaseModal({
@@ -401,23 +421,35 @@ export class EventManager {
         let targetDevices = [];
 
         try {
+            // Use AbortController to timeout quickly - this is non-critical info
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             const [connectionsResp, targetsResp] = await Promise.all([
-                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`),
-                fetch('/td-api/nodes/target-devices')
+                fetch(`/td-api/nodes/node-connections/${encodeURIComponent(nodeName)}`, {signal: controller.signal}),
+                fetch('/td-api/nodes/target-devices', {signal: controller.signal})
             ]);
+            clearTimeout(timeoutId);
 
-            const connectionsData = await connectionsResp.json();
-            const targetsData = await targetsResp.json();
-
-            if (connectionsResp.ok && connectionsData.connections) {
-                affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+            if (connectionsResp.ok) {
+                const connectionsData = await connectionsResp.json();
+                if (connectionsData.connections) {
+                    affectedDevices = [...new Set(connectionsData.connections.map(c => c.target_device))];
+                }
             }
-            targetDevices = targetsData.devices || [];
+            if (targetsResp.ok) {
+                const targetsData = await targetsResp.json();
+                targetDevices = targetsData.devices || [];
+            }
         } catch (err) {
-            console.warn('Could not fetch node connections for reboot info:', err);
+            console.warn('Could not fetch node connections for reboot info:', err.name === 'AbortError' ? 'timeout' : err);
         }
 
-        // Set content with warning
+        // Set content with warning - include reboot info for affected devices
+        const rebootWarning = affectedDevices.length > 0
+            ? `<li>Reboot <strong>${affectedDevices.map(d => modal.escapeHtml(d)).join(', ')}</strong> to apply interface changes</li>`
+            : '';
+
         modal.setContent(`
             <div class="delete-node-content">
                 <p>Are you sure you want to delete <strong>${modal.escapeHtml(nodeName)}</strong>?</p>
@@ -426,6 +458,7 @@ export class EventManager {
                     <li>Stop and remove the VM</li>
                     <li>Delete the disk image</li>
                     <li>Remove all network connections</li>
+                    ${rebootWarning}
                 </ul>
                 <p class="atd-modal__warning-text">This action cannot be undone.</p>
             </div>
@@ -448,19 +481,25 @@ export class EventManager {
                 cancelBtn.disabled = true;
 
                 try {
-                    // Use correct endpoint based on device type
+                    // Use correct endpoint based on device category/type
+                    // CloudEOS nodes have device_category === 'cloudeos' (device_type varies)
                     // Note: 'linux_host' is the device_type for user-added Linux hosts
                     // VeloCloud devices use velo_edge, velo_gateway, velo_orchestrator
-                    const endpoints = {
-                        'host': '/td-api/nodes/delete-host',
-                        'linux_host': '/td-api/nodes/delete-host',
-                        'firewall': '/td-api/nodes/delete-firewall',
-                        'velo_edge': '/td-api/nodes/delete-velo-device',
-                        'velo_gateway': '/td-api/nodes/delete-velo-device',
-                        'velo_orchestrator': '/td-api/nodes/delete-velo-device',
-                        'node': '/td-api/nodes/delete-node'
-                    };
-                    const endpoint = endpoints[deviceType] || endpoints['node'];
+                    let endpoint;
+                    if (isCloudEos) {
+                        endpoint = '/td-api/nodes/delete-cloudeos';
+                    } else {
+                        const endpoints = {
+                            'host': '/td-api/nodes/delete-host',
+                            'linux_host': '/td-api/nodes/delete-host',
+                            'firewall': '/td-api/nodes/delete-firewall',
+                            'velo_edge': '/td-api/nodes/delete-velo-device',
+                            'velo_gateway': '/td-api/nodes/delete-velo-device',
+                            'velo_orchestrator': '/td-api/nodes/delete-velo-device',
+                            'node': '/td-api/nodes/delete-node'
+                        };
+                        endpoint = endpoints[deviceType] || endpoints['node'];
+                    }
 
                     const response = await fetch(endpoint, {
                         method: 'POST',
@@ -925,6 +964,30 @@ export class EventManager {
                 },
                 disabled: this.isCeosLab
             }] : []),
+            // Add CloudEOS Node
+            {
+                label: this.isCeosLab ? 'Add CloudEOS Node (KVM only)' : 'Add CloudEOS Node',
+                action: () => {
+                    this.hideContextMenu();
+                    if (window.addCloudeosWizard) {
+                        window.addCloudeosWizard.show();
+                    } else {
+                        console.error('AddCloudeosWizard not initialized');
+                    }
+                },
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addCloudeos
+            },
+            // Deploy WAN CloudEOS (D1/D2)
+            {
+                label: 'Deploy WAN CloudEOS (D1/D2)',
+                action: () => {
+                    this.hideContextMenu();
+                    this.showWanCloudeosConfirmation();
+                },
+                disabled: this.isCeosLab,
+                hidden: !this.nodebuilderFeatures.addWanCloudeos
+            },
             {
                 type: 'separator'
             },
@@ -1065,6 +1128,16 @@ export class EventManager {
             {
                 type: 'separator'
             },
+            // Remove user-added link
+            {
+                label: 'Remove Link',
+                action: () => {
+                    this.confirmRemoveLink(data);
+                    this.hideContextMenu();
+                },
+                hidden: !data.user_added || !this.nodebuilderFeatures.addLink,
+                className: 'danger'
+            },
             {
                 label: 'Focus Source',
                 action: () => {
@@ -1089,13 +1162,18 @@ export class EventManager {
 
         // Build menu HTML
         menuItems.forEach(item => {
+            // Skip hidden items
+            if (item.hidden) return;
+
             if (item.type === 'separator') {
                 const sep = document.createElement('div');
                 sep.className = 'context-menu-separator';
                 menu.appendChild(sep);
             } else {
                 const menuItem = document.createElement('div');
-                menuItem.className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                let className = 'context-menu-item' + (item.disabled ? ' disabled' : '');
+                if (item.className) className += ' ' + item.className;
+                menuItem.className = className;
 
                 // Only add icon if provided
                 if (item.icon) {
@@ -3195,6 +3273,418 @@ export class EventManager {
             console.error('Failed to load user nodes status:', error);
             modal.showError('Failed to check user nodes: ' + error.message);
         }
+    }
+
+
+    /**
+     * Show modal for adding a link between two devices.
+     * Auto-selects the next available port on both devices; the user only
+     * picks the target device.
+     * @param {string} sourceDevice - Name of the source device
+     */
+    async showAddLinkModal(sourceDevice) {
+        const modal = new BaseModal({
+            title: `Add Link from ${this.escapeHtml(sourceDevice)}`,
+            size: BaseModal.SIZES.MEDIUM,
+            className: 'add-link-modal'
+        });
+
+        modal.show();
+        modal.showLoading('Loading available ports...');
+
+        try {
+            // Fetch next available port for source device and target device list in parallel
+            const [sourceResp, targetsResp] = await Promise.all([
+                fetch(`/td-api/nodes/available-ports/${encodeURIComponent(sourceDevice)}`),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+            const sourceData = await sourceResp.json();
+            const targetsData = await targetsResp.json();
+
+            // Use the first available port as the auto-selected source port
+            const sourcePort = (sourceData.ports && sourceData.ports.length > 0) ? sourceData.ports[0] : null;
+
+            const targetDeviceOptions = (targetsData.devices || [])
+                .filter(d => d.name !== sourceDevice)
+                .map(d => `<option value="${this.escapeHtml(d.name)}">${this.escapeHtml(d.name)}</option>`)
+                .join('');
+
+            const sourcePortDisplay = sourcePort
+                ? `<span style="color: #fff; font-size: 14px;">${this.escapeHtml(sourcePort)}</span> <span style="color: #888; font-size: 12px;">(next available)</span>`
+                : `<span style="color: #e30909; font-size: 13px;">No ports available</span>`;
+
+            const content = document.createElement('div');
+            content.innerHTML = [
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Source Port</label>',
+                `    <div style="padding: 8px 0;">${sourcePortDisplay}</div>`,
+                '</div>',
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Device</label>',
+                '    <select id="link-target-device" class="form-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff;">',
+                '        <option value="">Select device...</option>',
+                targetDeviceOptions,
+                '    </select>',
+                '</div>',
+                '<div class="form-group" style="margin-bottom: 16px;">',
+                '    <label style="display: block; margin-bottom: 6px; color: #ccc; font-size: 13px;">Target Port</label>',
+                '    <div id="link-target-port-display" style="padding: 8px 0; color: #888; font-size: 13px;">Select a target device first...</div>',
+                '</div>',
+                '<div id="link-status-info"></div>'
+            ].join('\n');
+
+            modal.setContent(content);
+            modal.clearFooter();
+
+            modal.addFooterButton({
+                text: 'Cancel',
+                type: 'secondary',
+                onClick: () => modal.hide()
+            });
+
+            const addBtn = modal.addFooterButton({
+                text: 'Add Link',
+                type: 'primary',
+                disabled: true,
+                onClick: async () => {
+                    const targetDevice = content.querySelector('#link-target-device').value;
+                    const targetPort = content.querySelector('#link-target-port-display').dataset.port || '';
+
+                    addBtn.disabled = true;
+                    addBtn.textContent = 'Adding...';
+
+                    try {
+                        const resp = await fetch('/td-api/nodes/add-link', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                source_device: sourceDevice,
+                                source_port: sourcePort,
+                                target_device: targetDevice,
+                                target_port: targetPort
+                            })
+                        });
+                        const result = await resp.json();
+                        if (result.status === 'success') {
+                            const rebootTargets = result.targets_need_reboot || [];
+
+                            let successHtml = `<div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
+                                <h3 style="color: #fff; margin: 0 0 8px;">Link Added</h3>
+                                <p style="color: #ccc;">${this.escapeHtml(sourceDevice)}:${this.escapeHtml(sourcePort)} &#8596; ${this.escapeHtml(targetDevice)}:${this.escapeHtml(targetPort)}</p>
+                            </div>`;
+
+                            let rebootManager = null;
+                            if (rebootTargets.length > 0) {
+                                rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                successHtml += rebootManager.renderRebootSection(rebootTargets);
+                            }
+
+                            const successContent = document.createElement('div');
+                            successContent.innerHTML = successHtml;
+                            modal.setContent(successContent);
+
+                            if (rebootManager) {
+                                rebootManager.attachEventHandlers(successContent);
+                            }
+
+                            modal.clearFooter();
+                            modal.addFooterButton({
+                                text: 'Close',
+                                type: 'primary',
+                                onClick: () => {
+                                    modal.hide();
+                                    if (window.topologyManager) {
+                                        window.topologyManager.refreshTopology();
+                                    }
+                                }
+                            });
+                        } else {
+                            modal.showError('Failed to Add Link', result.error || result.message || 'Unknown error');
+                            modal.clearFooter();
+                            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                        }
+                    } catch (err) {
+                        modal.showError('Error', err.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                }
+            });
+
+            // Target device change handler - fetch and display next available port
+            content.querySelector('#link-target-device').addEventListener('change', async (e) => {
+                const targetDevice = e.target.value;
+                const portDisplay = content.querySelector('#link-target-port-display');
+                addBtn.disabled = true;
+
+                if (!targetDevice) {
+                    portDisplay.textContent = 'Select a target device first...';
+                    portDisplay.style.color = '#888';
+                    delete portDisplay.dataset.port;
+                    return;
+                }
+
+                portDisplay.textContent = 'Loading...';
+                portDisplay.style.color = '#888';
+                delete portDisplay.dataset.port;
+
+                try {
+                    const resp = await fetch(`/td-api/nodes/available-ports/${encodeURIComponent(targetDevice)}`);
+                    const data = await resp.json();
+                    const nextPort = (data.ports && data.ports.length > 0) ? data.ports[0] : null;
+                    if (nextPort) {
+                        portDisplay.innerHTML = `<span style="color: #fff; font-size: 14px;">${this.escapeHtml(nextPort)}</span> <span style="color: #888; font-size: 12px;">(next available)</span>`;
+                        portDisplay.dataset.port = nextPort;
+                        if (sourcePort) {
+                            addBtn.disabled = false;
+                        }
+                    } else {
+                        portDisplay.innerHTML = '<span style="color: #e30909; font-size: 13px;">No ports available</span>';
+                        delete portDisplay.dataset.port;
+                    }
+                } catch (err) {
+                    portDisplay.innerHTML = '<span style="color: #e30909; font-size: 13px;">Error loading ports</span>';
+                    delete portDisplay.dataset.port;
+                }
+            });
+
+        } catch (err) {
+            modal.showError('Error Loading Data', err.message);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+        }
+    }
+
+    /**
+     * Show confirmation modal for deploying WAN CloudEOS nodes (D1/D2)
+     * Fetches a preview from the API before deploying.
+     */
+    async showWanCloudeosConfirmation() {
+        const modal = new BaseModal({
+            title: 'Deploy WAN CloudEOS Nodes',
+            size: BaseModal.SIZES.MEDIUM,
+            className: 'wan-cloudeos-modal'
+        });
+
+        modal.show();
+        modal.showLoading('Loading deployment preview...');
+
+        try {
+            const [previewResp, targetsResp] = await Promise.all([
+                fetch('/td-api/nodes/wan-cloudeos-preview'),
+                fetch('/td-api/nodes/target-devices')
+            ]);
+            const preview = await previewResp.json();
+            const targetsData = await targetsResp.json();
+
+            if (preview.error) {
+                modal.showError('Cannot Deploy', preview.error);
+                modal.clearFooter();
+                modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                return;
+            }
+
+            const content = document.createElement('div');
+            const rebootWarning = preview.targets_need_reboot && preview.targets_need_reboot.length
+                ? `<div class="link-info warning" style="margin-top: 12px;">⚠ ${this.escapeHtml(preview.targets_need_reboot.join(', '))} will need to reboot</div>`
+                : '';
+            const d1Ip = this.escapeHtml(preview.d1?.ip || 'N/A');
+            const d1Target = this.escapeHtml(preview.d1?.target || 'PE1');
+            const d1Port = this.escapeHtml(preview.d1?.target_port || 'N/A');
+            const d2Ip = this.escapeHtml(preview.d2?.ip || 'N/A');
+            const d2Target = this.escapeHtml(preview.d2?.target || 'PE2');
+            const d2Port = this.escapeHtml(preview.d2?.target_port || 'N/A');
+            content.innerHTML = [
+                '<p style="color: #ccc; margin-bottom: 16px;">This will create two CloudEOS nodes for WAN training:</p>',
+                '<div class="deployment-preview">',
+                '    <div class="deployment-item">',
+                `        <strong style="color: #fff; min-width: 30px;">D1</strong>`,
+                `        <code>${d1Ip}</code>`,
+                '        <span class="deployment-arrow">→</span>',
+                `        <code>${d1Target}:${d1Port}</code>`,
+                '    </div>',
+                '    <div class="deployment-item">',
+                `        <strong style="color: #fff; min-width: 30px;">D2</strong>`,
+                `        <code>${d2Ip}</code>`,
+                '        <span class="deployment-arrow">→</span>',
+                `        <code>${d2Target}:${d2Port}</code>`,
+                '    </div>',
+                '</div>',
+                rebootWarning
+            ].join('\n');
+
+            modal.setContent(content);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Cancel', type: 'secondary', onClick: () => modal.hide()});
+            modal.addFooterButton({
+                text: 'Deploy D1 & D2',
+                type: 'primary',
+                onClick: async () => {
+                    modal.showLoading('Deploying CloudEOS nodes...');
+                    modal.clearFooter();
+                    try {
+                        const deployResp = await fetch('/td-api/nodes/add-wan-cloudeos', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: '{}'
+                        });
+                        const result = await deployResp.json();
+                        if (result.status === 'success') {
+                            const rebootTargets = result.targets_need_reboot || [];
+
+                            let successHtml = `<div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
+                                <h3 style="color: #fff; margin: 0 0 8px;">Deployment Complete</h3>
+                                <p style="color: #ccc;">D1 and D2 have been created successfully.</p>
+                            </div>`;
+
+                            let rebootManager = null;
+                            if (rebootTargets.length > 0) {
+                                rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                                successHtml += rebootManager.renderRebootSection(rebootTargets);
+                            }
+
+                            const successContent = document.createElement('div');
+                            successContent.innerHTML = successHtml;
+                            modal.setContent(successContent);
+
+                            if (rebootManager) {
+                                rebootManager.attachEventHandlers(successContent);
+                            }
+
+                            modal.clearFooter();
+                            modal.addFooterButton({
+                                text: 'Close',
+                                type: 'primary',
+                                onClick: () => {
+                                    modal.hide();
+                                    if (window.topologyManager) {
+                                        window.topologyManager.refreshTopology();
+                                    }
+                                }
+                            });
+                        } else {
+                            modal.showError('Deployment Failed', result.error || 'Unknown error');
+                            modal.clearFooter();
+                            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                        }
+                    } catch (err) {
+                        modal.showError('Error', err.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                }
+            });
+        } catch (err) {
+            modal.showError('Error Loading Preview', err.message);
+            modal.clearFooter();
+            modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+        }
+    }
+
+    /**
+     * Show confirmation dialog for removing a user-added link
+     * @param {Object} edgeData - Edge data object containing source, target, and port info
+     */
+    confirmRemoveLink(edgeData) {
+        const modal = new BaseModal({
+            title: 'Remove Link',
+            size: BaseModal.SIZES.MEDIUM,
+            headerTheme: BaseModal.HEADER_THEMES.DANGER
+        });
+
+        const src = this.escapeHtml(edgeData.source);
+        const srcPort = this.escapeHtml(edgeData.source_port);
+        const tgt = this.escapeHtml(edgeData.target);
+        const tgtPort = this.escapeHtml(edgeData.target_port);
+
+        const content = document.createElement('div');
+        content.innerHTML = [
+            '<p style="color: #ccc;">Remove this user-added link?</p>',
+            '<div class="link-info" style="margin: 12px 0;">',
+            `    <strong>${src}:${srcPort}</strong>`,
+            '    &harr;',
+            `    <strong>${tgt}:${tgtPort}</strong>`,
+            '</div>',
+            '<div class="link-info warning" style="margin: 12px 0;">',
+            `    &#9888; <strong>${src}</strong> and <strong>${tgt}</strong> will need to be rebooted after removal`,
+            '</div>',
+            '<p style="color: #888; font-size: 13px;">This will detach interfaces and remove the OVS bridge. Both devices will need a reboot to apply the changes.</p>'
+        ].join('\n');
+
+        modal.show();
+        modal.setContent(content);
+        modal.clearFooter();
+        modal.addFooterButton({text: 'Cancel', type: 'secondary', onClick: () => modal.hide()});
+        modal.addFooterButton({
+            text: 'Remove Link',
+            type: 'danger',
+            onClick: async () => {
+                modal.showLoading('Removing link...');
+                modal.clearFooter();
+                try {
+                    const resp = await fetch('/td-api/nodes/remove-link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            source_device: edgeData.source,
+                            source_port: edgeData.source_port,
+                            target_device: edgeData.target,
+                            target_port: edgeData.target_port
+                        })
+                    });
+                    const result = await resp.json();
+                    if (result.status === 'success' || result.status === 'deleted_with_errors') {
+                        const rebootTargets = result.targets_need_reboot || [];
+
+                        let successHtml = [
+                            '<div style="text-align: center; padding: 20px;">',
+                            '    <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>',
+                            '    <h3 style="color: #fff; margin: 0 0 8px;">Link Removed</h3>',
+                            `    <p style="color: #ccc;">${src}:${srcPort} &harr; ${tgt}:${tgtPort}</p>`,
+                            '</div>'
+                        ].join('\n');
+
+                        let rebootManager = null;
+                        if (rebootTargets.length > 0) {
+                            const targetsResp = await fetch('/td-api/nodes/target-devices');
+                            const targetsData = await targetsResp.json();
+                            rebootManager = new DeviceRebootManager(targetsData.devices || []);
+                            successHtml += rebootManager.renderRebootSection(rebootTargets);
+                        }
+
+                        const successContent = document.createElement('div');
+                        successContent.innerHTML = successHtml;
+                        modal.setContent(successContent);
+
+                        if (rebootManager) {
+                            rebootManager.attachEventHandlers(successContent);
+                        }
+
+                        modal.clearFooter();
+                        modal.addFooterButton({
+                            text: 'Close',
+                            type: 'primary',
+                            onClick: () => {
+                                modal.hide();
+                                if (window.topologyManager) {
+                                    window.topologyManager.refreshTopology();
+                                }
+                            }
+                        });
+                    } else {
+                        modal.showError('Failed', result.error || result.message);
+                        modal.clearFooter();
+                        modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                    }
+                } catch (err) {
+                    modal.showError('Error', err.message);
+                    modal.clearFooter();
+                    modal.addFooterButton({text: 'Close', onClick: () => modal.hide()});
+                }
+            }
+        });
     }
 
     /**

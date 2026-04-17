@@ -180,3 +180,86 @@ def sample_firewall_data():
             'target_port': 'Ethernet5'
         }
     }
+
+
+@pytest.fixture
+def mock_user_cloudeos_file(temp_dir):
+    """Create empty user_cloudeos.yaml for tests."""
+    path = os.path.join(temp_dir, 'user_cloudeos.yaml')
+    with open(path, 'w') as f:
+        f.write('devices: []\n')
+    return path
+
+
+@pytest.fixture
+def mock_user_links_file(temp_dir):
+    """Create empty user_links.yaml for tests."""
+    path = os.path.join(temp_dir, 'user_links.yaml')
+    with open(path, 'w') as f:
+        f.write('links: []\n')
+    return path
+
+
+@pytest.fixture
+def sample_cloudeos_data():
+    """Sample CloudEOS device data for tests."""
+    return {
+        'name': 'D1',
+        'ip': '192.168.0.50',
+        'device_type': 'pe',
+        'connections': [{
+            'target_device': 'PE1',
+            'target_port': 'Ethernet7',
+            'local_port': 'Ethernet1'
+        }]
+    }
+
+
+@pytest.fixture
+def sample_link_data():
+    """Sample link data for tests."""
+    return {
+        'source_device': 'spine1',
+        'source_port': 'Ethernet5',
+        'target_device': 'leaf1',
+        'target_port': 'Ethernet5'
+    }
+
+
+@pytest.fixture
+def mock_wan_topo_build_file(temp_dir):
+    """Create topo_build.yml with PE1/PE2 for WAN topology tests."""
+    path = os.path.join(temp_dir, 'wan_topo_build.yml')
+    content = """nodes:
+  - PE1:
+      ip_addr: 192.168.0.41
+      sys_mac: 00:1c:73:e1:c6:01
+      neighbors:
+        - neighborDevice: A1
+          neighborPort: Ethernet1
+          port: Ethernet1
+  - PE2:
+      ip_addr: 192.168.0.42
+      sys_mac: 00:1c:73:e2:c6:01
+      neighbors:
+        - neighborDevice: A2
+          neighborPort: Ethernet1
+          port: Ethernet1
+  - A1:
+      ip_addr: 192.168.0.21
+      sys_mac: 00:1c:73:c1:c6:01
+      neighbors:
+        - neighborDevice: PE1
+          neighborPort: Ethernet1
+          port: Ethernet1
+  - A2:
+      ip_addr: 192.168.0.22
+      sys_mac: 00:1c:73:c2:c6:01
+      neighbors:
+        - neighborDevice: PE2
+          neighborPort: Ethernet1
+          port: Ethernet1
+"""
+    with open(path, 'w') as f:
+        f.write(content)
+    return path

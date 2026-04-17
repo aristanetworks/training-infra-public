@@ -138,7 +138,10 @@ export class TopologyManager {
                 addHost: false,
                 addFirewall: false,
                 addVelocloud: false,
-                resetTopology: false
+                resetTopology: false,
+                addCloudeos: false,       // nb_add_cloudeos
+                addWanCloudeos: false,    // nb_wan_cloudeos
+                addLink: false            // nb_add_link
             };
 
             if (window.featureFlags) {
@@ -149,9 +152,12 @@ export class TopologyManager {
                 nodebuilderFeatures.addFirewall = await window.featureFlags.check('nb_add_firewall');
                 nodebuilderFeatures.addVelocloud = await window.featureFlags.check('nb_add_velocloud');
                 nodebuilderFeatures.resetTopology = await window.featureFlags.check('nb_reset_topology');
+                nodebuilderFeatures.addCloudeos = await window.featureFlags.check('nb_add_cloudeos');
+                nodebuilderFeatures.addWanCloudeos = await window.featureFlags.check('nb_wan_cloudeos');
+                nodebuilderFeatures.addLink = await window.featureFlags.check('nb_add_link');
 
                 // Log feature flags status
-                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
+                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, addCloudeos=${nodebuilderFeatures.addCloudeos}, addWanCloudeos=${nodebuilderFeatures.addWanCloudeos}, addLink=${nodebuilderFeatures.addLink}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
                 console.log('[TopologyManager]', logMessage);
                 if (window.logger) {
                     window.logger.info('topology_manager', 'NodeBuilder feature flags checked', nodebuilderFeatures);
@@ -192,6 +198,23 @@ export class TopologyManager {
             if (nodebuilderFeatures.addVelocloud && typeof window.AddVelocloudWizard !== 'undefined') {
                 window.addVelocloudWizard = new window.AddVelocloudWizard(this);
                 console.log('[TopologyManager] AddVelocloudWizard initialized (nb_add_velocloud enabled)');
+            }
+
+            // Initialize AddCloudeosWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addCloudeos && typeof window.AddCloudeosWizard !== 'undefined') {
+                window.addCloudeosWizard = new window.AddCloudeosWizard(this);
+                console.log('[TopologyManager] AddCloudeosWizard initialized (nb_add_cloudeos enabled)');
+            }
+
+            // Check for PE1/PE2 nodes to determine WAN CloudEOS eligibility
+            if (nodebuilderFeatures.addWanCloudeos) {
+                const nodes = this.cy.nodes();
+                const hasPE1 = nodes.some(n => n.data('label') === 'PE1');
+                const hasPE2 = nodes.some(n => n.data('label') === 'PE2');
+                nodebuilderFeatures.addWanCloudeos = hasPE1 && hasPE2;
+                if (!nodebuilderFeatures.addWanCloudeos) {
+                    console.log('[TopologyManager] WAN CloudEOS disabled: PE1/PE2 not found in topology');
+                }
             }
 
             // Pass NodeBuilder feature states to EventManager to control menu visibility

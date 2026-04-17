@@ -21,6 +21,8 @@ logger = logging.getLogger('nodebuilder')
 
 # Default path for user nodes file
 DEFAULT_USER_NODES_PATH = '/etc/atd/user_nodes.yaml'
+DEFAULT_USER_CLOUDEOS_PATH = '/etc/atd/user_cloudeos.yaml'
+DEFAULT_USER_LINKS_PATH = '/etc/atd/user_links.yaml'
 
 # Security: Allowed base directories for file operations
 ALLOWED_PATH_PREFIXES = ('/etc/atd/',)
@@ -406,7 +408,9 @@ def remove_all_device_references(
     deleted_device_name: str,
     user_nodes_path: str = DEFAULT_USER_NODES_PATH,
     user_hosts_path: str = None,
-    user_firewalls_path: str = None
+    user_firewalls_path: str = None,
+    user_cloudeos_path: str = None,
+    user_links_path: str = None
 ) -> Dict:
     """
     Remove all references to a deleted device from ALL persistence files.
@@ -497,10 +501,55 @@ def remove_all_device_references(
         except Exception as e:
             logger.warning(f"Error cleaning firewall references: {e}")
 
+    # 4. Clean up neighbor references in user_cloudeos.yaml
+    result['cloudeos_cleaned'] = 0
+    if user_cloudeos_path:
+        try:
+            cloudeos_data = load_user_cloudeos(user_cloudeos_path)
+            cloudeos_modified = False
+
+            for ce_entry in cloudeos_data.get('devices', []) or []:
+                for ce_name, ce_info in ce_entry.items():
+                    neighbors = ce_info.get('neighbors', [])
+                    original_count = len(neighbors)
+                    ce_info['neighbors'] = [
+                        n for n in neighbors
+                        if n.get('neighborDevice', '').lower() != deleted_lower
+                    ]
+                    removed = original_count - len(ce_info['neighbors'])
+                    if removed > 0:
+                        result['cloudeos_cleaned'] += removed
+                        cloudeos_modified = True
+
+            if cloudeos_modified:
+                save_user_cloudeos(cloudeos_data, user_cloudeos_path)
+        except Exception as e:
+            logger.warning(f"Error cleaning CloudEOS references: {e}")
+
+    # 5. Clean up user links referencing the deleted device
+    result['links_cleaned'] = 0
+    if user_links_path:
+        try:
+            links_data = load_user_links(user_links_path)
+            original_count = len(links_data.get('links', []))
+            links_data['links'] = [
+                link for link in links_data.get('links', [])
+                if (link.get('source_device', '').lower() != deleted_lower
+                    and link.get('target_device', '').lower() != deleted_lower)
+            ]
+            removed = original_count - len(links_data['links'])
+            if removed > 0:
+                result['links_cleaned'] = removed
+                save_user_links(links_data, user_links_path)
+        except Exception as e:
+            logger.warning(f"Error cleaning link references: {e}")
+
     result['total'] = (
         result['nodes_cleaned'] +
         result['hosts_cleaned'] +
-        result['firewalls_cleaned']
+        result['firewalls_cleaned'] +
+        result['cloudeos_cleaned'] +
+        result['links_cleaned']
     )
 
     if result['total'] > 0:
@@ -508,7 +557,9 @@ def remove_all_device_references(
             f"Cross-type cleanup for '{deleted_device_name}': "
             f"{result['nodes_cleaned']} node refs, "
             f"{result['hosts_cleaned']} host refs, "
-            f"{result['firewalls_cleaned']} firewall refs"
+            f"{result['firewalls_cleaned']} firewall refs, "
+            f"{result['cloudeos_cleaned']} CloudEOS refs, "
+            f"{result['links_cleaned']} link refs"
         )
 
     return result
@@ -1298,3 +1349,504 @@ def get_velo_device_count_by_type(
                         count += 1
 
     return count
+
+
+# ============================================================================
+# User CloudEOS Devices Persistence
+# ============================================================================
+
+
+def get_empty_user_cloudeos() -> Dict:
+    """Get the structure for an empty user_cloudeos.yaml file."""
+    return {
+        'version': 1,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'devices': []
+    }
+
+
+def load_user_cloudeos(path: str = DEFAULT_USER_CLOUDEOS_PATH) -> Dict:
+    """
+    Load user-added CloudEOS devices from persistence file.
+
+    Args:
+        path: Path to user_cloudeos.yaml
+
+    Returns:
+        Dict with user CloudEOS devices data
+
+    Raises:
+        ValueError: If path is outside allowed directories
+    """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.preserve_quotes = True
+
+    try:
+        if not os.path.exists(path):
+            return get_empty_user_cloudeos()
+
+        with open(path, 'r') as f:
+            data = yaml.load(f)
+
+        if data is None:
+            return get_empty_user_cloudeos()
+
+        if 'devices' not in data or data['devices'] is None:
+            data['devices'] = []
+        if 'version' not in data:
+            data['version'] = 1
+
+        return data
+
+    except Exception as e:
+        logger.error(f"Error loading user CloudEOS devices from {path}: {e}")
+        return get_empty_user_cloudeos()
+
+
+def save_user_cloudeos(data: Dict, path: str = DEFAULT_USER_CLOUDEOS_PATH) -> bool:
+    """Save user CloudEOS devices data to persistence file."""
+    if not _validate_path(path):
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.preserve_quotes = True
+
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    temp_path = f"{path}.tmp"
+
+    try:
+        with open(temp_path, 'w') as f:
+            yaml.dump(data, f)
+        os.rename(temp_path, path)
+        logger.info(f"Saved user CloudEOS devices to {path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user CloudEOS devices to {path}: {e}")
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
+
+
+def save_user_cloudeos_pending(
+    name: str,
+    device_info: Dict,
+    path: str = DEFAULT_USER_CLOUDEOS_PATH
+) -> bool:
+    """
+    Save a user CloudEOS device with 'creating' status before VM creation.
+
+    Args:
+        name: Device name
+        device_info: Device info dict
+        path: Path to user_cloudeos.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_cloudeos(path)
+
+    device_info['added_at'] = datetime.now(timezone.utc).isoformat()
+    device_info['user_added'] = True
+    device_info['status'] = 'creating'
+
+    data['devices'].append({name: device_info})
+    return save_user_cloudeos(data, path)
+
+
+def update_user_cloudeos_status(
+    name: str,
+    status: str = 'active',
+    additional_info: Optional[Dict] = None,
+    path: str = DEFAULT_USER_CLOUDEOS_PATH
+) -> bool:
+    """
+    Update a user CloudEOS device's status after VM creation completes.
+
+    Args:
+        name: Device name
+        status: New status ('active' or 'failed')
+        additional_info: Optional dict to merge into device info
+        path: Path to user_cloudeos.yaml
+
+    Returns:
+        True if device was found and updated
+    """
+    data = load_user_cloudeos(path)
+
+    for device_entry in data.get('devices', []) or []:
+        for device_name, device_info in device_entry.items():
+            if device_name.lower() == name.lower():
+                if status == 'active':
+                    device_info.pop('status', None)
+                else:
+                    device_info['status'] = status
+
+                if additional_info:
+                    device_info.update(additional_info)
+
+                save_user_cloudeos(data, path)
+                logger.info(f"Updated CloudEOS device {name} status to {status}")
+                return True
+
+    logger.warning(f"CloudEOS device {name} not found for status update")
+    return False
+
+
+def remove_user_cloudeos(name: str, path: str = DEFAULT_USER_CLOUDEOS_PATH) -> bool:
+    """Remove a user-added CloudEOS device from the persistence file."""
+    data = load_user_cloudeos(path)
+    original_count = len(data['devices'])
+
+    data['devices'] = [
+        device for device in data['devices']
+        if name.lower() not in [k.lower() for k in device.keys()]
+    ]
+
+    if len(data['devices']) == original_count:
+        logger.warning(f"CloudEOS device {name} not found in user devices")
+        return False
+
+    save_user_cloudeos(data, path)
+    logger.info(f"Removed CloudEOS device {name} from user devices")
+    return True
+
+
+def get_user_cloudeos_device(name: str, path: str = DEFAULT_USER_CLOUDEOS_PATH) -> Optional[Dict]:
+    """Get a specific user-added CloudEOS device by name."""
+    data = load_user_cloudeos(path)
+
+    for device in data['devices']:
+        for device_name, device_info in device.items():
+            if device_name.lower() == name.lower():
+                return {device_name: device_info}
+
+    return None
+
+
+def list_user_cloudeos(path: str = DEFAULT_USER_CLOUDEOS_PATH) -> List[Dict]:
+    """List all user-added CloudEOS devices."""
+    data = load_user_cloudeos(path)
+    return data.get('devices') or []
+
+
+def get_cloudeos_count(path: str = DEFAULT_USER_CLOUDEOS_PATH) -> int:
+    """
+    Get count of active (non-creating) user-added CloudEOS devices.
+
+    Active devices have no 'status' field. Devices with status='creating'
+    or status='failed' are excluded from the count.
+
+    Args:
+        path: Path to user_cloudeos.yaml
+
+    Returns:
+        Number of active CloudEOS devices
+    """
+    devices = list_user_cloudeos(path)
+    count = 0
+
+    for device_entry in devices:
+        for _, device_info in device_entry.items():
+            status = device_info.get('status')
+            if status is None or status == 'active':
+                count += 1
+
+    return count
+
+
+def cleanup_stale_cloudeos(path: str = DEFAULT_USER_CLOUDEOS_PATH) -> int:
+    """
+    Remove stale CloudEOS device entries with 'creating' or 'failed' status.
+
+    These entries are orphaned from crashed or failed creations that
+    didn't properly clean up. Called on service startup.
+
+    Args:
+        path: Path to user_cloudeos.yaml
+
+    Returns:
+        Number of stale entries removed
+    """
+    data = load_user_cloudeos(path)
+    original_count = len(data.get('devices') or [])
+
+    stale_statuses = {'creating', 'failed'}
+    cleaned_devices = []
+    removed_names = []
+
+    for device_entry in data.get('devices') or []:
+        keep = True
+        for device_name, device_info in device_entry.items():
+            status = device_info.get('status')
+            if status in stale_statuses:
+                keep = False
+                removed_names.append(device_name)
+                break
+        if keep:
+            cleaned_devices.append(device_entry)
+
+    removed_count = original_count - len(cleaned_devices)
+
+    if removed_count > 0:
+        data['devices'] = cleaned_devices
+        save_user_cloudeos(data, path)
+        logger.info(
+            f"Cleaned up {removed_count} stale CloudEOS device(s): {removed_names}"
+        )
+
+    return removed_count
+
+
+# ============================================================================
+# User Links Persistence (Virtual Links Between Devices)
+# ============================================================================
+
+
+def get_empty_user_links() -> Dict:
+    """Get the structure for an empty user_links.yaml file."""
+    return {
+        'version': 1,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'links': []
+    }
+
+
+def load_user_links(path: str = DEFAULT_USER_LINKS_PATH) -> Dict:
+    """
+    Load user-added links from persistence file.
+
+    Args:
+        path: Path to user_links.yaml
+
+    Returns:
+        Dict with user links data
+
+    Raises:
+        ValueError: If path is outside allowed directories
+    """
+    # Security: Validate path is within allowed directories
+    if not _validate_path(path):
+        logger.error(f"Security: Attempted to load from disallowed path: {path}")
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.preserve_quotes = True
+
+    try:
+        if not os.path.exists(path):
+            return get_empty_user_links()
+
+        with open(path, 'r') as f:
+            data = yaml.load(f)
+
+        if data is None:
+            return get_empty_user_links()
+
+        if 'links' not in data or data['links'] is None:
+            data['links'] = []
+        if 'version' not in data:
+            data['version'] = 1
+
+        return data
+
+    except Exception as e:
+        logger.error(f"Error loading user links from {path}: {e}")
+        return get_empty_user_links()
+
+
+def save_user_links(data: Dict, path: str = DEFAULT_USER_LINKS_PATH) -> bool:
+    """Save user links data to persistence file."""
+    if not _validate_path(path):
+        raise ValueError(f"Path not allowed: {path}")
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.preserve_quotes = True
+
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    temp_path = f"{path}.tmp"
+
+    try:
+        with open(temp_path, 'w') as f:
+            yaml.dump(data, f)
+        os.rename(temp_path, path)
+        logger.info(f"Saved user links to {path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user links to {path}: {e}")
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
+
+
+def save_user_link(
+    link_data: Dict,
+    path: str = DEFAULT_USER_LINKS_PATH
+) -> bool:
+    """
+    Append a single user link to the persistence file.
+
+    Args:
+        link_data: Dict with link info containing source/target device and port fields
+        path: Path to user_links.yaml
+
+    Returns:
+        True if successful
+    """
+    data = load_user_links(path)
+
+    link_data['created_at'] = datetime.now(timezone.utc).isoformat()
+
+    data['links'].append(link_data)
+    return save_user_links(data, path)
+
+
+def remove_user_link(
+    source_device: str,
+    source_port: str,
+    target_device: str,
+    target_port: str,
+    path: str = DEFAULT_USER_LINKS_PATH
+) -> bool:
+    """
+    Remove a specific user link by its endpoints (case-insensitive).
+
+    Args:
+        source_device: Source device name
+        source_port: Source port name
+        target_device: Target device name
+        target_port: Target port name
+        path: Path to user_links.yaml
+
+    Returns:
+        True if link was found and removed
+    """
+    data = load_user_links(path)
+    original_count = len(data.get('links') or [])
+
+    def _matches(link: Dict) -> bool:
+        # Check both directions since topology diagram may swap source/target
+        forward = (
+            link.get('source_device', '').lower() == source_device.lower() and
+            link.get('source_port', '').lower() == source_port.lower() and
+            link.get('target_device', '').lower() == target_device.lower() and
+            link.get('target_port', '').lower() == target_port.lower()
+        )
+        reverse = (
+            link.get('source_device', '').lower() == target_device.lower() and
+            link.get('source_port', '').lower() == target_port.lower() and
+            link.get('target_device', '').lower() == source_device.lower() and
+            link.get('target_port', '').lower() == source_port.lower()
+        )
+        return forward or reverse
+
+    data['links'] = [link for link in (data.get('links') or []) if not _matches(link)]
+
+    if len(data['links']) == original_count:
+        logger.warning(
+            f"Link {source_device}:{source_port} -> {target_device}:{target_port} "
+            f"not found in user links"
+        )
+        return False
+
+    save_user_links(data, path)
+    logger.info(
+        f"Removed link {source_device}:{source_port} -> {target_device}:{target_port} "
+        f"from user links"
+    )
+    return True
+
+
+def get_user_link(
+    source_device: str,
+    source_port: str,
+    target_device: str,
+    target_port: str,
+    path: str = DEFAULT_USER_LINKS_PATH
+) -> Optional[Dict]:
+    """
+    Find a specific user link by its endpoints (case-insensitive).
+
+    Args:
+        source_device: Source device name
+        source_port: Source port name
+        target_device: Target device name
+        target_port: Target port name
+        path: Path to user_links.yaml
+
+    Returns:
+        Link dict if found, None otherwise
+    """
+    data = load_user_links(path)
+
+    for link in data.get('links') or []:
+        # Check both directions since topology diagram may swap source/target
+        forward = (
+            link.get('source_device', '').lower() == source_device.lower() and
+            link.get('source_port', '').lower() == source_port.lower() and
+            link.get('target_device', '').lower() == target_device.lower() and
+            link.get('target_port', '').lower() == target_port.lower()
+        )
+        reverse = (
+            link.get('source_device', '').lower() == target_device.lower() and
+            link.get('source_port', '').lower() == target_port.lower() and
+            link.get('target_device', '').lower() == source_device.lower() and
+            link.get('target_port', '').lower() == source_port.lower()
+        )
+        if forward or reverse:
+            return link
+
+    return None
+
+
+def list_user_links(path: str = DEFAULT_USER_LINKS_PATH) -> List[Dict]:
+    """List all user-added links."""
+    data = load_user_links(path)
+    return data.get('links') or []
+
+
+def is_user_link(
+    source_device: str,
+    source_port: str,
+    target_device: str,
+    target_port: str,
+    path: str = DEFAULT_USER_LINKS_PATH
+) -> bool:
+    """
+    Check if a specific user link exists (case-insensitive).
+
+    Args:
+        source_device: Source device name
+        source_port: Source port name
+        target_device: Target device name
+        target_port: Target port name
+        path: Path to user_links.yaml
+
+    Returns:
+        True if link exists
+    """
+    return get_user_link(source_device, source_port, target_device, target_port, path) is not None
