@@ -62,6 +62,169 @@
         firewall_hint: "If using a corporate network or VPN, WebSocket and gRPC traffic may be blocked. Contact your network administrator or try disconnecting your VPN."
     };
 
+    // ============================================
+    // Connection Tracker - Event Buffer & Sync
+    // ============================================
+
+    var TRACKER_CONFIG = {
+        maxEvents: 500,
+        summaryInterval: 300000,
+        localStorageKey: 'atl_connectivity_events',
+        localStorageMaxAge: 86400000
+    };
+
+    var sessionInfo = {
+        id: null,
+        reconnectCount: 0,
+        debugMode: false
+    };
+
+    var eventBuffer = [];
+    var latencyHistory = [];
+    var MAX_LATENCY_SAMPLES = 60;
+    var sessionStartTime = Date.now();
+    var lastDisconnectTime = null;
+    var summaryTimerRef = null;
+
+    function trackEvent(type, data) {
+        var entry = { ts: Date.now(), type: type, data: data || {} };
+        eventBuffer.push(entry);
+        if (eventBuffer.length > TRACKER_CONFIG.maxEvents) {
+            eventBuffer = eventBuffer.slice(eventBuffer.length - TRACKER_CONFIG.maxEvents);
+        }
+        saveToLocalStorage();
+    }
+
+    function recordLatency(rttMs) {
+        if (typeof rttMs !== 'number' || rttMs < 0) return;
+        latencyHistory.push({ ts: Date.now(), rtt: rttMs });
+        if (latencyHistory.length > MAX_LATENCY_SAMPLES) {
+            latencyHistory = latencyHistory.slice(latencyHistory.length - MAX_LATENCY_SAMPLES);
+        }
+        if (latencyHistory.length >= 5) {
+            var avg = getAverageLatency();
+            if (rttMs > avg * 2 && rttMs > 200) {
+                trackEvent('latency_spike', { rtt: rttMs, avg: Math.round(avg) });
+            }
+        }
+    }
+
+    function getAverageLatency() {
+        if (latencyHistory.length === 0) return 0;
+        var sum = 0;
+        for (var i = 0; i < latencyHistory.length; i++) {
+            sum += latencyHistory[i].rtt;
+        }
+        return sum / latencyHistory.length;
+    }
+
+    function getLatestLatency() {
+        if (latencyHistory.length === 0) return null;
+        return latencyHistory[latencyHistory.length - 1].rtt;
+    }
+
+    function getUptimePercent() {
+        var totalTime = Date.now() - sessionStartTime;
+        if (totalTime === 0) return 100;
+        var downtime = 0;
+        var disconnectStart = null;
+        for (var i = 0; i < eventBuffer.length; i++) {
+            var evt = eventBuffer[i];
+            if (evt.type === 'ws_disconnect' && disconnectStart === null) {
+                disconnectStart = evt.ts;
+            } else if (evt.type === 'ws_reconnect' && disconnectStart !== null) {
+                downtime += evt.ts - disconnectStart;
+                disconnectStart = null;
+            }
+        }
+        if (disconnectStart !== null) {
+            downtime += Date.now() - disconnectStart;
+        }
+        return Math.round(((totalTime - downtime) / totalTime) * 1000) / 10;
+    }
+
+    function saveToLocalStorage() {
+        try {
+            var payload = {
+                savedAt: Date.now(),
+                sessionId: sessionInfo.id,
+                events: eventBuffer.slice(-100)
+            };
+            localStorage.setItem(TRACKER_CONFIG.localStorageKey, JSON.stringify(payload));
+        } catch (e) {}
+    }
+
+    function loadFromLocalStorage() {
+        try {
+            var stored = localStorage.getItem(TRACKER_CONFIG.localStorageKey);
+            if (!stored) return [];
+            var payload = JSON.parse(stored);
+            if (Date.now() - payload.savedAt > TRACKER_CONFIG.localStorageMaxAge) {
+                localStorage.removeItem(TRACKER_CONFIG.localStorageKey);
+                return [];
+            }
+            return payload.events || [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function clearLocalStorage() {
+        try {
+            localStorage.removeItem(TRACKER_CONFIG.localStorageKey);
+        } catch (e) {}
+    }
+
+    function sendPeriodicSummary() {
+        if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
+        var summary = {
+            type: 'connectivity',
+            data: {
+                event: 'periodic_summary',
+                wsRoundTrip: getLatestLatency(),
+                avgLatency: Math.round(getAverageLatency()),
+                grpcStatus: grpcConnectionStatus.connected ? 'connected' : 'disconnected',
+                grpcFailures: grpcConnectionStatus.failureCount,
+                eventCount: eventBuffer.length,
+                sessionUptime: Math.round((Date.now() - sessionStartTime) / 1000),
+                uptimePercent: getUptimePercent()
+            }
+        };
+        try {
+            ws.send(JSON.stringify(summary));
+        } catch (e) {}
+    }
+
+    function sendReconnectReport(offlineFrom, offlineTo, bufferedEvents) {
+        if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
+        var report = {
+            type: 'connectivity',
+            data: {
+                event: 'reconnect_report',
+                offlineFrom: offlineFrom,
+                offlineTo: offlineTo,
+                offlineDuration: offlineTo - offlineFrom,
+                bufferedEvents: bufferedEvents
+            }
+        };
+        try {
+            ws.send(JSON.stringify(report));
+            clearLocalStorage();
+        } catch (e) {}
+    }
+
+    function startSummaryTimer() {
+        if (summaryTimerRef) clearInterval(summaryTimerRef);
+        summaryTimerRef = setInterval(sendPeriodicSummary, TRACKER_CONFIG.summaryInterval);
+    }
+
+    function stopSummaryTimer() {
+        if (summaryTimerRef) {
+            clearInterval(summaryTimerRef);
+            summaryTimerRef = null;
+        }
+    }
+
     /**
      * Test CVP gRPC connectivity via proper gRPC-Web framed request
      * Sends a minimal gRPC-Web unary call and validates response framing/trailers
@@ -573,6 +736,13 @@
     function initConnectivityBadge() {
         console.log('[Connectivity Monitor] Initializing unified status badge...');
 
+        // Recover any events from localStorage (from previous offline session)
+        var recovered = loadFromLocalStorage();
+        if (recovered.length > 0) {
+            console.log('[Connectivity Monitor] Recovered ' + recovered.length + ' events from localStorage');
+            eventBuffer = recovered.concat(eventBuffer);
+        }
+
         // Verify badge exists in DOM
         var badge = document.getElementById('system-status-badge');
         if (!badge) {
@@ -632,17 +802,41 @@
          * Called from atd-ws.js
          */
         updateWSStatus: function(connected) {
+            var wasConnected = wsConnectionStatus.connected;
             wsConnectionStatus.connected = connected;
 
             if (connected) {
                 wsConnectionStatus.lastSuccessfulPing = Date.now();
                 wsConnectionStatus.failureCount = 0;
                 logConnectivityEvent('WS_CONNECTED', { uptime: performance.now() });
+
+                if (wasConnected === false) {
+                    var now = Date.now();
+                    trackEvent('ws_reconnect', { reconnectTime: now });
+
+                    if (lastDisconnectTime !== null) {
+                        var offlineEvents = loadFromLocalStorage();
+                        if (offlineEvents.length > 0 || eventBuffer.length > 0) {
+                            setTimeout(function() {
+                                sendReconnectReport(lastDisconnectTime, now, offlineEvents);
+                            }, 2000);
+                        }
+                        lastDisconnectTime = null;
+                    }
+                    startSummaryTimer();
+                } else if (wasConnected === null) {
+                    startSummaryTimer();
+                }
             } else {
                 wsConnectionStatus.failureCount++;
                 logConnectivityEvent('WS_DISCONNECTED', {
                     failureCount: wsConnectionStatus.failureCount
                 });
+                trackEvent('ws_disconnect', {
+                    failureCount: wsConnectionStatus.failureCount
+                });
+                lastDisconnectTime = Date.now();
+                stopSummaryTimer();
             }
 
             updateStatusUI();
@@ -689,7 +883,77 @@
          * Show/hide popup
          */
         showPopup: showStatusPopup,
-        hidePopup: hideStatusPopup
+        hidePopup: hideStatusPopup,
+
+        updateSessionInfo: function(data) {
+            sessionInfo.id = data.session_id || null;
+            sessionInfo.reconnectCount = data.reconnect_count || 0;
+            sessionInfo.debugMode = data.debug_mode || false;
+            logConnectivityEvent('SESSION_INFO', data);
+        },
+
+        updateDebugMode: function(debugMode) {
+            sessionInfo.debugMode = debugMode;
+        },
+
+        recordLatency: recordLatency,
+
+        getTrackerData: function() {
+            return {
+                sessionInfo: sessionInfo,
+                eventBuffer: eventBuffer,
+                latencyHistory: latencyHistory,
+                sessionStartTime: sessionStartTime,
+                uptimePercent: getUptimePercent(),
+                latestLatency: getLatestLatency(),
+                averageLatency: Math.round(getAverageLatency())
+            };
+        },
+
+        toggleDebug: function() {
+            if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
+            try {
+                ws.send(JSON.stringify({ type: 'debug_toggle', data: {} }));
+            } catch (e) {}
+        },
+
+        exportDiagnostics: function() {
+            var data = {
+                exportedAt: new Date().toISOString(),
+                sessionInfo: sessionInfo,
+                sessionStartTime: new Date(sessionStartTime).toISOString(),
+                uptimePercent: getUptimePercent(),
+                latencyStats: {
+                    latest: getLatestLatency(),
+                    average: Math.round(getAverageLatency()),
+                    samples: latencyHistory.length
+                },
+                wsStatus: {
+                    connected: wsConnectionStatus.connected,
+                    failureCount: wsConnectionStatus.failureCount
+                },
+                grpcStatus: {
+                    connected: grpcConnectionStatus.connected,
+                    failureCount: grpcConnectionStatus.failureCount,
+                    errorMessage: grpcConnectionStatus.errorMessage
+                },
+                cvpStatus: {
+                    status: cvpStatus.status,
+                    version: cvpStatus.version
+                },
+                events: eventBuffer,
+                latencyHistory: latencyHistory
+            };
+            var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'connectivity-report-' + (sessionInfo.id || 'unknown') + '-' + Date.now() + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     };
 
     // Auto-initialize when DOM is ready
