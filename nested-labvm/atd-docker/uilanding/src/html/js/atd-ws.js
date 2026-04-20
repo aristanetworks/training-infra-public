@@ -239,7 +239,16 @@ function createWS(SOCK_URL) {
             }
         }
         if (received_msg['type'] == 'ping') {
-            // Update connectivity monitor on successful ping
+            // Respond with timing data for latency measurement
+            var serverTs = received_msg['data'] ? received_msg['data']['ts'] : null;
+            var clientTs = Date.now();
+
+            // Calculate latency and record it
+            if (serverTs && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.recordLatency === 'function') {
+                window.ConnectivityMonitor.recordLatency(clientTs - serverTs);
+            }
+
+            // Update connectivity monitor
             if (window.ConnectivityMonitor) {
                 window.ConnectivityMonitor.updateWSStatus(true);
             }
@@ -247,7 +256,8 @@ function createWS(SOCK_URL) {
             ws.send(JSON.stringify({
                 type: "pong",
                 data: {
-                    message: 'pong'
+                    server_ts: serverTs,
+                    client_ts: clientTs
                 }
             }));
         }
@@ -300,6 +310,18 @@ function createWS(SOCK_URL) {
                     message: 'ACK'
                 }
             }));
+        }
+        else if (received_msg['type'] == 'session_info') {
+            // Forward session info to connectivity monitor
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateSessionInfo === 'function') {
+                window.ConnectivityMonitor.updateSessionInfo(received_msg['data']);
+            }
+        }
+        else if (received_msg['type'] == 'debug_ack') {
+            // Forward debug mode acknowledgment
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateDebugMode === 'function') {
+                window.ConnectivityMonitor.updateDebugMode(received_msg['data']['debug_mode']);
+            }
         }
     }
 }
