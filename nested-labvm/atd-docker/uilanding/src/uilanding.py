@@ -342,6 +342,115 @@ class topoRequestHandler(BaseHandler):
             )
     
 # ===============================
+# Internal CVP gRPC Health Check
+# ===============================
+
+# CVP internal address and gRPC check state
+CVP_INTERNAL_IP = '192.168.0.5'
+CVP_GRPC_ENDPOINT = '/arista.studio.v1.StudioService/GetAll'
+_cvp_grpc_token = None
+_cvp_grpc_token_expires = 0
+
+def _get_cvp_token():
+    """Fetch a CVP session token for internal gRPC checks"""
+    global _cvp_grpc_token, _cvp_grpc_token_expires
+    now = time.time()
+    # Reuse token if less than 20 minutes old
+    if _cvp_grpc_token and now < _cvp_grpc_token_expires:
+        return _cvp_grpc_token
+    try:
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+        response = requests.post(
+            'https://{0}/cvpservice/login/authenticate.do'.format(CVP_INTERNAL_IP),
+            auth=(username, password),
+            verify=False,
+            timeout=5
+        )
+        token = response.json().get('sessionId')
+        if token:
+            _cvp_grpc_token = token
+            _cvp_grpc_token_expires = now + 1200  # 20 minutes
+            return token
+    except Exception as e:
+        safe_log('error', 'Failed to get CVP token for internal gRPC check',
+            event='connectivity', action='internal_grpc_token_error',
+            error=str(e))
+    return None
+
+def check_cvp_grpc_internal():
+    """
+    Internal gRPC-Web health check to CVP at 192.168.0.5
+    Uses same framing and auth as the frontend check.
+    Results logged to Cloud Logging for comparison with frontend reports.
+    """
+    token = _get_cvp_token()
+    if not token:
+        safe_log('warning', 'Internal gRPC check skipped - no token',
+            event='connectivity', action='grpc_check', source='internal',
+            status='skipped', reason='no_token')
+        return
+
+    # Same 5-byte gRPC-Web frame as frontend: flag(0x00) + length(0x00000000)
+    grpc_frame = b'\x00\x00\x00\x00\x00'
+
+    headers = {
+        'Content-Type': 'application/grpc-web+proto',
+        'Accept': 'application/grpc-web+proto',
+        'x-grpc-web': '1',
+        'Authorization': 'Bearer ' + token
+    }
+
+    try:
+        response = requests.post(
+            'https://{0}{1}'.format(CVP_INTERNAL_IP, CVP_GRPC_ENDPOINT),
+            headers=headers,
+            data=grpc_frame,
+            verify=False,
+            timeout=5
+        )
+
+        # Check for valid gRPC response
+        grpc_status = response.headers.get('grpc-status')
+        status_code = response.status_code
+
+        if status_code == 200 or grpc_status is not None:
+            # Check grpc-status if present
+            if grpc_status is not None and int(grpc_status) == 14:
+                safe_log('warning', 'Internal gRPC check: CVP unavailable',
+                    event='connectivity', action='grpc_check', source='internal',
+                    status='unavailable', http_status=str(status_code),
+                    grpc_status=str(grpc_status))
+            else:
+                safe_log('info', 'Internal gRPC check passed',
+                    event='connectivity', action='grpc_check', source='internal',
+                    status='ok', http_status=str(status_code),
+                    grpc_status=str(grpc_status) if grpc_status else '')
+        elif status_code in (401, 403, 405):
+            # Token may be stale, clear it
+            global _cvp_grpc_token
+            _cvp_grpc_token = None
+            safe_log('warning', 'Internal gRPC check: auth rejected',
+                event='connectivity', action='grpc_check', source='internal',
+                status='auth_rejected', http_status=str(status_code))
+        elif status_code in (502, 503, 504):
+            safe_log('warning', 'Internal gRPC check: CVP unreachable',
+                event='connectivity', action='grpc_check', source='internal',
+                status='unreachable', http_status=str(status_code))
+        else:
+            safe_log('warning', 'Internal gRPC check: unexpected response',
+                event='connectivity', action='grpc_check', source='internal',
+                status='unexpected', http_status=str(status_code))
+    except requests.exceptions.Timeout:
+        safe_log('warning', 'Internal gRPC check: timeout',
+            event='connectivity', action='grpc_check', source='internal',
+            status='timeout')
+    except Exception as e:
+        safe_log('error', 'Internal gRPC check failed',
+            event='connectivity', action='grpc_check', source='internal',
+            status='error', error=str(e))
+
+# ===============================
 # Connectivity Session Tracking
 # ===============================
 
@@ -477,6 +586,10 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.cvp_tasks = ''
             self.sendData('status')
 
+            # Internal gRPC check to CVP (only when CVP is UP)
+            if self.cvp_status.get('status') == 'UP':
+                check_cvp_grpc_internal()
+
             # Send timestamped ping for latency measurement
             self.write_message(json.dumps({
                 'type': 'ping',
@@ -580,6 +693,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         if event == 'periodic_summary':
             safe_log('info', 'Client connectivity summary',
                 event='connectivity', action='periodic_summary',
+                source='client',
                 session_id=session_id,
                 client_ip=str(self.session['client_ip']),
                 ws_latency_ms=str(data.get('wsRoundTrip', '')),
@@ -591,6 +705,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         elif event == 'reconnect_report':
             safe_log('warning', 'Client reconnected after outage',
                 event='connectivity', action='reconnect_report',
+                source='client',
                 session_id=session_id,
                 client_ip=str(self.session['client_ip']),
                 offline_duration_ms=str(data.get('offlineDuration', '')),
@@ -602,6 +717,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 for evt in data.get('bufferedEvents', []):
                     safe_log('debug', 'Buffered client event',
                         event='connectivity', action='buffered_event',
+                        source='client',
                         session_id=session_id,
                         event_type=str(evt.get('type', '')),
                         event_ts=str(evt.get('ts', '')),
@@ -610,6 +726,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         elif event == 'state_change':
             safe_log('info', 'Client connectivity state change',
                 event='connectivity', action='state_change',
+                source='client',
                 session_id=session_id,
                 client_ip=str(self.session['client_ip']),
                 change_type=str(data.get('changeType', '')),
