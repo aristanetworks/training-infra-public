@@ -63,7 +63,8 @@
     };
 
     /**
-     * Test CVP gRPC connectivity via actual gRPC endpoint
+     * Test CVP gRPC connectivity via proper gRPC-Web framed request
+     * Sends a minimal gRPC-Web unary call and validates response framing/trailers
      * Only runs after CVP status is UP
      */
     function testCVPConnectivity() {
@@ -75,60 +76,77 @@
             return;
         }
 
-        const grpcEndpoint = '/cv/arista.studio.v1.services.StudioService/GetAll';
-        const timeout = CONNECTIVITY_CONFIG.grpc.timeout;
+        var grpcEndpoint = '/cv/arista.studio.v1.services.StudioService/GetAll';
+        var timeout = CONNECTIVITY_CONFIG.grpc.timeout;
 
         if (window.ConnectivityDebug) {
-            console.log('[Connectivity Monitor] Testing CVP gRPC connectivity...');
+            console.log('[Connectivity Monitor] Testing CVP gRPC connectivity (framed request)...');
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        // Build minimal gRPC-Web frame: flag(1 byte) + length(4 bytes) + empty protobuf body
+        // flag=0x00 (data frame, not compressed), length=0x00000000 (empty body)
+        var grpcFrame = new Uint8Array([0x00, 0x00, 0x00, 0x00, 0x00]);
+
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, timeout);
 
         fetch(grpcEndpoint, {
             method: 'POST',
             signal: controller.signal,
             headers: {
                 'Content-Type': 'application/grpc-web+proto',
-                'Accept': 'application/grpc-web+proto'
+                'Accept': 'application/grpc-web+proto',
+                'x-grpc-web': '1'
             },
+            body: grpcFrame,
             cache: 'no-cache'
         })
-        .then(response => {
+        .then(function(response) {
             clearTimeout(timeoutId);
             grpcConnectionStatus.lastCheck = Date.now();
 
-            // Status code interpretation for CVP connectivity:
-            // 200 = success, CVP fully working
-            // 401/403 = auth required, but CVP is reachable (working)
-            // 405 = method not allowed, but CVP responded (reachable)
-            // 502/503/504 = backend unreachable (CVP down or blocked)
-
-            if (response.status === 200 || response.status === 401 || response.status === 403 || response.status === 405) {
-                grpcConnectionStatus.connected = true;
-                grpcConnectionStatus.failureCount = 0;
-                grpcConnectionStatus.errorMessage = '';
-                logConnectivityEvent('GRPC_TEST_SUCCESS', { status: response.status });
-            } else if (response.status === 404) {
-                grpcConnectionStatus.connected = true;
-                grpcConnectionStatus.failureCount = 0;
-                grpcConnectionStatus.errorMessage = '';
-                logConnectivityEvent('GRPC_TEST_SUCCESS', {
-                    status: response.status,
-                    note: 'CVP reachable but endpoint not found'
-                });
-            } else {
+            // HTTP-level failures mean the backend is unreachable
+            if (response.status === 502 || response.status === 503 || response.status === 504) {
                 grpcConnectionStatus.connected = false;
                 grpcConnectionStatus.failureCount++;
-                grpcConnectionStatus.errorMessage = `CVP unreachable (${response.status})`;
+                grpcConnectionStatus.errorMessage = 'CVP backend unreachable (' + response.status + ')';
                 logConnectivityEvent('GRPC_TEST_FAILED', {
+                    reason: 'http_error',
                     status: response.status,
                     failureCount: grpcConnectionStatus.failureCount
                 });
+                updateStatusUI();
+                return;
             }
-            updateStatusUI();
+
+            // Read the response body to validate gRPC framing
+            return response.arrayBuffer().then(function(buffer) {
+                var bytes = new Uint8Array(buffer);
+                var grpcResult = parseGRPCWebResponse(bytes, response.headers);
+
+                if (grpcResult.valid) {
+                    grpcConnectionStatus.connected = true;
+                    grpcConnectionStatus.failureCount = 0;
+                    grpcConnectionStatus.errorMessage = '';
+                    logConnectivityEvent('GRPC_TEST_SUCCESS', {
+                        grpcStatus: grpcResult.grpcStatus,
+                        httpStatus: response.status,
+                        hasTrailers: grpcResult.hasTrailers
+                    });
+                } else {
+                    grpcConnectionStatus.connected = false;
+                    grpcConnectionStatus.failureCount++;
+                    grpcConnectionStatus.errorMessage = grpcResult.reason || 'Invalid gRPC response';
+                    logConnectivityEvent('GRPC_TEST_FAILED', {
+                        reason: grpcResult.reason,
+                        httpStatus: response.status,
+                        failureCount: grpcConnectionStatus.failureCount
+                    });
+                }
+                updateStatusUI();
+            });
         })
-        .catch(error => {
+        .catch(function(error) {
             clearTimeout(timeoutId);
             grpcConnectionStatus.connected = false;
             grpcConnectionStatus.failureCount++;
@@ -136,10 +154,11 @@
 
             if (error.name === 'AbortError') {
                 grpcConnectionStatus.errorMessage = 'gRPC timeout (may be blocked)';
-            } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            } else if (error.message && (error.message.indexOf('NetworkError') !== -1 ||
+                       error.message.indexOf('Failed to fetch') !== -1)) {
                 grpcConnectionStatus.errorMessage = 'gRPC blocked';
             } else {
-                grpcConnectionStatus.errorMessage = error.message.substring(0, 50);
+                grpcConnectionStatus.errorMessage = (error.message || 'Unknown error').substring(0, 50);
             }
 
             logConnectivityEvent('GRPC_TEST_ERROR', {
@@ -148,6 +167,80 @@
             });
             updateStatusUI();
         });
+    }
+
+    /**
+     * Parse a gRPC-Web response to validate framing and extract grpc-status
+     * gRPC-Web frames: 1-byte flag + 4-byte big-endian length + payload
+     * Flag 0x00 = data frame, 0x80 = trailers frame
+     * @param {Uint8Array} bytes - Response body bytes
+     * @param {Headers} headers - Response headers
+     * @returns {object} {valid: boolean, grpcStatus: number|null, hasTrailers: boolean, reason: string}
+     */
+    function parseGRPCWebResponse(bytes, headers) {
+        // Empty response with grpc-status in HTTP headers is valid
+        var headerGrpcStatus = headers.get('grpc-status');
+        if (headerGrpcStatus !== null) {
+            var statusCode = parseInt(headerGrpcStatus, 10);
+            // 0=OK, 7=PERMISSION_DENIED, 16=UNAUTHENTICATED all prove gRPC works
+            if (statusCode === 0 || statusCode === 7 || statusCode === 16) {
+                return { valid: true, grpcStatus: statusCode, hasTrailers: false, reason: '' };
+            }
+            // 14=UNAVAILABLE means gRPC server is down
+            if (statusCode === 14) {
+                return { valid: false, grpcStatus: statusCode, hasTrailers: false, reason: 'gRPC server unavailable (status 14)' };
+            }
+            // Other valid gRPC status codes still prove the stack works
+            return { valid: true, grpcStatus: statusCode, hasTrailers: false, reason: '' };
+        }
+
+        // Need at least 5 bytes for a gRPC frame header
+        if (bytes.length < 5) {
+            return { valid: false, grpcStatus: null, hasTrailers: false, reason: 'Response too short for gRPC frame' };
+        }
+
+        // Check first byte is a valid gRPC frame flag
+        var flag = bytes[0];
+        if (flag !== 0x00 && flag !== 0x80) {
+            return { valid: false, grpcStatus: null, hasTrailers: false, reason: 'Invalid gRPC frame flag: 0x' + flag.toString(16) };
+        }
+
+        var hasTrailers = false;
+
+        // Walk through gRPC frames looking for trailers
+        var offset = 0;
+        while (offset + 5 <= bytes.length) {
+            var frameFlag = bytes[offset];
+            var frameLen = (bytes[offset + 1] << 24) | (bytes[offset + 2] << 16) |
+                           (bytes[offset + 3] << 8) | bytes[offset + 4];
+
+            if (frameFlag === 0x80) {
+                hasTrailers = true;
+                // Parse trailers text to find grpc-status
+                var trailerBytes = bytes.slice(offset + 5, offset + 5 + frameLen);
+                var trailerText = '';
+                for (var i = 0; i < trailerBytes.length; i++) {
+                    trailerText += String.fromCharCode(trailerBytes[i]);
+                }
+                var statusMatch = trailerText.match(/grpc-status:\s*(\d+)/);
+                if (statusMatch) {
+                    var trailStatus = parseInt(statusMatch[1], 10);
+                    if (trailStatus === 0 || trailStatus === 7 || trailStatus === 16) {
+                        return { valid: true, grpcStatus: trailStatus, hasTrailers: true, reason: '' };
+                    }
+                    if (trailStatus === 14) {
+                        return { valid: false, grpcStatus: trailStatus, hasTrailers: true, reason: 'gRPC server unavailable (status 14)' };
+                    }
+                    return { valid: true, grpcStatus: trailStatus, hasTrailers: true, reason: '' };
+                }
+            }
+
+            offset += 5 + frameLen;
+            if (frameLen === 0 && offset >= bytes.length) break;
+        }
+
+        // Valid gRPC frame structure even without grpc-status trailer
+        return { valid: true, grpcStatus: null, hasTrailers: hasTrailers, reason: '' };
     }
 
     /**
