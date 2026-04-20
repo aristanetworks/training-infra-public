@@ -63,6 +63,56 @@
     </div>
   </div>
 
+  <!-- Hidden Diagnostics Panel (Ctrl+Shift+D or ?debug=connectivity) -->
+  <div id="diagnostics-panel" class="diagnostics-panel" style="display: none;">
+    <div class="diagnostics-header">
+      <h4>Connectivity Diagnostics</h4>
+      <div class="diagnostics-header-actions">
+        <button id="diag-export-btn" class="diag-btn" type="button" title="Export diagnostics">
+          <i class="fa-solid fa-download"></i> Export
+        </button>
+        <button id="diag-close-btn" class="diag-btn diag-close" type="button">&times;</button>
+      </div>
+    </div>
+    <div class="diagnostics-body">
+      <div class="diag-section">
+        <div class="diag-section-title">Session Info</div>
+        <div class="diag-grid">
+          <span class="diag-label">Session ID</span>
+          <span id="diag-session-id" class="diag-value">--</span>
+          <span class="diag-label">Duration</span>
+          <span id="diag-duration" class="diag-value">--</span>
+          <span class="diag-label">Reconnects</span>
+          <span id="diag-reconnects" class="diag-value">0</span>
+          <span class="diag-label">Debug Mode</span>
+          <span id="diag-debug-mode" class="diag-value">
+            <button id="diag-debug-toggle" class="diag-toggle-btn" type="button">OFF</button>
+          </span>
+        </div>
+      </div>
+      <div class="diag-section">
+        <div class="diag-section-title">Live Metrics</div>
+        <div class="diag-grid">
+          <span class="diag-label">WS Latency</span>
+          <span id="diag-latency" class="diag-value">--</span>
+          <span class="diag-label">WS Uptime</span>
+          <span id="diag-uptime" class="diag-value">--</span>
+          <span class="diag-label">gRPC Status</span>
+          <span id="diag-grpc" class="diag-value">--</span>
+          <span class="diag-label">Missed Pongs</span>
+          <span id="diag-missed-pongs" class="diag-value">0</span>
+        </div>
+      </div>
+      <div class="diag-section">
+        <div class="diag-section-title">
+          Event Timeline
+          <button id="diag-clear-btn" class="diag-btn diag-btn-small" type="button">Clear</button>
+        </div>
+        <div id="diag-timeline" class="diag-timeline"></div>
+      </div>
+    </div>
+  </div>
+
   <header></header>
   <main>
     <!-------Index with sidebar-->
