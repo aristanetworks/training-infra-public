@@ -225,6 +225,161 @@
         }
     }
 
+    // ============================================
+    // Diagnostics Panel Controller
+    // ============================================
+
+    var diagRefreshInterval = null;
+
+    function showDiagnosticsPanel() {
+        var panel = document.getElementById('diagnostics-panel');
+        if (!panel) return;
+        panel.style.display = 'flex';
+        refreshDiagnosticsPanel();
+        if (diagRefreshInterval) clearInterval(diagRefreshInterval);
+        diagRefreshInterval = setInterval(refreshDiagnosticsPanel, 2000);
+    }
+
+    function hideDiagnosticsPanel() {
+        var panel = document.getElementById('diagnostics-panel');
+        if (panel) panel.style.display = 'none';
+        if (diagRefreshInterval) {
+            clearInterval(diagRefreshInterval);
+            diagRefreshInterval = null;
+        }
+    }
+
+    function toggleDiagnosticsPanel() {
+        var panel = document.getElementById('diagnostics-panel');
+        if (!panel) return;
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            showDiagnosticsPanel();
+        } else {
+            hideDiagnosticsPanel();
+        }
+    }
+
+    function formatDuration(ms) {
+        var seconds = Math.floor(ms / 1000);
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var secs = seconds % 60;
+        if (hours > 0) return hours + 'h ' + minutes + 'm';
+        if (minutes > 0) return minutes + 'm ' + secs + 's';
+        return secs + 's';
+    }
+
+    function getEventClass(type) {
+        if (type === 'ws_reconnect' || type === 'grpc_recover') return 'evt-connect';
+        if (type === 'ws_disconnect' || type === 'grpc_fail') return 'evt-disconnect';
+        if (type === 'latency_spike' || type === 'state_change') return 'evt-warning';
+        return 'evt-info';
+    }
+
+    function formatTimelineTs(ts) {
+        var d = new Date(ts);
+        return d.getHours().toString().padStart(2, '0') + ':' +
+               d.getMinutes().toString().padStart(2, '0') + ':' +
+               d.getSeconds().toString().padStart(2, '0');
+    }
+
+    function refreshDiagnosticsPanel() {
+        var panel = document.getElementById('diagnostics-panel');
+        if (!panel || panel.style.display === 'none') return;
+
+        // Session Info
+        var sessionIdEl = document.getElementById('diag-session-id');
+        if (sessionIdEl) sessionIdEl.textContent = sessionInfo.id ? sessionInfo.id.substring(0, 8) + '...' : '--';
+
+        var durationEl = document.getElementById('diag-duration');
+        if (durationEl) durationEl.textContent = formatDuration(Date.now() - sessionStartTime);
+
+        var reconnectsEl = document.getElementById('diag-reconnects');
+        if (reconnectsEl) reconnectsEl.textContent = sessionInfo.reconnectCount.toString();
+
+        var debugToggle = document.getElementById('diag-debug-toggle');
+        if (debugToggle) {
+            debugToggle.textContent = sessionInfo.debugMode ? 'ON' : 'OFF';
+            if (sessionInfo.debugMode) {
+                debugToggle.classList.add('active');
+            } else {
+                debugToggle.classList.remove('active');
+            }
+        }
+
+        // Live Metrics
+        var latencyEl = document.getElementById('diag-latency');
+        if (latencyEl) {
+            var latest = getLatestLatency();
+            var avg = Math.round(getAverageLatency());
+            latencyEl.textContent = latest !== null ? latest + 'ms (avg: ' + avg + 'ms)' : '--';
+        }
+
+        var uptimeEl = document.getElementById('diag-uptime');
+        if (uptimeEl) uptimeEl.textContent = getUptimePercent() + '%';
+
+        var grpcEl = document.getElementById('diag-grpc');
+        if (grpcEl) {
+            if (cvpStatus.status !== 'UP') {
+                grpcEl.textContent = 'Waiting for CVP';
+            } else {
+                grpcEl.textContent = grpcConnectionStatus.connected
+                    ? 'Connected'
+                    : 'Disconnected (' + grpcConnectionStatus.failureCount + ' failures)';
+            }
+        }
+
+        var missedPongsEl = document.getElementById('diag-missed-pongs');
+        if (missedPongsEl) missedPongsEl.textContent = wsConnectionStatus.failureCount.toString();
+
+        // Event Timeline - use DOM methods for security (no innerHTML with data)
+        var timeline = document.getElementById('diag-timeline');
+        if (timeline) {
+            while (timeline.firstChild) {
+                timeline.removeChild(timeline.firstChild);
+            }
+
+            if (eventBuffer.length === 0) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'diag-timeline-empty';
+                emptyDiv.textContent = 'No events recorded yet';
+                timeline.appendChild(emptyDiv);
+            } else {
+                var startIdx = Math.max(0, eventBuffer.length - 50);
+                for (var i = startIdx; i < eventBuffer.length; i++) {
+                    var evt = eventBuffer[i];
+                    var entry = document.createElement('div');
+                    entry.className = 'diag-timeline-entry';
+
+                    var tsSpan = document.createElement('span');
+                    tsSpan.className = 'diag-timeline-ts';
+                    tsSpan.textContent = formatTimelineTs(evt.ts);
+
+                    var typeSpan = document.createElement('span');
+                    typeSpan.className = 'diag-timeline-type ' + getEventClass(evt.type);
+                    typeSpan.textContent = evt.type;
+
+                    var dataSpan = document.createElement('span');
+                    dataSpan.className = 'diag-timeline-data';
+                    if (evt.data) {
+                        var keys = Object.keys(evt.data);
+                        var parts = [];
+                        for (var j = 0; j < keys.length && j < 3; j++) {
+                            parts.push(keys[j] + '=' + evt.data[keys[j]]);
+                        }
+                        dataSpan.textContent = parts.join(' ');
+                    }
+
+                    entry.appendChild(tsSpan);
+                    entry.appendChild(typeSpan);
+                    entry.appendChild(dataSpan);
+                    timeline.appendChild(entry);
+                }
+                timeline.scrollTop = timeline.scrollHeight;
+            }
+        }
+    }
+
     /**
      * Test CVP gRPC connectivity via proper gRPC-Web framed request
      * Sends a minimal gRPC-Web unary call and validates response framing/trailers
@@ -741,6 +896,53 @@
         if (recovered.length > 0) {
             console.log('[Connectivity Monitor] Recovered ' + recovered.length + ' events from localStorage');
             eventBuffer = recovered.concat(eventBuffer);
+        }
+
+        // Keyboard shortcut: Ctrl+Shift+D to toggle diagnostics panel
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                toggleDiagnosticsPanel();
+            }
+        });
+
+        // URL parameter: ?debug=connectivity opens panel on load
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('debug') === 'connectivity') {
+            setTimeout(showDiagnosticsPanel, 500);
+        }
+
+        // Diagnostics panel button handlers
+        var diagCloseBtn = document.getElementById('diag-close-btn');
+        if (diagCloseBtn) {
+            diagCloseBtn.addEventListener('click', hideDiagnosticsPanel);
+        }
+
+        var diagExportBtn = document.getElementById('diag-export-btn');
+        if (diagExportBtn) {
+            diagExportBtn.addEventListener('click', function() {
+                if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.exportDiagnostics === 'function') {
+                    window.ConnectivityMonitor.exportDiagnostics();
+                }
+            });
+        }
+
+        var diagDebugToggle = document.getElementById('diag-debug-toggle');
+        if (diagDebugToggle) {
+            diagDebugToggle.addEventListener('click', function() {
+                if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.toggleDebug === 'function') {
+                    window.ConnectivityMonitor.toggleDebug();
+                }
+            });
+        }
+
+        var diagClearBtn = document.getElementById('diag-clear-btn');
+        if (diagClearBtn) {
+            diagClearBtn.addEventListener('click', function() {
+                eventBuffer = [];
+                clearLocalStorage();
+                refreshDiagnosticsPanel();
+            });
         }
 
         // Verify badge exists in DOM
