@@ -341,9 +341,62 @@ class topoRequestHandler(BaseHandler):
                 lab_type = lab_type
             )
     
+# ===============================
+# Connectivity Session Tracking
+# ===============================
+
+# Track recently closed sessions for reconnect detection
+# Key: client_ip, Value: {'session_id': str, 'closed_at': datetime, 'reconnect_count': int}
+recent_sessions = {}
+RECONNECT_WINDOW_SECONDS = 300  # 5 minutes
+
+def prune_recent_sessions():
+    """Remove entries older than the reconnect window"""
+    now = datetime.utcnow()
+    expired = [ip for ip, data in recent_sessions.items()
+               if (now - data['closed_at']).total_seconds() > RECONNECT_WINDOW_SECONDS]
+    for ip in expired:
+        del recent_sessions[ip]
+
 class topoDataHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        safe_log('info', 'WebSocket connection opened', event='websocket', action='connect')
+        client_ip = self.request.remote_ip
+        session_id = str(uuid.uuid4())
+
+        # Check for reconnect
+        prune_recent_sessions()
+        reconnect_count = 0
+        reconnect_gap = None
+        if client_ip in recent_sessions:
+            prev = recent_sessions[client_ip]
+            reconnect_count = prev['reconnect_count'] + 1
+            reconnect_gap = (datetime.utcnow() - prev['closed_at']).total_seconds()
+
+        self.session = {
+            'id': session_id,
+            'connected_at': datetime.utcnow(),
+            'reconnect_count': reconnect_count,
+            'missed_pongs': 0,
+            'last_pong': None,
+            'last_rtt': None,
+            'client_ip': client_ip,
+            'debug_mode': False
+        }
+
+        safe_log('info', 'WebSocket session started',
+            event='connectivity', action='session_start',
+            session_id=session_id,
+            client_ip=client_ip,
+            reconnect_count=str(reconnect_count))
+
+        if reconnect_gap is not None:
+            safe_log('info', 'Client reconnected',
+                event='connectivity', action='reconnect',
+                session_id=session_id,
+                client_ip=client_ip,
+                reconnect_gap_seconds=str(round(reconnect_gap, 1)),
+                reconnect_count=str(reconnect_count))
+
         self.cvp_status = ''
         self.cvp_tasks = ''
         self.uptime = {}
@@ -366,6 +419,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 else:
                     self.cvp_tasks = ''
                 self.sendData('status')
+                self.send_session_info()
                 self.schedule_update()
         except:
             safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
@@ -396,7 +450,29 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             self.schedule_update()
 
     def on_close(self):
-        safe_log('info', 'WebSocket connection closed', event='websocket', action='disconnect')
+        duration = 0
+        session_id = 'unknown'
+        try:
+            duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+            session_id = self.session['id']
+
+            # Store in recent_sessions for reconnect detection
+            recent_sessions[self.session['client_ip']] = {
+                'session_id': session_id,
+                'closed_at': datetime.utcnow(),
+                'reconnect_count': self.session['reconnect_count']
+            }
+
+            safe_log('info', 'WebSocket session ended',
+                event='connectivity', action='session_end',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                duration_seconds=str(round(duration, 1)),
+                missed_pongs=str(self.session['missed_pongs']),
+                reconnect_count=str(self.session['reconnect_count']))
+        except AttributeError:
+            safe_log('info', 'WebSocket connection closed (no session)',
+                event='websocket', action='disconnect')
         try:
             tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout)
             pS('connection closed')
@@ -418,6 +494,21 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'type': mtype,
             'data': instance_data
         }))
+
+    def send_session_info(self):
+        """Send session metadata to the frontend for diagnostics panel"""
+        try:
+            self.write_message(json.dumps({
+                'type': 'session_info',
+                'data': {
+                    'session_id': self.session['id'],
+                    'reconnect_count': self.session['reconnect_count'],
+                    'debug_mode': self.session['debug_mode']
+                }
+            }))
+        except Exception:
+            safe_log('error', 'Error sending session info',
+                event='error', handler='topoDataHandler')
 
 
 # ===============================
