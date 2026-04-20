@@ -397,7 +397,7 @@
             return;
         }
 
-        var grpcEndpoint = '/cv/arista.studio.v1.services.StudioService/GetAll';
+        var grpcEndpoint = '/arista.studio.v1.StudioService/GetAll';
         var timeout = CONNECTIVITY_CONFIG.grpc.timeout;
 
         if (window.ConnectivityDebug) {
