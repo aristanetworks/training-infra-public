@@ -421,6 +421,20 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.sendData('status')
                 self.send_session_info()
                 self.schedule_update()
+            elif recv['type'] == 'pong':
+                if hasattr(self, 'session'):
+                    server_ts = cdata.get('server_ts', 0)
+                    now_ms = int(time.time() * 1000)
+                    rtt = now_ms - server_ts if server_ts else None
+                    self.session['last_pong'] = datetime.utcnow()
+                    self.session['last_rtt'] = rtt
+                    self.session['missed_pongs'] = 0
+
+                    if self.session.get('debug_mode'):
+                        safe_log('debug', 'Pong received',
+                            event='connectivity', action='pong',
+                            session_id=self.session['id'],
+                            rtt_ms=str(rtt) if rtt else 'unknown')
         except:
             safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
             pS("WS ERROR")
@@ -443,8 +457,32 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             else:
                 self.cvp_tasks = ''
             self.sendData('status')
+
+            # Send timestamped ping for latency measurement
+            self.write_message(json.dumps({
+                'type': 'ping',
+                'data': {'ts': int(time.time() * 1000)}
+            }))
+
+            # Check for missed pongs
+            if hasattr(self, 'session'):
+                if self.session['last_pong'] is not None:
+                    pong_age = (datetime.utcnow() - self.session['last_pong']).total_seconds()
+                    if pong_age > 60:
+                        self.session['missed_pongs'] += 1
+                        if self.session['missed_pongs'] >= 3:
+                            safe_log('warning', 'Client missing pong responses',
+                                event='connectivity', action='missed_pongs',
+                                session_id=self.session['id'],
+                                missed_pongs=str(self.session['missed_pongs']),
+                                last_pong_age_seconds=str(round(pong_age, 1)))
+                elif self.session['connected_at']:
+                    conn_age = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+                    if conn_age > 90:
+                        self.session['missed_pongs'] += 1
         except:
-            safe_log('error', 'Error in topoDataHandler.keepalive', event='error', handler='topoDataHandler')
+            safe_log('error', 'Error in topoDataHandler.keepalive',
+                event='error', handler='topoDataHandler')
             pS("ERROR sending update")
         finally:
             self.schedule_update()
