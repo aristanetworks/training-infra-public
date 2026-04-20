@@ -48,6 +48,9 @@
     // gRPC monitoring interval reference
     var grpcMonitorInterval = null;
 
+    // CVP authentication token for gRPC-Web requests
+    var cvpToken = null;
+
     // Connectivity messages for different scenarios
     const CONNECTIVITY_MESSAGES = {
         all_ok: "All systems operational. WebSocket and CVP connections are healthy.",
@@ -408,20 +411,34 @@
         var controller = new AbortController();
         var timeoutId = setTimeout(function() { controller.abort(); }, timeout);
 
+        // Build headers with auth token if available
+        var grpcHeaders = {
+            'Content-Type': 'application/grpc-web+proto',
+            'Accept': 'application/grpc-web+proto',
+            'x-grpc-web': '1'
+        };
+        if (cvpToken) {
+            grpcHeaders['Authorization'] = 'Bearer ' + cvpToken;
+        }
+
         fetch(grpcEndpoint, {
             method: 'POST',
             signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/grpc-web+proto',
-                'Accept': 'application/grpc-web+proto',
-                'x-grpc-web': '1'
-            },
+            headers: grpcHeaders,
             body: grpcFrame,
             cache: 'no-cache'
         })
         .then(function(response) {
             clearTimeout(timeoutId);
             grpcConnectionStatus.lastCheck = Date.now();
+
+            // Auth failure - refresh token and retry next cycle
+            if (response.status === 401 || response.status === 403 || response.status === 405) {
+                logConnectivityEvent('GRPC_AUTH_REFRESH', { status: response.status });
+                fetchCVPToken(null);
+                // Don't count as failure - token may have expired
+                return;
+            }
 
             // HTTP-level failures mean the backend is unreachable
             if (response.status === 502 || response.status === 503 || response.status === 504) {
@@ -562,25 +579,93 @@
     }
 
     /**
+     * Fetch a CVP authentication token for gRPC-Web requests
+     * Authenticates via /cvpservice/login/authenticate.do using credentials from the page
+     * @param {function} callback - Called with true on success, false on failure
+     */
+    function fetchCVPToken(callback) {
+        // Extract password from the page - it's rendered in the credentials table
+        var pwdCells = document.querySelectorAll('td span');
+        var password = null;
+        for (var i = 0; i < pwdCells.length; i++) {
+            var prevTd = pwdCells[i].parentElement && pwdCells[i].parentElement.previousElementSibling;
+            if (prevTd && prevTd.textContent.trim() === 'arista') {
+                password = pwdCells[i].textContent.trim();
+                break;
+            }
+        }
+
+        if (!password) {
+            console.warn('[Connectivity Monitor] Could not find CVP credentials on page');
+            if (callback) callback(false);
+            return;
+        }
+
+        var authUrl = '/cvpservice/login/authenticate.do';
+        var authHeaders = new Headers();
+        authHeaders.set('Authorization', 'Basic ' + btoa('arista:' + password));
+
+        fetch(authUrl, {
+            method: 'POST',
+            headers: authHeaders
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                console.warn('[Connectivity Monitor] CVP auth failed: HTTP ' + response.status);
+                if (callback) callback(false);
+                return;
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (data && data.sessionId) {
+                cvpToken = data.sessionId;
+                console.log('[Connectivity Monitor] CVP token obtained for gRPC checks');
+                if (callback) callback(true);
+            } else {
+                console.warn('[Connectivity Monitor] CVP auth response missing sessionId');
+                if (callback) callback(false);
+            }
+        })
+        .catch(function(error) {
+            console.warn('[Connectivity Monitor] CVP auth error: ' + (error.message || error));
+            if (callback) callback(false);
+        });
+    }
+
+    /**
      * Start gRPC monitoring (called when CVP becomes UP)
+     * Fetches a CVP token first, then begins periodic gRPC checks
      */
     function startGRPCMonitoring() {
         if (grpcConnectionStatus.monitoringStarted) {
             return; // Already started
         }
 
-        console.log('[Connectivity Monitor] CVP is UP - starting gRPC monitoring');
+        console.log('[Connectivity Monitor] CVP is UP - fetching token and starting gRPC monitoring');
         grpcConnectionStatus.monitoringStarted = true;
 
-        // Initial test after short delay
-        setTimeout(function() {
-            testCVPConnectivity();
-        }, 1000);
+        // Fetch CVP token, then start checks
+        fetchCVPToken(function(success) {
+            if (!success) {
+                console.warn('[Connectivity Monitor] Starting gRPC checks without token (may fail auth)');
+            }
 
-        // Periodic checks
-        grpcMonitorInterval = setInterval(function() {
-            testCVPConnectivity();
-        }, CONNECTIVITY_CONFIG.grpc.retryInterval);
+            // Initial test after short delay
+            setTimeout(function() {
+                testCVPConnectivity();
+            }, 1000);
+
+            // Periodic checks
+            grpcMonitorInterval = setInterval(function() {
+                testCVPConnectivity();
+            }, CONNECTIVITY_CONFIG.grpc.retryInterval);
+        });
+
+        // Refresh token every 20 minutes (CVP tokens expire)
+        setInterval(function() {
+            fetchCVPToken(null);
+        }, 1200000);
     }
 
     /**
