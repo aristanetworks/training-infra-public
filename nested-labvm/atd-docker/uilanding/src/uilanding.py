@@ -400,6 +400,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         self.cvp_status = ''
         self.cvp_tasks = ''
         self.uptime = {}
+        self.schedule_summary()
         pS("New backend websocket connection")
     
     def on_message(self,message):
@@ -435,6 +436,24 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                             event='connectivity', action='pong',
                             session_id=self.session['id'],
                             rtt_ms=str(rtt) if rtt else 'unknown')
+
+            elif recv['type'] == 'connectivity':
+                self.handle_connectivity_event(cdata)
+
+            elif recv['type'] == 'debug_toggle':
+                if hasattr(self, 'session'):
+                    self.session['debug_mode'] = not self.session['debug_mode']
+                    safe_log('info', 'Debug mode toggled',
+                        event='connectivity', action='debug_toggle',
+                        session_id=self.session['id'],
+                        debug_mode=str(self.session['debug_mode']))
+                    try:
+                        self.write_message(json.dumps({
+                            'type': 'debug_ack',
+                            'data': {'debug_mode': self.session['debug_mode']}
+                        }))
+                    except Exception:
+                        pass
         except:
             safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
             pS("WS ERROR")
@@ -513,6 +532,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 event='websocket', action='disconnect')
         try:
             tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout)
+            if hasattr(self, 'summary_timeout'):
+                tornado.ioloop.IOLoop.instance().remove_timeout(self.summary_timeout)
             pS('connection closed')
         except:
             pS('connection already closed')
@@ -547,6 +568,79 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         except Exception:
             safe_log('error', 'Error sending session info',
                 event='error', handler='topoDataHandler')
+
+    def handle_connectivity_event(self, data):
+        """Process connectivity events from the frontend"""
+        if not hasattr(self, 'session'):
+            return
+
+        event = data.get('event', '')
+        session_id = self.session['id']
+
+        if event == 'periodic_summary':
+            safe_log('info', 'Client connectivity summary',
+                event='connectivity', action='periodic_summary',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                ws_latency_ms=str(data.get('wsRoundTrip', '')),
+                grpc_status=str(data.get('grpcStatus', '')),
+                grpc_failures=str(data.get('grpcFailures', '')),
+                event_count=str(data.get('eventCount', '')),
+                session_uptime_s=str(data.get('sessionUptime', '')))
+
+        elif event == 'reconnect_report':
+            safe_log('warning', 'Client reconnected after outage',
+                event='connectivity', action='reconnect_report',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                offline_duration_ms=str(data.get('offlineDuration', '')),
+                offline_from=str(data.get('offlineFrom', '')),
+                offline_to=str(data.get('offlineTo', '')),
+                buffered_event_count=str(len(data.get('bufferedEvents', []))))
+
+            if self.session.get('debug_mode'):
+                for evt in data.get('bufferedEvents', []):
+                    safe_log('debug', 'Buffered client event',
+                        event='connectivity', action='buffered_event',
+                        session_id=session_id,
+                        event_type=str(evt.get('type', '')),
+                        event_ts=str(evt.get('ts', '')),
+                        event_data=str(evt.get('data', '')))
+
+        elif event == 'state_change':
+            safe_log('info', 'Client connectivity state change',
+                event='connectivity', action='state_change',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                change_type=str(data.get('changeType', '')),
+                detail=str(data.get('detail', '')))
+
+    def schedule_summary(self):
+        """Schedule periodic session summary logging (every 5 minutes)"""
+        try:
+            self.summary_timeout = tornado.ioloop.IOLoop.instance().add_timeout(
+                timedelta(seconds=300), self.log_session_summary)
+        except:
+            pass
+
+    def log_session_summary(self):
+        """Log a summary of the current session state"""
+        try:
+            if hasattr(self, 'session'):
+                duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+                safe_log('info', 'Active session summary',
+                    event='connectivity', action='session_summary',
+                    session_id=self.session['id'],
+                    client_ip=str(self.session['client_ip']),
+                    duration_seconds=str(round(duration, 1)),
+                    missed_pongs=str(self.session['missed_pongs']),
+                    last_rtt_ms=str(self.session['last_rtt'] if self.session['last_rtt'] else ''),
+                    reconnect_count=str(self.session['reconnect_count']),
+                    debug_mode=str(self.session['debug_mode']))
+        except:
+            pass
+        finally:
+            self.schedule_summary()
 
 
 # ===============================
