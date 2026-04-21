@@ -799,6 +799,17 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                         event_ts=str(evt.get('ts', '')),
                         event_data=str(evt.get('data', '')))
 
+        elif event == 'grpc_check':
+            grpc_status = data.get('status', 'unknown')
+            log_level = 'info' if grpc_status == 'ok' else 'warning'
+            safe_log(log_level, 'Client gRPC check: ' + grpc_status,
+                event='connectivity', action='grpc_check',
+                source='client',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                status=str(grpc_status),
+                detail=str(data.get('detail', ''))[:200])
+
         elif event == 'state_change':
             safe_log('info', 'Client connectivity state change',
                 event='connectivity', action='state_change',

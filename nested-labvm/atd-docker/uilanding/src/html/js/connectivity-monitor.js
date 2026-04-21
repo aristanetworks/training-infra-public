@@ -238,6 +238,25 @@
         } catch (e) {}
     }
 
+    /**
+     * Send individual gRPC check result to backend for Cloud Logging
+     * @param {string} status - 'ok', 'failed', or 'error'
+     * @param {object} detail - Additional details (reason, grpcStatus, etc.)
+     */
+    function sendGRPCCheckResult(status, detail) {
+        if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
+        try {
+            ws.send(JSON.stringify({
+                type: 'connectivity',
+                data: {
+                    event: 'grpc_check',
+                    status: status,
+                    detail: JSON.stringify(detail || {})
+                }
+            }));
+        } catch (e) {}
+    }
+
     // External check timer reference
     var externalCheckTimerRef = null;
 
@@ -650,6 +669,7 @@
                         hasTrailers: grpcResult.hasTrailers
                     });
                     trackEvent('grpc_ok', { grpcStatus: grpcResult.grpcStatus });
+                    sendGRPCCheckResult('ok', { grpcStatus: grpcResult.grpcStatus, httpStatus: response.status });
                 } else {
                     grpcConnectionStatus.connected = false;
                     grpcConnectionStatus.failureCount++;
@@ -660,6 +680,7 @@
                         failureCount: grpcConnectionStatus.failureCount
                     });
                     trackEvent('grpc_fail', { reason: grpcResult.reason, failures: grpcConnectionStatus.failureCount });
+                    sendGRPCCheckResult('failed', { reason: grpcResult.reason, httpStatus: response.status });
                 }
                 updateStatusUI();
             });
@@ -684,6 +705,7 @@
                 failureCount: grpcConnectionStatus.failureCount
             });
             trackEvent('grpc_fail', { reason: grpcConnectionStatus.errorMessage, failures: grpcConnectionStatus.failureCount });
+            sendGRPCCheckResult('error', { reason: grpcConnectionStatus.errorMessage });
             updateStatusUI();
         });
     }
