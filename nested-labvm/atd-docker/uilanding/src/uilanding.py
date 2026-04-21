@@ -384,8 +384,11 @@ def check_cvp_grpc_internal():
     Uses same framing and auth as the frontend check.
     Results logged to Cloud Logging for comparison with frontend reports.
     """
+    global _last_internal_grpc_status, _last_internal_grpc_time
     token = _get_cvp_token()
     if not token:
+        _last_internal_grpc_status = 'skipped'
+        _last_internal_grpc_time = time.time()
         safe_log('warning', 'Internal gRPC check skipped - no token',
             event='connectivity', action='grpc_check', source='internal',
             status='skipped', reason='no_token')
@@ -417,11 +420,13 @@ def check_cvp_grpc_internal():
         if status_code == 200 or grpc_status is not None:
             # Check grpc-status if present
             if grpc_status is not None and int(grpc_status) == 14:
+                _last_internal_grpc_status = 'unavailable'
                 safe_log('warning', 'Internal gRPC check: CVP unavailable',
                     event='connectivity', action='grpc_check', source='internal',
                     status='unavailable', http_status=str(status_code),
                     grpc_status=str(grpc_status))
             else:
+                _last_internal_grpc_status = 'ok'
                 safe_log('info', 'Internal gRPC check passed',
                     event='connectivity', action='grpc_check', source='internal',
                     status='ok', http_status=str(status_code),
@@ -430,22 +435,30 @@ def check_cvp_grpc_internal():
             # Token may be stale, clear it
             global _cvp_grpc_token
             _cvp_grpc_token = None
+            _last_internal_grpc_status = 'auth_rejected'
             safe_log('warning', 'Internal gRPC check: auth rejected',
                 event='connectivity', action='grpc_check', source='internal',
                 status='auth_rejected', http_status=str(status_code))
         elif status_code in (502, 503, 504):
+            _last_internal_grpc_status = 'unreachable'
             safe_log('warning', 'Internal gRPC check: CVP unreachable',
                 event='connectivity', action='grpc_check', source='internal',
                 status='unreachable', http_status=str(status_code))
         else:
+            _last_internal_grpc_status = 'unexpected'
             safe_log('warning', 'Internal gRPC check: unexpected response',
                 event='connectivity', action='grpc_check', source='internal',
                 status='unexpected', http_status=str(status_code))
+        _last_internal_grpc_time = time.time()
     except requests.exceptions.Timeout:
+        _last_internal_grpc_status = 'timeout'
+        _last_internal_grpc_time = time.time()
         safe_log('warning', 'Internal gRPC check: timeout',
             event='connectivity', action='grpc_check', source='internal',
             status='timeout')
     except Exception as e:
+        _last_internal_grpc_status = 'error'
+        _last_internal_grpc_time = time.time()
         safe_log('error', 'Internal gRPC check failed',
             event='connectivity', action='grpc_check', source='internal',
             status='error', error=str(e))
@@ -457,6 +470,10 @@ def check_cvp_grpc_internal():
 # Track recently closed sessions for reconnect detection
 # Key: client_ip, Value: {'session_id': str, 'closed_at': datetime, 'reconnect_count': int}
 recent_sessions = {}
+active_sessions = set()  # Set of session IDs currently connected
+active_session_data = {}  # Snapshot of session info keyed by session_id
+_last_internal_grpc_status = None
+_last_internal_grpc_time = None
 RECONNECT_WINDOW_SECONDS = 300  # 5 minutes
 
 def prune_recent_sessions():
@@ -471,6 +488,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         client_ip = self.request.remote_ip
         session_id = str(uuid.uuid4())
+        user_agent = self.request.headers.get('User-Agent', '')[:200]
 
         # Check for reconnect
         prune_recent_sessions()
@@ -481,6 +499,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             reconnect_count = prev['reconnect_count'] + 1
             reconnect_gap = (datetime.utcnow() - prev['closed_at']).total_seconds()
 
+        self._closed = False
         self.session = {
             'id': session_id,
             'connected_at': datetime.utcnow(),
@@ -489,14 +508,18 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'last_pong': None,
             'last_rtt': None,
             'client_ip': client_ip,
-            'debug_mode': False
+            'debug_mode': False,
+            'user_agent': user_agent,
+            'last_token_send': 0
         }
+        active_sessions.add(session_id)
 
         safe_log('info', 'WebSocket session started',
             event='connectivity', action='session_start',
             session_id=session_id,
             client_ip=client_ip,
-            reconnect_count=str(reconnect_count))
+            reconnect_count=str(reconnect_count),
+            user_agent=user_agent)
 
         if reconnect_gap is not None:
             safe_log('info', 'Client reconnected',
@@ -613,7 +636,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                     pong_age = (datetime.utcnow() - self.session['last_pong']).total_seconds()
                     if pong_age > 60:
                         self.session['missed_pongs'] += 1
-                        if self.session['missed_pongs'] >= 3:
+                        if self.session['missed_pongs'] in (3, 10, 30, 100) or self.session['missed_pongs'] % 100 == 0:
                             safe_log('warning', 'Client missing pong responses',
                                 event='connectivity', action='missed_pongs',
                                 session_id=self.session['id'],
@@ -623,6 +646,30 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                     conn_age = (datetime.utcnow() - self.session['connected_at']).total_seconds()
                     if conn_age > 90:
                         self.session['missed_pongs'] += 1
+
+            # Refresh CVP token to frontend every 20 minutes
+            if hasattr(self, 'session') and time.time() - self.session.get('last_token_send', 0) > 1200:
+                self.session['last_token_send'] = time.time()
+                try:
+                    token = _get_cvp_token()
+                    if token:
+                        self.write_message(json.dumps({
+                            'type': 'token_refresh',
+                            'data': {'cvp_token': token}
+                        }))
+                except Exception:
+                    pass
+
+            # Update active session data snapshot
+            if hasattr(self, 'session'):
+                active_session_data[self.session['id']] = {
+                    'session_id': self.session['id'],
+                    'client_ip': self.session['client_ip'],
+                    'connected_at': str(self.session['connected_at']),
+                    'missed_pongs': self.session['missed_pongs'],
+                    'last_rtt': self.session['last_rtt'],
+                    'reconnect_count': self.session['reconnect_count']
+                }
         except:
             safe_log('error', 'Error in topoDataHandler.keepalive',
                 event='error', handler='topoDataHandler')
@@ -631,11 +678,14 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             self.schedule_update()
 
     def on_close(self):
+        self._closed = True
         duration = 0
         session_id = 'unknown'
         try:
             duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
             session_id = self.session['id']
+            active_sessions.discard(session_id)
+            active_session_data.pop(session_id, None)
 
             # Store in recent_sessions for reconnect detection
             recent_sessions[self.session['client_ip']] = {
@@ -681,12 +731,14 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def send_session_info(self):
         """Send session metadata to the frontend for diagnostics panel"""
         try:
+            cvp_token = _get_cvp_token()
             self.write_message(json.dumps({
                 'type': 'session_info',
                 'data': {
                     'session_id': self.session['id'],
                     'reconnect_count': self.session['reconnect_count'],
-                    'debug_mode': self.session['debug_mode']
+                    'debug_mode': self.session['debug_mode'],
+                    'cvp_token': cvp_token or ''
                 }
             }))
         except Exception:
@@ -717,7 +769,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 network_type=str(data.get('networkType', '')),
                 effective_type=str(data.get('effectiveType', '')),
                 downlink_mbps=str(data.get('downlinkMbps', '')),
-                browser_rtt_ms=str(data.get('browserRttMs', '')))
+                browser_rtt_ms=str(data.get('browserRttMs', '')),
+                uptime_percent=str(data.get('uptimePercent', '')))
 
         elif event == 'reconnect_report':
             safe_log('warning', 'Client reconnected after outage',
@@ -731,7 +784,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 buffered_event_count=str(len(data.get('bufferedEvents', []))))
 
             if self.session.get('debug_mode'):
-                for evt in data.get('bufferedEvents', []):
+                for evt in data.get('bufferedEvents', [])[:100]:
                     safe_log('debug', 'Buffered client event',
                         event='connectivity', action='buffered_event',
                         source='client',
@@ -759,6 +812,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 
     def log_session_summary(self):
         """Log a summary of the current session state"""
+        if getattr(self, '_closed', True):
+            return
         try:
             if hasattr(self, 'session'):
                 duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
@@ -774,7 +829,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         except:
             pass
         finally:
-            self.schedule_summary()
+            if not getattr(self, '_closed', True):
+                self.schedule_summary()
 
 
 # ===============================
@@ -4288,6 +4344,21 @@ class NodeBuilderProxyHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+class ConnectivityStatusHandler(tornado.web.RequestHandler):
+    """REST endpoint returning current connectivity state for live session health"""
+    def get(self):
+        self.write(json.dumps({
+            'active_sessions': len(active_sessions),
+            'active_session_data': list(active_session_data.values()),
+            'recent_disconnects': len(recent_sessions),
+            'internal_grpc': {
+                'last_status': _last_internal_grpc_status,
+                'last_check': _last_internal_grpc_time
+            }
+        }))
+        self.set_header('Content-Type', 'application/json')
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
@@ -4352,6 +4423,8 @@ if __name__ == "__main__":
         (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
         (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
         (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
+        # Connectivity status endpoint
+        (r'/td-api/connectivity-status', ConnectivityStatusHandler),
         # Nodebuilder endpoints (dynamic node addition for KVM labs)
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
@@ -4364,8 +4437,8 @@ if __name__ == "__main__":
         # Global internal gRPC health check — runs once every 30 seconds, not per-connection
         def _grpc_check_tick():
             try:
-                # Only check when CVP is likely up (any active session has seen CVP UP)
-                check_cvp_grpc_internal()
+                if active_sessions:
+                    tornado.ioloop.IOLoop.current().run_in_executor(None, check_cvp_grpc_internal)
             except Exception:
                 pass
         grpc_check_timer = tornado.ioloop.PeriodicCallback(_grpc_check_tick, 30000)
