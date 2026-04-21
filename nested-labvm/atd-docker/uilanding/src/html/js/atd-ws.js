@@ -6,7 +6,7 @@ else {
     atdURL = atdURL.replace("http:", "ws:");
 }
 atdURL += "/td-ws";
-var ws = new WebSocket(atdURL);
+var ws = null;  // Initialized by createWS() below
 var event_timer_ids = {};
 var topo_notify = false;
 var notifications_sent = {
