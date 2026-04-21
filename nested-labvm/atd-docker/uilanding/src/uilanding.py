@@ -516,13 +516,17 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         try:
             recv = json.loads(message)
             cdata = recv['data']
-            if recv['type'] == 'hello':
+            msg_type = recv['type']
+            session_id = self.session['id'][:8] if hasattr(self, 'session') else '?'
+
+            if msg_type == 'hello':
+                pS("[{}] WS hello - sending status + session info".format(session_id))
                 # Grab current uptime of topology
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
                 self.cvp_status = getAPI("cvp_status")
-                self.endexamtime = EXAM_END_TIME    
-                self.startExamTime = EXAM_START_TIME            
+                self.endexamtime = EXAM_END_TIME
+                self.startExamTime = EXAM_START_TIME
                 if self.cvp_status['status'] == 'UP':
                     self.cvp_tasks = getAPI("cvp_tasks")
                 else:
@@ -530,7 +534,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 self.sendData('status')
                 self.send_session_info()
                 self.schedule_update()
-            elif recv['type'] == 'pong':
+
+            elif msg_type == 'pong':
                 if hasattr(self, 'session'):
                     server_ts = cdata.get('server_ts', 0)
                     now_ms = int(time.time() * 1000)
@@ -538,6 +543,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                     self.session['last_pong'] = datetime.utcnow()
                     self.session['last_rtt'] = rtt
                     self.session['missed_pongs'] = 0
+                    pS("[{}] WS pong rtt={}ms".format(session_id, rtt))
 
                     if self.session.get('debug_mode'):
                         safe_log('debug', 'Pong received',
@@ -545,12 +551,15 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                             session_id=self.session['id'],
                             rtt_ms=str(rtt) if rtt else 'unknown')
 
-            elif recv['type'] == 'connectivity':
+            elif msg_type == 'connectivity':
+                event_name = cdata.get('event', '?')
+                pS("[{}] WS connectivity: {}".format(session_id, event_name))
                 self.handle_connectivity_event(cdata)
 
-            elif recv['type'] == 'debug_toggle':
+            elif msg_type == 'debug_toggle':
                 if hasattr(self, 'session'):
                     self.session['debug_mode'] = not self.session['debug_mode']
+                    pS("[{}] WS debug_toggle -> {}".format(session_id, self.session['debug_mode']))
                     safe_log('info', 'Debug mode toggled',
                         event='connectivity', action='debug_toggle',
                         session_id=self.session['id'],
@@ -562,6 +571,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                         }))
                     except Exception:
                         pass
+
+            elif msg_type == 'update':
+                pass  # ACK from frontend status receipt — no action needed
+
+            else:
+                pS("[{}] WS unknown type: {}".format(session_id, msg_type))
+
         except:
             safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
             pS("WS ERROR")
