@@ -323,6 +323,11 @@ function createWS(SOCK_URL) {
                 window.ConnectivityMonitor.updateDebugMode(received_msg['data']['debug_mode']);
             }
         }
+        else if (received_msg['type'] == 'token_refresh') {
+            if (window.ConnectivityMonitor && received_msg['data'] && received_msg['data']['cvp_token']) {
+                window.ConnectivityMonitor.updateCVPToken(received_msg['data']['cvp_token']);
+            }
+        }
     }
 }
 

@@ -88,6 +88,16 @@
     var sessionStartTime = Date.now();
     var lastDisconnectTime = null;
     var summaryTimerRef = null;
+    var saveDebounceTimer = null;
+    var pageVisible = true;
+
+    function debouncedSaveToLocalStorage() {
+        if (saveDebounceTimer) return;
+        saveDebounceTimer = setTimeout(function() {
+            saveToLocalStorage();
+            saveDebounceTimer = null;
+        }, 5000);
+    }
 
     function trackEvent(type, data) {
         var entry = { ts: Date.now(), type: type, data: data || {} };
@@ -95,7 +105,7 @@
         if (eventBuffer.length > TRACKER_CONFIG.maxEvents) {
             eventBuffer = eventBuffer.slice(eventBuffer.length - TRACKER_CONFIG.maxEvents);
         }
-        saveToLocalStorage();
+        debouncedSaveToLocalStorage();
     }
 
     function recordLatency(rttMs) {
@@ -184,6 +194,8 @@
         // Run external connectivity check before sending summary
         checkExternalConnectivity();
 
+        // Note: frontend latency is server-to-client one-way + clock skew, not true RTT.
+        // The authoritative RTT is calculated server-side from the ping/pong round-trip.
         var summaryData = {
             event: 'periodic_summary',
             wsRoundTrip: getLatestLatency(),
@@ -349,6 +361,7 @@
         if (type === 'ws_reconnect' || type === 'grpc_recover') return 'evt-connect';
         if (type === 'ws_disconnect' || type === 'grpc_fail') return 'evt-disconnect';
         if (type === 'latency_spike' || type === 'state_change') return 'evt-warning';
+        if (type === 'page_hidden' || type === 'page_visible') return 'evt-info';
         return 'evt-info';
     }
 
@@ -381,6 +394,12 @@
             } else {
                 debugToggle.classList.remove('active');
             }
+        }
+
+        var verdictEl = document.getElementById('diag-verdict');
+        if (verdictEl) {
+            var verdict = generateVerdict();
+            verdictEl.textContent = verdict.summary;
         }
 
         // Live Metrics
@@ -481,6 +500,58 @@
                 timeline.scrollTop = timeline.scrollHeight;
             }
         }
+    }
+
+    /**
+     * Generate an auto-verdict summarizing connectivity issues for diagnostics export
+     * @returns {object} {summary: string, details: string[]}
+     */
+    function generateVerdict() {
+        var issues = [];
+        var uptime = getUptimePercent();
+
+        if (uptime >= 99) {
+            issues.push('No significant connectivity issues (' + uptime + '% uptime)');
+        } else if (uptime >= 95) {
+            issues.push('Minor connectivity issues (' + uptime + '% uptime)');
+        } else {
+            issues.push('Significant connectivity issues (' + uptime + '% uptime)');
+        }
+
+        if (grpcConnectionStatus.connected === false && grpcConnectionStatus.failureCount > 0) {
+            issues.push('gRPC to CVP is failing (' + grpcConnectionStatus.failureCount + ' failures)');
+        }
+
+        if (externalCheckResult.arista === 'failed' || externalCheckResult.arista === 'timeout') {
+            issues.push('External connectivity check failed (arista.com unreachable) - likely client-side network issue');
+        } else if (externalCheckResult.arista === 'ok' && grpcConnectionStatus.connected === false) {
+            issues.push('Internet works but gRPC fails - likely firewall/VPN blocking gRPC traffic');
+        }
+
+        var netInfo = getNetworkInfo();
+        if (netInfo && netInfo.effectiveType && netInfo.effectiveType !== '4g') {
+            issues.push('Degraded network quality: ' + netInfo.effectiveType + ' connection');
+        }
+
+        // Check for visibility-triggered reconnects
+        var visTriggered = 0;
+        var totalReconnects = 0;
+        for (var i = 0; i < eventBuffer.length; i++) {
+            if (eventBuffer[i].type === 'ws_reconnect') {
+                totalReconnects++;
+                if (eventBuffer[i].data && eventBuffer[i].data.visibilityTriggered) {
+                    visTriggered++;
+                }
+            }
+        }
+        if (visTriggered > 0) {
+            issues.push(visTriggered + ' of ' + totalReconnects + ' reconnects were triggered by tab visibility change (browser throttling, not real network issues)');
+        }
+
+        return {
+            summary: issues[0] || 'No data available',
+            details: issues
+        };
     }
 
     /**
@@ -680,57 +751,20 @@
 
     /**
      * Fetch a CVP authentication token for gRPC-Web requests
-     * Authenticates via /cvpservice/login/authenticate.do using credentials from the page
+     * Instead of scraping DOM for password, use token from backend session_info
+     * The backend now sends cvp_token in session_info and token_refresh messages
      * @param {function} callback - Called with true on success, false on failure
      */
     function fetchCVPToken(callback) {
-        // Extract password from the page - it's rendered in the credentials table
-        var pwdCells = document.querySelectorAll('td span');
-        var password = null;
-        for (var i = 0; i < pwdCells.length; i++) {
-            var prevTd = pwdCells[i].parentElement && pwdCells[i].parentElement.previousElementSibling;
-            if (prevTd && prevTd.textContent.trim() === 'arista') {
-                password = pwdCells[i].textContent.trim();
-                break;
-            }
-        }
-
-        if (!password) {
-            console.warn('[Connectivity Monitor] Could not find CVP credentials on page');
-            if (callback) callback(false);
+        // Use token from backend session_info (sent via session_info and token_refresh messages)
+        if (sessionInfo.cvpToken) {
+            cvpToken = sessionInfo.cvpToken;
+            if (callback) callback(true);
             return;
         }
-
-        var authUrl = '/cvpservice/login/authenticate.do';
-        var authHeaders = new Headers();
-        authHeaders.set('Authorization', 'Basic ' + btoa('arista:' + password));
-
-        fetch(authUrl, {
-            method: 'POST',
-            headers: authHeaders
-        })
-        .then(function(response) {
-            if (!response.ok) {
-                console.warn('[Connectivity Monitor] CVP auth failed: HTTP ' + response.status);
-                if (callback) callback(false);
-                return;
-            }
-            return response.json();
-        })
-        .then(function(data) {
-            if (data && data.sessionId) {
-                cvpToken = data.sessionId;
-                console.log('[Connectivity Monitor] CVP token obtained for gRPC checks');
-                if (callback) callback(true);
-            } else {
-                console.warn('[Connectivity Monitor] CVP auth response missing sessionId');
-                if (callback) callback(false);
-            }
-        })
-        .catch(function(error) {
-            console.warn('[Connectivity Monitor] CVP auth error: ' + (error.message || error));
-            if (callback) callback(false);
-        });
+        // Fallback: if no token from backend yet, skip
+        console.warn('[Connectivity Monitor] No CVP token available from backend');
+        if (callback) callback(false);
     }
 
     /**
@@ -762,10 +796,7 @@
             }, CONNECTIVITY_CONFIG.grpc.retryInterval);
         });
 
-        // Refresh token every 20 minutes (CVP tokens expire)
-        setInterval(function() {
-            fetchCVPToken(null);
-        }, 1200000);
+        // Token refresh is now handled by the backend via token_refresh WebSocket messages
     }
 
     /**
@@ -1083,6 +1114,17 @@
             eventBuffer = recovered.concat(eventBuffer);
         }
 
+        // Track page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                pageVisible = false;
+                trackEvent('page_hidden', {});
+            } else {
+                pageVisible = true;
+                trackEvent('page_visible', {});
+            }
+        });
+
         // Keyboard shortcut: Ctrl+Shift+D to toggle diagnostics panel
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.key === 'D') {
@@ -1199,7 +1241,16 @@
 
                 if (wasConnected === false) {
                     var now = Date.now();
-                    trackEvent('ws_reconnect', { reconnectTime: now });
+
+                    // Check if reconnect was triggered by page becoming visible
+                    var visibilityTriggered = false;
+                    for (var k = eventBuffer.length - 1; k >= Math.max(0, eventBuffer.length - 5); k--) {
+                        if (eventBuffer[k].type === 'page_visible' && (now - eventBuffer[k].ts) < 5000) {
+                            visibilityTriggered = true;
+                            break;
+                        }
+                    }
+                    trackEvent('ws_reconnect', { reconnectTime: now, visibilityTriggered: visibilityTriggered });
 
                     if (lastDisconnectTime !== null) {
                         var offlineEvents = loadFromLocalStorage();
@@ -1211,6 +1262,13 @@
                         lastDisconnectTime = null;
                     }
                     startSummaryTimer();
+
+                    // Restart gRPC monitoring if it was running
+                    if (grpcConnectionStatus.monitoringStarted && !grpcMonitorInterval) {
+                        grpcMonitorInterval = setInterval(function() {
+                            testCVPConnectivity();
+                        }, CONNECTIVITY_CONFIG.grpc.retryInterval);
+                    }
                 } else if (wasConnected === null) {
                     startSummaryTimer();
                 }
@@ -1224,6 +1282,12 @@
                 });
                 lastDisconnectTime = Date.now();
                 stopSummaryTimer();
+
+                // Pause gRPC checks while WebSocket is down
+                if (grpcMonitorInterval) {
+                    clearInterval(grpcMonitorInterval);
+                    grpcMonitorInterval = null;
+                }
             }
 
             updateStatusUI();
@@ -1276,11 +1340,21 @@
             sessionInfo.id = data.session_id || null;
             sessionInfo.reconnectCount = data.reconnect_count || 0;
             sessionInfo.debugMode = data.debug_mode || false;
+            sessionInfo.cvpToken = data.cvp_token || null;
+            if (data.cvp_token) {
+                cvpToken = data.cvp_token;
+            }
             logConnectivityEvent('SESSION_INFO', data);
         },
 
         updateDebugMode: function(debugMode) {
             sessionInfo.debugMode = debugMode;
+        },
+
+        updateCVPToken: function(token) {
+            cvpToken = token;
+            sessionInfo.cvpToken = token;
+            logConnectivityEvent('CVP_TOKEN_REFRESHED', {});
         },
 
         recordLatency: recordLatency,
@@ -1334,6 +1408,7 @@
                     lastCheck: externalCheckResult.lastCheck ? new Date(externalCheckResult.lastCheck).toISOString() : null
                 },
                 networkInfo: getNetworkInfo(),
+                verdict: generateVerdict(),
                 events: eventBuffer,
                 latencyHistory: latencyHistory
             };
