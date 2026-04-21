@@ -4408,7 +4408,8 @@ class ConnectivityStatusHandler(tornado.web.RequestHandler):
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
-        'login_url': "/login"
+        'login_url': "/login",
+        'xheaders': True
     }
 
     app = tornado.web.Application([
