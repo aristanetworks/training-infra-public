@@ -180,21 +180,34 @@
 
     function sendPeriodicSummary() {
         if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
-        var summary = {
-            type: 'connectivity',
-            data: {
-                event: 'periodic_summary',
-                wsRoundTrip: getLatestLatency(),
-                avgLatency: Math.round(getAverageLatency()),
-                grpcStatus: grpcConnectionStatus.connected ? 'connected' : 'disconnected',
-                grpcFailures: grpcConnectionStatus.failureCount,
-                eventCount: eventBuffer.length,
-                sessionUptime: Math.round((Date.now() - sessionStartTime) / 1000),
-                uptimePercent: getUptimePercent()
-            }
+
+        // Run external connectivity check before sending summary
+        checkExternalConnectivity();
+
+        var summaryData = {
+            event: 'periodic_summary',
+            wsRoundTrip: getLatestLatency(),
+            avgLatency: Math.round(getAverageLatency()),
+            grpcStatus: grpcConnectionStatus.connected ? 'connected' : 'disconnected',
+            grpcFailures: grpcConnectionStatus.failureCount,
+            eventCount: eventBuffer.length,
+            sessionUptime: Math.round((Date.now() - sessionStartTime) / 1000),
+            uptimePercent: getUptimePercent(),
+            externalCheck: externalCheckResult.arista,
+            externalRttMs: externalCheckResult.aristaRttMs
         };
+
+        // Add network info if available (Chrome/Edge only)
+        var netInfo = getNetworkInfo();
+        if (netInfo) {
+            summaryData.networkType = netInfo.type;
+            summaryData.effectiveType = netInfo.effectiveType;
+            summaryData.downlinkMbps = netInfo.downlinkMbps;
+            summaryData.browserRttMs = netInfo.rttMs;
+        }
+
         try {
-            ws.send(JSON.stringify(summary));
+            ws.send(JSON.stringify({ type: 'connectivity', data: summaryData }));
         } catch (e) {}
     }
 
@@ -226,6 +239,66 @@
             clearInterval(summaryTimerRef);
             summaryTimerRef = null;
         }
+    }
+
+    // ============================================
+    // External Connectivity Checks
+    // ============================================
+
+    // Last external check results
+    var externalCheckResult = {
+        arista: null,      // 'ok', 'failed', 'timeout', null (not checked yet)
+        aristaRttMs: null,  // round-trip time to arista.com
+        lastCheck: null
+    };
+
+    /**
+     * Check external connectivity by fetching arista.com favicon
+     * Uses no-cors mode so we only measure success/failure + timing, not response body
+     */
+    function checkExternalConnectivity() {
+        var startTime = Date.now();
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+
+        fetch('https://www.arista.com/favicon.ico', {
+            mode: 'no-cors',
+            cache: 'no-cache',
+            signal: controller.signal
+        })
+        .then(function() {
+            clearTimeout(timeoutId);
+            var rtt = Date.now() - startTime;
+            externalCheckResult.arista = 'ok';
+            externalCheckResult.aristaRttMs = rtt;
+            externalCheckResult.lastCheck = Date.now();
+        })
+        .catch(function(error) {
+            clearTimeout(timeoutId);
+            externalCheckResult.aristaRttMs = null;
+            externalCheckResult.lastCheck = Date.now();
+            if (error.name === 'AbortError') {
+                externalCheckResult.arista = 'timeout';
+            } else {
+                externalCheckResult.arista = 'failed';
+            }
+        });
+    }
+
+    /**
+     * Get browser network information from the Network Information API
+     * Only available in Chromium-based browsers
+     * @returns {object|null} Network info or null if not supported
+     */
+    function getNetworkInfo() {
+        var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!conn) return null;
+        return {
+            type: conn.type || null,              // 'wifi', 'cellular', 'ethernet', etc.
+            effectiveType: conn.effectiveType || null,  // '4g', '3g', '2g', 'slow-2g'
+            downlinkMbps: conn.downlink || null,  // estimated downlink in Mbps
+            rttMs: conn.rtt || null               // estimated RTT in ms
+        };
     }
 
     // ============================================
@@ -334,6 +407,33 @@
 
         var missedPongsEl = document.getElementById('diag-missed-pongs');
         if (missedPongsEl) missedPongsEl.textContent = wsConnectionStatus.failureCount.toString();
+
+        // External Connectivity
+        var extCheckEl = document.getElementById('diag-external');
+        if (extCheckEl) {
+            if (externalCheckResult.arista === 'ok') {
+                extCheckEl.textContent = 'OK (' + externalCheckResult.aristaRttMs + 'ms)';
+            } else if (externalCheckResult.arista) {
+                extCheckEl.textContent = externalCheckResult.arista;
+            } else {
+                extCheckEl.textContent = '--';
+            }
+        }
+
+        var netInfoEl = document.getElementById('diag-network');
+        if (netInfoEl) {
+            var netInfo = getNetworkInfo();
+            if (netInfo) {
+                var parts = [];
+                if (netInfo.type) parts.push(netInfo.type);
+                if (netInfo.effectiveType) parts.push(netInfo.effectiveType);
+                if (netInfo.downlinkMbps) parts.push(netInfo.downlinkMbps + ' Mbps');
+                if (netInfo.rttMs) parts.push('RTT: ' + netInfo.rttMs + 'ms');
+                netInfoEl.textContent = parts.join(' / ') || 'Available but empty';
+            } else {
+                netInfoEl.textContent = 'Not supported';
+            }
+        }
 
         // Event Timeline - use DOM methods for security (no innerHTML with data)
         var timeline = document.getElementById('diag-timeline');

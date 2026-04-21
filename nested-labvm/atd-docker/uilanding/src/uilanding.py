@@ -700,7 +700,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 grpc_status=str(data.get('grpcStatus', '')),
                 grpc_failures=str(data.get('grpcFailures', '')),
                 event_count=str(data.get('eventCount', '')),
-                session_uptime_s=str(data.get('sessionUptime', '')))
+                session_uptime_s=str(data.get('sessionUptime', '')),
+                external_check=str(data.get('externalCheck', '')),
+                external_rtt_ms=str(data.get('externalRttMs', '')),
+                network_type=str(data.get('networkType', '')),
+                effective_type=str(data.get('effectiveType', '')),
+                downlink_mbps=str(data.get('downlinkMbps', '')),
+                browser_rtt_ms=str(data.get('browserRttMs', '')))
 
         elif event == 'reconnect_report':
             safe_log('warning', 'Client reconnected after outage',
