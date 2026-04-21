@@ -191,9 +191,6 @@
     function sendPeriodicSummary() {
         if (typeof ws === 'undefined' || ws.readyState !== WebSocket.OPEN) return;
 
-        // Run external connectivity check before sending summary
-        checkExternalConnectivity();
-
         // Note: frontend latency is server-to-client one-way + clock skew, not true RTT.
         // The authoritative RTT is calculated server-side from the ping/pong round-trip.
         var summaryData = {
@@ -241,15 +238,26 @@
         } catch (e) {}
     }
 
+    // External check timer reference
+    var externalCheckTimerRef = null;
+
     function startSummaryTimer() {
         if (summaryTimerRef) clearInterval(summaryTimerRef);
         summaryTimerRef = setInterval(sendPeriodicSummary, TRACKER_CONFIG.summaryInterval);
+        // Run external check every 60 seconds on its own timer
+        if (externalCheckTimerRef) clearInterval(externalCheckTimerRef);
+        checkExternalConnectivity();  // Initial check immediately
+        externalCheckTimerRef = setInterval(checkExternalConnectivity, 60000);
     }
 
     function stopSummaryTimer() {
         if (summaryTimerRef) {
             clearInterval(summaryTimerRef);
             summaryTimerRef = null;
+        }
+        if (externalCheckTimerRef) {
+            clearInterval(externalCheckTimerRef);
+            externalCheckTimerRef = null;
         }
     }
 
