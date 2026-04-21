@@ -253,6 +253,11 @@ function createWS(SOCK_URL) {
                 window.ConnectivityMonitor.updateWSStatus(true);
             }
 
+            // Trigger synchronized gRPC check if internal status is included
+            if (received_msg['data'] && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.handlePingData === 'function') {
+                window.ConnectivityMonitor.handlePingData(received_msg['data']);
+            }
+
             ws.send(JSON.stringify({
                 type: "pong",
                 data: {

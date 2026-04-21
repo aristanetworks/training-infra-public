@@ -625,9 +625,13 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             self.sendData('status')
 
             # Send timestamped ping for latency measurement
+            # Include internal gRPC status when available for synchronized checks
+            ping_data = {'ts': int(time.time() * 1000)}
+            if _last_internal_grpc_status is not None:
+                ping_data['internal_grpc'] = _last_internal_grpc_status
             self.write_message(json.dumps({
                 'type': 'ping',
-                'data': {'ts': int(time.time() * 1000)}
+                'data': ping_data
             }))
 
             # Check for missed pongs

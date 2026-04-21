@@ -1359,6 +1359,23 @@
 
         recordLatency: recordLatency,
 
+        /**
+         * Handle ping data from backend, triggering synchronized gRPC checks
+         * When the backend includes its internal gRPC status in a ping,
+         * run an immediate client-side gRPC check for comparison.
+         * @param {Object} data - Ping data object from backend
+         */
+        handlePingData: function(data) {
+            if (data && data.internal_grpc) {
+                // Run immediate client gRPC check for comparison
+                testCVPConnectivity();
+                trackEvent('grpc_sync_check', {
+                    internal: data.internal_grpc,
+                    clientConnected: grpcConnectionStatus.connected
+                });
+            }
+        },
+
         getTrackerData: function() {
             return {
                 sessionInfo: sessionInfo,
