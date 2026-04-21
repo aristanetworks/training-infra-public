@@ -7,6 +7,13 @@ else {
 }
 atdURL += "/td-ws";
 var ws = null;  // Initialized by createWS() below
+
+// Persistent client ID — survives page refreshes via localStorage
+var atdClientId = localStorage.getItem('atl_client_id');
+if (!atdClientId) {
+    atdClientId = 'c-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem('atl_client_id', atdClientId);
+}
 var event_timer_ids = {};
 var topo_notify = false;
 var notifications_sent = {
@@ -109,7 +116,8 @@ function createWS(SOCK_URL) {
         ws.send(JSON.stringify({
             type: "hello",
             data: {
-                action: "status"
+                action: "status",
+                client_id: atdClientId
             }
         }));
     };

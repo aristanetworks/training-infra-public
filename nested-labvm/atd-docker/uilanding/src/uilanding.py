@@ -544,7 +544,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'client_ip': client_ip,
             'debug_mode': False,
             'user_agent': user_agent,
-            'last_token_send': 0
+            'last_token_send': 0,
+            'client_id': ''
         }
         active_sessions.add(session_id)
 
@@ -577,7 +578,11 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             session_id = self.session['id'][:8] if hasattr(self, 'session') else '?'
 
             if msg_type == 'hello':
-                pS("[{}] WS hello - sending status + session info".format(session_id))
+                # Store persistent client_id from frontend (survives page refreshes)
+                client_id = cdata.get('client_id', '')
+                if client_id and hasattr(self, 'session'):
+                    self.session['client_id'] = client_id
+                pS("[{}] WS hello - client_id={} sending status + session info".format(session_id, client_id[:12] if client_id else '?'))
                 # Grab current uptime of topology
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
@@ -737,6 +742,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             safe_log('info', 'WebSocket session ended',
                 event='connectivity', action='session_end',
                 session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
                 client_ip=str(self.session['client_ip']),
                 duration_seconds=str(round(duration, 1)),
                 missed_pongs=str(self.session['missed_pongs']),
@@ -776,6 +782,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 'type': 'session_info',
                 'data': {
                     'session_id': self.session['id'],
+                    'client_id': self.session.get('client_id', ''),
                     'reconnect_count': self.session['reconnect_count'],
                     'debug_mode': self.session['debug_mode'],
                     'cvp_token': cvp_token or ''
@@ -871,6 +878,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 safe_log('info', 'Active session summary',
                     event='connectivity', action='session_summary',
                     session_id=self.session['id'],
+                    client_id=str(self.session.get('client_id', '')),
                     client_ip=str(self.session['client_ip']),
                     duration_seconds=str(round(duration, 1)),
                     missed_pongs=str(self.session['missed_pongs']),

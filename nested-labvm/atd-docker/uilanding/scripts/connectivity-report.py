@@ -180,7 +180,7 @@ def build_sessions(events):
     sessions = defaultdict(lambda: {
         'start': None, 'end': None, 'duration': None,
         'reconnects': 0, 'missed_pongs': 0, 'rtt_values': [],
-        'client_ip': '', 'user_agent': '',
+        'client_ip': '', 'user_agent': '', 'client_id': '',
         'grpc_internal': {'ok': 0, 'fail': 0},
         'grpc_client': {'ok': 0, 'fail': 0},
         'external_checks': {'ok': 0, 'fail': 0},
@@ -201,6 +201,7 @@ def build_sessions(events):
             s['start'] = e['_ts']
             s['client_ip'] = labels.get('client_ip', '')
             s['user_agent'] = labels.get('user_agent', '')
+            s['client_id'] = labels.get('client_id', '')
             s['reconnects'] = int(labels.get('reconnect_count', 0))
 
         elif action == 'session_end':
@@ -211,6 +212,10 @@ def build_sessions(events):
             s['missed_pongs'] = max(s['missed_pongs'], int(labels.get('missed_pongs', 0)))
 
         elif action == 'session_summary':
+            # Pick up client_id from summaries (arrives after hello)
+            cid = labels.get('client_id', '')
+            if cid and not s['client_id']:
+                s['client_id'] = cid
             rtt = labels.get('last_rtt_ms', '')
             if rtt and rtt != 'None' and rtt != '':
                 try:
@@ -344,27 +349,84 @@ def print_report(events, sessions):
     print('')
 
     # ============ SESSION TABLE ============
-    print('  SESSIONS')
+    # Group sessions by client_id for continuity across page refreshes
+    client_groups = defaultdict(list)
+    ungrouped = []
+    for sid, s in sorted(sessions.items(), key=lambda x: x[1]['start'] or datetime.min):
+        cid = s.get('client_id', '')
+        if cid:
+            client_groups[cid].append((sid, s))
+        else:
+            ungrouped.append((sid, s))
+
+    print('  USERS ({} unique client{})'.format(
+        len(client_groups) + len(ungrouped),
+        's' if (len(client_groups) + len(ungrouped)) != 1 else ''))
     print('  ' + '-' * 68)
     header = '  {:<10} {:<20} {:<10} {:<6} {:<6} {:<10}'.format(
-        'ID', 'Start', 'Duration', 'Recon', 'Miss', 'Avg RTT')
-    print(header)
-    print('  ' + '-' * 68)
+        'Session', 'Start', 'Duration', 'Recon', 'Miss', 'Avg RTT')
 
-    for sid, s in sorted(sessions.items(), key=lambda x: x[1]['start'] or datetime.min):
-        short_id = sid[:8] if sid else '?'
-        start = s['start'].strftime('%Y-%m-%d %H:%M') if s['start'] else '--'
-        duration = format_duration(s['duration']) if s['duration'] else 'active'
-        reconnects = str(s['reconnects'])
-        missed = str(s['missed_pongs'])
-        avg_rtt = '{:.0f}ms'.format(sum(s['rtt_values']) / len(s['rtt_values'])) if s['rtt_values'] else '--'
+    for cid, group in sorted(client_groups.items(), key=lambda x: x[1][0][1]['start'] or datetime.min):
+        first_session = group[0][1]
+        ip = first_session.get('client_ip', '?')
+        ua = first_session.get('user_agent', '')
+        ua_short = (ua[:50] + '...') if len(ua) > 50 else ua or '--'
+        total_duration = 0
+        total_reconnects = 0
+        total_missed = 0
+        all_rtt = []
+        for _, s in group:
+            if s['duration']:
+                try:
+                    total_duration += float(s['duration'])
+                except (ValueError, TypeError):
+                    pass
+            total_reconnects += s['reconnects']
+            total_missed += s['missed_pongs']
+            all_rtt.extend(s['rtt_values'])
 
-        print('  {:<10} {:<20} {:<10} {:<6} {:<6} {:<10}'.format(
-            short_id, start, duration, reconnects, missed, avg_rtt))
+        # Check if any session in group is still active
+        any_active = any(s['duration'] is None for _, s in group)
 
-        if s['client_ip']:
-            print('             IP: {}  UA: {}'.format(
-                s['client_ip'], (s['user_agent'][:50] + '...') if len(s['user_agent']) > 50 else s['user_agent'] or '--'))
+        print('')
+        print('  Client: {}  IP: {}'.format(cid[:16], ip))
+        print('  UA: {}'.format(ua_short))
+        print('  Total: {} session(s), {} total, {} reconnects, {} missed pongs'.format(
+            len(group),
+            'active' if any_active else format_duration(total_duration),
+            total_reconnects, total_missed))
+        if all_rtt:
+            print('  Avg RTT: {:.0f}ms'.format(sum(all_rtt) / len(all_rtt)))
+        print('  ' + header)
+        print('  ' + '-' * 68)
+
+        for sid, s in group:
+            short_id = sid[:8]
+            start = s['start'].strftime('%Y-%m-%d %H:%M') if s['start'] else '--'
+            duration = format_duration(s['duration']) if s['duration'] else 'active'
+            reconnects = str(s['reconnects'])
+            missed = str(s['missed_pongs'])
+            avg_rtt = '{:.0f}ms'.format(sum(s['rtt_values']) / len(s['rtt_values'])) if s['rtt_values'] else '--'
+            print('  {:<10} {:<20} {:<10} {:<6} {:<6} {:<10}'.format(
+                short_id, start, duration, reconnects, missed, avg_rtt))
+
+    # Show ungrouped sessions (no client_id — old data before this feature)
+    if ungrouped:
+        print('')
+        print('  SESSIONS WITHOUT CLIENT ID (pre-upgrade data)')
+        print('  ' + header)
+        print('  ' + '-' * 68)
+        for sid, s in ungrouped:
+            short_id = sid[:8]
+            start = s['start'].strftime('%Y-%m-%d %H:%M') if s['start'] else '--'
+            duration = format_duration(s['duration']) if s['duration'] else 'active'
+            reconnects = str(s['reconnects'])
+            missed = str(s['missed_pongs'])
+            avg_rtt = '{:.0f}ms'.format(sum(s['rtt_values']) / len(s['rtt_values'])) if s['rtt_values'] else '--'
+            print('  {:<10} {:<20} {:<10} {:<6} {:<6} {:<10}'.format(
+                short_id, start, duration, reconnects, missed, avg_rtt))
+            if s['client_ip']:
+                print('             IP: {}'.format(s['client_ip']))
 
     print('')
 
