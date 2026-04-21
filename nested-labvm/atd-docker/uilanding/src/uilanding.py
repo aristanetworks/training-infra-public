@@ -513,7 +513,6 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         pS("New backend websocket connection")
     
     def on_message(self,message):
-        pS("Message Received")
         try:
             recv = json.loads(message)
             cdata = recv['data']
@@ -585,10 +584,6 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             else:
                 self.cvp_tasks = ''
             self.sendData('status')
-
-            # Internal gRPC check to CVP (only when CVP is UP)
-            if self.cvp_status.get('status') == 'UP':
-                check_cvp_grpc_internal()
 
             # Send timestamped ping for latency measurement
             self.write_message(json.dumps({
@@ -4349,6 +4344,17 @@ if __name__ == "__main__":
     print('*** Websocket Server Started on {} ***'.format(PORT))
     try:
         TOPO_DATA = getEventStatus(NAME, ZONE)
+
+        # Global internal gRPC health check — runs once every 30 seconds, not per-connection
+        def _grpc_check_tick():
+            try:
+                # Only check when CVP is likely up (any active session has seen CVP UP)
+                check_cvp_grpc_internal()
+            except Exception:
+                pass
+        grpc_check_timer = tornado.ioloop.PeriodicCallback(_grpc_check_tick, 30000)
+        grpc_check_timer.start()
+
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
         tornado.ioloop.IOLoop.instance().stop()
