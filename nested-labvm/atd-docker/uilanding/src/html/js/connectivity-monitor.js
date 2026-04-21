@@ -1328,6 +1328,12 @@
                     status: cvpStatus.status,
                     version: cvpStatus.version
                 },
+                externalConnectivity: {
+                    status: externalCheckResult.arista,
+                    rttMs: externalCheckResult.aristaRttMs,
+                    lastCheck: externalCheckResult.lastCheck ? new Date(externalCheckResult.lastCheck).toISOString() : null
+                },
+                networkInfo: getNetworkInfo(),
                 events: eventBuffer,
                 latencyHistory: latencyHistory
             };
