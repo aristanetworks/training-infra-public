@@ -6,7 +6,14 @@ else {
     atdURL = atdURL.replace("http:", "ws:");
 }
 atdURL += "/td-ws";
-var ws = new WebSocket(atdURL);
+var ws = null;  // Initialized by createWS() below
+
+// Persistent client ID — survives page refreshes via localStorage
+var atdClientId = localStorage.getItem('atl_client_id');
+if (!atdClientId) {
+    atdClientId = 'c-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem('atl_client_id', atdClientId);
+}
 var event_timer_ids = {};
 var topo_notify = false;
 var notifications_sent = {
@@ -109,7 +116,8 @@ function createWS(SOCK_URL) {
         ws.send(JSON.stringify({
             type: "hello",
             data: {
-                action: "status"
+                action: "status",
+                client_id: atdClientId
             }
         }));
     };
@@ -239,15 +247,31 @@ function createWS(SOCK_URL) {
             }
         }
         if (received_msg['type'] == 'ping') {
-            // Update connectivity monitor on successful ping
+            // Respond with timing data for latency measurement
+            var serverTs = received_msg['data'] ? received_msg['data']['ts'] : null;
+            var clientTs = Date.now();
+
+            // Record server-measured RTT (authoritative, not affected by clock skew)
+            var serverRtt = received_msg['data'] ? received_msg['data']['server_rtt'] : null;
+            if (serverRtt && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.recordLatency === 'function') {
+                window.ConnectivityMonitor.recordLatency(serverRtt);
+            }
+
+            // Update connectivity monitor
             if (window.ConnectivityMonitor) {
                 window.ConnectivityMonitor.updateWSStatus(true);
+            }
+
+            // Trigger synchronized gRPC check if internal status is included
+            if (received_msg['data'] && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.handlePingData === 'function') {
+                window.ConnectivityMonitor.handlePingData(received_msg['data']);
             }
 
             ws.send(JSON.stringify({
                 type: "pong",
                 data: {
-                    message: 'pong'
+                    server_ts: serverTs,
+                    client_ts: clientTs
                 }
             }));
         }
@@ -300,6 +324,23 @@ function createWS(SOCK_URL) {
                     message: 'ACK'
                 }
             }));
+        }
+        else if (received_msg['type'] == 'session_info') {
+            // Forward session info to connectivity monitor
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateSessionInfo === 'function') {
+                window.ConnectivityMonitor.updateSessionInfo(received_msg['data']);
+            }
+        }
+        else if (received_msg['type'] == 'debug_ack') {
+            // Forward debug mode acknowledgment
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateDebugMode === 'function') {
+                window.ConnectivityMonitor.updateDebugMode(received_msg['data']['debug_mode']);
+            }
+        }
+        else if (received_msg['type'] == 'token_refresh') {
+            if (window.ConnectivityMonitor && received_msg['data'] && received_msg['data']['cvp_token']) {
+                window.ConnectivityMonitor.updateCVPToken(received_msg['data']['cvp_token']);
+            }
         }
     }
 }
