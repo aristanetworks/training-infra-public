@@ -454,10 +454,29 @@ def print_report(events, sessions):
     print('')
 
 
+def filter_short_sessions(sessions, min_duration=30):
+    """Remove sessions shorter than min_duration seconds (page reload noise)"""
+    filtered = {}
+    skipped = 0
+    for sid, s in sessions.items():
+        duration = s.get('duration')
+        if duration is not None:
+            try:
+                if float(duration) < min_duration:
+                    skipped += 1
+                    continue
+            except (ValueError, TypeError):
+                pass
+        filtered[sid] = s
+    return filtered, skipped
+
+
 def main():
     log_path = DEFAULT_LOG_PATH
     time_filter = None
     session_filter = None
+    min_duration = 30  # Default: hide sessions shorter than 30s
+    show_all = False
 
     # Parse args
     args = sys.argv[1:]
@@ -472,8 +491,21 @@ def main():
         elif args[i] == '--session' and i + 1 < len(args):
             session_filter = args[i + 1]
             i += 2
+        elif args[i] == '--min-duration' and i + 1 < len(args):
+            try:
+                min_duration = int(args[i + 1])
+            except ValueError:
+                print("Invalid min-duration: {}. Use seconds.".format(args[i + 1]))
+                sys.exit(1)
+            i += 2
+        elif args[i] == '--all':
+            show_all = True
+            i += 1
         elif args[i] == '--help' or args[i] == '-h':
             print(__doc__)
+            print("Additional options:")
+            print("  --min-duration N   Hide sessions shorter than N seconds (default: 30)")
+            print("  --all              Show all sessions including short-lived ones")
             sys.exit(0)
         elif not args[i].startswith('-'):
             log_path = args[i]
@@ -485,6 +517,12 @@ def main():
 
     events = load_events(log_path, time_filter, session_filter)
     sessions = build_sessions(events)
+
+    if not show_all:
+        sessions, skipped = filter_short_sessions(sessions, min_duration)
+        if skipped > 0:
+            print("  (Filtered {} short session(s) < {}s — use --all to show)".format(skipped, min_duration))
+
     print_report(events, sessions)
 
 

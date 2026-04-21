@@ -515,7 +515,12 @@ def prune_recent_sessions():
 
 class topoDataHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        client_ip = self.request.remote_ip
+        # Prefer X-Real-IP from nginx, fall back to remote_ip
+        client_ip = self.request.headers.get('X-Real-IP',
+                    self.request.headers.get('X-Forwarded-For', self.request.remote_ip))
+        # X-Forwarded-For can be comma-separated — take the first (original client)
+        if ',' in client_ip:
+            client_ip = client_ip.split(',')[0].strip()
         session_id = str(uuid.uuid4())
         user_agent = self.request.headers.get('User-Agent', '')[:200]
 
