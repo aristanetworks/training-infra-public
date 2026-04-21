@@ -207,6 +207,9 @@ def build_sessions(events):
         elif action == 'session_end':
             s['end'] = e['_ts']
             s['duration'] = labels.get('duration_seconds')
+            cid = labels.get('client_id', '')
+            if cid and not s['client_id']:
+                s['client_id'] = cid
 
         elif action == 'missed_pongs':
             s['missed_pongs'] = max(s['missed_pongs'], int(labels.get('missed_pongs', 0)))
@@ -224,6 +227,9 @@ def build_sessions(events):
                     pass
 
         elif action == 'periodic_summary':
+            cid = labels.get('client_id', '')
+            if cid and not s['client_id']:
+                s['client_id'] = cid
             rtt = labels.get('ws_latency_ms', '')
             if rtt and rtt != 'None' and rtt != '':
                 try:
@@ -238,6 +244,9 @@ def build_sessions(events):
                 s['external_checks']['fail'] += 1
 
         elif action == 'grpc_check':
+            cid = labels.get('client_id', '')
+            if cid and not s['client_id']:
+                s['client_id'] = cid
             source = labels.get('source', '')
             status = labels.get('status', '')
             if source == 'internal':

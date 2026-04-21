@@ -805,6 +805,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 event='connectivity', action='periodic_summary',
                 source='client',
                 session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
                 client_ip=str(self.session['client_ip']),
                 ws_latency_ms=str(data.get('wsRoundTrip', '')),
                 grpc_status=str(data.get('grpcStatus', '')),
@@ -847,6 +848,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 event='connectivity', action='grpc_check',
                 source='client',
                 session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
                 client_ip=str(self.session['client_ip']),
                 status=str(grpc_status),
                 detail=str(data.get('detail', ''))[:200])
