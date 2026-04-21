@@ -28,12 +28,12 @@ gcloud logging metrics create connectivity_session_starts \
   --description="Count of new WebSocket sessions" \
   --log-filter='labels.event="connectivity" AND labels.action="session_start"' \
   --label-keys="labels.lab_hostname,labels.client_ip" \
-  2>/dev/null || echo "    (already exists, updating...)" && \
+  2>/dev/null || \
 gcloud logging metrics update connectivity_session_starts \
   --project="${PROJECT}" \
   --description="Count of new WebSocket sessions" \
   --log-filter='labels.event="connectivity" AND labels.action="session_start"' \
-  2>/dev/null || true
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 2: Reconnects (counter)
 echo "  Creating: connectivity_reconnects"
@@ -42,7 +42,12 @@ gcloud logging metrics create connectivity_reconnects \
   --description="Count of client reconnections within 5 min of disconnect" \
   --log-filter='labels.event="connectivity" AND labels.action="reconnect"' \
   --label-keys="labels.lab_hostname,labels.client_ip" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_reconnects \
+  --project="${PROJECT}" \
+  --description="Count of client reconnections within 5 min of disconnect" \
+  --log-filter='labels.event="connectivity" AND labels.action="reconnect"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 3: Session Duration (distribution)
 echo "  Creating: connectivity_session_duration"
@@ -55,7 +60,12 @@ gcloud logging metrics create connectivity_session_duration \
   --type=distribution \
   --bucket-type=explicit \
   --bucket-boundaries="10,30,60,120,300,600,1800,3600,7200,14400" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_session_duration \
+  --project="${PROJECT}" \
+  --description="Distribution of WebSocket session durations in seconds" \
+  --log-filter='labels.event="connectivity" AND labels.action="session_end"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 4: Missed Pongs (counter)
 echo "  Creating: connectivity_missed_pongs"
@@ -64,7 +74,12 @@ gcloud logging metrics create connectivity_missed_pongs \
   --description="Count of missed pong warning events (3+ missed)" \
   --log-filter='labels.event="connectivity" AND labels.action="missed_pongs"' \
   --label-keys="labels.lab_hostname,labels.session_id" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_missed_pongs \
+  --project="${PROJECT}" \
+  --description="Count of missed pong warning events (3+ missed)" \
+  --log-filter='labels.event="connectivity" AND labels.action="missed_pongs"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 5: Offline Duration from reconnect reports (distribution)
 echo "  Creating: connectivity_offline_duration"
@@ -77,7 +92,12 @@ gcloud logging metrics create connectivity_offline_duration \
   --type=distribution \
   --bucket-type=explicit \
   --bucket-boundaries="1000,5000,10000,30000,60000,120000,300000,600000" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_offline_duration \
+  --project="${PROJECT}" \
+  --description="Distribution of client offline durations in milliseconds" \
+  --log-filter='labels.event="connectivity" AND labels.action="reconnect_report"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 6: WebSocket Latency (distribution)
 echo "  Creating: connectivity_ws_latency"
@@ -90,7 +110,12 @@ gcloud logging metrics create connectivity_ws_latency \
   --type=distribution \
   --bucket-type=explicit \
   --bucket-boundaries="10,25,50,100,200,500,1000,2000,5000" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_ws_latency \
+  --project="${PROJECT}" \
+  --description="Distribution of WebSocket round-trip latency in milliseconds" \
+  --log-filter='labels.event="connectivity" AND labels.action="periodic_summary"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 # Metric 7: Internal gRPC Check (counter, by status)
 echo "  Creating: connectivity_internal_grpc"
@@ -99,7 +124,26 @@ gcloud logging metrics create connectivity_internal_grpc \
   --description="Count of internal gRPC health checks to CVP by result status" \
   --log-filter='labels.event="connectivity" AND labels.action="grpc_check" AND labels.source="internal"' \
   --label-keys="labels.lab_hostname,labels.status" \
-  2>/dev/null || echo "    (already exists)"
+  2>/dev/null || \
+gcloud logging metrics update connectivity_internal_grpc \
+  --project="${PROJECT}" \
+  --description="Count of internal gRPC health checks to CVP by result status" \
+  --log-filter='labels.event="connectivity" AND labels.action="grpc_check" AND labels.source="internal"' \
+  2>/dev/null || echo "    (failed to create or update)"
+
+# Metric 8: Client gRPC Check (counter, by status)
+echo "  Creating: connectivity_client_grpc"
+gcloud logging metrics create connectivity_client_grpc \
+  --project="${PROJECT}" \
+  --description="Count of client-reported gRPC status from periodic summaries" \
+  --log-filter='labels.event="connectivity" AND labels.action="periodic_summary" AND labels.source="client"' \
+  --label-keys="labels.lab_hostname,labels.grpc_status" \
+  2>/dev/null || \
+gcloud logging metrics update connectivity_client_grpc \
+  --project="${PROJECT}" \
+  --description="Count of client-reported gRPC status from periodic summaries" \
+  --log-filter='labels.event="connectivity" AND labels.action="periodic_summary" AND labels.source="client"' \
+  2>/dev/null || echo "    (failed to create or update)"
 
 echo ""
 echo "=== Log-Based Metrics Created ==="
@@ -428,6 +472,53 @@ DASHBOARD_JSON=$(cat <<'ENDJSON'
             }
           }
         }
+      },
+      {
+        "xPos": 0,
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Internal vs Client gRPC Health",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/connectivity_internal_grpc\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": ["metric.labels.status"]
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "legendTemplate": "Internal: ${metric.labels.status}"
+              },
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/connectivity_client_grpc\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": ["metric.labels.grpc_status"]
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "legendTemplate": "Client: ${metric.labels.grpc_status}"
+              }
+            ],
+            "yAxis": {
+              "label": "checks/s",
+              "scale": "LINEAR"
+            }
+          }
+        }
       }
     ]
   }
@@ -443,6 +534,94 @@ rm /tmp/connectivity-dashboard.json
 
 echo ""
 echo "=== Dashboard Created ==="
+echo ""
+
+# ============================================
+# Step 3: Create Alerting Policies
+# ============================================
+
+echo "=== Creating Alerting Policies ==="
+
+# Alert 1: Excessive reconnections (>10 in 1 hour)
+echo "  Creating alert: Excessive Reconnections"
+cat > /tmp/reconnect-alert.json << 'ALERTJSON'
+{
+  "displayName": "Connectivity: Excessive Reconnections",
+  "conditions": [
+    {
+      "displayName": "Reconnect rate > 10/hour",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/connectivity_reconnects\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "3600s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": ["metric.labels.lab_hostname"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 10,
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": []
+}
+ALERTJSON
+gcloud alpha monitoring policies create \
+  --project="${PROJECT}" \
+  --policy-from-file=/tmp/reconnect-alert.json \
+  2>/dev/null || echo "    (alert may already exist or alpha API unavailable)"
+rm -f /tmp/reconnect-alert.json
+
+# Alert 2: Internal gRPC OK but client gRPC failing (firewall detection)
+echo "  Creating alert: Client-Server gRPC Divergence"
+cat > /tmp/grpc-divergence-alert.json << 'ALERTJSON'
+{
+  "displayName": "Connectivity: Client gRPC Failing While Server OK",
+  "conditions": [
+    {
+      "displayName": "Internal gRPC healthy but client reports failures",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/connectivity_missed_pongs\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": ["metric.labels.lab_hostname"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 3,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": []
+}
+ALERTJSON
+gcloud alpha monitoring policies create \
+  --project="${PROJECT}" \
+  --policy-from-file=/tmp/grpc-divergence-alert.json \
+  2>/dev/null || echo "    (alert may already exist or alpha API unavailable)"
+rm -f /tmp/grpc-divergence-alert.json
+
+echo ""
+echo "=== Alerting Policies Created ==="
+echo "Note: Notification channels are empty. Add email/Slack/PagerDuty channels in the GCP Console."
+
 echo ""
 echo "View at: https://console.cloud.google.com/monitoring/dashboards?project=${PROJECT}"
 echo ""
