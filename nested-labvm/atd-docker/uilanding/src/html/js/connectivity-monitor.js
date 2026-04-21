@@ -284,6 +284,7 @@
             externalCheckResult.arista = 'ok';
             externalCheckResult.aristaRttMs = rtt;
             externalCheckResult.lastCheck = Date.now();
+            trackEvent('external_check_ok', { rttMs: rtt });
         })
         .catch(function(error) {
             clearTimeout(timeoutId);
@@ -291,8 +292,10 @@
             externalCheckResult.lastCheck = Date.now();
             if (error.name === 'AbortError') {
                 externalCheckResult.arista = 'timeout';
+                trackEvent('external_check_fail', { reason: 'timeout' });
             } else {
                 externalCheckResult.arista = 'failed';
+                trackEvent('external_check_fail', { reason: 'network' });
             }
         });
     }
@@ -358,10 +361,9 @@
     }
 
     function getEventClass(type) {
-        if (type === 'ws_reconnect' || type === 'grpc_recover') return 'evt-connect';
-        if (type === 'ws_disconnect' || type === 'grpc_fail') return 'evt-disconnect';
-        if (type === 'latency_spike' || type === 'state_change') return 'evt-warning';
-        if (type === 'page_hidden' || type === 'page_visible') return 'evt-info';
+        if (type === 'ws_reconnect' || type === 'grpc_ok' || type === 'external_check_ok') return 'evt-connect';
+        if (type === 'ws_disconnect' || type === 'grpc_fail' || type === 'external_check_fail') return 'evt-disconnect';
+        if (type === 'latency_spike' || type === 'state_change' || type === 'grpc_sync_check') return 'evt-warning';
         return 'evt-info';
     }
 
@@ -639,6 +641,7 @@
                         httpStatus: response.status,
                         hasTrailers: grpcResult.hasTrailers
                     });
+                    trackEvent('grpc_ok', { grpcStatus: grpcResult.grpcStatus });
                 } else {
                     grpcConnectionStatus.connected = false;
                     grpcConnectionStatus.failureCount++;
@@ -648,6 +651,7 @@
                         httpStatus: response.status,
                         failureCount: grpcConnectionStatus.failureCount
                     });
+                    trackEvent('grpc_fail', { reason: grpcResult.reason, failures: grpcConnectionStatus.failureCount });
                 }
                 updateStatusUI();
             });
@@ -671,6 +675,7 @@
                 error: grpcConnectionStatus.errorMessage,
                 failureCount: grpcConnectionStatus.failureCount
             });
+            trackEvent('grpc_fail', { reason: grpcConnectionStatus.errorMessage, failures: grpcConnectionStatus.failureCount });
             updateStatusUI();
         });
     }
@@ -1355,6 +1360,7 @@
             cvpToken = token;
             sessionInfo.cvpToken = token;
             logConnectivityEvent('CVP_TOKEN_REFRESHED', {});
+            trackEvent('cvp_token_refresh', {});
         },
 
         recordLatency: recordLatency,
