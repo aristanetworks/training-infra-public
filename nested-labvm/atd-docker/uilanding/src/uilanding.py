@@ -43,11 +43,40 @@ except Exception:
     logger.addHandler(_logging.StreamHandler())
     logger.setLevel(_logging.INFO)
 
+CONNECTIVITY_LOG_PATH = '/var/log/atd/connectivity.jsonl'
+CONNECTIVITY_LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
+
+def _write_connectivity_log(level, message, labels):
+    """Write connectivity events to local JSONL file for offline reporting"""
+    try:
+        # Rotate if file exceeds max size
+        if os.path.exists(CONNECTIVITY_LOG_PATH):
+            if os.path.getsize(CONNECTIVITY_LOG_PATH) > CONNECTIVITY_LOG_MAX_BYTES:
+                rotated = CONNECTIVITY_LOG_PATH + '.1'
+                if os.path.exists(rotated):
+                    os.remove(rotated)
+                os.rename(CONNECTIVITY_LOG_PATH, rotated)
+
+        os.makedirs(os.path.dirname(CONNECTIVITY_LOG_PATH), exist_ok=True)
+        entry = json.dumps({
+            'ts': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'level': level,
+            'message': message,
+            'labels': labels
+        })
+        with open(CONNECTIVITY_LOG_PATH, 'a') as f:
+            f.write(entry + '\n')
+    except Exception:
+        pass
+
 def safe_log(level, message, **kwargs):
     """Log safely - never crash the application due to logging errors"""
     try:
         labels = {k: str(v) for k, v in kwargs.items()}
         getattr(logger, level)(message, extra={'labels': labels} if labels else {})
+        # Write connectivity events to local JSONL file
+        if kwargs.get('event') == 'connectivity':
+            _write_connectivity_log(level, message, labels)
     except Exception:
         pass
 
