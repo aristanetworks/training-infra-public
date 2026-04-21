@@ -629,6 +629,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             ping_data = {'ts': int(time.time() * 1000)}
             if _last_internal_grpc_status is not None:
                 ping_data['internal_grpc'] = _last_internal_grpc_status
+            if hasattr(self, 'session') and self.session['last_rtt'] is not None:
+                ping_data['server_rtt'] = self.session['last_rtt']
             self.write_message(json.dumps({
                 'type': 'ping',
                 'data': ping_data

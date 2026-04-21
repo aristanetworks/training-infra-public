@@ -243,9 +243,10 @@ function createWS(SOCK_URL) {
             var serverTs = received_msg['data'] ? received_msg['data']['ts'] : null;
             var clientTs = Date.now();
 
-            // Calculate latency and record it
-            if (serverTs && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.recordLatency === 'function') {
-                window.ConnectivityMonitor.recordLatency(clientTs - serverTs);
+            // Record server-measured RTT (authoritative, not affected by clock skew)
+            var serverRtt = received_msg['data'] ? received_msg['data']['server_rtt'] : null;
+            if (serverRtt && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.recordLatency === 'function') {
+                window.ConnectivityMonitor.recordLatency(serverRtt);
             }
 
             // Update connectivity monitor
