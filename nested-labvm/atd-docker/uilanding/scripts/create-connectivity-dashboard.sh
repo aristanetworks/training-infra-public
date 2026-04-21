@@ -131,18 +131,46 @@ gcloud logging metrics update connectivity_internal_grpc \
   --log-filter='labels.event="connectivity" AND labels.action="grpc_check" AND labels.source="internal"' \
   2>/dev/null || echo "    (failed to create or update)"
 
-# Metric 8: Client gRPC Check (counter, by status)
+# Metric 8: Client gRPC Check - individual results (counter, by status)
 echo "  Creating: connectivity_client_grpc"
 gcloud logging metrics create connectivity_client_grpc \
   --project="${PROJECT}" \
-  --description="Count of client-reported gRPC status from periodic summaries" \
-  --log-filter='labels.event="connectivity" AND labels.action="periodic_summary" AND labels.source="client"' \
-  --label-keys="labels.lab_hostname,labels.grpc_status" \
+  --description="Count of client-side gRPC health check results by status" \
+  --log-filter='labels.event="connectivity" AND labels.action="grpc_check" AND labels.source="client"' \
+  --label-keys="labels.lab_hostname,labels.status" \
   2>/dev/null || \
 gcloud logging metrics update connectivity_client_grpc \
   --project="${PROJECT}" \
-  --description="Count of client-reported gRPC status from periodic summaries" \
+  --description="Count of client-side gRPC health check results by status" \
+  --log-filter='labels.event="connectivity" AND labels.action="grpc_check" AND labels.source="client"' \
+  2>/dev/null || echo "    (failed to create or update)"
+
+# Metric 9: External Connectivity Check (counter, by result)
+echo "  Creating: connectivity_external_check"
+gcloud logging metrics create connectivity_external_check \
+  --project="${PROJECT}" \
+  --description="Count of external connectivity checks (arista.com) from periodic summaries" \
   --log-filter='labels.event="connectivity" AND labels.action="periodic_summary" AND labels.source="client"' \
+  --label-keys="labels.lab_hostname,labels.external_check" \
+  2>/dev/null || \
+gcloud logging metrics update connectivity_external_check \
+  --project="${PROJECT}" \
+  --description="Count of external connectivity checks (arista.com) from periodic summaries" \
+  --log-filter='labels.event="connectivity" AND labels.action="periodic_summary" AND labels.source="client"' \
+  2>/dev/null || echo "    (failed to create or update)"
+
+# Metric 10: Page Visibility Events (counter)
+echo "  Creating: connectivity_visibility_reconnects"
+gcloud logging metrics create connectivity_visibility_reconnects \
+  --project="${PROJECT}" \
+  --description="Count of reconnect events to identify visibility-triggered vs real disconnects" \
+  --log-filter='labels.event="connectivity" AND labels.action="reconnect"' \
+  --label-keys="labels.lab_hostname,labels.client_ip" \
+  2>/dev/null || \
+gcloud logging metrics update connectivity_visibility_reconnects \
+  --project="${PROJECT}" \
+  --description="Count of reconnect events to identify visibility-triggered vs real disconnects" \
+  --log-filter='labels.event="connectivity" AND labels.action="reconnect"' \
   2>/dev/null || echo "    (failed to create or update)"
 
 echo ""
@@ -286,7 +314,7 @@ DASHBOARD_JSON=$(cat <<'ENDJSON'
         "widget": {
           "title": "Connection Quality",
           "text": {
-            "content": "Session duration distribution, offline gap duration, and WebSocket latency",
+            "content": "Session duration, offline gaps, WebSocket latency, and external connectivity",
             "format": "RAW"
           }
         }
@@ -505,12 +533,44 @@ DASHBOARD_JSON=$(cat <<'ENDJSON'
                       "alignmentPeriod": "300s",
                       "perSeriesAligner": "ALIGN_RATE",
                       "crossSeriesReducer": "REDUCE_SUM",
-                      "groupByFields": ["metric.labels.grpc_status"]
+                      "groupByFields": ["metric.labels.status"]
                     }
                   }
                 },
                 "plotType": "LINE",
-                "legendTemplate": "Client: ${metric.labels.grpc_status}"
+                "legendTemplate": "Client: ${metric.labels.status}"
+              }
+            ],
+            "yAxis": {
+              "label": "checks/s",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "External Connectivity (arista.com)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/connectivity_external_check\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": ["metric.labels.external_check"]
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "legendTemplate": "${metric.labels.external_check}"
               }
             ],
             "yAxis": {
@@ -580,16 +640,16 @@ gcloud alpha monitoring policies create \
   2>/dev/null || echo "    (alert may already exist or alpha API unavailable)"
 rm -f /tmp/reconnect-alert.json
 
-# Alert 2: Internal gRPC OK but client gRPC failing (firewall detection)
-echo "  Creating alert: Client-Server gRPC Divergence"
+# Alert 2: Client gRPC failing (firewall/VPN detection)
+echo "  Creating alert: Client gRPC Failures"
 cat > /tmp/grpc-divergence-alert.json << 'ALERTJSON'
 {
-  "displayName": "Connectivity: Client gRPC Failing While Server OK",
+  "displayName": "Connectivity: Client gRPC Check Failing",
   "conditions": [
     {
-      "displayName": "Internal gRPC healthy but client reports failures",
+      "displayName": "Client gRPC checks failing for 5+ minutes",
       "conditionThreshold": {
-        "filter": "metric.type=\"logging.googleapis.com/user/connectivity_missed_pongs\"",
+        "filter": "metric.type=\"logging.googleapis.com/user/connectivity_client_grpc\" AND metric.labels.status!=\"ok\"",
         "aggregations": [
           {
             "alignmentPeriod": "300s",
@@ -599,7 +659,7 @@ cat > /tmp/grpc-divergence-alert.json << 'ALERTJSON'
           }
         ],
         "comparison": "COMPARISON_GT",
-        "thresholdValue": 3,
+        "thresholdValue": 5,
         "duration": "300s",
         "trigger": {
           "count": 1
