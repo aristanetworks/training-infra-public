@@ -210,6 +210,13 @@ def build_sessions(events):
             cid = labels.get('client_id', '')
             if cid and not s['client_id']:
                 s['client_id'] = cid
+            # session_end has the definitive missed_pongs count
+            try:
+                mp = int(labels.get('missed_pongs', 0))
+                if mp > s['missed_pongs']:
+                    s['missed_pongs'] = mp
+            except (ValueError, TypeError):
+                pass
 
         elif action == 'missed_pongs':
             s['missed_pongs'] = max(s['missed_pongs'], int(labels.get('missed_pongs', 0)))
@@ -225,6 +232,13 @@ def build_sessions(events):
                     s['rtt_values'].append(float(rtt))
                 except (ValueError, TypeError):
                     pass
+            # session_summary carries running missed_pongs count
+            try:
+                mp = int(labels.get('missed_pongs', 0))
+                if mp > s['missed_pongs']:
+                    s['missed_pongs'] = mp
+            except (ValueError, TypeError):
+                pass
 
         elif action == 'periodic_summary':
             cid = labels.get('client_id', '')
