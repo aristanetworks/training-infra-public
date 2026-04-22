@@ -388,8 +388,8 @@
     }
 
     function getEventClass(type) {
-        if (type === 'ws_reconnect' || type === 'grpc_ok' || type === 'external_check_ok') return 'evt-connect';
-        if (type === 'ws_disconnect' || type === 'grpc_fail' || type === 'external_check_fail') return 'evt-disconnect';
+        if (type === 'ws_reconnect' || type === 'grpc_ok' || type === 'external_check_ok' || type === 'browser_online') return 'evt-connect';
+        if (type === 'ws_disconnect' || type === 'grpc_fail' || type === 'external_check_fail' || type === 'browser_offline') return 'evt-disconnect';
         if (type === 'latency_spike' || type === 'state_change' || type === 'grpc_sync_check') return 'evt-warning';
         return 'evt-info';
     }
@@ -1160,6 +1160,15 @@
             }
         });
 
+        // Track browser online/offline events — fires instantly when WiFi is disabled
+        window.addEventListener('offline', function() {
+            trackEvent('browser_offline', {});
+            saveToLocalStorage();  // Immediate save — critical event
+        });
+        window.addEventListener('online', function() {
+            trackEvent('browser_online', {});
+        });
+
         // Keyboard shortcut: Ctrl+Shift+D to toggle diagnostics panel
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.key === 'D') {
@@ -1289,11 +1298,23 @@
 
                     if (lastDisconnectTime !== null) {
                         var offlineEvents = loadFromLocalStorage();
-                        if (offlineEvents.length > 0 || eventBuffer.length > 0) {
-                            setTimeout(function() {
-                                sendReconnectReport(lastDisconnectTime, now, offlineEvents);
-                            }, 2000);
-                        }
+                        var offlineDuration = now - lastDisconnectTime;
+                        // Send explicit disconnect event to backend for GCP logging
+                        setTimeout(function() {
+                            if (typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
+                                try {
+                                    ws.send(JSON.stringify({
+                                        type: 'connectivity',
+                                        data: {
+                                            event: 'state_change',
+                                            changeType: 'disconnect_recovered',
+                                            detail: 'offline=' + offlineDuration + 'ms browserOnline=' + navigator.onLine
+                                        }
+                                    }));
+                                } catch (e) {}
+                            }
+                            sendReconnectReport(lastDisconnectTime, now, offlineEvents);
+                        }, 2000);
                         lastDisconnectTime = null;
                     }
                     startSummaryTimer();
@@ -1313,9 +1334,12 @@
                     failureCount: wsConnectionStatus.failureCount
                 });
                 trackEvent('ws_disconnect', {
-                    failureCount: wsConnectionStatus.failureCount
+                    failureCount: wsConnectionStatus.failureCount,
+                    browserOnline: navigator.onLine
                 });
                 lastDisconnectTime = Date.now();
+                // Save immediately on disconnect — don't debounce critical events
+                saveToLocalStorage();
                 stopSummaryTimer();
 
                 // Pause gRPC checks while WebSocket is down

@@ -739,14 +739,21 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 'reconnect_count': self.session['reconnect_count']
             }
 
-            safe_log('info', 'WebSocket session ended',
+            # Determine disconnect type based on missed pongs
+            if self.session['missed_pongs'] > 0:
+                disconnect_type = 'connection_lost'
+            else:
+                disconnect_type = 'clean_close'
+
+            safe_log('info', 'WebSocket disconnected: ' + disconnect_type,
                 event='connectivity', action='session_end',
                 session_id=session_id,
                 client_id=str(self.session.get('client_id', '')),
                 client_ip=str(self.session['client_ip']),
                 duration_seconds=str(round(duration, 1)),
                 missed_pongs=str(self.session['missed_pongs']),
-                reconnect_count=str(self.session['reconnect_count']))
+                reconnect_count=str(self.session['reconnect_count']),
+                disconnect_type=disconnect_type)
         except AttributeError:
             safe_log('info', 'WebSocket connection closed (no session)',
                 event='websocket', action='disconnect')
