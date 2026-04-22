@@ -15,6 +15,7 @@ import docker
 import urllib3
 import traceback
 import os
+import socket
 import subprocess
 import time
 import threading
@@ -2984,6 +2985,8 @@ class InterfaceStatsAPIHandler(BaseHandler):
 
             return stats
 
+        except (socket.timeout, OSError) as e:
+            raise ValueError(f"Connection timed out to {device_name} ({device_ip})")
         except pyeapi.eapilib.ConnectionError as e:
             # Preserve auth failure info for upstream handler to detect 'unconfigured' status
             error_str = str(e)
@@ -3225,6 +3228,15 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
 
+        except (socket.timeout, OSError) as e:
+            # Network-level failures: timeout, connection refused, unreachable
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': f'Connection timed out ({device_ip})',
+                'last_check': datetime.now().isoformat()
+            }
         except pyeapi.eapilib.ConnectionError as e:
             # pyeapi raises ConnectionError for auth failures with "Unauthorized" message
             error_str = str(e)
@@ -3280,17 +3292,28 @@ class DeviceStatusAPIHandler(BaseHandler):
                 for device_name in nodes.keys()
             }
 
-            for future in as_completed(futures, timeout=30):
-                device_name = futures[future]
-                try:
-                    result = future.result()
-                    statuses[device_name] = result
-                except Exception as e:
-                    statuses[device_name] = {
-                        'device': device_name,
-                        'status': 'error',
-                        'error': str(e)
-                    }
+            try:
+                for future in as_completed(futures, timeout=60):
+                    device_name = futures[future]
+                    try:
+                        result = future.result()
+                        statuses[device_name] = result
+                    except Exception as e:
+                        statuses[device_name] = {
+                            'device': device_name,
+                            'status': 'error',
+                            'error': str(e)
+                        }
+            except TimeoutError:
+                # Some futures didn't complete in time — mark remaining as timed out
+                for future, device_name in futures.items():
+                    if device_name not in statuses:
+                        statuses[device_name] = {
+                            'device': device_name,
+                            'status': 'down',
+                            'error': 'Status check timed out',
+                            'last_check': datetime.now().isoformat()
+                        }
 
         return statuses
 
@@ -3359,6 +3382,8 @@ class RunningConfigAPIHandler(BaseHandler):
                 'timestamp': datetime.now().isoformat()
             }
 
+        except (socket.timeout, OSError) as e:
+            raise ValueError(f"Connection timed out to {device_name} ({device_ip})")
         except pyeapi.eapilib.ConnectionError as e:
             # Preserve auth failure info for upstream handler to detect 'unconfigured' status
             error_str = str(e)
