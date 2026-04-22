@@ -77,7 +77,7 @@ topologies:
               ram: 150
             branch: v2025.1-03262026
             orderable: true
-            image: base-veos-training-l7-2025-1-4321-20250909
+            image: base-veos-training-l7-2025-1-4321-20260410-203331
             eos:
               - 4.32.1F
     desc: 'Level 7 Training Lab. For use by the Arista Training Team.'
