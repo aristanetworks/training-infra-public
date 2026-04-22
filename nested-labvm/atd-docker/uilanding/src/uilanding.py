@@ -2893,6 +2893,21 @@ class InterfaceStatsAPIHandler(BaseHandler):
                     'status': 'unconfigured',
                     'error': 'Device reachable but authentication failed (not yet configured)'
                 }))
+            elif 'Interface does not exist' in error_str or 'Invalid input' in error_str:
+                self.set_status(404)
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'not_found',
+                    'error': f'Interface {interface} does not exist on {device}'
+                }))
+            elif 'timed out' in error_str.lower() or 'connection timed out' in error_str.lower():
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'down',
+                    'error': f'Device {device} is unreachable'
+                }))
             else:
                 pS(f"InterfaceStatsAPIHandler error: {e}")
                 traceback.print_exc()
