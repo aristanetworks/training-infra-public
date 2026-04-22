@@ -146,6 +146,7 @@
                 error: grpcConnectionStatus.errorMessage,
                 failureCount: grpcConnectionStatus.failureCount
             });
+            cloudLog('error', 'gRPC connectivity test failed: ' + grpcConnectionStatus.errorMessage, { source: 'connectivity-monitor', action: 'grpc_test_error' });
             updateStatusUI();
         });
     }

@@ -255,6 +255,7 @@ export class TopologyManager {
 
         } catch (error) {
             console.error('[TopologyManager] Initialization failed', error);
+            cloudLog('error', 'Topology init failed: ' + error.message, { source: 'topology-manager', action: 'init_failed' });
             this.showError(error.message);
             throw error;
         }

@@ -52,7 +52,9 @@ $(function () {
     $(this).addClass('active');
 
     // Print the button's text to the console
-    console.log($(this).attr('id'));
+    var labId = $(this).attr('id');
+    console.log(labId);
+    cloudLog('info', 'Lab selected: ' + labId, { source: 'script', action: 'lab_selected' });
 
     // Prevent default action if it's an anchor tag
     return false;
