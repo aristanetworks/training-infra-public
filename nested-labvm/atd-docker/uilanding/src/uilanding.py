@@ -168,7 +168,6 @@ def get_metadata_extract(attribute):
             return None
     except requests.exceptions.RequestException as e:
         safe_log('error', f'Error in get_metadata_extract: {e}', event='error', handler='get_metadata_extract')
-        print(f"Error fetching metadata: {e}")
         return None
 
 HonorLockClientID = get_metadata_extract('honorlockClientID')
@@ -253,8 +252,8 @@ class LoginHandler(BaseHandler):
             try:
                 decoded_cred = decodeID(self.get_argument('auth'))
                 AUTH = self._validate_credentials(decoded_cred['user'], decoded_cred['pwd'])
-            except:
-                pass
+            except Exception as e:
+                safe_log('warning', f'Auth parameter decode failed: {e}', event='auth', action='decode_failure')
         if AUTH and decoded_cred:
             self.set_secure_cookie("user", decoded_cred['user'])
             self.redirect('/')
@@ -356,7 +355,6 @@ class topoRequestHandler(BaseHandler):
                         gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
                 except Exception as e:
                     safe_log('error', f'Error in topoRequestHandler: {e}', event='error', handler='topoRequestHandler')
-                    pS(f"Error while looking for servers in GUI {e}")
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
@@ -641,16 +639,15 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             else:
                 pS("[{}] WS unknown type: {}".format(session_id, msg_type))
 
-        except:
-            safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.on_message: {e}', event='error', handler='topoDataHandler')
             pS("WS ERROR")
 
     def schedule_update(self):
         try:
             self.timeout = tornado.ioloop.IOLoop.instance().add_timeout(timedelta(seconds=30),self.keepalive)
-        except:
-            safe_log('error', 'Error in topoDataHandler.schedule_update', event='error', handler='topoDataHandler')
-            pS("Error with timeout call")
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.schedule_update: {e}', event='error', handler='topoDataHandler')
         
     def keepalive(self):
         try:
@@ -716,9 +713,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                     'last_rtt': self.session['last_rtt'],
                     'reconnect_count': self.session['reconnect_count']
                 }
-        except:
-            safe_log('error', 'Error in topoDataHandler.keepalive',
-                event='error', handler='topoDataHandler')
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.keepalive: {e}', event='error', handler='topoDataHandler')
             pS("ERROR sending update")
         finally:
             self.schedule_update()
@@ -756,8 +752,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             if hasattr(self, 'summary_timeout'):
                 tornado.ioloop.IOLoop.instance().remove_timeout(self.summary_timeout)
             pS('connection closed')
-        except:
-            pS('connection already closed')
+        except Exception:
+            safe_log('warning', 'Timeout already removed on close', event='websocket', action='timeout_cleanup')
  
     def check_origin(self, origin):
         return(True)
@@ -906,11 +902,6 @@ def getAPI(action):
         return(json.loads(response.text))
     except Exception as e:
         safe_log('error', f'Error in getAPI: {e}', event='error', handler='getAPI')
-        pS("Error calling backend API.")
-        traceback.print_exc()
-        print("Message: {err}".format(
-            err = str(e),
-        ))
 
 
 def encodeID(tmp_data):
@@ -942,7 +933,8 @@ def getUptime(instanceIP):
         else:
             instance_data['runtime'] = 12
         return(instance_data)
-    except:
+    except Exception as e:
+        safe_log('warning', f'Uptime fetch failed for {instanceIP}', event='uptime', action='fetch_failed')
         return({
             'boottime': 0,
             'uptime': 0,
@@ -960,17 +952,14 @@ def getEventStatus(instanceName, instanceZone):
         else:
             response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
         return(response.json())
-    except ValueError:
+    except ValueError as e:
         safe_log('error', f'Error in getEventStatus: ValueError for {instanceName}', event='error', handler='getEventStatus')
-        pS("Value Error retrieving status for {0}".format(instanceName))
         return(False)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
         safe_log('error', f'Error in getEventStatus: ConnectionError for {instanceName}', event='error', handler='getEventStatus')
-        pS("Connection Error retrieving status for {0}".format(instanceName))
         return(False)
-    except:
-        safe_log('error', f'Error in getEventStatus: Unknown error for {instanceName}', event='error', handler='getEventStatus')
-        pS("Error retrieving status for {0}".format(instanceName))
+    except Exception as e:
+        safe_log('error', f'Error in getEventStatus: {e} for {instanceName}', event='error', handler='getEventStatus')
         return(False)
 
 
@@ -1028,7 +1017,6 @@ def _get_topo_build_data():
         pS(f"Cached topo_build.yml from {topo_path}")
     except Exception as e:
         safe_log('error', f'Error in _get_topo_build_data: {e}', event='error', handler='_get_topo_build_data')
-        pS(f"Error reading topo_build.yml: {e}")
         _TOPO_BUILD_CACHE = {}  # Empty dict to avoid repeated failures
 
     return _TOPO_BUILD_CACHE
@@ -1189,7 +1177,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_nodes.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
     try:
@@ -1214,7 +1202,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(hosts_data['hosts'])} user-added hosts into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_hosts.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_hosts.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
     try:
@@ -1238,7 +1226,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_firewalls.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_firewalls.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added VeloCloud devices from user_velo.yaml
     try:
@@ -1266,7 +1254,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_velo.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_velo.yaml: {e}', event='config', handler='get_all_devices')
 
     _ALL_DEVICES_CACHE = devices
     pS(f"Cached {len(devices)} devices from topo_build.yml + user files")
@@ -1307,7 +1295,7 @@ def update_hubspot_handler(email, action, project):
                 error_detail = response.json()
                 print(f"Error details: {error_detail}")
                 return error_detail
-            except:
+            except Exception:
                 return {"error": error_msg, "status_code": response.status_code}
 
     except requests.exceptions.Timeout:
@@ -1440,7 +1428,6 @@ class LabHandler(tornado.web.RequestHandler):
 
 class LabStausHandler(tornado.web.RequestHandler):
     def get(self):
-        safe_log('info', 'Lab status queried', event='lab', action='status_check')
         self.set_header("Access-Control-Allow-Origin", "*")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
@@ -1731,7 +1718,8 @@ class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
                 instance_data['exam_start_time'] = EXAM_START_TIME
 
                 self.write(json.dumps(instance_data))
-            except:
+            except Exception as e:
+                safe_log('warning', f'Uptime service not ready: {e}', event='uptime', handler='UptimeWithRuntimeHandler')
                 # If uptime service is not ready, return default values
                 self.write(json.dumps({
                     'boottime': 0,
@@ -2225,7 +2213,7 @@ class TopologyAPIHandler(BaseHandler):
         except PermissionError:
             return {'error': f'Permission denied accessing: {topo_path}', 'error_type': 'permission'}
         except Exception as e:
-            pS(f"Error parsing topology file: {e}")
+            safe_log('error', f'Error parsing topology file: {e}', event='config', handler='parse_topology')
             return {'error': f'Failed to parse topology file: {str(e)}', 'error_type': 'parse_error'}
 
         # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
@@ -2244,7 +2232,7 @@ class TopologyAPIHandler(BaseHandler):
                     topo_data['nodes'].extend(user_data['nodes'])
                     pS(f"Merged {len(user_data['nodes'])} user-added nodes from {user_nodes_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_nodes.yaml: {e}")
+            safe_log('warning', f'Error loading user_nodes.yaml: {e}', event='config', handler='parse_topology')
             # Continue without user nodes - don't fail the whole topology load
 
         # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
@@ -2272,7 +2260,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(hosts_data['hosts'])} user-added hosts from {user_hosts_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_hosts.yaml: {e}")
+            safe_log('warning', f'Error loading user_hosts.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
         user_firewalls_path = '/etc/atd/user_firewalls.yaml'
@@ -2299,7 +2287,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls from {user_firewalls_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_firewalls.yaml: {e}")
+            safe_log('warning', f'Error loading user_firewalls.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added VeloCloud devices from user_velo.yaml
         user_velo_path = '/etc/atd/user_velo.yaml'
@@ -2337,7 +2325,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices from {user_velo_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_velo.yaml: {e}")
+            safe_log('warning', f'Error loading user_velo.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added CloudEOS devices from user_cloudeos.yaml
         user_cloudeos_path = '/etc/atd/user_cloudeos.yaml'
@@ -2365,7 +2353,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged user-added CloudEOS devices from {user_cloudeos_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_cloudeos.yaml: {e}")
+            safe_log('warning', f'Error loading user_cloudeos.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added links from user_links.yaml
         # These add neighbor entries to existing topology nodes
@@ -2398,7 +2386,7 @@ class TopologyAPIHandler(BaseHandler):
                     if links_merged > 0:
                         pS(f"Merged {links_merged} user-added links from {user_links_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_links.yaml: {e}")
+            safe_log('warning', f'Error loading user_links.yaml: {e}', event='config', handler='parse_topology')
 
         # Validate topo_data structure
         if topo_data is None:
@@ -2665,7 +2653,6 @@ class TopologyAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in TopologyAPIHandler: {e}', event='error', handler='TopologyAPIHandler')
-            pS(f"Error in TopologyAPIHandler: {e}")
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': f'Internal server error: {str(e)}'}))
@@ -2796,8 +2783,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except FileNotFoundError as e:
-            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Configuration file not found: {e}")
+            safe_log('error', f'Error in DevicesAPIHandler: file not found: {e}', event='error', handler='DevicesAPIHandler')
             self.set_status(503)
             self.write(json.dumps({
                 'error': 'Device configuration not available',
@@ -2806,8 +2792,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except (yaml.YAMLError, json.JSONDecodeError) as e:
-            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Configuration parse error: {e}")
+            safe_log('error', f'Error in DevicesAPIHandler: parse error: {e}', event='error', handler='DevicesAPIHandler')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({
@@ -2818,7 +2803,6 @@ class DevicesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Unexpected error: {e}")
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({
@@ -2886,7 +2870,7 @@ class InterfaceStatsAPIHandler(BaseHandler):
             error_str = str(e)
             # Check for authentication failures - device is up but not configured
             if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
-                pS(f"InterfaceStatsAPIHandler: Auth failed for {device} (unconfigured)")
+                safe_log('warning', f'InterfaceStatsAPIHandler: Auth failed for {device}', event='api', handler='InterfaceStatsAPIHandler', device=str(device))
                 self.write(json.dumps({
                     'device': device,
                     'interface': interface,
@@ -2909,8 +2893,7 @@ class InterfaceStatsAPIHandler(BaseHandler):
                     'error': f'Device {device} is unreachable'
                 }))
             else:
-                pS(f"InterfaceStatsAPIHandler error: {e}")
-                traceback.print_exc()
+                safe_log('error', f'InterfaceStatsAPIHandler error: {e}', event='api', handler='InterfaceStatsAPIHandler')
                 self.set_status(500)
                 self.write(json.dumps({'error': error_str}))
 
@@ -3059,7 +3042,6 @@ class DeviceStatusAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
-        safe_log('info', 'Device status check requested', event='api', endpoint='device_status')
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -3103,7 +3085,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         if not device_ip:
             device_ip = get_device_ip_from_sources(device_name)
 
-        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}, category: {device_category}")
+        safe_log('info', f'Device status check: {device_name} -> {device_ip}', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
         if not device_ip:
             result = {
                 'device': device_name,
@@ -3167,11 +3149,11 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
         except FileNotFoundError:
             # ping command not available, fallback to TCP check on port 22 (SSH)
-            pS(f"[DeviceStatus] Ping not available, trying TCP check for {device_name}")
+            safe_log('warning', f'Ping unavailable for {device_name}, trying TCP', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             pass
         except Exception as e:
             # Log the error but try TCP fallback
-            pS(f"[DeviceStatus] Ping failed for {device_name}: {e}, trying TCP check")
+            safe_log('warning', f'Ping failed for {device_name}: {e}, trying TCP', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             pass
 
         # Fallback: TCP check on SSH port (22)
@@ -3198,7 +3180,7 @@ class DeviceStatusAPIHandler(BaseHandler):
                     'last_check': datetime.now().isoformat()
                 }
         except Exception as e:
-            pS(f"[DeviceStatus] TCP check also failed for {device_name}: {e}")
+            safe_log('error', f'TCP check failed for {device_name}: {e}', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             return {
                 'device': device_name,
                 'ip': device_ip,
@@ -3296,7 +3278,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         statuses = {}
 
         # Debug logging
-        pS(f"[DeviceStatus] Found {len(nodes)} devices from all sources")
+        safe_log('info', f'Found {len(nodes)} devices from all sources', event='api', handler='DeviceStatusAPIHandler')
 
         # Use thread pool for parallel checks
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -3358,7 +3340,7 @@ class RunningConfigAPIHandler(BaseHandler):
             self.write(json.dumps(config))
         except Exception as e:
             safe_log('error', f'Error in RunningConfigAPIHandler: {e}', event='error', handler='RunningConfigAPIHandler')
-            pS(f"RunningConfigAPIHandler error: {e}")
+            safe_log('error', f'RunningConfigAPIHandler error: {e}', event='api', handler='RunningConfigAPIHandler')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3506,7 +3488,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle new WebSocket connection from browser."""
         user = self.get_secure_cookie("user")
         if not user:
-            pS("[Capture WS Proxy] Unauthenticated connection - closing")
+            safe_log('warning', 'Unauthenticated capture WS connection', event='capture', action='ws_reject')
             self.close(code=1008, reason="Authentication required")
             return
 
@@ -3514,7 +3496,6 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         self.client_id = str(uuid.uuid4())[:8]
         safe_log('info', 'Capture WebSocket opened', event='capture', action='ws_connect',
                  client_id=self.client_id, user=str(self.current_user))
-        pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
 
         # Connect to upstream capture service
         await self.connect_upstream()
@@ -3524,11 +3505,11 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         from tornado.websocket import websocket_connect
         import asyncio
 
-        pS(f"[Capture WS Proxy] Attempting upstream connection...")
+        safe_log('info', 'Capture WS upstream connecting', event='capture', action='upstream_connect')
 
         try:
             # Try primary URL first (works on Docker Desktop)
-            pS(f"[Capture WS Proxy] Trying primary: {self.CAPTURE_SERVICE_URL}")
+            safe_log('info', f'Capture WS trying primary: {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_primary')
             self.upstream_ws = await asyncio.wait_for(
                 websocket_connect(
                     self.CAPTURE_SERVICE_URL,
@@ -3537,12 +3518,12 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                 timeout=5.0
             )
             self.is_connected = True
-            pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL}")
+            safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_connected')
         except Exception as e:
-            pS(f"[Capture WS Proxy] Primary connection failed: {e}, trying fallback...")
+            safe_log('warning', f'Capture WS primary failed: {e}, trying fallback', event='capture', action='upstream_primary_failed')
             try:
                 # Try fallback URL (works on Linux Docker)
-                pS(f"[Capture WS Proxy] Trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                safe_log('info', f'Capture WS trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_fallback')
                 self.upstream_ws = await asyncio.wait_for(
                     websocket_connect(
                         self.CAPTURE_SERVICE_URL_FALLBACK,
@@ -3551,9 +3532,9 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                     timeout=5.0
                 )
                 self.is_connected = True
-                pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_connected')
             except Exception as e2:
-                pS(f"[Capture WS Proxy] Fallback connection also failed: {e2}")
+                safe_log('error', f'Capture WS fallback also failed: {e2}', event='capture', action='upstream_all_failed')
                 try:
                     self.write_message(json.dumps({
                         'type': 'error',
@@ -3567,7 +3548,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle message from capture service, relay to browser."""
         if message is None:
             # Upstream connection closed
-            pS(f"[Capture WS Proxy] Upstream connection closed")
+            safe_log('info', 'Capture WS upstream connection closed', event='capture', action='upstream_closed')
             self.is_connected = False
             if self.ws_connection:
                 self.write_message(json.dumps({
@@ -3576,22 +3557,12 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                 }))
             return
 
-        # Debug: log first few messages
-        try:
-            msg_data = json.loads(message)
-            if msg_data.get('type') == 'packet':
-                pkt_num = msg_data.get('data', {}).get('number', 0)
-                if pkt_num <= 3:
-                    pS(f"[Capture WS Proxy] Received packet {pkt_num} from upstream, relaying to browser")
-        except:
-            pass
-
         # Relay message to browser client
         try:
             if self.ws_connection:
                 self.write_message(message)
         except Exception as e:
-            pS(f"[Capture WS Proxy] Error relaying to browser: {e}")
+            safe_log('error', f'Capture WS relay to browser failed: {e}', event='capture', action='relay_browser_error')
 
     def on_message(self, message):
         """Handle message from browser, relay to capture service."""
@@ -3606,7 +3577,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
             # Relay message to capture service
             self.upstream_ws.write_message(message)
         except Exception as e:
-            pS(f"[Capture WS Proxy] Error relaying to upstream: {e}")
+            safe_log('error', f'Capture WS relay to upstream failed: {e}', event='capture', action='relay_upstream_error')
             self.write_message(json.dumps({
                 'type': 'error',
                 'message': f'Failed to send to capture service: {e}'
@@ -3616,7 +3587,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle WebSocket close from browser."""
         safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect',
                  client_id=self.client_id)
-        pS(f"[Capture WS Proxy] Client {self.client_id} disconnected")
+        safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect', client_id=self.client_id)
 
         # Close upstream connection
         if self.upstream_ws:
@@ -3659,7 +3630,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 bridges = data.get('bridges', [])
             except Exception as e:
-                pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'CaptureBridges primary failed: {e}', event='proxy', handler='capture_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
@@ -3668,7 +3639,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     bridges = data.get('bridges', [])
                 except Exception as e2:
-                    pS(f"[CaptureBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'CaptureBridges fallback also failed: {e2}', event='proxy', handler='capture_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({
                         'error': 'Capture service unavailable',
@@ -3686,7 +3657,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in CaptureBridgesAPIHandler: {e}', event='error', handler='CaptureBridgesAPIHandler')
-            pS(f"[CaptureBridges] Error: {e}")
+            safe_log('error', f'CaptureBridges error: {e}', event='proxy', handler='capture_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3726,7 +3697,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                                     short_code = self.get_short_code(device_name).lower()
                                     device_lookup[short_code] = device_name
             except Exception as e:
-                pS(f"Warning: Error loading {user_file_path} for bridge enrichment: {e}")
+                safe_log('warning', f'Error loading {user_file_path} for bridge enrichment: {e}', event='config', handler='LatencyBridgesAPIHandler')
 
         # Enrich each bridge
         for bridge in bridges:
@@ -3862,7 +3833,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 bridges = data.get('bridges', [])
             except Exception as e:
-                pS(f"[LatencyBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyBridges primary failed: {e}', event='proxy', handler='latency_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/bridges",
@@ -3871,7 +3842,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     bridges = data.get('bridges', [])
                 except Exception as e2:
-                    pS(f"[LatencyBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyBridges fallback also failed: {e2}', event='proxy', handler='latency_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({
                         'error': 'Latency service unavailable',
@@ -3886,7 +3857,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in LatencyBridgesAPIHandler: {e}', event='error', handler='LatencyBridgesAPIHandler')
-            pS(f"[LatencyBridges] Error: {e}")
+            safe_log('error', f'LatencyBridges error: {e}', event='proxy', handler='latency_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3932,7 +3903,7 @@ class LatencyEnableAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyEnable] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyEnable primary failed: {e}', event='proxy', handler='latency_enable', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/enable",
@@ -3945,13 +3916,13 @@ class LatencyEnableAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyEnable] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyEnable fallback also failed: {e2}', event='proxy', handler='latency_enable', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyEnableAPIHandler: {e}', event='error', handler='LatencyEnableAPIHandler')
-            pS(f"[LatencyEnable] Error: {e}")
+            safe_log('error', f'LatencyEnable error: {e}', event='proxy', handler='latency_enable')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3997,7 +3968,7 @@ class LatencyDisableAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyDisable] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyDisable primary failed: {e}', event='proxy', handler='latency_disable', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable",
@@ -4010,13 +3981,13 @@ class LatencyDisableAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyDisable] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyDisable fallback also failed: {e2}', event='proxy', handler='latency_disable', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyDisableAPIHandler: {e}', event='error', handler='LatencyDisableAPIHandler')
-            pS(f"[LatencyDisable] Error: {e}")
+            safe_log('error', f'LatencyDisable error: {e}', event='proxy', handler='latency_disable')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4053,7 +4024,7 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyDisableAll] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyDisableAll primary failed: {e}', event='proxy', handler='latency_disable_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable-all",
@@ -4066,13 +4037,13 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyDisableAll] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyDisableAll fallback also failed: {e2}', event='proxy', handler='latency_disable_all', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyDisableAllAPIHandler: {e}', event='error', handler='LatencyDisableAllAPIHandler')
-            pS(f"[LatencyDisableAll] Error: {e}")
+            safe_log('error', f'LatencyDisableAll error: {e}', event='proxy', handler='latency_disable_all')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4109,7 +4080,7 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsBridges primary failed: {e}', event='proxy', handler='impairments_bridges', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/bridges",
@@ -4120,13 +4091,13 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsBridges fallback also failed: {e2}', event='proxy', handler='impairments_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsBridgesAPIHandler: {e}', event='error', handler='ImpairmentsBridgesAPIHandler')
-            pS(f"[ImpairmentsBridges] Error: {e}")
+            safe_log('error', f'ImpairmentsBridges error: {e}', event='proxy', handler='impairments_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4174,7 +4145,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsConfigure] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsConfigure primary failed: {e}', event='proxy', handler='impairments_configure', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/configure",
@@ -4187,7 +4158,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsConfigure] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsConfigure fallback also failed: {e2}', event='proxy', handler='impairments_configure', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
@@ -4197,7 +4168,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsConfigureAPIHandler: {e}', event='error', handler='ImpairmentsConfigureAPIHandler')
-            pS(f"[ImpairmentsConfigure] Error: {e}")
+            safe_log('error', f'ImpairmentsConfigure error: {e}', event='proxy', handler='impairments_configure')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4244,7 +4215,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsClear] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsClear primary failed: {e}', event='proxy', handler='impairments_clear', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear",
@@ -4257,7 +4228,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsClear] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsClear fallback also failed: {e2}', event='proxy', handler='impairments_clear', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
@@ -4267,7 +4238,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsClearAPIHandler: {e}', event='error', handler='ImpairmentsClearAPIHandler')
-            pS(f"[ImpairmentsClear] Error: {e}")
+            safe_log('error', f'ImpairmentsClear error: {e}', event='proxy', handler='impairments_clear')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4305,7 +4276,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsClearAll] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsClearAll primary failed: {e}', event='proxy', handler='impairments_clear_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
@@ -4318,13 +4289,13 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsClearAll] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsClearAll fallback also failed: {e2}', event='proxy', handler='impairments_clear_all', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsClearAllAPIHandler: {e}', event='error', handler='ImpairmentsClearAllAPIHandler')
-            pS(f"[ImpairmentsClearAll] Error: {e}")
+            safe_log('error', f'ImpairmentsClearAll error: {e}', event='proxy', handler='impairments_clear_all')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -4419,12 +4390,12 @@ class NodeBuilderProxyHandler(BaseHandler):
 
             if error:
                 # Connection error - try fallback
-                pS(f"[NodeBuilderProxy] Primary connection failed: {error}, trying fallback...")
+                safe_log('warning', f'NodeBuilderProxy primary failed: {error}', event='proxy', handler='nodebuilder_proxy', action='primary_failed')
                 response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
 
             if error:
                 # Both failed to connect
-                pS(f"[NodeBuilderProxy] Fallback also failed: {error}")
+                safe_log('error', f'NodeBuilderProxy fallback also failed: {error}', event='proxy', handler='nodebuilder_proxy', action='all_failed')
                 self.set_status(503)
                 self.write(json.dumps({
                     'error': 'Nodebuilder service unavailable',
@@ -4439,10 +4410,35 @@ class NodeBuilderProxyHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in NodeBuilderProxyHandler: {e}', event='error', handler='NodeBuilderProxyHandler')
-            pS(f"[NodeBuilderProxy] Error: {e}")
+            safe_log('error', f'NodeBuilderProxy error: {e}', event='proxy', handler='nodebuilder_proxy')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
+
+
+class ClientLogHandler(tornado.web.RequestHandler):
+    """Receive client-side log events from browser JS and forward to Cloud Logging."""
+    VALID_LEVELS = {'info', 'warning', 'error'}
+
+    def post(self):
+        try:
+            data = json.loads(self.request.body)
+            level = data.get('level', 'info')
+            if level not in self.VALID_LEVELS:
+                level = 'info'
+            message = str(data.get('message', ''))[:500]
+            source = str(data.get('source', 'unknown'))[:50]
+            action = str(data.get('action', ''))[:50]
+            kwargs = {'event': 'client', 'source': source}
+            if action:
+                kwargs['action'] = action
+            for key in ('device', 'topology', 'session_id', 'client_id'):
+                if key in data:
+                    kwargs[key] = str(data[key])[:100]
+            safe_log(level, message, **kwargs)
+            self.set_status(204)
+        except Exception:
+            self.set_status(204)
 
 
 class ConnectivityStatusHandler(tornado.web.RequestHandler):
@@ -4468,6 +4464,7 @@ if __name__ == "__main__":
     }
 
     app = tornado.web.Application([
+        (r'/td-api/client-log', ClientLogHandler),
         (r'/exam-submitted', ExamSubmittedRedirectHandler),
         (r'/exam-already-running', ExamAlreadyRunningHandler),
         (r'/exam-redo', ExamRedoRedirectHandler),

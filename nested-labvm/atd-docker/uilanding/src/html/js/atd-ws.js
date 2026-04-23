@@ -105,6 +105,7 @@ function createWS(SOCK_URL) {
     // Create a websocket connection
     ws = new WebSocket(SOCK_URL);
     ws.onopen = function () {
+        cloudLog('info', 'WebSocket connected', { source: 'atd-ws', action: 'ws_connect' });
         // Note: We don't set wsConnected here because we wait for the first message
         // to confirm the connection is fully working. ConnectivityMonitor is updated
         // separately for UI status display.
@@ -123,6 +124,7 @@ function createWS(SOCK_URL) {
     };
 
     ws.onclose = function (evt) {
+        cloudLog('warning', 'WebSocket disconnected', { source: 'atd-ws', action: 'ws_disconnect' });
         // Reset wsConnected flag and update connectivity monitor
         setWSConnected(false);
 
@@ -151,6 +153,7 @@ function createWS(SOCK_URL) {
         // Handle Start Exam button visibility and state based on CVP status
         // Read flags LIVE from window (not snapshots) to get current values
         if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
+            cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
             // Only show modal for exam labs when we have confirmed the exam status
             // Using live window references to ensure we have the latest values
             if (window.examStatusLoaded && window.isExamLab) {

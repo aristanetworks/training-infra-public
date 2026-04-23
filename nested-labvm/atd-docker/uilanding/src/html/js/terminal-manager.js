@@ -68,6 +68,7 @@ const TerminalManager = {
       this.renderDeviceTree(data.groups);
     } catch (error) {
       console.error('Failed to load devices:', error);
+      cloudLog('error', 'Failed to load devices: ' + error.message, { source: 'terminal-manager', action: 'device_load_failed' });
       this.showDeviceLoadError(deviceGroups, 'Failed to load devices', error.message, true);
     }
   },
@@ -276,6 +277,7 @@ const TerminalManager = {
     const effectiveVmName = vmName || name;
     const callTime = performance.now();
 
+    cloudLog('info', 'Terminal opened: ' + name + ' (' + type + ')', { source: 'terminal-manager', action: 'terminal_open', device: name });
     this._debug && console.log(`%c[DEBUG openTerminal] ENTER name="${name}" ip="${ip}" type="${type}" time=${callTime.toFixed(2)}ms`, 'color: #fbb500; font-weight: bold');
     this._debug && console.log(`[DEBUG openTerminal]   tabs.length=${this.tabs.length} _tabCounter=${this._tabCounter} activeTabId=${this.activeTabId}`);
     this._debug && console.log(`[DEBUG openTerminal]   current tabs:`, this.tabs.map(t => `${t.id}(${t.name}/${t.type})`).join(', '));
@@ -598,6 +600,7 @@ const TerminalManager = {
 
     } catch (error) {
       console.error('[TerminalManager] Failed to open noVNC terminal:', error);
+      cloudLog('error', 'noVNC terminal failed: ' + error.message, { source: 'terminal-manager', action: 'novnc_failed', device: name });
       alert(`Failed to open desktop: ${error.message}`);
     }
   },
@@ -670,6 +673,7 @@ const TerminalManager = {
     if (tabIndex === -1) return;
 
     const tab = this.tabs[tabIndex];
+    cloudLog('info', 'Terminal closed: ' + tab.name + ' (' + tab.type + ')', { source: 'terminal-manager', action: 'terminal_close', device: tab.name });
 
     // Remove tab element
     const tabEl = document.getElementById(tabId);
@@ -1265,6 +1269,7 @@ const TerminalManager = {
 
     } catch (error) {
       console.error('[TerminalManager] Failed to open noVNC in split pane:', error);
+      cloudLog('error', 'noVNC split pane failed: ' + error.message, { source: 'terminal-manager', action: 'novnc_split_failed' });
       contentEl.innerHTML = `<div class="split-pane-error">Failed to open desktop: ${error.message}</div>`;
     }
   },
