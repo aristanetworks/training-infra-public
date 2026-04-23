@@ -53,8 +53,9 @@ COPY ./src/topology_converter.py /usr/local/bin/topology_converter.py
 
 COPY ./src/cloud_logging_utils.py /usr/local/lib/python3.9/site-packages/
 COPY ./src/uilanding.py /usr/local/bin/uilanding
+COPY ./scripts/connectivity-report.py /usr/local/bin/connectivity-report
 
-RUN chmod +x /usr/local/bin/uilanding
+RUN chmod +x /usr/local/bin/uilanding /usr/local/bin/connectivity-report
 
 EXPOSE 80
 

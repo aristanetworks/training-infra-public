@@ -54,6 +54,63 @@ Passwords are never logged.
 
 ---
 
+## Connectivity Monitoring Events
+
+Session lifecycle and connectivity diagnostics are logged with `event=connectivity`.
+
+### Session Lifecycle
+| Action | Level | Labels | Description |
+|--------|-------|--------|-------------|
+| `session_start` | info | `session_id`, `client_ip`, `reconnect_count` | WebSocket session opened |
+| `session_end` | info | `session_id`, `client_ip`, `duration_seconds`, `missed_pongs`, `reconnect_count` | WebSocket session closed |
+| `reconnect` | info | `session_id`, `client_ip`, `reconnect_gap_seconds`, `reconnect_count` | Client reconnected within 5 min of disconnect |
+| `session_summary` | info | `session_id`, `client_ip`, `duration_seconds`, `missed_pongs`, `last_rtt_ms`, `reconnect_count`, `debug_mode` | Periodic summary every 5 minutes |
+
+### Client Reports (via WebSocket)
+| Action | Level | Labels | Description |
+|--------|-------|--------|-------------|
+| `periodic_summary` | info | `session_id`, `client_ip`, `ws_latency_ms`, `grpc_status`, `grpc_failures`, `event_count`, `session_uptime_s` | Client-side summary every 5 minutes |
+| `reconnect_report` | warning | `session_id`, `client_ip`, `offline_duration_ms`, `offline_from`, `offline_to`, `buffered_event_count` | Client reconnect with offline event data |
+| `state_change` | info | `session_id`, `client_ip`, `change_type`, `detail` | Client connectivity state change |
+
+### Heartbeat
+| Action | Level | Labels | Description |
+|--------|-------|--------|-------------|
+| `pong` | debug | `session_id`, `rtt_ms` | Pong received (debug mode only) |
+| `missed_pongs` | warning | `session_id`, `missed_pongs`, `last_pong_age_seconds` | 3+ missed pong responses |
+
+### Debug Mode
+| Action | Level | Labels | Description |
+|--------|-------|--------|-------------|
+| `debug_toggle` | info | `session_id`, `debug_mode` | Debug mode toggled on/off |
+| `buffered_event` | debug | `session_id`, `event_type`, `event_ts`, `event_data` | Individual buffered event (debug mode only) |
+
+### GCP Log Explorer Queries for Connectivity
+
+```
+# All connectivity events for a session
+resource.type="global"
+labels.event="connectivity"
+labels.session_id="<session-id>"
+
+# All reconnect events (find problem clients)
+resource.type="global"
+labels.event="connectivity"
+labels.action="reconnect"
+
+# Sessions with missed pongs (flaky connections)
+resource.type="global"
+labels.event="connectivity"
+labels.action="missed_pongs"
+
+# Client reconnect reports with offline data
+resource.type="global"
+labels.event="connectivity"
+labels.action="reconnect_report"
+```
+
+---
+
 ## Lab Operations
 
 | Log Message | Level | Labels | Description |
