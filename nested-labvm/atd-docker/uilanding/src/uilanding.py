@@ -34,52 +34,11 @@ from topology_converter import (
 # Packet capture runs in the dedicated captureservice container with host network mode.
 # uilanding proxies WebSocket connections to the capture service.
 
-# Cloud Logging Setup
-try:
-    from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
-    logger = setup_cloud_logging('uilanding')
-except Exception:
-    import logging as _logging
-    logger = _logging.getLogger('uilanding')
-    logger.addHandler(_logging.StreamHandler())
-    logger.setLevel(_logging.INFO)
-
-CONNECTIVITY_LOG_PATH = '/var/log/atd/connectivity.jsonl'
-CONNECTIVITY_LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
-
-def _write_connectivity_log(level, message, labels):
-    """Write connectivity events to local JSONL file for offline reporting"""
-    try:
-        # Rotate if file exceeds max size
-        if os.path.exists(CONNECTIVITY_LOG_PATH):
-            if os.path.getsize(CONNECTIVITY_LOG_PATH) > CONNECTIVITY_LOG_MAX_BYTES:
-                rotated = CONNECTIVITY_LOG_PATH + '.1'
-                if os.path.exists(rotated):
-                    os.remove(rotated)
-                os.rename(CONNECTIVITY_LOG_PATH, rotated)
-
-        os.makedirs(os.path.dirname(CONNECTIVITY_LOG_PATH), exist_ok=True)
-        entry = json.dumps({
-            'ts': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-            'level': level,
-            'message': message,
-            'labels': labels
-        })
-        with open(CONNECTIVITY_LOG_PATH, 'a') as f:
-            f.write(entry + '\n')
-    except Exception:
-        pass
-
-def safe_log(level, message, **kwargs):
-    """Log safely - never crash the application due to logging errors"""
-    try:
-        labels = {k: str(v) for k, v in kwargs.items()}
-        getattr(logger, level)(message, extra={'labels': labels} if labels else {})
-        # Write connectivity events to local JSONL file
-        if kwargs.get('event') == 'connectivity':
-            _write_connectivity_log(level, message, labels)
-    except Exception:
-        pass
+from utils import (
+    safe_log, pS, encodeID, decodeID, normalize_device_name,
+    getAPI, getUptime, getEventStatus, genCookieSecret, update_hubspot_handler,
+    CONNECTIVITY_LOG_PATH, CONNECTIVITY_LOG_MAX_BYTES
+)
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -87,6 +46,12 @@ urllib3.disable_warnings()
 
 PORT = 80
 TOPO_API = 'atd-conftopo'
+
+# Module-level Docker client (reuse connection, avoid per-request overhead)
+try:
+    DOCKER_CLIENT = docker.from_env(timeout=10)
+except Exception:
+    DOCKER_CLIENT = None
 BASE_PATH = '/opt/topo/html/'
 ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 
@@ -96,27 +61,30 @@ MENU_BASE_PATH = '/opt/menus/'
 EXAM_END_TIME = 0
 EXAM_START_TIME = 0
 # Open yaml for the default yaml and read what file to lookup for default menu
+MAX_STARTUP_WAIT = 300  # 5 minutes
 default_menu_file_generated_flag = (os.path.join(MENU_BASE_PATH, 'labguides-done.txt'))
-print ("Waiting for labguides-done.txt file existance to start the server")
+print ("Waiting for labguides-done.txt file existence to start the server")
+_startup_wait_start = time.time()
 while True:
     if os.path.exists(default_menu_file_generated_flag):
         print("Deleting labguides-done.txt file to start the server")
         os.remove(default_menu_file_generated_flag)
         break
+    elif time.time() - _startup_wait_start > MAX_STARTUP_WAIT:
+        print("WARNING: Timed out waiting for labguides-done.txt after 5 minutes, proceeding anyway")
+        break
     else:
         print("labguides-done.txt file does not exist yet, waiting for 1 sec")
         sleep(1)
-default_menu_file = open(MENU_BASE_PATH+'default.yaml')
-default_menu_info = YAML().load(default_menu_file)
-default_menu_file.close()
+with open(MENU_BASE_PATH+'default.yaml', 'r') as default_menu_file:
+    default_menu_info = YAML().load(default_menu_file)
 if str(default_menu_info['default_menu']).lower() == 'ssh':
     NOMENUOPTIONFILE =True
 else:
     # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
     NOMENUOPTIONFILE = False
-    menu_file = open('/opt/menus/{0}'.format(default_menu_info['default_menu']))
-    MENU_ITEMS = YAML().load(menu_file)  
-    menu_file.close()
+    with open('/opt/menus/{0}'.format(default_menu_info['default_menu']), 'r') as menu_file:
+        MENU_ITEMS = YAML().load(menu_file)
     DEFAULT_MENU_FILE_VALUE = default_menu_info['default_menu'].replace('.yaml', '')
     
 
@@ -124,9 +92,14 @@ with open(MODULE_FILE, 'r') as mf:
     MOD_YAML = YAML().load(mf)
 
 # Add in check to make sure arista password has been updated
+_startup_wait_start = time.time()
 while True:
-    host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+    with open(ATD_ACCESS_PATH, 'r') as f:
+        host_yaml = YAML().load(f)
     if host_yaml['login_info']['jump_host']['pw'] == 'REPLACE_PWD':
+        if time.time() - _startup_wait_start > MAX_STARTUP_WAIT:
+            print("WARNING: Timed out waiting for password update after 5 minutes, proceeding anyway")
+            break
         sleep(2)
     else:
         break
@@ -161,7 +134,7 @@ def get_metadata_extract(attribute):
     try:
         metadata_url = "http://169.254.169.254/computeMetadata/v1/project/attributes/{}".format(attribute)
         headers = {"Metadata-Flavor": "Google"}
-        response = requests.get(metadata_url, headers=headers)
+        response = requests.get(metadata_url, headers=headers, timeout=5)
         if response.status_code == 200:
             return response.text
         else:
@@ -280,7 +253,8 @@ class LoginHandler(BaseHandler):
 
 class topoRequestHandler(BaseHandler):
     def get(self):
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
         lab_type = host_yaml.get('customer_details', {}).get('lab_type', 'Lab')
 
         # For Exam labs: ALWAYS require Honorlock authentication flow
@@ -350,7 +324,7 @@ class topoRequestHandler(BaseHandler):
                         servers = [] 
                     external_ip_url = "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip"
                     headers = {"Metadata-Flavor": "Google"}
-                    response = requests.get(external_ip_url, headers=headers)
+                    response = requests.get(external_ip_url, headers=headers, timeout=5)
                     for server in servers:
                         gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
                 except Exception as e:
@@ -569,7 +543,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
         self.schedule_summary()
         pS("New backend websocket connection")
     
-    def on_message(self,message):
+    async def on_message(self, message):
         try:
             recv = json.loads(message)
             cdata = recv['data']
@@ -582,14 +556,15 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                 if client_id and hasattr(self, 'session'):
                     self.session['client_id'] = client_id
                 pS("[{}] WS hello - client_id={} sending status + session info".format(session_id, client_id[:12] if client_id else '?'))
-                # Grab current uptime of topology
-                self.uptime = getUptime('192.168.0.1')
+                # Grab current uptime of topology (run in executor to avoid blocking)
+                loop = tornado.ioloop.IOLoop.current()
+                self.uptime = await loop.run_in_executor(None, getUptime, '192.168.0.1')
                 # Get initial topology status
-                self.cvp_status = getAPI("cvp_status")
+                self.cvp_status = await loop.run_in_executor(None, getAPI, "cvp_status")
                 self.endexamtime = EXAM_END_TIME
                 self.startExamTime = EXAM_START_TIME
                 if self.cvp_status['status'] == 'UP':
-                    self.cvp_tasks = getAPI("cvp_tasks")
+                    self.cvp_tasks = await loop.run_in_executor(None, getAPI, "cvp_tasks")
                 else:
                     self.cvp_tasks = ''
                 self.sendData('status')
@@ -645,18 +620,26 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 
     def schedule_update(self):
         try:
-            self.timeout = tornado.ioloop.IOLoop.instance().add_timeout(timedelta(seconds=30),self.keepalive)
+            self.timeout = tornado.ioloop.IOLoop.current().call_later(30, self._run_keepalive)
         except Exception as e:
             safe_log('error', f'Error in topoDataHandler.schedule_update: {e}', event='error', handler='topoDataHandler')
-        
-    def keepalive(self):
+
+    def _run_keepalive(self):
+        """Bridge between call_later (sync callback) and async keepalive."""
+        tornado.ioloop.IOLoop.current().spawn_callback(self.keepalive)
+
+    async def keepalive(self):
+        if getattr(self, '_closed', True):
+            return
         try:
-            self.uptime = getUptime('192.168.0.1')
+            loop = tornado.ioloop.IOLoop.current()
+            # Run blocking HTTP calls in executor to avoid freezing the event loop
+            self.uptime = await loop.run_in_executor(None, getUptime, '192.168.0.1')
             self.endexamtime = EXAM_END_TIME
             self.startExamTime = EXAM_START_TIME
-            self.cvp_status = getAPI("cvp_status")
+            self.cvp_status = await loop.run_in_executor(None, getAPI, "cvp_status")
             if self.cvp_status['status'] == 'UP':
-                self.cvp_tasks = getAPI("cvp_tasks")
+                self.cvp_tasks = await loop.run_in_executor(None, getAPI, "cvp_tasks")
             else:
                 self.cvp_tasks = ''
             self.sendData('status')
@@ -694,7 +677,7 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             if hasattr(self, 'session') and time.time() - self.session.get('last_token_send', 0) > 1200:
                 self.session['last_token_send'] = time.time()
                 try:
-                    token = _get_cvp_token()
+                    token = await loop.run_in_executor(None, _get_cvp_token)
                     if token:
                         self.write_message(json.dumps({
                             'type': 'token_refresh',
@@ -717,7 +700,8 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             safe_log('error', f'Error in topoDataHandler.keepalive: {e}', event='error', handler='topoDataHandler')
             pS("ERROR sending update")
         finally:
-            self.schedule_update()
+            if not getattr(self, '_closed', True):
+                self.schedule_update()
 
     def on_close(self):
         self._closed = True
@@ -748,15 +732,24 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             safe_log('info', 'WebSocket connection closed (no session)',
                 event='websocket', action='disconnect')
         try:
-            tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout)
+            tornado.ioloop.IOLoop.current().remove_timeout(self.timeout)
             if hasattr(self, 'summary_timeout'):
-                tornado.ioloop.IOLoop.instance().remove_timeout(self.summary_timeout)
+                tornado.ioloop.IOLoop.current().remove_timeout(self.summary_timeout)
             pS('connection closed')
         except Exception:
             safe_log('warning', 'Timeout already removed on close', event='websocket', action='timeout_cleanup')
  
     def check_origin(self, origin):
-        return(True)
+        """Validate origin matches the request host to prevent cross-site WebSocket hijacking."""
+        host = self.request.headers.get('Host', '')
+        if not host:
+            return False
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            return parsed.netloc == host or parsed.netloc.split(':')[0] == host.split(':')[0]
+        except Exception:
+            return False
     
     def sendData(self, mtype):
         instance_data = {
@@ -862,9 +855,9 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
     def schedule_summary(self):
         """Schedule periodic session summary logging (every 5 minutes)"""
         try:
-            self.summary_timeout = tornado.ioloop.IOLoop.instance().add_timeout(
+            self.summary_timeout = tornado.ioloop.IOLoop.current().add_timeout(
                 timedelta(seconds=300), self.log_session_summary)
-        except:
+        except Exception:
             pass
 
     def log_session_summary(self):
@@ -884,92 +877,11 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
                     last_rtt_ms=str(self.session['last_rtt'] if self.session['last_rtt'] else ''),
                     reconnect_count=str(self.session['reconnect_count']),
                     debug_mode=str(self.session['debug_mode']))
-        except:
+        except Exception:
             pass
         finally:
             if not getattr(self, '_closed', True):
                 self.schedule_summary()
-
-
-# ===============================
-# Utility Functions
-# ===============================
-
-def getAPI(action):
-    try:
-        _action = encodeID(action)
-        response = requests.get(f"http://{TOPO_API}:50010/td-api/conftopo?action={_action}")
-        return(json.loads(response.text))
-    except Exception as e:
-        safe_log('error', f'Error in getAPI: {e}', event='error', handler='getAPI')
-
-
-def encodeID(tmp_data):
-    tmp_str = json.dumps(tmp_data).encode()
-    enc_str = b64encode(tmp_str).decode()
-    return(enc_str)
-
-def decodeID(tmp_data):
-    decrypt_str = b64decode(tmp_data.encode()).decode()
-    tmp_json = json.loads(decrypt_str)
-    return(tmp_json)
-
-def genCookieSecret():
-    """
-    Function to generate a cookie_secret
-    """
-    return(secrets.token_hex(16))
-
-def getUptime(instanceIP):
-    """
-    Function to get response from instances /uptime.
-    instanceIP = IP/URL for instance (str)
-    """
-    try:
-        response = requests.get(f"https://{instanceIP}/uptime", verify=False, timeout=0.5)
-        instance_data = json.loads(response.text)
-        if instance_data['status'] == 'init':
-            instance_data['runtime'] = int(TOPO_DATA['labels']['runtime'])
-        else:
-            instance_data['runtime'] = 12
-        return(instance_data)
-    except Exception as e:
-        safe_log('warning', f'Uptime fetch failed for {instanceIP}', event='uptime', action='fetch_failed')
-        return({
-            'boottime': 0,
-            'uptime': 0,
-            'runtime': 12,
-            'status': 'init'
-        })
-
-def getEventStatus(instanceName, instanceZone):
-    """
-    Function to get the currnet status of an instance.
-    """
-    try:
-        if SCHEMA == 2:
-            response = requests.get(FUNC_STATE + "?function=state&instance={0}-eos&zone={1}".format(instanceName, instanceZone))
-        else:
-            response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
-        return(response.json())
-    except ValueError as e:
-        safe_log('error', f'Error in getEventStatus: ValueError for {instanceName}', event='error', handler='getEventStatus')
-        return(False)
-    except requests.exceptions.ConnectionError as e:
-        safe_log('error', f'Error in getEventStatus: ConnectionError for {instanceName}', event='error', handler='getEventStatus')
-        return(False)
-    except Exception as e:
-        safe_log('error', f'Error in getEventStatus: {e} for {instanceName}', event='error', handler='getEventStatus')
-        return(False)
-
-
-def pS(mtype):
-    """
-    Function to send output from service file to Syslog
-    """
-    cur_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mmes = "\t" + mtype
-    print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
 
 # Cache for topo_build.yml data (loaded once on first use)
@@ -1322,7 +1234,7 @@ class GetClientIdHandler(tornado.web.RequestHandler):
         headers = {'Content-Type': 'application/json'}
 
         try:
-            response = requests.post(url, headers=headers, data=payload)
+            response = requests.post(url, headers=headers, data=payload, timeout=10)
             if response.status_code in [200, 201]:
                  self.write(response.json())
             else:
@@ -1356,7 +1268,7 @@ class GetExamInstructionsHandler(tornado.web.RequestHandler):
                 'Authorization': f'Bearer {access_token}'
             }
 
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 self.write(response.json())
             else:
@@ -1391,7 +1303,7 @@ class GetUserSessionIdHandler(tornado.web.RequestHandler):
                 'Authorization': f'Bearer {access_token}'
             }
 
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
             if response.status_code == 201:
                 self.set_status(201)
                 self.write(response.json())
@@ -1412,42 +1324,58 @@ class LabHandler(tornado.web.RequestHandler):
         safe_log('info', 'Lab configuration started', event='lab', action='start', lab_value=str(self.get_argument('lab_value', 'unknown')))
         self.set_header("Access-Control-Allow-Origin", "*")
         selected_lab_option = self.get_argument('lab_value')
-        docker_conn= docker.from_env()
-        login_container = docker_conn.containers.get('atd-login')
-        login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}', detach=True)
-        print(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}')
-        # print(container_output)
-        # log_file = open('log.txt','w')
-        # log_file.write(str(container_output.output.decode("utf-8")))
-        # log_file.close()
-        # with open("log.txt", "r") as txt_file:
-        #     response =  txt_file.readlines()
-        self.write({
-            'response':'Configuration is being applied. Check in CVP that all tasks have been applied'
-        })
+        if not DOCKER_CLIENT:
+            self.set_status(503)
+            self.write({"error": "Docker service unavailable"})
+            return
+        try:
+            login_container = DOCKER_CLIENT.containers.get('atd-login')
+            login_container.exec_run(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}', detach=True)
+            print(f'python3 /usr/local/bin/callConfigTopo.py  {DEFAULT_MENU_FILE_VALUE} {selected_lab_option}')
+            self.write({
+                'response':'Configuration is being applied. Check in CVP that all tasks have been applied'
+            })
+        except docker.errors.NotFound:
+            self.set_status(503)
+            self.write({"error": "Login container not found"})
+        except Exception as e:
+            safe_log('error', f'Error in LabHandler: {e}', event='error', handler='LabHandler')
+            self.set_status(500)
+            self.write({"error": f"Docker error: {str(e)}"})
 
 class LabStausHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
-        docker_conn= docker.from_env()
-        login_container = docker_conn.containers.get('atd-login')
-        container_output=login_container.exec_run(f'sudo lab_status.py')
+        if not DOCKER_CLIENT:
+            self.set_status(503)
+            self.write({"error": "Docker service unavailable"})
+            return
+        try:
+            login_container = DOCKER_CLIENT.containers.get('atd-login')
+            container_output = login_container.exec_run(f'sudo lab_status.py')
 
-        # Filter output to only include lines with format "name,status"
-        # Skip log lines that contain timestamps or log levels (INFO, WARNING, ERROR, DEBUG)
-        response = []
-        output_text = container_output.output.decode("utf-8")
+            # Filter output to only include lines with format "name,status"
+            # Skip log lines that contain timestamps or log levels (INFO, WARNING, ERROR, DEBUG)
+            response = []
+            output_text = container_output.output.decode("utf-8")
 
-        for line in output_text.splitlines():
-            # Only include lines that match the switch status format (contain comma)
-            # and don't contain log-related keywords
-            if ',' in line and not any(keyword in line for keyword in ['INFO', 'WARNING', 'ERROR', 'DEBUG', ' - ', 'Checking', 'completed']):
-                response.append(line.strip())
+            for line in output_text.splitlines():
+                # Only include lines that match the switch status format (contain comma)
+                # and don't contain log-related keywords
+                if ',' in line and not any(keyword in line for keyword in ['INFO', 'WARNING', 'ERROR', 'DEBUG', ' - ', 'Checking', 'completed']):
+                    response.append(line.strip())
 
-        print(f"Filtered lab status response: {response}")
-        self.write({
-            'response':response
-        })
+            print(f"Filtered lab status response: {response}")
+            self.write({
+                'response':response
+            })
+        except docker.errors.NotFound:
+            self.set_status(503)
+            self.write({"error": "Login container not found"})
+        except Exception as e:
+            safe_log('error', f'Error in LabStausHandler: {e}', event='error', handler='LabStausHandler')
+            self.set_status(500)
+            self.write({"error": f"Docker error: {str(e)}"})
 
 
 class ResetLabHandler(tornado.web.RequestHandler):
@@ -1458,15 +1386,20 @@ class ResetLabHandler(tornado.web.RequestHandler):
         self.write({
             'response':lab_names
         })
-        docker_conn= docker.from_env()
-        login_container = docker_conn.containers.get('atd-login')
-        login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
+        if not DOCKER_CLIENT:
+            return
+        try:
+            login_container = DOCKER_CLIENT.containers.get('atd-login')
+            login_container.exec_run(f'sudo python3 /usr/local/bin/resetVMs.py')
+        except Exception as e:
+            safe_log('error', f'Error in ResetLabHandler: {e}', event='error', handler='ResetLabHandler')
 
 class ExamStatusHandler(tornado.web.RequestHandler):
     def get(self):
         try:
             self.set_header("Access-Control-Allow-Origin", "*")
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
             self.write({
                 'response':"startExamButtonNeeded" if host_yaml['examButtonNeeded'] else "startExamButtonNotNeeded",
                 'examStartTime': host_yaml.get('startExamTime', 0),
@@ -1479,7 +1412,8 @@ class ExamStatusHandler(tornado.web.RequestHandler):
     def post(self):
         try:
             data = json.loads(self.request.body.decode('utf-8'))
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
             exam_duration = host_yaml.get("exam_duration", 0)
             safe_log('info', 'Exam started', event='exam', action='start', duration_minutes=str(exam_duration))
             current_time = int(time.time())
@@ -1521,8 +1455,11 @@ class ExamSubmitHandler(tornado.web.RequestHandler):
         safe_log('info', 'Exam submitted', event='exam', action='submit')
         self.set_header("Access-Control-Allow-Origin", "*")
         try:
-            docker_conn= docker.from_env()
-            login_container = docker_conn.containers.get('atd-login') 
+            if not DOCKER_CLIENT:
+                self.set_status(503)
+                self.write({"error": "Docker service unavailable"})
+                return
+            login_container = DOCKER_CLIENT.containers.get('atd-login')
             login_container.exec_run(f'sudo python3 -m exam_upload_v2.main', detach=True)
             self.write({
                 'response':f'Exam has been submitted'
@@ -1536,15 +1473,23 @@ class ToolsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
             # Parse the JSON body of the request
-            data = json.loads(self.request.body)            
+            data = json.loads(self.request.body)
             # Extract the three parameters
             changeLatency = data.get('changeLatency', False)
             devices = data.get('devices', [])
             score = data.get('score', 0)
-            result = subprocess.run(f'please update code {"ENABLE" if changeLatency else "DISABLE"} -d {score} -i {",".join(devices)}"',
-                shell=True,
-                capture_output=True,
-                text=True
+            # Validate device names to prevent command injection
+            import re
+            for d in devices:
+                if not re.match(r'^[a-zA-Z0-9_-]+$', str(d)):
+                    self.set_status(400)
+                    self.write({"error": f"Invalid device name: {d}"})
+                    return
+            result = subprocess.run(
+                ['please', 'update', 'code',
+                 'ENABLE' if changeLatency else 'DISABLE',
+                 '-d', str(int(score)), '-i', ','.join(devices)],
+                capture_output=True, text=True, timeout=30
             )
             
             # Prepare the response
@@ -1578,13 +1523,20 @@ class ViewConfigHandler(tornado.web.RequestHandler):
         try:
             # Parse the JSON body of the request
             data = json.loads(self.request.body)
-            
-            # Extract the three parameters
-            devices = data.get('devices', False)
-            result = subprocess.run(f'please update code "sudo -S python3 /home/atdadmin/change-latency.py "SHOW" -i {",".join(devices)}"',
-                shell=True,
-                capture_output=True,
-                text=True
+
+            # Extract the parameters
+            devices = data.get('devices', [])
+            # Validate device names to prevent command injection
+            import re
+            for d in devices:
+                if not re.match(r'^[a-zA-Z0-9_-]+$', str(d)):
+                    self.set_status(400)
+                    self.write({"error": f"Invalid device name: {d}"})
+                    return
+            result = subprocess.run(
+                ['sudo', '-S', 'python3', '/home/atdadmin/change-latency.py',
+                 'SHOW', '-i', ','.join(devices)],
+                capture_output=True, text=True, timeout=30
             )
             # Prepare the response
             response = {
@@ -1613,8 +1565,9 @@ class ExamRedoRedirectHandler(BaseHandler):
     def get(self):
         try:
             # Load access info to get customer details
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
-            
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
+
             # Get customer name
             exam_taker_name = host_yaml.get('customer_details', {}).get('exam_taker_full_name', 'Student')
             
@@ -1662,7 +1615,7 @@ class BeginExamHandler(tornado.web.RequestHandler):
                 'Authorization': f'Bearer {access_token}'
             }
 
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
             if response.status_code == 200:
                 self.write(response.json())
             elif response.status_code == 409:
@@ -1680,7 +1633,8 @@ class BaseUrlHandler(tornado.web.RequestHandler):
     def get(self):
         try:
             self.set_header("Access-Control-Allow-Origin", "*")
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
             login_info = host_yaml.get('login_info', {}).get('jump_host', {})
             response = {
                 "pwd": login_info.get('pw', ''),
@@ -1769,8 +1723,9 @@ class GetAccessInfoHandler(tornado.web.RequestHandler):
                 return
 
             # Read the YAML file
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
-            
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
+
             # Extract customer details
             customer_details = host_yaml.get('customer_details', {})
 
@@ -1814,7 +1769,8 @@ class TerminalPageHandler(BaseHandler):
                 self.redirect('/login')
             return
 
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
         self.render(
             BASE_PATH + 'terminal.html',
             topo_title=TITLE,
@@ -1834,7 +1790,8 @@ class ConsolePageHandler(BaseHandler):
                 self.redirect('/login')
             return
 
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
         self.render(
             BASE_PATH + 'console.html',
             topo_title=TITLE,
@@ -2791,7 +2748,7 @@ class DevicesAPIHandler(BaseHandler):
                 'retry': True
             }))
 
-        except (yaml.YAMLError, json.JSONDecodeError) as e:
+        except json.JSONDecodeError as e:
             safe_log('error', f'Error in DevicesAPIHandler: parse error: {e}', event='error', handler='DevicesAPIHandler')
             traceback.print_exc()
             self.set_status(500)
@@ -2915,7 +2872,8 @@ class InterfaceStatsAPIHandler(BaseHandler):
             raise ValueError(f"Device {device_name} not found in topology")
 
         # Get credentials from ACCESS_INFO
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
         username = host_yaml['login_info']['jump_host']['user']
         password = host_yaml['login_info']['jump_host']['pw']
 
@@ -3193,7 +3151,8 @@ class DeviceStatusAPIHandler(BaseHandler):
         """Check if an EOS device is reachable via eAPI."""
         # Get credentials from ACCESS_INFO
         try:
-            host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
             username = host_yaml['login_info']['jump_host']['user']
             password = host_yaml['login_info']['jump_host']['pw']
         except Exception as e:
@@ -3353,7 +3312,8 @@ class RunningConfigAPIHandler(BaseHandler):
             raise ValueError(f"Device {device_name} not found in topology")
 
         # Get credentials from ACCESS_INFO
-        host_yaml = YAML().load(open(ATD_ACCESS_PATH, 'r'))
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
         username = host_yaml['login_info']['jump_host']['user']
         password = host_yaml['login_info']['jump_host']['pw']
 
@@ -3414,12 +3374,14 @@ class EndExamHandler(tornado.web.RequestHandler):
                 'Authorization': f'Bearer {access_token}'
             }
 
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
             try:
                 print("Calling exam_upload_v2 module to upload exam")
-                docker_conn = docker.from_env()
-                login_container = docker_conn.containers.get('atd-login')
-                login_container.exec_run(f'sudo python3 -m exam_upload_v2.main', detach=True)
+                if DOCKER_CLIENT:
+                    login_container = DOCKER_CLIENT.containers.get('atd-login')
+                    login_container.exec_run(f'sudo python3 -m exam_upload_v2.main', detach=True)
+                else:
+                    raise Exception("Docker service unavailable")
             except Exception as e:
                 safe_log('error', f'Error in EndExamHandler upload_exam: {e}', event='error', handler='EndExamHandler')
                 print(f"Error running exam_upload_v2: {e}")
@@ -3427,6 +3389,7 @@ class EndExamHandler(tornado.web.RequestHandler):
                     'honorlock_response': response.json(),
                     'exam_submit': 'Exam has been submitted but error running exam_upload_v2',
                 })
+                return
             if response.status_code in [200, 201]:
                 try:
                     self.write({
@@ -3587,7 +3550,6 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle WebSocket close from browser."""
         safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect',
                  client_id=self.client_id)
-        safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect', client_id=self.client_id)
 
         # Close upstream connection
         if self.upstream_ws:
@@ -4441,9 +4403,14 @@ class ClientLogHandler(tornado.web.RequestHandler):
             self.set_status(204)
 
 
-class ConnectivityStatusHandler(tornado.web.RequestHandler):
+class ConnectivityStatusHandler(BaseHandler):
     """REST endpoint returning current connectivity state for live session health"""
     def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+        self.set_header('Content-Type', 'application/json')
         self.write(json.dumps({
             'active_sessions': len(active_sessions),
             'active_session_data': list(active_session_data.values()),
@@ -4453,7 +4420,6 @@ class ConnectivityStatusHandler(tornado.web.RequestHandler):
                 'last_check': _last_internal_grpc_time
             }
         }))
-        self.set_header('Content-Type', 'application/json')
 
 
 if __name__ == "__main__":
@@ -4531,7 +4497,7 @@ if __name__ == "__main__":
     safe_log('info', 'UILanding server started', port='80', topology=TOPO)
     print('*** Websocket Server Started on {} ***'.format(PORT))
     try:
-        TOPO_DATA = getEventStatus(NAME, ZONE)
+        TOPO_DATA = getEventStatus(NAME, ZONE, FUNC_STATE, SCHEMA)
 
         # Global internal gRPC health check — runs once every 30 seconds, not per-connection
         def _grpc_check_tick():
@@ -4543,7 +4509,7 @@ if __name__ == "__main__":
         grpc_check_timer = tornado.ioloop.PeriodicCallback(_grpc_check_tick, 30000)
         grpc_check_timer.start()
 
-        tornado.ioloop.IOLoop.instance().start()
+        tornado.ioloop.IOLoop.current().start()
     except KeyboardInterrupt:
-        tornado.ioloop.IOLoop.instance().stop()
+        tornado.ioloop.IOLoop.current().stop()
         print("*** Websocked Server Stopped ***")
