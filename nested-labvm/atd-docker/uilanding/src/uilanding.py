@@ -23,9 +23,7 @@ from topology_converter import (
 # uilanding proxies WebSocket connections to the capture service.
 
 from utils import (
-    safe_log, pS, encodeID, decodeID, normalize_device_name,
-    getAPI, getUptime, getEventStatus, genCookieSecret, update_hubspot_handler,
-    CONNECTIVITY_LOG_PATH, CONNECTIVITY_LOG_MAX_BYTES
+    safe_log, getEventStatus, genCookieSecret,
 )
 from handlers.auth import LoginHandler
 from handlers.lab import LabHandler, LabStausHandler, ResetLabHandler
@@ -79,9 +77,6 @@ from handlers.topology_api import (
     InterfaceStatsAPIHandler,
     DeviceStatusAPIHandler,
     RunningConfigAPIHandler,
-    get_all_devices,
-    get_device_ip_from_sources,
-    invalidate_devices_cache,
     initialize as initialize_topology_api,
 )
 
@@ -89,7 +84,6 @@ from handlers.topology_api import (
 urllib3.disable_warnings()
 
 
-PORT = 80
 TOPO_API = 'atd-conftopo'
 
 # Module-level Docker client (reuse connection, avoid per-request overhead)
@@ -338,54 +332,6 @@ _grpc_state = {'status': None, 'last_check': None}
 # and their cache globals have been moved to handlers/topology_api.py
 
 
-def update_hubspot_handler(email, action, project):
-    """
-    Call the HubSpot Cloud Function to update exam properties
-
-    Args:
-        email: Email address of the user
-        action: Action to perform ('update_exam_start' or 'update_exam_submit')
-        project: GCP project name
-
-    Returns:
-        dict: Response from the Cloud Function or error dict
-    """
-    print(f"Updating HubSpot: {action} for {email} in project {project}")
-    hubspot_url = f"https://us-central1-{project}.cloudfunctions.net/api-hl-hubspot-handler"
-    headers = {'Content-Type': 'application/json'}
-
-    payload = {
-        "action": action,
-        "email": email
-    }
-
-    try:
-        response = requests.post(url=hubspot_url, headers=headers, json=payload, timeout=60)
-
-        if response.status_code == 200:
-            print(f"Successfully updated HubSpot: {action} for {email}")
-            return response.json()
-        else:
-            error_msg = f"HubSpot update failed with status {response.status_code}"
-            print(error_msg)
-            try:
-                error_detail = response.json()
-                print(f"Error details: {error_detail}")
-                return error_detail
-            except Exception:
-                return {"error": error_msg, "status_code": response.status_code}
-
-    except requests.exceptions.Timeout:
-        error_msg = "HubSpot request timed out"
-        safe_log('error', f'Error in update_hubspot_handler: {error_msg}', event='error', handler='update_hubspot_handler')
-        print(error_msg)
-        return {"error": error_msg}
-    except Exception as e:
-        error_msg = f"HubSpot update error: {str(e)}"
-        safe_log('error', f'Error in update_hubspot_handler: {error_msg}', event='error', handler='update_hubspot_handler')
-        print(error_msg)
-        return {"error": error_msg}
-
 # ToolsHandler, ViewConfigHandler, BaseUrlHandler, UptimeWithRuntimeHandler,
 # TerminalPageHandler, ConsolePageHandler — moved to handlers/pages.py
 
@@ -463,42 +409,80 @@ if __name__ == "__main__":
         'cvp_token_fn': _get_cvp_token,
     }
 
-    app = tornado.web.Application([
+    # ===== App 1: UI Frontend (port 8080) =====
+    # Pages, authentication, static files, lab operations, topology converter
+    ui_app = tornado.web.Application([
         (r'/td-api/client-log', ClientLogHandler),
-        (r'/exam-submitted', ExamSubmittedRedirectHandler, _exam_kwargs),
-        (r'/exam-already-running', ExamAlreadyRunningHandler, _exam_kwargs),
-        (r'/exam-redo', ExamRedoRedirectHandler, _exam_kwargs),
-        (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "js/"}),
-        (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "css/"}),
-        (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH +  "images/"}),
+        (r'/js/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH + "js/"}),
+        (r'/css/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH + "css/"}),
+        (r'/images/(.*)', tornado.web.StaticFileHandler, {'path': BASE_PATH + "images/"}),
         (r'/topo/(.*)', tornado.web.StaticFileHandler, {'path': ArBASE_PATH}),
         (r'/', topoRequestHandler, {'config': _page_config, 'topo_config': _topo_config}),
-        (r'/td-ws', topoDataHandler, _ws_kwargs),
         (r'/login', LoginHandler, {'accounts': accounts, 'salt': salt, 'base_path': BASE_PATH}),
         (r'/lab', LabHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
         (r'/labStaus', LabStausHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
-        (r'/examStatus', ExamStatusHandler, _exam_kwargs),
-        (r'/examSubmit', ExamSubmitHandler, _exam_kwargs),
-        (r'/exam-authentication', ExamAuthenticationHandler, _exam_kwargs),
-        (r'/getAccessInfo', GetAccessInfoHandler, _exam_kwargs),
-        (r'/getClientId', GetClientIdHandler, _exam_kwargs),
-        (r'/getExamInstructions', GetExamInstructionsHandler, _exam_kwargs),
-        (r'/getUserSessionId', GetUserSessionIdHandler, _exam_kwargs),
-        (r'/beginExam', BeginExamHandler, _exam_kwargs),
-        (r'/endExam', EndExamHandler, _exam_kwargs),
         (r'/baseUrl', BaseUrlHandler, {'config': _page_config}),
         (r'/uptimeWithRuntime', UptimeWithRuntimeHandler, {'exam_state': EXAM_STATE, 'topo_data': None}),
         (r'/terminal', TerminalPageHandler, {'config': _page_config}),
-        (r'/console/?', ConsolePageHandler, {'config': _page_config}),  # /? makes trailing slash optional
+        (r'/console/?', ConsolePageHandler, {'config': _page_config}),
+        # Topology Converter endpoints
+        (r'/topology-converter', TopologyConverterPageHandler),
+        (r'/td-api/topology-converter/current', TopologyConverterCurrentHandler),
+        (r'/td-api/topology-converter/available', TopologyConverterAvailableHandler),
+        (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
+        (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
+        (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
+        # Connectivity status endpoint
+        (r'/td-api/connectivity-status', ConnectivityStatusHandler, {'session_state': _session_state}),
+    ], **settings)
+    ui_app.listen(8080)
+    safe_log('info', 'ui-frontend app started', port='8080')
+
+    # ===== App 2: API (port 8081) =====
+    # Topology data, device management, eAPI queries
+    api_app = tornado.web.Application([
         (r'/td-api/devices', DevicesAPIHandler),
         (r'/td-api/device-types', DeviceTypesAPIHandler),
         (r'/td-api/topology', TopologyAPIHandler),
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/device-status', DeviceStatusAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
-        # Packet capture endpoints
+    ], **settings)
+    api_app.listen(8081)
+    safe_log('info', 'api app started', port='8081')
+
+    # ===== App 3: WebSocket (port 8082) =====
+    # Real-time topology updates, connectivity monitoring
+    ws_app = tornado.web.Application([
+        (r'/td-ws', topoDataHandler, _ws_kwargs),
+    ], **settings)
+    ws_app.listen(8082)
+    safe_log('info', 'websocket app started', port='8082')
+
+    # ===== App 4: Exam (port 8083) =====
+    # Exam lifecycle, Honorlock proctoring, HubSpot integration
+    exam_app = tornado.web.Application([
+        (r'/exam-submitted', ExamSubmittedRedirectHandler, _exam_kwargs),
+        (r'/exam-already-running', ExamAlreadyRunningHandler, _exam_kwargs),
+        (r'/exam-redo', ExamRedoRedirectHandler, _exam_kwargs),
+        (r'/exam-authentication', ExamAuthenticationHandler, _exam_kwargs),
+        (r'/examStatus', ExamStatusHandler, _exam_kwargs),
+        (r'/examSubmit', ExamSubmitHandler, _exam_kwargs),
+        (r'/getAccessInfo', GetAccessInfoHandler, _exam_kwargs),
+        (r'/getClientId', GetClientIdHandler, _exam_kwargs),
+        (r'/getExamInstructions', GetExamInstructionsHandler, _exam_kwargs),
+        (r'/getUserSessionId', GetUserSessionIdHandler, _exam_kwargs),
+        (r'/beginExam', BeginExamHandler, _exam_kwargs),
+        (r'/endExam', EndExamHandler, _exam_kwargs),
+    ], **settings)
+    exam_app.listen(8083)
+    safe_log('info', 'exam app started', port='8083')
+
+    # ===== App 5: Proxy (port 8084) =====
+    # Nodebuilder proxy, packet capture, impairments/latency
+    proxy_app = tornado.web.Application([
         (r'/capture-ws', CaptureWebSocketHandler),
         (r'/td-api/capture/bridges', CaptureBridgesAPIHandler),
         (r'/td-api/capture/status', CaptureStatusAPIHandler),
@@ -514,21 +498,15 @@ if __name__ == "__main__":
         (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
         (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
-        # Topology Converter endpoints
-        (r'/topology-converter', TopologyConverterPageHandler),
-        (r'/td-api/topology-converter/current', TopologyConverterCurrentHandler),
-        (r'/td-api/topology-converter/available', TopologyConverterAvailableHandler),
-        (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
-        (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
-        (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
-        # Connectivity status endpoint
-        (r'/td-api/connectivity-status', ConnectivityStatusHandler, {'session_state': _session_state}),
         # Nodebuilder endpoints (dynamic node addition for KVM labs)
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
-    app.listen(PORT)
-    safe_log('info', 'UILanding server started', port='80', topology=TOPO)
-    print('*** Websocket Server Started on {} ***'.format(PORT))
+    proxy_app.listen(8084)
+    safe_log('info', 'proxy app started', port='8084')
+
+    print('*** UILanding Multi-App Server Started ***')
+    print('  ui-frontend: 8080 | api: 8081 | websocket: 8082 | exam: 8083 | proxy: 8084')
+
     try:
         TOPO_DATA = getEventStatus(NAME, ZONE, FUNC_STATE, SCHEMA)
 
@@ -545,4 +523,4 @@ if __name__ == "__main__":
         tornado.ioloop.IOLoop.current().start()
     except KeyboardInterrupt:
         tornado.ioloop.IOLoop.current().stop()
-        print("*** Websocked Server Stopped ***")
+        print("*** UILanding Multi-App Server Stopped ***")

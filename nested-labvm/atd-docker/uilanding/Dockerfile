@@ -59,6 +59,6 @@ COPY ./scripts/connectivity-report.py /usr/local/bin/connectivity-report
 
 RUN chmod +x /usr/local/bin/uilanding /usr/local/bin/connectivity-report
 
-EXPOSE 80
+EXPOSE 8080 8081 8082 8083 8084
 
 CMD ["uilanding"]
