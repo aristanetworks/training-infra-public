@@ -39,6 +39,7 @@ from utils import (
     getAPI, getUptime, getEventStatus, genCookieSecret, update_hubspot_handler,
     CONNECTIVITY_LOG_PATH, CONNECTIVITY_LOG_MAX_BYTES
 )
+from handlers.auth import BaseHandler, LoginHandler
 
 # Disable any TLS Warnings when getting instance Uptime
 urllib3.disable_warnings()
@@ -147,9 +148,6 @@ HonorLockClientID = get_metadata_extract('honorlockClientID')
 HonorLockSecret = get_metadata_extract('honorlockClientSecret')
 
 
-class BaseHandler(tornado.web.RequestHandler):
-    def get_current_user(self):
-        return(self.get_secure_cookie("user"))
 class ExamSubmittedRedirectHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -199,58 +197,6 @@ class ExamAuthenticationHandler(tornado.web.RequestHandler):
             safe_log('error', f'Error in ExamAuthenticationHandler: {e}', event='error', handler='ExamAuthenticationHandler')
             self.set_status(500)
             self.write(f"Error: {str(e)}")
-class LoginHandler(BaseHandler):
-    def _validate_credentials(self, username: str, password: str) -> bool:
-        """
-        Validate username and password using constant-time comparison.
-
-        Security: Uses secrets.compare_digest to prevent timing attacks.
-        Always computes both hashes regardless of username validity.
-        """
-        tmp_username_hash = hashlib.sha512((username + salt).encode('utf-8')).hexdigest()
-        tmp_pwd_hash = hashlib.sha512((password + salt).encode('utf-8')).hexdigest()
-
-        # Get stored password hash, or use a dummy value if username not found
-        # This ensures constant-time behavior regardless of username validity
-        stored_pwd_hash = accounts.get(tmp_username_hash, 'invalid_user_dummy_hash')
-
-        # Use constant-time comparison to prevent timing attacks
-        return secrets.compare_digest(tmp_pwd_hash, stored_pwd_hash)
-
-    def get(self):
-        safe_log('info', 'Login page accessed', event='page_view', page='login')
-        AUTH = False
-        decoded_cred = None
-        if 'auth' in self.request.arguments:
-            try:
-                decoded_cred = decodeID(self.get_argument('auth'))
-                AUTH = self._validate_credentials(decoded_cred['user'], decoded_cred['pwd'])
-            except Exception as e:
-                safe_log('warning', f'Auth parameter decode failed: {e}', event='auth', action='decode_failure')
-        if AUTH and decoded_cred:
-            self.set_secure_cookie("user", decoded_cred['user'])
-            self.redirect('/')
-        else:
-            self.render(
-                BASE_PATH + 'login.html',
-                LOGIN_MESSAGE=""
-            )
-
-    def post(self):
-        username = self.get_argument("name")
-        password = self.get_argument("pwd")
-
-        if self._validate_credentials(username, password):
-            safe_log('info', 'Login successful', event='auth', action='login_success', username=username)
-            self.set_secure_cookie("user", username)
-            self.redirect("/")
-        else:
-            safe_log('warning', 'Login failed', event='auth', action='login_failure', username=username)
-            self.render(
-                BASE_PATH + 'login.html',
-                LOGIN_MESSAGE="Wrong username and/or password."
-            )
-
 class topoRequestHandler(BaseHandler):
     def get(self):
         with open(ATD_ACCESS_PATH, 'r') as f:
@@ -4440,7 +4386,7 @@ if __name__ == "__main__":
         (r'/topo/(.*)', tornado.web.StaticFileHandler, {'path': ArBASE_PATH}),
         (r'/', topoRequestHandler),
         (r'/td-ws', topoDataHandler),
-        (r'/login', LoginHandler),
+        (r'/login', LoginHandler, {'accounts': accounts, 'salt': salt, 'base_path': BASE_PATH}),
         (r'/lab', LabHandler),
         (r'/labStaus', LabStausHandler),
         #(r'/tools', ToolsHandler),

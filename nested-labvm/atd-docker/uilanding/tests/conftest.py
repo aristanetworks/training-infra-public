@@ -8,11 +8,18 @@ import os
 import sys
 import shutil
 import tempfile
+import logging
 import pytest
 from unittest.mock import MagicMock, patch
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+# Mock cloud_logging_utils BEFORE any src modules import it.
+# This prevents google-cloud-logging from establishing gRPC channels during tests.
+_mock_cloud_logging = MagicMock()
+_mock_cloud_logging.setup_cloud_logging.return_value = logging.getLogger('test-uilanding')
+sys.modules['cloud_logging_utils'] = _mock_cloud_logging
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
