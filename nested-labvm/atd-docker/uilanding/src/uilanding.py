@@ -1,26 +1,15 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
 from ruamel.yaml import YAML
 from time import sleep
-from base64 import b64decode, b64encode
 import tornado.ioloop
 import tornado.web
 import requests
-import secrets
 import hashlib, uuid
-import json
 import docker
 import urllib3
-import traceback
 import os
-import socket
-import subprocess
 import time
-import threading
-import queue
-import pyeapi
-from device_types import DeviceTypeConfig
 from topology_converter import (
     TopologyConverterCurrentHandler,
     TopologyConverterAvailableHandler,
@@ -38,7 +27,7 @@ from utils import (
     getAPI, getUptime, getEventStatus, genCookieSecret, update_hubspot_handler,
     CONNECTIVITY_LOG_PATH, CONNECTIVITY_LOG_MAX_BYTES
 )
-from handlers.auth import BaseHandler, LoginHandler
+from handlers.auth import LoginHandler
 from handlers.lab import LabHandler, LabStausHandler, ResetLabHandler
 from handlers.nodebuilder_proxy import NodeBuilderProxyHandler
 from handlers.exam import (
@@ -74,7 +63,6 @@ from handlers.impairments import (
 )
 from handlers.pages import (
     topoRequestHandler,
-    ToolsHandler,
     ViewConfigHandler,
     BaseUrlHandler,
     UptimeWithRuntimeHandler,
@@ -489,7 +477,6 @@ if __name__ == "__main__":
         (r'/login', LoginHandler, {'accounts': accounts, 'salt': salt, 'base_path': BASE_PATH}),
         (r'/lab', LabHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
         (r'/labStaus', LabStausHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
-        #(r'/tools', ToolsHandler),
         (r'/viewConfig', ViewConfigHandler),
         (r'/resetLab', ResetLabHandler, {'docker_client': DOCKER_CLIENT, 'default_menu_file_value': DEFAULT_MENU_FILE_VALUE}),
         (r'/examStatus', ExamStatusHandler, _exam_kwargs),

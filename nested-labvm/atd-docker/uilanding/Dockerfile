@@ -48,6 +48,8 @@ COPY --from=builder /build/src/html /opt/topo/html/
 # Copy Python modules to site-packages
 COPY ./src/device_types.py /usr/local/bin/device_types.py
 COPY ./src/topology_converter.py /usr/local/bin/topology_converter.py
+COPY ./src/utils.py /usr/local/bin/utils.py
+COPY ./src/handlers/ /usr/local/bin/handlers/
 # Note: capture_manager.py and packet_parser.py are not needed here
 # Packet capture runs in the dedicated captureservice container with host network mode
 
