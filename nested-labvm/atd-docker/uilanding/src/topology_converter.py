@@ -7,8 +7,10 @@ Extracted from uilanding.py to reduce file size.
 
 import json
 import os
+import re
 import subprocess
 import threading
+from collections import deque
 from datetime import datetime
 
 import tornado.web
@@ -61,11 +63,12 @@ def pS(mtype):
 
 
 # Global variables for conversion status
+_conversion_lock = threading.Lock()
 conversion_status = {
     'in_progress': False,
     'phase': None,
     'status': 'Idle',
-    'log': [],
+    'log': deque(maxlen=500),
     'completed': False,
     'success': False
 }
@@ -116,7 +119,7 @@ class TopologyConverterCurrentHandler(BaseHandler):
                          event='file_read', handler='TopologyConverterCurrentHandler', file=topo_build_path)
                 with open(topo_build_path, 'r') as f:
                     topo_build = YAML().load(f)
-                    if 'nodes' in topo_build:
+                    if topo_build and 'nodes' in topo_build:
                         nodes = [list(node.keys())[0] for node in topo_build['nodes']]
                         node_count = len(nodes)
                         safe_log('info', f'Found {node_count} nodes in topology {topology_name}: {", ".join(nodes)}',
@@ -237,6 +240,12 @@ class TopologyConverterInfoHandler(BaseHandler):
                 self.write(json.dumps({'error': 'topology parameter required'}))
                 return
 
+            # Validate topology name to prevent path traversal
+            if not re.match(r'^[a-zA-Z0-9_-]+$', topology_name):
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid topology name'}))
+                return
+
             topo_path = f'/opt/atd/topologies/{topology_name}'
 
             if not os.path.exists(topo_path):
@@ -257,7 +266,7 @@ class TopologyConverterInfoHandler(BaseHandler):
                          event='file_read', handler='TopologyConverterInfoHandler', file=topo_build_path)
                 with open(topo_build_path, 'r') as f:
                     topo_build = YAML().load(f)
-                    if 'nodes' in topo_build:
+                    if topo_build and 'nodes' in topo_build:
                         nodes = [list(node.keys())[0] for node in topo_build['nodes']]
                         node_count = len(nodes)
                         safe_log('info', f'Topology {topology_name}: {node_count} nodes found: {", ".join(nodes)}',
@@ -322,14 +331,18 @@ class TopologyConverterConvertHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Check if conversion is already in progress
-            if conversion_status['in_progress']:
-                safe_log('warning', 'Conversion request rejected: another conversion already in progress',
-                         event='conversion_conflict', handler='TopologyConverterConvertHandler',
-                         current_phase=str(conversion_status.get('phase', 'unknown')))
-                self.set_status(409)
-                self.write(json.dumps({'error': 'Conversion already in progress'}))
-                return
+            # Atomically check-and-set to prevent race condition with concurrent requests
+            with _conversion_lock:
+                if conversion_status['in_progress']:
+                    safe_log('warning', 'Conversion request rejected: another conversion already in progress',
+                             event='conversion_conflict', handler='TopologyConverterConvertHandler',
+                             current_phase=str(conversion_status.get('phase', 'unknown')))
+                    self.set_status(409)
+                    self.write(json.dumps({'error': 'Conversion already in progress'}))
+                    return
+                # Set in_progress immediately under lock to prevent race
+                conversion_status['in_progress'] = True
+                conversion_status['phase'] = 'starting'
 
             # Parse request body
             body = json.loads(self.request.body.decode('utf-8'))
@@ -342,8 +355,19 @@ class TopologyConverterConvertHandler(BaseHandler):
                 safe_log('warning', 'Conversion request missing target_topology parameter',
                          event='validation_error', handler='TopologyConverterConvertHandler',
                          reason='missing_target_topology')
+                conversion_status['in_progress'] = False
                 self.set_status(400)
                 self.write(json.dumps({'error': 'target_topology required'}))
+                return
+
+            # TC-3: Validate topology name to prevent path traversal
+            if not re.match(r'^[a-zA-Z0-9_-]+$', target_topology):
+                safe_log('warning', f'Invalid topology name rejected: {target_topology}',
+                         event='validation_error', handler='TopologyConverterConvertHandler',
+                         reason='invalid_topology_name')
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid topology name'}))
                 return
 
             # Validate target topology exists
@@ -352,6 +376,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                 safe_log('warning', f'Target topology not found: {target_topology} (path: {topo_path})',
                          event='topology_not_found', handler='TopologyConverterConvertHandler',
                          target_topology=target_topology, path=topo_path)
+                conversion_status['in_progress'] = False
                 self.set_status(404)
                 self.write(json.dumps({'error': 'Target topology not found'}))
                 return
@@ -369,6 +394,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                         safe_log('warning', f'Conversion rejected: target same as current ({target_topology})',
                                  event='conversion_rejected', handler='TopologyConverterConvertHandler',
                                  reason='same_topology', topology=target_topology)
+                        conversion_status['in_progress'] = False
                         self.set_status(400)
                         self.write(json.dumps({
                             'error': f'Target topology "{target_topology}" is the same as current topology. No conversion needed.'
@@ -399,7 +425,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                     'in_progress': True,
                     'phase': 'starting',
                     'status': 'Starting conversion...',
-                    'log': ['Conversion initiated'],
+                    'log': deque(['Conversion initiated'], maxlen=500),
                     'completed': False,
                     'success': False
                 }
@@ -505,7 +531,18 @@ class TopologyConverterConvertHandler(BaseHandler):
 
                             conversion_status['status'] = line
 
-                    process.wait()
+                    try:
+                        process.wait(timeout=3600)  # 1 hour max
+                    except subprocess.TimeoutExpired:
+                        safe_log('error', 'Conversion subprocess timed out after 1 hour, killing process',
+                                 event='conversion_timeout', handler='TopologyConverterConvertHandler',
+                                 target_topology=target_topology, pid=process.pid)
+                        process.kill()
+                        process.wait()
+                        conversion_status['success'] = False
+                        conversion_status['status'] = 'Conversion timed out after 1 hour'
+                        conversion_status['log'].append('ERROR: Conversion timed out after 1 hour and was killed')
+                        raise Exception('Conversion subprocess timed out after 1 hour')
                     elapsed = (datetime.now() - conversion_start_time).total_seconds()
 
                     # Check result
@@ -574,12 +611,14 @@ class TopologyConverterConvertHandler(BaseHandler):
             safe_log('error', f'Invalid JSON in conversion request body: {e}',
                      event='validation_error', handler='TopologyConverterConvertHandler',
                      error=str(e), reason='invalid_json')
+            conversion_status['in_progress'] = False
             self.set_status(400)
             self.write(json.dumps({'error': f'Invalid JSON: {str(e)}'}))
         except Exception as e:
             safe_log('error', f'Unexpected error in conversion handler: {e}',
                      event='error', handler='TopologyConverterConvertHandler',
                      error=str(e), exception_type=type(e).__name__)
+            conversion_status['in_progress'] = False
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
 
@@ -590,20 +629,19 @@ class TopologyConverterStatusHandler(BaseHandler):
     def get(self):
         global conversion_status
 
-        # Note: status polling is frequent (every 5s), so only log at debug level
-        # to avoid flooding cloud logs. Log at info level only for active conversions.
-        if conversion_status['in_progress']:
-            safe_log('info', f'Conversion status polled - Phase: {conversion_status.get("phase", "unknown")}',
-                     event='conversion_status_poll', handler='TopologyConverterStatusHandler',
-                     phase=str(conversion_status.get('phase', 'unknown')),
-                     in_progress='true')
-
         if not self.current_user:
             safe_log('warning', 'Unauthenticated request to conversion status endpoint',
                      event='auth', handler='TopologyConverterStatusHandler', action='denied')
             self.set_status(401)
             self.write(json.dumps({'error': 'Authentication required'}))
             return
+
+        # Log only for active conversions (status polling is frequent — every 5s)
+        if conversion_status['in_progress']:
+            safe_log('info', f'Conversion status polled - Phase: {conversion_status.get("phase", "unknown")}',
+                     event='conversion_status_poll', handler='TopologyConverterStatusHandler',
+                     phase=str(conversion_status.get('phase', 'unknown')),
+                     in_progress='true')
 
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
