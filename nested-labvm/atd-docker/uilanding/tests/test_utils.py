@@ -8,6 +8,7 @@ getEventStatus, genCookieSecret, safe_log, update_hubspot_handler.
 import os
 import sys
 import json
+import logging
 import pytest
 from unittest.mock import patch, MagicMock
 import requests
@@ -25,6 +26,23 @@ from utils import (
     safe_log,
     update_hubspot_handler,
 )
+
+
+# ---------------------------------------------------------------------------
+# Module-level fixture: replace the Cloud Logging logger with a plain one.
+# setup_cloud_logging may configure a SyncTransport handler that makes real
+# GCP network calls on every logger.error()/logger.warning() invocation,
+# which blocks tests indefinitely when no GCP credentials are available.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def mock_utils_logger():
+    """Replace the utils module logger with a no-op standard logger."""
+    null_logger = logging.getLogger('test_utils_null')
+    null_logger.handlers = [logging.NullHandler()]
+    null_logger.propagate = False
+    with patch('utils.logger', null_logger):
+        yield null_logger
 
 
 # ---------------------------------------------------------------------------
@@ -407,5 +425,6 @@ class TestUpdateHubspotHandler:
     def test_project_used_in_url(self, mock_post):
         mock_post.return_value = self._make_mock_response(200, {})
         update_hubspot_handler("user@example.com", "update_exam_start", "my-specific-project")
-        call_url = mock_post.call_args[1].get('url') or mock_post.call_args[0][0] if mock_post.call_args[0] else mock_post.call_args[1]['url']
-        assert "my-specific-project" in call_url
+        # url is passed as keyword arg in the implementation
+        call_kwargs = mock_post.call_args[1]
+        assert "my-specific-project" in call_kwargs.get('url', '')
