@@ -10,7 +10,7 @@ import tornado.testing
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from handlers.latency import (
+from handlers.impairments import (
     LatencyBridgesAPIHandler,
     LatencyEnableAPIHandler,
     LatencyDisableAPIHandler,
@@ -62,7 +62,7 @@ class TestLatencyBridgesProxies(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return _make_app()
 
-    @patch('handlers.latency.AsyncHTTPClient')
+    @patch('handlers.impairments.AsyncHTTPClient')
     def test_latency_bridges_proxies(self, mock_client_cls):
         """Authenticated GET /td-api/latency/bridges returns proxied JSON."""
         mock_client = MagicMock()
@@ -92,7 +92,7 @@ class TestLatencyEnableProxiesPost(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return _make_app()
 
-    @patch('handlers.latency.AsyncHTTPClient')
+    @patch('handlers.impairments.AsyncHTTPClient')
     def test_latency_enable_proxies_post(self, mock_client_cls):
         """Authenticated POST /td-api/latency/enable forwards body to capture service."""
         mock_client = MagicMock()
@@ -123,7 +123,7 @@ class TestLatencyDisableAllProxies(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return _make_app()
 
-    @patch('handlers.latency.AsyncHTTPClient')
+    @patch('handlers.impairments.AsyncHTTPClient')
     def test_latency_disable_all_proxies(self, mock_client_cls):
         """POST /td-api/latency/disable-all proxies to captureservice disable-all endpoint."""
         mock_client = MagicMock()
@@ -149,7 +149,7 @@ class TestLatencyServiceUnavailable(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return _make_app()
 
-    @patch('handlers.latency.AsyncHTTPClient')
+    @patch('handlers.impairments.AsyncHTTPClient')
     def test_latency_service_unavailable_503(self, mock_client_cls):
         """When both primary and fallback fail, returns 503."""
         mock_client = MagicMock()

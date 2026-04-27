@@ -63,17 +63,15 @@ from handlers.capture import (
     CaptureStartAPIHandler,
     CaptureStopAPIHandler,
 )
-from handlers.latency import (
-    LatencyBridgesAPIHandler,
-    LatencyEnableAPIHandler,
-    LatencyDisableAPIHandler,
-    LatencyDisableAllAPIHandler,
-)
 from handlers.impairments import (
     ImpairmentsBridgesAPIHandler,
     ImpairmentsConfigureAPIHandler,
     ImpairmentsClearAPIHandler,
     ImpairmentsClearAllAPIHandler,
+    LatencyBridgesAPIHandler,
+    LatencyEnableAPIHandler,
+    LatencyDisableAPIHandler,
+    LatencyDisableAllAPIHandler,
 )
 
 # Disable any TLS Warnings when getting instance Uptime
