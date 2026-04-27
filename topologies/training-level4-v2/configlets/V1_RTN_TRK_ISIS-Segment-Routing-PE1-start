@@ -1,30 +1,37 @@
 hostname PE1
 !
+ip routing
+!
 interface Ethernet1
-  no switchport
-  ip address 192.168.11.1/30
+   no switchport
+   ip address 192.168.11.1/30
+   no shutdown
 !
 interface Ethernet2
-  no switchport
-  ip address 192.168.21.1/30
+   no switchport
+   ip address 192.168.21.1/30
+   no shutdown
 !
 interface Ethernet3
-  no switchport
-  ip address 192.168.31.1/30
+   no switchport
+   ip address 192.168.31.1/30
+   no shutdown
 !
 interface Ethernet4
-  no switchport
-  ip address 171.16.13.1/24
+   no switchport
+   ip address 172.16.13.1/24
+   no shutdown
 !
 interface Ethernet5
-  no switchport
-  ip address 172.16.14.1/24
+   no switchport
+   ip address 172.16.14.1/24
+   no shutdown
 !
 interface Ethernet6
-  no switchport
-  ip address 172.16.15.1/24
+   no switchport
+   ip address 172.16.15.1/24
+   no shutdown
 !
 interface Loopback0
    ip address 192.168.100.1/32
-
-
+!

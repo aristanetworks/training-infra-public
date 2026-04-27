@@ -1,3 +1,4 @@
+hostname B1
 !
 int loop0
    ip address 192.168.20.1/32
