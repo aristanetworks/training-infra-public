@@ -1,0 +1,19 @@
+hostname P4
+!
+ip routing
+!
+service routing protocols model multi-agent
+!
+interface Loopback0
+   ip address 192.168.100.4/32
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.14.4/24
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.24.4/24
+   no shutdown
+!

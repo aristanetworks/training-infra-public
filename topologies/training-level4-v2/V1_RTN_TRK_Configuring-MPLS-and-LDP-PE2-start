@@ -1,0 +1,48 @@
+hostname PE2
+ip routing
+
+interface Ethernet1
+   description TO-A2
+   no switchport
+   ip address 192.168.12.1/30
+
+interface Ethernet2
+   description TO-B2
+   no switchport
+   ip address 192.168.22.1/30
+
+interface Ethernet3
+   description TO-C2
+   no switchport
+   ip address 192.168.32.1/30
+
+interface Ethernet4
+   description TO-P3
+   no switchport
+   ip address 172.16.23.2/24
+   isis enable isis
+   isis network point-to-point
+
+interface Ethernet5
+   description TO-P4
+   no switchport
+   ip address 172.16.24.2/24
+   isis enable isis
+   isis network point-to-point
+
+interface Ethernet6
+   description TO-P6
+   no switchport
+   ip address 172.16.26.2/24
+   isis enable isis
+   isis network point-to-point
+
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+
+router isis isis
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   address-family ipv4 unicast
