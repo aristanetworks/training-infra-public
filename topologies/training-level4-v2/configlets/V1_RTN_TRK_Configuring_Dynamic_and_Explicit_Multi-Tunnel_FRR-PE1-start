@@ -1,41 +1,8 @@
-!
 hostname PE1
 !
-interface Ethernet1
-   no switchport
-   ip address 192.168.11.1/30
-!
-interface Ethernet2
-   no switchport
-   ip address 192.168.21.1/30
-!
-interface Ethernet3
-   no switchport
-   ip address 192.168.31.1/30
-!
-interface Ethernet4
-   no switchport
-   ip address 172.16.13.1/24
-   isis enable isis
-   isis network point-to-point
-!
-interface Ethernet5
-   no switchport
-   ip address 172.16.14.1/24
-   isis enable isis
-   isis network point-to-point
-!
-interface Ethernet6
-   no switchport
-   ip address 172.16.15.1/24
-   isis enable isis
-   isis network point-to-point
-!
-interface Loopback0
-   ip address 192.168.100.1/32
-   isis enable isis
-!
 ip routing
+!
+service routing protocols model multi-agent
 !
 router isis isis
    net 49.0000.0000.0000.0001.00
@@ -43,13 +10,37 @@ router isis isis
    is-type level-1
    address-family ipv4 unicast
 !
-mpls ip
+interface Ethernet1
+   ip address 192.168.11.1/30
+   no shutdown
 !
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 eq 32
+interface Ethernet2
+   ip address 192.168.21.1/30
+   no shutdown
 !
-mpls ldp
-   router-id interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
-   shutdown
+interface Ethernet3
+   ip address 192.168.31.1/30
+   no shutdown
+!
+interface Ethernet4
+   ip address 172.16.13.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet5
+   ip address 172.16.14.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet6
+   ip address 172.16.15.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.1/32
+   isis enable isis
 !

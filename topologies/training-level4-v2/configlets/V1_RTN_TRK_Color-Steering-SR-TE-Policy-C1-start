@@ -1,12 +1,14 @@
+hostname C1
 !
-interface Loopback0
-ip address 192.168.30.1/32
+ip routing
 !
 interface Ethernet1
-no switchport
-ip address 192.168.31.2/30
-mtu 1500
-no shutdown
+   no switchport
+   ip address 192.168.31.2/30
+   no shutdown
 !
-interface Ethernet2
-shutdown
+interface Loopback0
+   ip address 192.168.30.1/32
+!
+ip route 0.0.0.0/0 192.168.31.1
+!
