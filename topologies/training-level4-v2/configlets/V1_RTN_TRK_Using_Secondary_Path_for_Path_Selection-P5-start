@@ -1,53 +1,60 @@
-hostname P5
-!
-interface Ethernet1
-   mtu 1500
-   no switchport
-   ip address 172.16.15.5/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-!
-interface Ethernet2
-   mtu 1500
-   no switchport
-   ip address 172.16.56.5/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-!
-interface Loopback0
-   ip address 192.168.100.5/32
-   isis enable isis
-!
-ip routing
-!
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 ge 24
-!
-mpls ip
-!
-mpls ldp
-   router-id interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
-   no shutdown
-!
-router traffic-engineering
-   router-id ipv4 192.168.100.5
-!
-router isis isis
-   net 49.0000.0000.0000.0005.00
-   router-id ipv4 192.168.100.5
-   is-type level-1
+   hostname P5
    !
-   address-family ipv4 unicast
+   service routing protocols model multi-agent
    !
-   traffic-engineering
+   ip routing
+   mpls ip
+   !
+   ip prefix-list ldp-fec-prefix-list
+      seq 10 permit 192.168.100.0/24 eq 32
+   !
+   mpls ldp
+      router-id interface Loopback0
+      fec filter prefix-list ldp-fec-prefix-list
       no shutdown
+   !
+   mpls rsvp
+      fast-reroute mode node-protection
+      no shutdown
+   !
+   router isis isis
+      net 49.0000.0000.0000.0005.00
+      router-id ipv4 192.168.100.5
       is-type level-1
-!
-mpls rsvp
-   fast-reroute mode node-protection
-   no shutdown
+      address-family ipv4 unicast
+      traffic-engineering
+      no shutdown
+   !
+   router traffic-engineering
+   router-id ipv4 192.168.100.5
+   administrative-group alias blue group 1
+   administrative-group alias red group 2
+   !
+   rsvp
+      local-interface Loopback0 
+  !
+   interface Loopback0
+      ip address 192.168.100.5/32
+      isis enable isis
+      no shutdown
+   !
+   interface Ethernet1
+      no switchport
+      ip address 172.16.15.5/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue,red
+      no shutdown
+   !
+   interface Ethernet2
+      no switchport
+      ip address 172.16.56.5/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue,red
+      no shutdown
+   !
