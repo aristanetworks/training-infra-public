@@ -150,102 +150,89 @@ function createWS(SOCK_URL) {
         // Get cached DOM elements for performance
         var elements = getCachedExamElements();
 
-        // Handle Start Exam button visibility and state based on CVP status
-        // Read flags LIVE from window (not snapshots) to get current values
-        if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
-            cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
-            // Only show modal for exam labs when we have confirmed the exam status
-            // Using live window references to ensure we have the latest values
-            if (window.examStatusLoaded && window.isExamLab) {
-      // Hide loading overlay and show exam modal simultaneously
-      var initialLoading = document.getElementById('initialLoadingOverlay');
-      if (initialLoading) {
-          initialLoading.style.display = 'none';
-      }                
-                // Show CVP waiting modal with waiting state
-                if (elements.cvpModal) {
-                    elements.cvpModal.style.display = 'flex';
+        // Handle CVP status UI updates — only when message contains CVP data
+        // Ping messages don't carry CVP data, so skip them to avoid resetting state
+        if (reg_data['cvp'] && reg_data['cvp']['status']) {
+            if (reg_data['cvp']['status'] != 'UP') {
+                cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
+
+                // Update sidebar: show struck-through CVP, hide active CVP
+                if (elements.cvpLoading) elements.cvpLoading.style.display = "block";
+                if (elements.cvpLoaded) elements.cvpLoaded.style.display = "none";
+
+                // Disable lab menu button
+                if (elements.labBtn) {
+                    elements.labBtn.disabled = true;
+                    if (elements.cvpStatus) {
+                        elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up";
+                    }
                 }
 
-                // Show loading icon, hide ready icon
-                if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'block';
-                if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'none';
+                // Show exam modal in waiting state (exam labs only)
+                if (window.examStatusLoaded && window.isExamLab) {
+                    var initialLoading = document.getElementById('initialLoadingOverlay');
+                    if (initialLoading) {
+                        initialLoading.style.display = 'none';
+                    }
+                    if (elements.cvpModal) {
+                        elements.cvpModal.style.display = 'flex';
+                    }
+                    if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'block';
+                    if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'none';
+                    if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Starting';
+                    if (elements.cvpModalMessage) {
+                        elements.cvpModalMessage.innerHTML = 'Please wait for CVP to start, this can take <strong>15 minutes</strong>.';
+                    }
+                    if (elements.cvpNoticeText) {
+                        elements.cvpNoticeText.innerHTML = 'This time is <strong>NOT</strong> part of your allocated exam.';
+                    }
+                    if (elements.cvpSuggestion) {
+                        elements.cvpSuggestion.innerHTML = 'Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.';
+                    }
+                    if (elements.cvpModalBtn) {
+                        elements.cvpModalBtn.disabled = true;
+                    }
+                }
+            } else {
+                // CVP is UP — update sidebar: hide struck-through, show active
+                if (elements.cvpLoading) elements.cvpLoading.style.display = "none";
+                if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block";
 
-                // Set waiting state messages
-                if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Starting';
-                if (elements.cvpModalMessage) {
-                    elements.cvpModalMessage.innerHTML = 'Please wait for CVP to start, this can take <strong>15 minutes</strong>.';
-                }
-                if (elements.cvpNoticeText) {
-                    elements.cvpNoticeText.innerHTML = 'This time is <strong>NOT</strong> part of your allocated exam.';
-                }
-                if (elements.cvpSuggestion) {
-                    elements.cvpSuggestion.innerHTML = 'Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.';
-                }
-
-                // Disable the Start Exam button in modal
-                if (elements.cvpModalBtn) {
-                    elements.cvpModalBtn.disabled = true;
-                }
-            }
-
-            if (elements.labBtn) {
-                elements.labBtn.disabled = true
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "block"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "none"
-                }
-            }
-        } else {
-            // CVP is UP
-            // Only update modal for exam labs when we have confirmed the exam status
-            // Using live window references to ensure we have the latest values
-            if (window.examStatusLoaded && window.isExamLab) {
-                      // Hide loading overlay and show exam modal simultaneously
-      var initialLoading = document.getElementById('initialLoadingOverlay');
-      if (initialLoading) {
-          initialLoading.style.display = 'none';
-      }
-
-                // Update modal to ready state
-                if (elements.cvpModal) {
-                    elements.cvpModal.style.display = 'flex';
+                // Enable lab menu button
+                if (elements.labBtn) {
+                    elements.labBtn.disabled = false;
+                    if (elements.cvpStatus) {
+                        elements.cvpStatus.textContent = "";
+                    }
                 }
 
-                // Hide loading icon, show ready icon
-                if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'none';
-                if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'block';
-
-                // Set ready state messages
-                if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Ready!';
-                if (elements.cvpModalMessage) {
-                    elements.cvpModalMessage.innerHTML = 'CVP has successfully started and is ready for your exam.';
-                }
-                if (elements.cvpNoticeText) {
-                    elements.cvpNoticeText.innerHTML = 'You can now start your exam. <strong>Good luck!</strong>';
-                }
-                if (elements.cvpSuggestion) {
-                    elements.cvpSuggestion.innerHTML = 'Click the <strong>Start Exam</strong> button below to begin.';
-                }
-
-                // Enable the Start Exam button in modal
-                if (elements.cvpModalBtn) {
-                    elements.cvpModalBtn.disabled = false;
-                }
-
-                // Hide the original overlay
-                if (elements.overlay) {
-                    elements.overlay.style.display = 'none';
-                }
-            }
-
-            if (elements.labBtn) {
-                elements.labBtn.disabled = false
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = ""
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "none"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block"
+                // Show exam modal in ready state (exam labs only)
+                if (window.examStatusLoaded && window.isExamLab) {
+                    var initialLoading = document.getElementById('initialLoadingOverlay');
+                    if (initialLoading) {
+                        initialLoading.style.display = 'none';
+                    }
+                    if (elements.cvpModal) {
+                        elements.cvpModal.style.display = 'flex';
+                    }
+                    if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'none';
+                    if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'block';
+                    if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Ready!';
+                    if (elements.cvpModalMessage) {
+                        elements.cvpModalMessage.innerHTML = 'CVP has successfully started and is ready for your exam.';
+                    }
+                    if (elements.cvpNoticeText) {
+                        elements.cvpNoticeText.innerHTML = 'You can now start your exam. <strong>Good luck!</strong>';
+                    }
+                    if (elements.cvpSuggestion) {
+                        elements.cvpSuggestion.innerHTML = 'Click the <strong>Start Exam</strong> button below to begin.';
+                    }
+                    if (elements.cvpModalBtn) {
+                        elements.cvpModalBtn.disabled = false;
+                    }
+                    if (elements.overlay) {
+                        elements.overlay.style.display = 'none';
+                    }
                 }
             }
         }
