@@ -117,8 +117,10 @@ while True:
         sleep(1)
 with open(MENU_BASE_PATH+'default.yaml', 'r') as default_menu_file:
     default_menu_info = YAML().load(default_menu_file)
+MENU_ITEMS = {}
+DEFAULT_MENU_FILE_VALUE = ''
 if str(default_menu_info['default_menu']).lower() == 'ssh':
-    NOMENUOPTIONFILE =True
+    NOMENUOPTIONFILE = True
 else:
     # Open yaml for the lab option (minus 'LAB_' from menu mode) and load the variables
     NOMENUOPTIONFILE = False
