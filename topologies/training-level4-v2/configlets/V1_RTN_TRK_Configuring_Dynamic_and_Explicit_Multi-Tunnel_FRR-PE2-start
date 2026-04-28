@@ -11,30 +11,36 @@ router isis isis
    address-family ipv4 unicast
 !
 interface Ethernet1
+   no switchport
    ip address 192.168.12.1/30
    no shutdown
 !
 interface Ethernet2
+   no switchport
    ip address 192.168.22.1/30
    no shutdown
 !
 interface Ethernet3
+   no switchport
    ip address 192.168.32.1/30
    no shutdown
 !
 interface Ethernet4
+   no switchport
    ip address 172.16.23.2/24
    isis enable isis
    isis network point-to-point
    no shutdown
 !
 interface Ethernet5
+   no switchport
    ip address 172.16.24.2/24
    isis enable isis
    isis network point-to-point
    no shutdown
 !
 interface Ethernet6
+   no switchport
    ip address 172.16.26.2/24
    isis enable isis
    isis network point-to-point
