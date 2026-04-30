@@ -1383,6 +1383,7 @@ async def reboot_devices(request):
     for device in devices:
         try:
             import subprocess
+            from resource_manager import get_resource_manager
             # Resolve actual domain name (may be uppercase on some topologies)
             rm = get_resource_manager()
             domain_name = rm.resolve_domain_name(device)
