@@ -262,12 +262,44 @@ class ResourceManager:
 
         return {'status': 'undefined'}
 
+    def resolve_domain_name(self, vm_name: str) -> str:
+        """Resolve the actual libvirt domain name for a VM.
+
+        Tries the name as-is first, then lowercase as fallback.
+        This handles topologies where VMs use original case from
+        topo_build.yml (e.g., L4: P4, PE1) as well as topologies
+        where VMs are lowercase (e.g., spine1, leaf1).
+
+        Args:
+            vm_name: Name of the VM to look up
+
+        Returns:
+            The actual domain name found, or vm_name as-is if neither matches
+        """
+        for name in dict.fromkeys([vm_name, vm_name.lower()]):
+            try:
+                result = subprocess.run(
+                    ['virsh', 'dominfo', name],
+                    capture_output=True,
+                    text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+                if result.returncode == 0:
+                    return name
+            except Exception:
+                continue
+        return vm_name
+
     def vm_exists(self, vm_name: str) -> bool:
         """Check if a VM is defined in libvirt.
-        Lowercases the name since libvirt domains are always lowercase."""
+        Tries original name first, then lowercase (virsh is case-sensitive
+        and domain names may be uppercase on some topologies like L4)."""
+        resolved = self.resolve_domain_name(vm_name)
+        # resolve_domain_name returns vm_name as-is if not found,
+        # so verify the resolved name actually exists
         try:
             result = subprocess.run(
-                ['virsh', 'dominfo', vm_name.lower()],
+                ['virsh', 'dominfo', resolved],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -278,10 +310,11 @@ class ResourceManager:
 
     def get_vm_state(self, vm_name: str) -> str:
         """Get the current state of a VM.
-        Lowercases the name since libvirt domains are always lowercase."""
+        Resolves the actual domain name first (may be uppercase or lowercase)."""
+        resolved = self.resolve_domain_name(vm_name)
         try:
             result = subprocess.run(
-                ['virsh', 'domstate', vm_name.lower()],
+                ['virsh', 'domstate', resolved],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT

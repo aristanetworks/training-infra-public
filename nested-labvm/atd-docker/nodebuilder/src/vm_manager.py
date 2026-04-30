@@ -255,15 +255,14 @@ def define_vm(xml_path: str) -> Dict:
 
 def start_vm(vm_name: str) -> Dict:
     """
-    Start a VM. Lowercases the name since libvirt domains are always lowercase.
+    Start a VM.
 
     Args:
-        vm_name: Name of the VM
+        vm_name: Name of the VM (must match the actual libvirt domain name)
 
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'start', vm_name],
         capture_output=True,
@@ -287,7 +286,6 @@ def autostart_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'autostart', vm_name],
         capture_output=True,
@@ -311,7 +309,6 @@ def destroy_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'destroy', vm_name],
         capture_output=True,
@@ -333,7 +330,6 @@ def undefine_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
     result = subprocess.run(
         ['virsh', 'undefine', vm_name],
         capture_output=True,
@@ -472,17 +468,17 @@ def create_veos_node(
 
 def get_vm_state(vm_name: str) -> str:
     """
-    Get the current state of a VM. Lowercases the name for libvirt.
+    Get the current state of a VM.
 
     Args:
-        vm_name: Name of the VM
+        vm_name: Name of the VM (must match the actual libvirt domain name)
 
     Returns:
         State string: 'running', 'shut off', 'paused', or 'unknown'
     """
     try:
         result = subprocess.run(
-            ['virsh', 'domstate', vm_name.lower()],
+            ['virsh', 'domstate', vm_name],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -499,7 +495,9 @@ def get_vm_state(vm_name: str) -> str:
 
 def vm_exists(vm_name: str) -> bool:
     """
-    Check if a VM is defined in libvirt. Lowercases the name for libvirt.
+    Check if a VM is defined in libvirt.
+    Tries original name first, then lowercase (virsh is case-sensitive
+    and domain names may be uppercase on some topologies like L4).
 
     Args:
         vm_name: Name of the VM
@@ -507,17 +505,19 @@ def vm_exists(vm_name: str) -> bool:
     Returns:
         True if VM exists (defined), False otherwise
     """
-    try:
-        result = subprocess.run(
-            ['virsh', 'dominfo', vm_name.lower()],
-            capture_output=True,
-            text=True,
-            timeout=SUBPROCESS_TIMEOUT_DEFAULT
-        )
-        return result.returncode == 0
-
-    except Exception:
-        return False
+    for name in dict.fromkeys([vm_name, vm_name.lower()]):
+        try:
+            result = subprocess.run(
+                ['virsh', 'dominfo', name],
+                capture_output=True,
+                text=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            if result.returncode == 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def restore_user_node(node_name: str, node_info: Dict) -> Dict:
