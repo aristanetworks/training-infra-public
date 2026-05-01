@@ -24,15 +24,25 @@ const TerminalManager = {
   _sshSettleMs: 1000,
   // Debug logging — enable via console: TerminalManager._debug = true
   _debug: false,
+  // Feature flag: tab reordering (drag-and-drop + context menu)
+  _tabReorderingEnabled: false,
 
-  init() {
+  async init() {
     this.loadDevices();
     this.setupJumpServer();
     this.setupPanelToggles();
     this.setupSidebarToggle();
     this.setupTabOverflow();
     this.setupSplitView();
-    this.setupTabSorting();
+
+    // Check feature flag for tab reordering
+    if (window.featureFlags) {
+      this._tabReorderingEnabled = await window.featureFlags.check('tab_reordering');
+      console.log('[TerminalManager] Tab reordering feature flag:', this._tabReorderingEnabled);
+    }
+    if (this._tabReorderingEnabled) {
+      this.setupTabSorting();
+    }
   },
 
   setupJumpServer() {
@@ -425,10 +435,12 @@ const TerminalManager = {
         this.closeTab(tabId);
       });
 
-      // Right-click context menu for tab actions
-      tabEl.addEventListener('contextmenu', (e) => {
-        this.showTabContextMenu(e, tabId);
-      });
+      // Right-click context menu for tab actions (feature-flagged)
+      if (this._tabReorderingEnabled) {
+        tabEl.addEventListener('contextmenu', (e) => {
+          this.showTabContextMenu(e, tabId);
+        });
+      }
 
       tabsScrollArea.appendChild(tabEl);
 
@@ -561,10 +573,12 @@ const TerminalManager = {
         this.closeTab(tabId);
       });
 
-      // Right-click context menu for tab actions
-      tabEl.addEventListener('contextmenu', (e) => {
-        this.showTabContextMenu(e, tabId);
-      });
+      // Right-click context menu for tab actions (feature-flagged)
+      if (this._tabReorderingEnabled) {
+        tabEl.addEventListener('contextmenu', (e) => {
+          this.showTabContextMenu(e, tabId);
+        });
+      }
 
       tabsScrollArea.appendChild(tabEl);
 
