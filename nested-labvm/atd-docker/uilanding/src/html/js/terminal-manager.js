@@ -1287,7 +1287,7 @@ const TerminalManager = {
     closeThisItem.appendChild(document.createTextNode(' Close This Tab'));
     menu.appendChild(closeThisItem);
 
-    // Dynamic per-group close items (only groups with 2+ open tabs)
+    // Dynamic per-group close items for groups with open tabs
     const groupCounts = new Map();
     this.tabs.forEach(t => {
       const group = this.getTabGroup(t.name);
@@ -1302,7 +1302,7 @@ const TerminalManager = {
 
     groupOrder.forEach(groupName => {
       const count = groupCounts.get(groupName) || 0;
-      if (count >= 2) {
+      if (count >= 1) {
         const item = document.createElement('div');
         item.className = 'menu-item';
         item.setAttribute('role', 'menuitem');
