@@ -1109,8 +1109,15 @@ const TerminalManager = {
       preventOnFilter: false,
       ghostClass: 'tab-ghost',
       chosenClass: 'tab-chosen',
+      forceFallback: true,
+      fallbackClass: 'tab-drag-fallback',
       direction: 'horizontal',
-      onEnd: () => {
+      onStart: (evt) => {
+        // Add a placeholder style to the original element's slot
+        evt.item.classList.add('tab-dragging-source');
+      },
+      onEnd: (evt) => {
+        evt.item.classList.remove('tab-dragging-source');
         this._syncTabsFromDom();
         this.updateTabOverflow();
       }
@@ -1137,14 +1144,36 @@ const TerminalManager = {
    * Within each group, tabs maintain their current relative order.
    */
   groupTabsByDeviceGroup() {
-    const groupHeaders = document.querySelectorAll('.device-group .group-name');
-    const groupOrder = Array.from(groupHeaders).map(el => el.textContent.trim());
+    // Get sidebar group order and device order from DOM
+    const groupEls = document.querySelectorAll('.device-group');
+    const groupOrder = [];
+    const deviceOrder = new Map(); // deviceName -> index for sorting within group
+    let deviceIndex = 0;
+    groupEls.forEach(groupEl => {
+      const nameEl = groupEl.querySelector('.group-name');
+      if (nameEl) {
+        groupOrder.push(nameEl.textContent.trim());
+      }
+      // Record the sidebar order of each device within this group
+      groupEl.querySelectorAll('.device-item').forEach(deviceEl => {
+        deviceOrder.set(deviceEl.dataset.name, deviceIndex++);
+      });
+    });
 
     const grouped = new Map();
     this.tabs.forEach(tab => {
       const group = this.getTabGroup(tab.name);
       if (!grouped.has(group)) grouped.set(group, []);
       grouped.get(group).push(tab);
+    });
+
+    // Sort tabs within each group to match sidebar device order
+    grouped.forEach(tabs => {
+      tabs.sort((a, b) => {
+        const orderA = deviceOrder.has(a.name) ? deviceOrder.get(a.name) : Infinity;
+        const orderB = deviceOrder.has(b.name) ? deviceOrder.get(b.name) : Infinity;
+        return orderA - orderB;
+      });
     });
 
     const sorted = [];
@@ -1329,13 +1358,24 @@ const TerminalManager = {
       menu.style.top = (window.innerHeight - menuRect.height - 10) + 'px';
     }
 
-    // Close menu when clicking outside or pressing Escape
+    // Close menu when clicking outside, pressing Escape, or window loses focus (iframe click)
+    const dismissMenu = () => {
+      this.hideTabContextMenu();
+      document.removeEventListener('mousedown', onOutsideClick);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('blur', dismissMenu);
+    };
+    const onOutsideClick = (e) => {
+      if (!menu.contains(e.target)) dismissMenu();
+    };
+    const onEscape = (e) => {
+      if (e.key === 'Escape') dismissMenu();
+    };
     setTimeout(() => {
-      document.addEventListener('click', this.hideTabContextMenu.bind(this), { once: true });
+      document.addEventListener('mousedown', onOutsideClick);
     }, 0);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.hideTabContextMenu();
-    }, { once: true });
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('blur', dismissMenu);
   },
 
   /**
