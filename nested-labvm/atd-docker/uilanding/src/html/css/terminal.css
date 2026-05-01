@@ -126,24 +126,6 @@ body.terminal-page {
   padding: 8px 0;
 }
 
-/* ============================================
-   Open All Authentication Notice
-   ============================================ */
-.open-all-notice {
-  padding: 10px 16px;
-  margin: 8px 12px;
-  background: rgba(251, 181, 0, 0.1);
-  border: 1px solid var(--secondary-color);
-  color: var(--secondary-color);
-  font-size: 12px;
-  line-height: 1.4;
-  animation: noticeIn 0.2s ease-out;
-}
-
-@keyframes noticeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 /* ============================================
    Jump Server Link
@@ -223,24 +205,6 @@ body.terminal-page {
   flex: 1;
 }
 
-.group-header .group-open-all {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.15s;
-  margin-left: auto;
-}
-
-.group-header .group-open-all:hover {
-  color: var(--secondary-color);
-  border-color: var(--secondary-color);
-  background: rgba(251, 181, 0, 0.1);
-}
 
 .group-header .arrow {
   margin-right: 10px;

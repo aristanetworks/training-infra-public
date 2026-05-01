@@ -116,14 +116,8 @@ const TerminalManager = {
       nameSpan.className = 'group-name';
       nameSpan.textContent = group.group;
 
-      const openAllSpan = document.createElement('span');
-      openAllSpan.className = 'group-open-all';
-      openAllSpan.textContent = 'All';
-      openAllSpan.title = 'Open SSH to all devices in this group';
-
       headerEl.appendChild(arrowSpan);
       headerEl.appendChild(nameSpan);
-      headerEl.appendChild(openAllSpan);
 
       const devicesEl = document.createElement('div');
       devicesEl.className = 'group-devices';
@@ -252,16 +246,8 @@ const TerminalManager = {
         devicesEl.appendChild(deviceEl);
       });
 
-      // "Open All" button click
-      openAllSpan.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.openAllInGroup(devicesEl);
-      });
-
       // Group header collapse toggle
       headerEl.addEventListener('click', (e) => {
-        // Don't toggle collapse when clicking "Open All"
-        if (e.target.classList.contains('group-open-all')) return;
         const isCollapsed = headerEl.classList.toggle('collapsed');
         headerEl.setAttribute('aria-expanded', !isCollapsed);
         devicesEl.classList.toggle('hidden');
@@ -1769,70 +1755,6 @@ const TerminalManager = {
         deviceEl.classList.add('active-tab');
       }
     }
-  },
-
-  /**
-   * Open SSH terminals for all devices in a group
-   *
-   * WebSSH2 requires authentication on the first connection — a session cookie
-   * is set after the user logs in. Subsequent connections reuse that cookie.
-   *
-   * If no SSH session exists yet, we open only the first device and prompt the
-   * user to authenticate before clicking "All" again. This prevents multiple
-   * simultaneous login prompts.
-   */
-  openAllInGroup(groupEl) {
-    const devices = groupEl.querySelectorAll('.device-item');
-
-    // Collect devices that need opening (have IP and no existing SSH tab)
-    const toOpen = [];
-    devices.forEach(deviceEl => {
-      const name = deviceEl.dataset.name;
-      const ip = deviceEl.dataset.ip;
-      if (ip && ip !== 'N/A' && !this.tabs.some(t => t.name === name && t.type === 'ssh')) {
-        toOpen.push({ name, ip });
-      }
-    });
-
-    if (toOpen.length === 0) return;
-
-    // Check if user has an existing SSH session (any SSH tab already open)
-    const hasExistingSession = this.tabs.some(t => t.type === 'ssh');
-
-    if (!hasExistingSession) {
-      // No session yet — open only the first device so user can authenticate
-      this.openTerminal(toOpen[0].name, toOpen[0].ip, 'ssh');
-      this.showOpenAllNotice(toOpen.length - 1);
-      return;
-    }
-
-    // Session exists — open all devices (queue serializes them automatically)
-    toOpen.forEach(device => {
-      this.openTerminal(device.name, device.ip, 'ssh');
-    });
-  },
-
-  /**
-   * Show a brief notice prompting the user to authenticate then retry "All"
-   */
-  showOpenAllNotice(remaining) {
-    // Remove any existing notice
-    const existing = document.getElementById('openAllNotice');
-    if (existing) existing.remove();
-
-    const notice = document.createElement('div');
-    notice.id = 'openAllNotice';
-    notice.className = 'open-all-notice';
-    notice.textContent = `Log in to the terminal, then click "All" again to open the remaining ${remaining} device${remaining !== 1 ? 's' : ''}.`;
-
-    // Insert at top of device tree
-    const tree = document.getElementById('deviceGroups');
-    tree.parentElement.insertBefore(notice, tree);
-
-    // Auto-dismiss after 10 seconds
-    setTimeout(() => {
-      if (notice.parentElement) notice.remove();
-    }, 10000);
   },
 
   /**
