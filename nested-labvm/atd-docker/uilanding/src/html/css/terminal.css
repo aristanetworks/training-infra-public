@@ -533,6 +533,59 @@ body.terminal-page {
 }
 
 /* ============================================
+   Tab Context Menu
+   ============================================ */
+.tab-context-menu {
+  position: fixed;
+  background: var(--primary-color);
+  border: 1px solid var(--secondary-color);
+  min-width: 200px;
+  z-index: 100000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tab-context-menu .menu-section-label {
+  padding: 6px 14px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-context-menu .menu-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.15s;
+}
+
+.tab-context-menu .menu-item:hover {
+  background: rgba(251, 181, 0, 0.1);
+}
+
+.tab-context-menu .menu-item.destructive {
+  color: var(--danger-red, #e30909);
+}
+
+.tab-context-menu .menu-item.destructive:hover {
+  background: rgba(227, 9, 9, 0.1);
+}
+
+.tab-context-menu .menu-item .group-name-highlight {
+  color: var(--secondary-color);
+}
+
+.tab-context-menu .menu-divider {
+  height: 1px;
+  background: rgba(251, 181, 0, 0.3);
+  margin: 4px 0;
+}
+
+/* ============================================
    Credentials Panel
    ============================================ */
 .credentials-panel {

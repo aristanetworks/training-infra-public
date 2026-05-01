@@ -439,6 +439,11 @@ const TerminalManager = {
         this.closeTab(tabId);
       });
 
+      // Right-click context menu for tab actions
+      tabEl.addEventListener('contextmenu', (e) => {
+        this.showTabContextMenu(e, tabId);
+      });
+
       tabsScrollArea.appendChild(tabEl);
 
       // Create iframe
@@ -568,6 +573,11 @@ const TerminalManager = {
       tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         this.closeTab(tabId);
+      });
+
+      // Right-click context menu for tab actions
+      tabEl.addEventListener('contextmenu', (e) => {
+        this.showTabContextMenu(e, tabId);
       });
 
       tabsScrollArea.appendChild(tabEl);
@@ -1119,6 +1129,232 @@ const TerminalManager = {
         this.updateTabOverflow();
       }
     });
+  },
+
+  /**
+   * Look up which sidebar group a device belongs to.
+   * Finds the .device-item[data-name] in the sidebar DOM and walks up to .device-group.
+   * @param {string} deviceName - The device name to look up
+   * @returns {string} The group name, or 'Other' if not found
+   */
+  getTabGroup(deviceName) {
+    const deviceEl = document.querySelector('.device-item[data-name="' + CSS.escape(deviceName) + '"]');
+    if (!deviceEl) return 'Other';
+    const groupEl = deviceEl.closest('.device-group');
+    if (!groupEl) return 'Other';
+    const groupName = groupEl.querySelector('.group-name');
+    return groupName ? groupName.textContent.trim() : 'Other';
+  },
+
+  /**
+   * Reorder tabs to match sidebar device group order.
+   * Within each group, tabs maintain their current relative order.
+   */
+  groupTabsByDeviceGroup() {
+    const groupHeaders = document.querySelectorAll('.device-group .group-name');
+    const groupOrder = Array.from(groupHeaders).map(el => el.textContent.trim());
+
+    const grouped = new Map();
+    this.tabs.forEach(tab => {
+      const group = this.getTabGroup(tab.name);
+      if (!grouped.has(group)) grouped.set(group, []);
+      grouped.get(group).push(tab);
+    });
+
+    const sorted = [];
+    groupOrder.forEach(groupName => {
+      if (grouped.has(groupName)) {
+        sorted.push(...grouped.get(groupName));
+        grouped.delete(groupName);
+      }
+    });
+    grouped.forEach(tabs => sorted.push(...tabs));
+
+    this.tabs = sorted;
+
+    const tabsScrollArea = document.getElementById('tabsScrollArea');
+    this.tabs.forEach(tab => {
+      const tabEl = document.getElementById(tab.id);
+      if (tabEl) tabsScrollArea.appendChild(tabEl);
+    });
+
+    this.updateTabOverflow();
+  },
+
+  /**
+   * Close all tabs belonging to a specific sidebar group.
+   * @param {string} groupName - The sidebar group name (e.g., 'Spines', 'Leafs')
+   */
+  closeTabsByGroup(groupName) {
+    const tabsToClose = this.tabs.filter(tab => this.getTabGroup(tab.name) === groupName);
+    tabsToClose.forEach(tab => this.closeTab(tab.id));
+  },
+
+  /**
+   * Close every open tab and show empty state.
+   */
+  closeAllTabs() {
+    while (this.tabs.length > 0) {
+      this.closeTab(this.tabs[this.tabs.length - 1].id);
+    }
+  },
+
+  /**
+   * Show a context menu when right-clicking a tab.
+   * Menu items: Group by Device Group, Close This Tab, Close All [Group], Close All Tabs
+   */
+  showTabContextMenu(event, tabId) {
+    event.preventDefault();
+    this.hideContextMenu();
+    this.hideTabContextMenu();
+
+    const tab = this.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const menu = document.createElement('div');
+    menu.className = 'tab-context-menu';
+    menu.id = 'tabContextMenu';
+    menu.setAttribute('role', 'menu');
+
+    // -- Group section --
+    const groupLabel = document.createElement('div');
+    groupLabel.className = 'menu-section-label';
+    groupLabel.textContent = 'Group tabs by';
+    menu.appendChild(groupLabel);
+
+    const groupItem = document.createElement('div');
+    groupItem.className = 'menu-item';
+    groupItem.setAttribute('role', 'menuitem');
+    groupItem.dataset.action = 'group-by-device';
+    const groupIcon = document.createElement('span');
+    groupIcon.className = 'menu-icon';
+    groupIcon.setAttribute('aria-hidden', 'true');
+    groupIcon.textContent = '\u2338';
+    groupItem.appendChild(groupIcon);
+    groupItem.appendChild(document.createTextNode(' Device Group'));
+    menu.appendChild(groupItem);
+
+    const divider1 = document.createElement('div');
+    divider1.className = 'menu-divider';
+    divider1.setAttribute('role', 'separator');
+    menu.appendChild(divider1);
+
+    // -- Close section --
+    const closeLabel = document.createElement('div');
+    closeLabel.className = 'menu-section-label';
+    closeLabel.textContent = 'Close';
+    menu.appendChild(closeLabel);
+
+    // Close This Tab
+    const closeThisItem = document.createElement('div');
+    closeThisItem.className = 'menu-item';
+    closeThisItem.setAttribute('role', 'menuitem');
+    closeThisItem.dataset.action = 'close-this';
+    const closeThisIcon = document.createElement('span');
+    closeThisIcon.className = 'menu-icon';
+    closeThisIcon.setAttribute('aria-hidden', 'true');
+    closeThisIcon.textContent = '\u2715';
+    closeThisItem.appendChild(closeThisIcon);
+    closeThisItem.appendChild(document.createTextNode(' Close This Tab'));
+    menu.appendChild(closeThisItem);
+
+    // Dynamic per-group close items (only groups with 2+ open tabs)
+    const groupCounts = new Map();
+    this.tabs.forEach(t => {
+      const group = this.getTabGroup(t.name);
+      groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
+    });
+
+    const groupHeaders = document.querySelectorAll('.device-group .group-name');
+    const groupOrder = Array.from(groupHeaders).map(el => el.textContent.trim());
+    if (groupCounts.has('Other') && !groupOrder.includes('Other')) {
+      groupOrder.push('Other');
+    }
+
+    groupOrder.forEach(groupName => {
+      const count = groupCounts.get(groupName) || 0;
+      if (count >= 2) {
+        const item = document.createElement('div');
+        item.className = 'menu-item';
+        item.setAttribute('role', 'menuitem');
+        item.dataset.action = 'close-group';
+        item.dataset.group = groupName;
+        const icon = document.createElement('span');
+        icon.className = 'menu-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '\u2715';
+        const highlight = document.createElement('span');
+        highlight.className = 'group-name-highlight';
+        highlight.textContent = groupName;
+        item.appendChild(icon);
+        item.appendChild(document.createTextNode(' Close All '));
+        item.appendChild(highlight);
+        menu.appendChild(item);
+      }
+    });
+
+    // Separator + destructive Close All
+    const divider2 = document.createElement('div');
+    divider2.className = 'menu-divider';
+    divider2.setAttribute('role', 'separator');
+    menu.appendChild(divider2);
+
+    const closeAllItem = document.createElement('div');
+    closeAllItem.className = 'menu-item destructive';
+    closeAllItem.setAttribute('role', 'menuitem');
+    closeAllItem.dataset.action = 'close-all';
+    const closeAllIcon = document.createElement('span');
+    closeAllIcon.className = 'menu-icon';
+    closeAllIcon.setAttribute('aria-hidden', 'true');
+    closeAllIcon.textContent = '\u2715';
+    closeAllItem.appendChild(closeAllIcon);
+    closeAllItem.appendChild(document.createTextNode(' Close All Tabs'));
+    menu.appendChild(closeAllItem);
+
+    // Position menu at click location
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+
+    // Add click handlers
+    menu.querySelectorAll('.menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.action;
+        if (action === 'group-by-device') {
+          this.groupTabsByDeviceGroup();
+        } else if (action === 'close-this') {
+          this.closeTab(tabId);
+        } else if (action === 'close-group') {
+          this.closeTabsByGroup(item.dataset.group);
+        } else if (action === 'close-all') {
+          this.closeAllTabs();
+        }
+        this.hideTabContextMenu();
+      });
+    });
+
+    document.body.appendChild(menu);
+
+    // Adjust position if menu goes off screen
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth) {
+      menu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
+    }
+    if (menuRect.bottom > window.innerHeight) {
+      menu.style.top = (window.innerHeight - menuRect.height - 10) + 'px';
+    }
+
+    // Close menu when clicking outside
+    setTimeout(() => {
+      document.addEventListener('click', this.hideTabContextMenu.bind(this), { once: true });
+    }, 0);
+  },
+
+  /**
+   * Remove the tab context menu from the DOM.
+   */
+  hideTabContextMenu() {
+    const existing = document.getElementById('tabContextMenu');
+    if (existing) existing.remove();
   },
 
   setupSplitView() {
