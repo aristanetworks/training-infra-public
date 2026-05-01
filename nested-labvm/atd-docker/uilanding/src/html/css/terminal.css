@@ -700,6 +700,36 @@ body.terminal-page {
 }
 
 /* ============================================
+   Tab Drag & Drop
+   ============================================ */
+.tab {
+  cursor: grab;
+}
+
+.tab:active {
+  cursor: grabbing;
+}
+
+.tab-ghost {
+  opacity: 0.5;
+  border: 2px solid var(--secondary-color);
+  background: rgba(251, 181, 0, 0.15);
+}
+
+.tab-chosen {
+  cursor: grabbing;
+}
+
+.sortable-placeholder {
+  border: 2px dashed var(--secondary-color);
+  background: rgba(251, 181, 0, 0.05);
+  border-radius: 0;
+  margin-right: 4px;
+  min-width: 60px;
+  height: 32px;
+}
+
+/* ============================================
    Tab Overflow Dropdown
    ============================================ */
 .tab-overflow {

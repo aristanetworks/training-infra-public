@@ -32,6 +32,7 @@ const TerminalManager = {
     this.setupSidebarToggle();
     this.setupTabOverflow();
     this.setupSplitView();
+    this.setupTabSorting();
   },
 
   setupJumpServer() {
@@ -1085,6 +1086,39 @@ const TerminalManager = {
     } else {
       overflow.classList.remove('visible');
     }
+  },
+
+  /**
+   * Rebuild this.tabs[] from the current DOM child order of #tabsScrollArea.
+   * Called after any reorder (drag-and-drop or context menu action).
+   */
+  _syncTabsFromDom() {
+    const tabEls = document.getElementById('tabsScrollArea').children;
+    const newTabs = [];
+    for (const el of tabEls) {
+      const tab = this.tabs.find(t => t.id === el.id);
+      if (tab) newTabs.push(tab);
+    }
+    this.tabs = newTabs;
+  },
+
+  /**
+   * Initialize SortableJS on the tab scroll area for drag-and-drop reordering.
+   */
+  setupTabSorting() {
+    const tabsScrollArea = document.getElementById('tabsScrollArea');
+    this._sortable = new Sortable(tabsScrollArea, {
+      animation: 150,
+      filter: '.close-btn',
+      preventOnFilter: false,
+      ghostClass: 'tab-ghost',
+      chosenClass: 'tab-chosen',
+      direction: 'horizontal',
+      onEnd: () => {
+        this._syncTabsFromDom();
+        this.updateTabOverflow();
+      }
+    });
   },
 
   setupSplitView() {
