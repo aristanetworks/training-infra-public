@@ -585,6 +585,11 @@ body.terminal-page {
   margin: 4px 0;
 }
 
+.tab-context-menu .menu-item .menu-icon {
+  width: 16px;
+  text-align: center;
+}
+
 /* ============================================
    Credentials Panel
    ============================================ */

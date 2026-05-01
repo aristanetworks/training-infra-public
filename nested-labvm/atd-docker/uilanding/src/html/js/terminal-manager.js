@@ -1343,10 +1343,13 @@ const TerminalManager = {
       menu.style.top = (window.innerHeight - menuRect.height - 10) + 'px';
     }
 
-    // Close menu when clicking outside
+    // Close menu when clicking outside or pressing Escape
     setTimeout(() => {
       document.addEventListener('click', this.hideTabContextMenu.bind(this), { once: true });
     }, 0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.hideTabContextMenu();
+    }, { once: true });
   },
 
   /**
