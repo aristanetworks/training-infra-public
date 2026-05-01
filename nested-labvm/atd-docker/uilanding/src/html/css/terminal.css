@@ -635,7 +635,6 @@ body.terminal-page {
   border-bottom: none;
   border-radius: 0;
   margin-right: 4px;
-  cursor: pointer;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
