@@ -1,0 +1,15 @@
+hostname P3
+!
+interface Ethernet1
+  no switchport
+  ip address 172.16.13.3/24
+!
+interface Ethernet2
+  no switchport
+  ip address 172.16.23.3/24
+!
+interface Loopback0
+  ip address 192.168.100.3/32
+!
+ip routing
+!

@@ -12,7 +12,7 @@ services:
       - atd_nginx
   configservice:
     container_name: atd-configservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:3.0.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.33
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.35
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -284,7 +284,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.3
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.4
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host

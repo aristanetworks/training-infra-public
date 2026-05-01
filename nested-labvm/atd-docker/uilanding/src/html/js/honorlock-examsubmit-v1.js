@@ -3,6 +3,7 @@ import { getUserDetails } from './honorlock-common.js';
 // Register the callback ONCE, outside the button handler
 Honorlock.onExamSubmit(() => {
     console.log('onExamSubmit callback executed');
+    cloudLog('info', 'Exam submitted', { source: 'honorlock', action: 'exam_submit' });
     window.location.href = '/exam-submitted';
     console.log('Exam submitted');
     // Print the JSON body sent to /endExam

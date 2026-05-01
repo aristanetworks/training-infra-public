@@ -1,29 +1,37 @@
+hostname PE2
 !
-interface Ethernet1
-  no switchport
-  ip address 192.168.12.1/30
+ip routing
 !
-interface Ethernet2
-  no switchport
-  ip address 192.168.22.1/30
-!
-interface Ethernet3
-  no switchport
-  ip address 192.168.32.1/30
-!
-interface Ethernet4
-  no switchport
-  ip address 172.16.23.2/24
-!
-interface Ethernet5
-  no switchport
-  ip address 172.16.24.2/24
-!
-interface Ethernet6
-  no switchport
-  ip address 172.16.26.2/24
+service routing protocols model multi-agent
 !
 interface Loopback0
    ip address 192.168.100.2/32
-
-
+!
+interface Ethernet1
+   no switchport
+   shutdown
+!
+interface Ethernet2
+   no switchport
+   ip address 192.168.22.1/30
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   shutdown
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+   no shutdown
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.24.2/24
+   no shutdown
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.26.2/24
+   no shutdown
+!

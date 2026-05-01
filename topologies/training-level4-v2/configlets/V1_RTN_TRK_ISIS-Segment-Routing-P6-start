@@ -1,34 +1,37 @@
+hostname P6
+!
+ip routing
 !
 interface Ethernet1
-  no switchport
-  ip address 172.16.56.6/24
-  isis enable isis
-  isis network point-to-point
+   no switchport
+   ip address 172.16.56.6/24
+   isis enable isis
+   isis network point-to-point
 !
 interface Ethernet2
-  no switchport
-  ip address 172.16.26.6/24
-  isis enable isis
-  isis network point-to-point
+   no switchport
+   ip address 172.16.26.6/24
+   isis enable isis
+   isis network point-to-point
 !
 interface Loopback0
    ip address 192.168.100.6/32
    isis enable isis
 !
-ip routing
 router isis isis
    net 49.0000.0000.0000.0006.00
    router-id ipv4 192.168.100.6
    is-type level-1
    address-family ipv4 unicast
 !
-ip prefix-list ldp-fec-prefix-list
- permit 192.168.100.0/24 ge 24
-!
 mpls ip
 !
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 eq 32
+!
 mpls ldp
- Router-id interface loopback 0
- fec filter prefix-list ldp-fec-prefix-list
- no shut
+   router-id interface Loopback0
+   transport-address interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
 !

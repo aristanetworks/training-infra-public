@@ -15,11 +15,21 @@ import docker
 import urllib3
 import traceback
 import os
+import socket
 import subprocess
 import time
 import threading
+import queue
 import pyeapi
 from device_types import DeviceTypeConfig
+from topology_converter import (
+    TopologyConverterCurrentHandler,
+    TopologyConverterAvailableHandler,
+    TopologyConverterInfoHandler,
+    TopologyConverterConvertHandler,
+    TopologyConverterStatusHandler,
+    TopologyConverterPageHandler,
+)
 # Note: capture_manager is no longer imported here.
 # Packet capture runs in the dedicated captureservice container with host network mode.
 # uilanding proxies WebSocket connections to the capture service.
@@ -34,11 +44,40 @@ except Exception:
     logger.addHandler(_logging.StreamHandler())
     logger.setLevel(_logging.INFO)
 
+CONNECTIVITY_LOG_PATH = '/var/log/atd/connectivity.jsonl'
+CONNECTIVITY_LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
+
+def _write_connectivity_log(level, message, labels):
+    """Write connectivity events to local JSONL file for offline reporting"""
+    try:
+        # Rotate if file exceeds max size
+        if os.path.exists(CONNECTIVITY_LOG_PATH):
+            if os.path.getsize(CONNECTIVITY_LOG_PATH) > CONNECTIVITY_LOG_MAX_BYTES:
+                rotated = CONNECTIVITY_LOG_PATH + '.1'
+                if os.path.exists(rotated):
+                    os.remove(rotated)
+                os.rename(CONNECTIVITY_LOG_PATH, rotated)
+
+        os.makedirs(os.path.dirname(CONNECTIVITY_LOG_PATH), exist_ok=True)
+        entry = json.dumps({
+            'ts': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'level': level,
+            'message': message,
+            'labels': labels
+        })
+        with open(CONNECTIVITY_LOG_PATH, 'a') as f:
+            f.write(entry + '\n')
+    except Exception:
+        pass
+
 def safe_log(level, message, **kwargs):
     """Log safely - never crash the application due to logging errors"""
     try:
         labels = {k: str(v) for k, v in kwargs.items()}
         getattr(logger, level)(message, extra={'labels': labels} if labels else {})
+        # Write connectivity events to local JSONL file
+        if kwargs.get('event') == 'connectivity':
+            _write_connectivity_log(level, message, labels)
     except Exception:
         pass
 
@@ -129,7 +168,6 @@ def get_metadata_extract(attribute):
             return None
     except requests.exceptions.RequestException as e:
         safe_log('error', f'Error in get_metadata_extract: {e}', event='error', handler='get_metadata_extract')
-        print(f"Error fetching metadata: {e}")
         return None
 
 HonorLockClientID = get_metadata_extract('honorlockClientID')
@@ -214,8 +252,8 @@ class LoginHandler(BaseHandler):
             try:
                 decoded_cred = decodeID(self.get_argument('auth'))
                 AUTH = self._validate_credentials(decoded_cred['user'], decoded_cred['pwd'])
-            except:
-                pass
+            except Exception as e:
+                safe_log('warning', f'Auth parameter decode failed: {e}', event='auth', action='decode_failure')
         if AUTH and decoded_cred:
             self.set_secure_cookie("user", decoded_cred['user'])
             self.redirect('/')
@@ -317,7 +355,6 @@ class topoRequestHandler(BaseHandler):
                         gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
                 except Exception as e:
                     safe_log('error', f'Error in topoRequestHandler: {e}', event='error', handler='topoRequestHandler')
-                    pS(f"Error while looking for servers in GUI {e}")
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
@@ -332,42 +369,285 @@ class topoRequestHandler(BaseHandler):
                 lab_type = lab_type
             )
     
+# ===============================
+# Internal CVP gRPC Health Check
+# ===============================
+
+# CVP internal address and gRPC check state
+CVP_INTERNAL_IP = '192.168.0.5'
+CVP_GRPC_ENDPOINT = '/arista.studio.v1.StudioService/GetAll'
+_cvp_grpc_token = None
+_cvp_grpc_token_expires = 0
+
+def _get_cvp_token():
+    """Fetch a CVP session token for internal gRPC checks"""
+    global _cvp_grpc_token, _cvp_grpc_token_expires
+    now = time.time()
+    # Reuse token if less than 20 minutes old
+    if _cvp_grpc_token and now < _cvp_grpc_token_expires:
+        return _cvp_grpc_token
+    try:
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+        response = requests.post(
+            'https://{0}/cvpservice/login/authenticate.do'.format(CVP_INTERNAL_IP),
+            auth=(username, password),
+            verify=False,
+            timeout=5
+        )
+        token = response.json().get('sessionId')
+        if token:
+            _cvp_grpc_token = token
+            _cvp_grpc_token_expires = now + 1200  # 20 minutes
+            return token
+    except Exception as e:
+        safe_log('error', 'Failed to get CVP token for internal gRPC check',
+            event='connectivity', action='internal_grpc_token_error',
+            error=str(e))
+    return None
+
+def check_cvp_grpc_internal():
+    """
+    Internal gRPC-Web health check to CVP at 192.168.0.5
+    Uses same framing and auth as the frontend check.
+    Results logged to Cloud Logging for comparison with frontend reports.
+    """
+    global _last_internal_grpc_status, _last_internal_grpc_time
+    token = _get_cvp_token()
+    if not token:
+        _last_internal_grpc_status = 'skipped'
+        _last_internal_grpc_time = time.time()
+        safe_log('warning', 'Internal gRPC check skipped - no token',
+            event='connectivity', action='grpc_check', source='internal',
+            status='skipped', reason='no_token')
+        return
+
+    # Same 5-byte gRPC-Web frame as frontend: flag(0x00) + length(0x00000000)
+    grpc_frame = b'\x00\x00\x00\x00\x00'
+
+    headers = {
+        'Content-Type': 'application/grpc-web+proto',
+        'Accept': 'application/grpc-web+proto',
+        'x-grpc-web': '1',
+        'Authorization': 'Bearer ' + token
+    }
+
+    try:
+        response = requests.post(
+            'https://{0}{1}'.format(CVP_INTERNAL_IP, CVP_GRPC_ENDPOINT),
+            headers=headers,
+            data=grpc_frame,
+            verify=False,
+            timeout=5
+        )
+
+        # Check for valid gRPC response
+        grpc_status = response.headers.get('grpc-status')
+        status_code = response.status_code
+
+        if status_code == 200 or grpc_status is not None:
+            # Check grpc-status if present
+            if grpc_status is not None and int(grpc_status) == 14:
+                _last_internal_grpc_status = 'unavailable'
+                safe_log('warning', 'Internal gRPC check: CVP unavailable',
+                    event='connectivity', action='grpc_check', source='internal',
+                    status='unavailable', http_status=str(status_code),
+                    grpc_status=str(grpc_status))
+            else:
+                _last_internal_grpc_status = 'ok'
+                safe_log('info', 'Internal gRPC check passed',
+                    event='connectivity', action='grpc_check', source='internal',
+                    status='ok', http_status=str(status_code),
+                    grpc_status=str(grpc_status) if grpc_status else '')
+        elif status_code in (401, 403, 405):
+            # Token may be stale, clear it
+            global _cvp_grpc_token
+            _cvp_grpc_token = None
+            _last_internal_grpc_status = 'auth_rejected'
+            safe_log('warning', 'Internal gRPC check: auth rejected',
+                event='connectivity', action='grpc_check', source='internal',
+                status='auth_rejected', http_status=str(status_code))
+        elif status_code in (502, 503, 504):
+            _last_internal_grpc_status = 'unreachable'
+            safe_log('warning', 'Internal gRPC check: CVP unreachable',
+                event='connectivity', action='grpc_check', source='internal',
+                status='unreachable', http_status=str(status_code))
+        else:
+            _last_internal_grpc_status = 'unexpected'
+            safe_log('warning', 'Internal gRPC check: unexpected response',
+                event='connectivity', action='grpc_check', source='internal',
+                status='unexpected', http_status=str(status_code))
+        _last_internal_grpc_time = time.time()
+    except requests.exceptions.Timeout:
+        _last_internal_grpc_status = 'timeout'
+        _last_internal_grpc_time = time.time()
+        safe_log('warning', 'Internal gRPC check: timeout',
+            event='connectivity', action='grpc_check', source='internal',
+            status='timeout')
+    except Exception as e:
+        _last_internal_grpc_status = 'error'
+        _last_internal_grpc_time = time.time()
+        safe_log('error', 'Internal gRPC check failed',
+            event='connectivity', action='grpc_check', source='internal',
+            status='error', error=str(e))
+
+# ===============================
+# Connectivity Session Tracking
+# ===============================
+
+# Track recently closed sessions for reconnect detection
+# Key: client_ip, Value: {'session_id': str, 'closed_at': datetime, 'reconnect_count': int}
+recent_sessions = {}
+active_sessions = set()  # Set of session IDs currently connected
+active_session_data = {}  # Snapshot of session info keyed by session_id
+_last_internal_grpc_status = None
+_last_internal_grpc_time = None
+RECONNECT_WINDOW_SECONDS = 300  # 5 minutes
+
+def prune_recent_sessions():
+    """Remove entries older than the reconnect window"""
+    now = datetime.utcnow()
+    expired = [ip for ip, data in recent_sessions.items()
+               if (now - data['closed_at']).total_seconds() > RECONNECT_WINDOW_SECONDS]
+    for ip in expired:
+        del recent_sessions[ip]
+
 class topoDataHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        safe_log('info', 'WebSocket connection opened', event='websocket', action='connect')
+        # Prefer X-Real-IP from nginx, fall back to remote_ip
+        client_ip = self.request.headers.get('X-Real-IP',
+                    self.request.headers.get('X-Forwarded-For', self.request.remote_ip))
+        # X-Forwarded-For can be comma-separated — take the first (original client)
+        if ',' in client_ip:
+            client_ip = client_ip.split(',')[0].strip()
+        session_id = str(uuid.uuid4())
+        user_agent = self.request.headers.get('User-Agent', '')[:200]
+
+        # Check for reconnect
+        prune_recent_sessions()
+        reconnect_count = 0
+        reconnect_gap = None
+        if client_ip in recent_sessions:
+            prev = recent_sessions[client_ip]
+            reconnect_count = prev['reconnect_count'] + 1
+            reconnect_gap = (datetime.utcnow() - prev['closed_at']).total_seconds()
+
+        self._closed = False
+        self.session = {
+            'id': session_id,
+            'connected_at': datetime.utcnow(),
+            'reconnect_count': reconnect_count,
+            'missed_pongs': 0,
+            'last_pong': None,
+            'last_rtt': None,
+            'client_ip': client_ip,
+            'debug_mode': False,
+            'user_agent': user_agent,
+            'last_token_send': 0,
+            'client_id': ''
+        }
+        active_sessions.add(session_id)
+
+        safe_log('info', 'WebSocket session started',
+            event='connectivity', action='session_start',
+            session_id=session_id,
+            client_ip=client_ip,
+            reconnect_count=str(reconnect_count),
+            user_agent=user_agent)
+
+        if reconnect_gap is not None:
+            safe_log('info', 'Client reconnected',
+                event='connectivity', action='reconnect',
+                session_id=session_id,
+                client_ip=client_ip,
+                reconnect_gap_seconds=str(round(reconnect_gap, 1)),
+                reconnect_count=str(reconnect_count))
+
         self.cvp_status = ''
         self.cvp_tasks = ''
         self.uptime = {}
+        self.schedule_summary()
         pS("New backend websocket connection")
     
     def on_message(self,message):
-        pS("Message Received")
         try:
             recv = json.loads(message)
             cdata = recv['data']
-            if recv['type'] == 'hello':
+            msg_type = recv['type']
+            session_id = self.session['id'][:8] if hasattr(self, 'session') else '?'
+
+            if msg_type == 'hello':
+                # Store persistent client_id from frontend (survives page refreshes)
+                client_id = cdata.get('client_id', '')
+                if client_id and hasattr(self, 'session'):
+                    self.session['client_id'] = client_id
+                pS("[{}] WS hello - client_id={} sending status + session info".format(session_id, client_id[:12] if client_id else '?'))
                 # Grab current uptime of topology
                 self.uptime = getUptime('192.168.0.1')
                 # Get initial topology status
                 self.cvp_status = getAPI("cvp_status")
-                self.endexamtime = EXAM_END_TIME    
-                self.startExamTime = EXAM_START_TIME            
+                self.endexamtime = EXAM_END_TIME
+                self.startExamTime = EXAM_START_TIME
                 if self.cvp_status['status'] == 'UP':
                     self.cvp_tasks = getAPI("cvp_tasks")
                 else:
                     self.cvp_tasks = ''
                 self.sendData('status')
+                self.send_session_info()
                 self.schedule_update()
-        except:
-            safe_log('error', 'Error in topoDataHandler.on_message', event='error', handler='topoDataHandler')
+
+            elif msg_type == 'pong':
+                if hasattr(self, 'session'):
+                    server_ts = cdata.get('server_ts', 0)
+                    now_ms = int(time.time() * 1000)
+                    rtt = now_ms - server_ts if server_ts else None
+                    self.session['last_pong'] = datetime.utcnow()
+                    self.session['last_rtt'] = rtt
+                    self.session['missed_pongs'] = 0
+                    pS("[{}] WS pong rtt={}ms".format(session_id, rtt))
+
+                    if self.session.get('debug_mode'):
+                        safe_log('debug', 'Pong received',
+                            event='connectivity', action='pong',
+                            session_id=self.session['id'],
+                            rtt_ms=str(rtt) if rtt else 'unknown')
+
+            elif msg_type == 'connectivity':
+                event_name = cdata.get('event', '?')
+                pS("[{}] WS connectivity: {}".format(session_id, event_name))
+                self.handle_connectivity_event(cdata)
+
+            elif msg_type == 'debug_toggle':
+                if hasattr(self, 'session'):
+                    self.session['debug_mode'] = not self.session['debug_mode']
+                    pS("[{}] WS debug_toggle -> {}".format(session_id, self.session['debug_mode']))
+                    safe_log('info', 'Debug mode toggled',
+                        event='connectivity', action='debug_toggle',
+                        session_id=self.session['id'],
+                        debug_mode=str(self.session['debug_mode']))
+                    try:
+                        self.write_message(json.dumps({
+                            'type': 'debug_ack',
+                            'data': {'debug_mode': self.session['debug_mode']}
+                        }))
+                    except Exception:
+                        pass
+
+            elif msg_type == 'update':
+                pass  # ACK from frontend status receipt — no action needed
+
+            else:
+                pS("[{}] WS unknown type: {}".format(session_id, msg_type))
+
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.on_message: {e}', event='error', handler='topoDataHandler')
             pS("WS ERROR")
 
     def schedule_update(self):
         try:
             self.timeout = tornado.ioloop.IOLoop.instance().add_timeout(timedelta(seconds=30),self.keepalive)
-        except:
-            safe_log('error', 'Error in topoDataHandler.schedule_update', event='error', handler='topoDataHandler')
-            pS("Error with timeout call")
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.schedule_update: {e}', event='error', handler='topoDataHandler')
         
     def keepalive(self):
         try:
@@ -380,19 +660,100 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             else:
                 self.cvp_tasks = ''
             self.sendData('status')
-        except:
-            safe_log('error', 'Error in topoDataHandler.keepalive', event='error', handler='topoDataHandler')
+
+            # Send timestamped ping for latency measurement
+            # Include internal gRPC status when available for synchronized checks
+            ping_data = {'ts': int(time.time() * 1000)}
+            if _last_internal_grpc_status is not None:
+                ping_data['internal_grpc'] = _last_internal_grpc_status
+            if hasattr(self, 'session') and self.session['last_rtt'] is not None:
+                ping_data['server_rtt'] = self.session['last_rtt']
+            self.write_message(json.dumps({
+                'type': 'ping',
+                'data': ping_data
+            }))
+
+            # Check for missed pongs
+            if hasattr(self, 'session'):
+                if self.session['last_pong'] is not None:
+                    pong_age = (datetime.utcnow() - self.session['last_pong']).total_seconds()
+                    if pong_age > 60:
+                        self.session['missed_pongs'] += 1
+                        if self.session['missed_pongs'] in (3, 10, 30, 100) or self.session['missed_pongs'] % 100 == 0:
+                            safe_log('warning', 'Client missing pong responses',
+                                event='connectivity', action='missed_pongs',
+                                session_id=self.session['id'],
+                                missed_pongs=str(self.session['missed_pongs']),
+                                last_pong_age_seconds=str(round(pong_age, 1)))
+                elif self.session['connected_at']:
+                    conn_age = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+                    if conn_age > 90:
+                        self.session['missed_pongs'] += 1
+
+            # Refresh CVP token to frontend every 20 minutes
+            if hasattr(self, 'session') and time.time() - self.session.get('last_token_send', 0) > 1200:
+                self.session['last_token_send'] = time.time()
+                try:
+                    token = _get_cvp_token()
+                    if token:
+                        self.write_message(json.dumps({
+                            'type': 'token_refresh',
+                            'data': {'cvp_token': token}
+                        }))
+                except Exception:
+                    pass
+
+            # Update active session data snapshot
+            if hasattr(self, 'session'):
+                active_session_data[self.session['id']] = {
+                    'session_id': self.session['id'],
+                    'client_ip': self.session['client_ip'],
+                    'connected_at': str(self.session['connected_at']),
+                    'missed_pongs': self.session['missed_pongs'],
+                    'last_rtt': self.session['last_rtt'],
+                    'reconnect_count': self.session['reconnect_count']
+                }
+        except Exception as e:
+            safe_log('error', f'Error in topoDataHandler.keepalive: {e}', event='error', handler='topoDataHandler')
             pS("ERROR sending update")
         finally:
             self.schedule_update()
 
     def on_close(self):
-        safe_log('info', 'WebSocket connection closed', event='websocket', action='disconnect')
+        self._closed = True
+        duration = 0
+        session_id = 'unknown'
+        try:
+            duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+            session_id = self.session['id']
+            active_sessions.discard(session_id)
+            active_session_data.pop(session_id, None)
+
+            # Store in recent_sessions for reconnect detection
+            recent_sessions[self.session['client_ip']] = {
+                'session_id': session_id,
+                'closed_at': datetime.utcnow(),
+                'reconnect_count': self.session['reconnect_count']
+            }
+
+            safe_log('info', 'WebSocket session ended',
+                event='connectivity', action='session_end',
+                session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
+                client_ip=str(self.session['client_ip']),
+                duration_seconds=str(round(duration, 1)),
+                missed_pongs=str(self.session['missed_pongs']),
+                reconnect_count=str(self.session['reconnect_count']))
+        except AttributeError:
+            safe_log('info', 'WebSocket connection closed (no session)',
+                event='websocket', action='disconnect')
         try:
             tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout)
+            if hasattr(self, 'summary_timeout'):
+                tornado.ioloop.IOLoop.instance().remove_timeout(self.summary_timeout)
             pS('connection closed')
-        except:
-            pS('connection already closed')
+        except Exception:
+            safe_log('warning', 'Timeout already removed on close', event='websocket', action='timeout_cleanup')
  
     def check_origin(self, origin):
         return(True)
@@ -410,6 +771,125 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
             'data': instance_data
         }))
 
+    def send_session_info(self):
+        """Send session metadata to the frontend for diagnostics panel"""
+        try:
+            cvp_token = _get_cvp_token()
+            self.write_message(json.dumps({
+                'type': 'session_info',
+                'data': {
+                    'session_id': self.session['id'],
+                    'client_id': self.session.get('client_id', ''),
+                    'reconnect_count': self.session['reconnect_count'],
+                    'debug_mode': self.session['debug_mode'],
+                    'cvp_token': cvp_token or ''
+                }
+            }))
+        except Exception:
+            safe_log('error', 'Error sending session info',
+                event='error', handler='topoDataHandler')
+
+    def handle_connectivity_event(self, data):
+        """Process connectivity events from the frontend"""
+        if not hasattr(self, 'session'):
+            return
+
+        event = data.get('event', '')
+        session_id = self.session['id']
+
+        if event == 'periodic_summary':
+            safe_log('info', 'Client connectivity summary',
+                event='connectivity', action='periodic_summary',
+                source='client',
+                session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
+                client_ip=str(self.session['client_ip']),
+                ws_latency_ms=str(data.get('wsRoundTrip', '')),
+                grpc_status=str(data.get('grpcStatus', '')),
+                grpc_failures=str(data.get('grpcFailures', '')),
+                event_count=str(data.get('eventCount', '')),
+                session_uptime_s=str(data.get('sessionUptime', '')),
+                external_check=str(data.get('externalCheck', '')),
+                external_rtt_ms=str(data.get('externalRttMs', '')),
+                network_type=str(data.get('networkType', '')),
+                effective_type=str(data.get('effectiveType', '')),
+                downlink_mbps=str(data.get('downlinkMbps', '')),
+                browser_rtt_ms=str(data.get('browserRttMs', '')),
+                uptime_percent=str(data.get('uptimePercent', '')))
+
+        elif event == 'reconnect_report':
+            safe_log('warning', 'Client reconnected after outage',
+                event='connectivity', action='reconnect_report',
+                source='client',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                offline_duration_ms=str(data.get('offlineDuration', '')),
+                offline_from=str(data.get('offlineFrom', '')),
+                offline_to=str(data.get('offlineTo', '')),
+                buffered_event_count=str(len(data.get('bufferedEvents', []))))
+
+            if self.session.get('debug_mode'):
+                for evt in data.get('bufferedEvents', [])[:100]:
+                    safe_log('debug', 'Buffered client event',
+                        event='connectivity', action='buffered_event',
+                        source='client',
+                        session_id=session_id,
+                        event_type=str(evt.get('type', '')),
+                        event_ts=str(evt.get('ts', '')),
+                        event_data=str(evt.get('data', '')))
+
+        elif event == 'grpc_check':
+            grpc_status = data.get('status', 'unknown')
+            log_level = 'info' if grpc_status == 'ok' else 'warning'
+            safe_log(log_level, 'Client gRPC check: ' + grpc_status,
+                event='connectivity', action='grpc_check',
+                source='client',
+                session_id=session_id,
+                client_id=str(self.session.get('client_id', '')),
+                client_ip=str(self.session['client_ip']),
+                status=str(grpc_status),
+                detail=str(data.get('detail', ''))[:200])
+
+        elif event == 'state_change':
+            safe_log('info', 'Client connectivity state change',
+                event='connectivity', action='state_change',
+                source='client',
+                session_id=session_id,
+                client_ip=str(self.session['client_ip']),
+                change_type=str(data.get('changeType', '')),
+                detail=str(data.get('detail', '')))
+
+    def schedule_summary(self):
+        """Schedule periodic session summary logging (every 5 minutes)"""
+        try:
+            self.summary_timeout = tornado.ioloop.IOLoop.instance().add_timeout(
+                timedelta(seconds=300), self.log_session_summary)
+        except:
+            pass
+
+    def log_session_summary(self):
+        """Log a summary of the current session state"""
+        if getattr(self, '_closed', True):
+            return
+        try:
+            if hasattr(self, 'session'):
+                duration = (datetime.utcnow() - self.session['connected_at']).total_seconds()
+                safe_log('info', 'Active session summary',
+                    event='connectivity', action='session_summary',
+                    session_id=self.session['id'],
+                    client_id=str(self.session.get('client_id', '')),
+                    client_ip=str(self.session['client_ip']),
+                    duration_seconds=str(round(duration, 1)),
+                    missed_pongs=str(self.session['missed_pongs']),
+                    last_rtt_ms=str(self.session['last_rtt'] if self.session['last_rtt'] else ''),
+                    reconnect_count=str(self.session['reconnect_count']),
+                    debug_mode=str(self.session['debug_mode']))
+        except:
+            pass
+        finally:
+            if not getattr(self, '_closed', True):
+                self.schedule_summary()
+
 
 # ===============================
 # Utility Functions
@@ -422,11 +902,6 @@ def getAPI(action):
         return(json.loads(response.text))
     except Exception as e:
         safe_log('error', f'Error in getAPI: {e}', event='error', handler='getAPI')
-        pS("Error calling backend API.")
-        traceback.print_exc()
-        print("Message: {err}".format(
-            err = str(e),
-        ))
 
 
 def encodeID(tmp_data):
@@ -458,7 +933,8 @@ def getUptime(instanceIP):
         else:
             instance_data['runtime'] = 12
         return(instance_data)
-    except:
+    except Exception as e:
+        safe_log('warning', f'Uptime fetch failed for {instanceIP}', event='uptime', action='fetch_failed')
         return({
             'boottime': 0,
             'uptime': 0,
@@ -476,17 +952,14 @@ def getEventStatus(instanceName, instanceZone):
         else:
             response = requests.get(FUNC_STATE + "?function=state&instance={0}&zone={1}".format(instanceName, instanceZone))
         return(response.json())
-    except ValueError:
+    except ValueError as e:
         safe_log('error', f'Error in getEventStatus: ValueError for {instanceName}', event='error', handler='getEventStatus')
-        pS("Value Error retrieving status for {0}".format(instanceName))
         return(False)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
         safe_log('error', f'Error in getEventStatus: ConnectionError for {instanceName}', event='error', handler='getEventStatus')
-        pS("Connection Error retrieving status for {0}".format(instanceName))
         return(False)
-    except:
-        safe_log('error', f'Error in getEventStatus: Unknown error for {instanceName}', event='error', handler='getEventStatus')
-        pS("Error retrieving status for {0}".format(instanceName))
+    except Exception as e:
+        safe_log('error', f'Error in getEventStatus: {e} for {instanceName}', event='error', handler='getEventStatus')
         return(False)
 
 
@@ -544,7 +1017,6 @@ def _get_topo_build_data():
         pS(f"Cached topo_build.yml from {topo_path}")
     except Exception as e:
         safe_log('error', f'Error in _get_topo_build_data: {e}', event='error', handler='_get_topo_build_data')
-        pS(f"Error reading topo_build.yml: {e}")
         _TOPO_BUILD_CACHE = {}  # Empty dict to avoid repeated failures
 
     return _TOPO_BUILD_CACHE
@@ -705,7 +1177,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(user_data['nodes'])} user-added nodes into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_nodes.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_nodes.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
     try:
@@ -730,7 +1202,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(hosts_data['hosts'])} user-added hosts into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_hosts.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_hosts.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
     try:
@@ -754,7 +1226,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_firewalls.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_firewalls.yaml: {e}', event='config', handler='get_all_devices')
 
     # Merge user-added VeloCloud devices from user_velo.yaml
     try:
@@ -782,7 +1254,7 @@ def get_all_devices():
                             }
                 pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices into device list")
     except Exception as e:
-        pS(f"Warning: Error loading user_velo.yaml for devices: {e}")
+        safe_log('warning', f'Error loading user_velo.yaml: {e}', event='config', handler='get_all_devices')
 
     _ALL_DEVICES_CACHE = devices
     pS(f"Cached {len(devices)} devices from topo_build.yml + user files")
@@ -823,7 +1295,7 @@ def update_hubspot_handler(email, action, project):
                 error_detail = response.json()
                 print(f"Error details: {error_detail}")
                 return error_detail
-            except:
+            except Exception:
                 return {"error": error_msg, "status_code": response.status_code}
 
     except requests.exceptions.Timeout:
@@ -956,7 +1428,6 @@ class LabHandler(tornado.web.RequestHandler):
 
 class LabStausHandler(tornado.web.RequestHandler):
     def get(self):
-        safe_log('info', 'Lab status queried', event='lab', action='status_check')
         self.set_header("Access-Control-Allow-Origin", "*")
         docker_conn= docker.from_env()
         login_container = docker_conn.containers.get('atd-login')
@@ -1247,7 +1718,8 @@ class UptimeWithRuntimeHandler(tornado.web.RequestHandler):
                 instance_data['exam_start_time'] = EXAM_START_TIME
 
                 self.write(json.dumps(instance_data))
-            except:
+            except Exception as e:
+                safe_log('warning', f'Uptime service not ready: {e}', event='uptime', handler='UptimeWithRuntimeHandler')
                 # If uptime service is not ready, return default values
                 self.write(json.dumps({
                     'boottime': 0,
@@ -1741,7 +2213,7 @@ class TopologyAPIHandler(BaseHandler):
         except PermissionError:
             return {'error': f'Permission denied accessing: {topo_path}', 'error_type': 'permission'}
         except Exception as e:
-            pS(f"Error parsing topology file: {e}")
+            safe_log('error', f'Error parsing topology file: {e}', event='config', handler='parse_topology')
             return {'error': f'Failed to parse topology file: {str(e)}', 'error_type': 'parse_error'}
 
         # Merge user-added nodes from user_nodes.yaml (for dynamically added nodes)
@@ -1760,7 +2232,7 @@ class TopologyAPIHandler(BaseHandler):
                     topo_data['nodes'].extend(user_data['nodes'])
                     pS(f"Merged {len(user_data['nodes'])} user-added nodes from {user_nodes_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_nodes.yaml: {e}")
+            safe_log('warning', f'Error loading user_nodes.yaml: {e}', event='config', handler='parse_topology')
             # Continue without user nodes - don't fail the whole topology load
 
         # Merge user-added hosts from user_hosts.yaml (Linux desktop VMs)
@@ -1788,7 +2260,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(hosts_data['hosts'])} user-added hosts from {user_hosts_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_hosts.yaml: {e}")
+            safe_log('warning', f'Error loading user_hosts.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added firewalls from user_firewalls.yaml (VyOS firewalls)
         user_firewalls_path = '/etc/atd/user_firewalls.yaml'
@@ -1815,7 +2287,7 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(firewalls_data['firewalls'])} user-added firewalls from {user_firewalls_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_firewalls.yaml: {e}")
+            safe_log('warning', f'Error loading user_firewalls.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added VeloCloud devices from user_velo.yaml
         user_velo_path = '/etc/atd/user_velo.yaml'
@@ -1853,7 +2325,68 @@ class TopologyAPIHandler(BaseHandler):
                                 topo_data['nodes'].append({name: node_info})
                     pS(f"Merged {len(velo_data['devices'])} user-added VeloCloud devices from {user_velo_path}")
         except Exception as e:
-            pS(f"Warning: Error loading user_velo.yaml: {e}")
+            safe_log('warning', f'Error loading user_velo.yaml: {e}', event='config', handler='parse_topology')
+
+        # Merge user-added CloudEOS devices from user_cloudeos.yaml
+        user_cloudeos_path = '/etc/atd/user_cloudeos.yaml'
+        try:
+            if os.path.exists(user_cloudeos_path):
+                with open(user_cloudeos_path, 'r') as f:
+                    cloudeos_data = YAML().load(f)
+                if cloudeos_data and 'devices' in cloudeos_data and cloudeos_data['devices']:
+                    if topo_data is None:
+                        topo_data = {'nodes': []}
+                    if 'nodes' not in topo_data:
+                        topo_data['nodes'] = []
+                    for device_entry in cloudeos_data['devices']:
+                        if isinstance(device_entry, dict):
+                            for name, info in device_entry.items():
+                                if isinstance(info, dict) and info.get('status') == 'creating':
+                                    continue
+                                node_info = {
+                                    'ip_addr': info.get('ip_addr', 'N/A'),
+                                    'device_type': info.get('device_type', 'other'),
+                                    'device_category': 'cloudeos',
+                                    'user_added': True,
+                                    'neighbors': info.get('neighbors', [])
+                                }
+                                topo_data['nodes'].append({name: node_info})
+                    pS(f"Merged user-added CloudEOS devices from {user_cloudeos_path}")
+        except Exception as e:
+            safe_log('warning', f'Error loading user_cloudeos.yaml: {e}', event='config', handler='parse_topology')
+
+        # Merge user-added links from user_links.yaml
+        # These add neighbor entries to existing topology nodes
+        user_links_path = '/etc/atd/user_links.yaml'
+        try:
+            if os.path.exists(user_links_path):
+                with open(user_links_path, 'r') as f:
+                    links_data = YAML().load(f)
+                if links_data and 'links' in links_data and links_data['links']:
+                    links_merged = 0
+                    for link in links_data['links']:
+                        source = link.get('source_device', '')
+                        source_port = link.get('source_port', '')
+                        target = link.get('target_device', '')
+                        target_port = link.get('target_port', '')
+                        if source and target:
+                            # Add neighbor entry to source node
+                            for node_entry in topo_data['nodes']:
+                                if isinstance(node_entry, dict):
+                                    for node_name in node_entry:
+                                        if node_name.lower() == source.lower():
+                                            neighbors = node_entry[node_name].setdefault('neighbors', [])
+                                            neighbors.append({
+                                                'neighborDevice': target,
+                                                'neighborPort': target_port,
+                                                'port': source_port,
+                                                'user_added': True
+                                            })
+                                            links_merged += 1
+                    if links_merged > 0:
+                        pS(f"Merged {links_merged} user-added links from {user_links_path}")
+        except Exception as e:
+            safe_log('warning', f'Error loading user_links.yaml: {e}', event='config', handler='parse_topology')
 
         # Merge user-added CloudEOS devices from user_cloudeos.yaml
         user_cloudeos_path = '/etc/atd/user_cloudeos.yaml'
@@ -2181,7 +2714,6 @@ class TopologyAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in TopologyAPIHandler: {e}', event='error', handler='TopologyAPIHandler')
-            pS(f"Error in TopologyAPIHandler: {e}")
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': f'Internal server error: {str(e)}'}))
@@ -2312,8 +2844,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except FileNotFoundError as e:
-            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Configuration file not found: {e}")
+            safe_log('error', f'Error in DevicesAPIHandler: file not found: {e}', event='error', handler='DevicesAPIHandler')
             self.set_status(503)
             self.write(json.dumps({
                 'error': 'Device configuration not available',
@@ -2322,8 +2853,7 @@ class DevicesAPIHandler(BaseHandler):
             }))
 
         except (yaml.YAMLError, json.JSONDecodeError) as e:
-            safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Configuration parse error: {e}")
+            safe_log('error', f'Error in DevicesAPIHandler: parse error: {e}', event='error', handler='DevicesAPIHandler')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({
@@ -2334,7 +2864,6 @@ class DevicesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in DevicesAPIHandler: {e}', event='error', handler='DevicesAPIHandler')
-            pS(f"DevicesAPIHandler: Unexpected error: {e}")
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({
@@ -2402,16 +2931,30 @@ class InterfaceStatsAPIHandler(BaseHandler):
             error_str = str(e)
             # Check for authentication failures - device is up but not configured
             if 'Unauthorized' in error_str or 'Bad username' in error_str or 'authentication' in error_str.lower():
-                pS(f"InterfaceStatsAPIHandler: Auth failed for {device} (unconfigured)")
+                safe_log('warning', f'InterfaceStatsAPIHandler: Auth failed for {device}', event='api', handler='InterfaceStatsAPIHandler', device=str(device))
                 self.write(json.dumps({
                     'device': device,
                     'interface': interface,
                     'status': 'unconfigured',
                     'error': 'Device reachable but authentication failed (not yet configured)'
                 }))
+            elif 'Interface does not exist' in error_str or 'Invalid input' in error_str:
+                self.set_status(404)
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'not_found',
+                    'error': f'Interface {interface} does not exist on {device}'
+                }))
+            elif 'timed out' in error_str.lower() or 'connection timed out' in error_str.lower():
+                self.write(json.dumps({
+                    'device': device,
+                    'interface': interface,
+                    'status': 'down',
+                    'error': f'Device {device} is unreachable'
+                }))
             else:
-                pS(f"InterfaceStatsAPIHandler error: {e}")
-                traceback.print_exc()
+                safe_log('error', f'InterfaceStatsAPIHandler error: {e}', event='api', handler='InterfaceStatsAPIHandler')
                 self.set_status(500)
                 self.write(json.dumps({'error': error_str}))
 
@@ -2501,6 +3044,8 @@ class InterfaceStatsAPIHandler(BaseHandler):
 
             return stats
 
+        except (socket.timeout, OSError) as e:
+            raise ValueError(f"Connection timed out to {device_name} ({device_ip})")
         except pyeapi.eapilib.ConnectionError as e:
             # Preserve auth failure info for upstream handler to detect 'unconfigured' status
             error_str = str(e)
@@ -2558,7 +3103,6 @@ class DeviceStatusAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
-        safe_log('info', 'Device status check requested', event='api', endpoint='device_status')
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
@@ -2602,7 +3146,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         if not device_ip:
             device_ip = get_device_ip_from_sources(device_name)
 
-        pS(f"[DeviceStatus] Checking {device_name} -> IP: {device_ip}, category: {device_category}")
+        safe_log('info', f'Device status check: {device_name} -> {device_ip}', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
         if not device_ip:
             result = {
                 'device': device_name,
@@ -2666,11 +3210,11 @@ class DeviceStatusAPIHandler(BaseHandler):
             }
         except FileNotFoundError:
             # ping command not available, fallback to TCP check on port 22 (SSH)
-            pS(f"[DeviceStatus] Ping not available, trying TCP check for {device_name}")
+            safe_log('warning', f'Ping unavailable for {device_name}, trying TCP', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             pass
         except Exception as e:
             # Log the error but try TCP fallback
-            pS(f"[DeviceStatus] Ping failed for {device_name}: {e}, trying TCP check")
+            safe_log('warning', f'Ping failed for {device_name}: {e}, trying TCP', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             pass
 
         # Fallback: TCP check on SSH port (22)
@@ -2697,7 +3241,7 @@ class DeviceStatusAPIHandler(BaseHandler):
                     'last_check': datetime.now().isoformat()
                 }
         except Exception as e:
-            pS(f"[DeviceStatus] TCP check also failed for {device_name}: {e}")
+            safe_log('error', f'TCP check failed for {device_name}: {e}', event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
             return {
                 'device': device_name,
                 'ip': device_ip,
@@ -2742,6 +3286,15 @@ class DeviceStatusAPIHandler(BaseHandler):
                 'last_check': datetime.now().isoformat()
             }
 
+        except (socket.timeout, OSError) as e:
+            # Network-level failures: timeout, connection refused, unreachable
+            return {
+                'device': device_name,
+                'ip': device_ip,
+                'status': 'down',
+                'error': f'Connection timed out ({device_ip})',
+                'last_check': datetime.now().isoformat()
+            }
         except pyeapi.eapilib.ConnectionError as e:
             # pyeapi raises ConnectionError for auth failures with "Unauthorized" message
             error_str = str(e)
@@ -2786,7 +3339,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         statuses = {}
 
         # Debug logging
-        pS(f"[DeviceStatus] Found {len(nodes)} devices from all sources")
+        safe_log('info', f'Found {len(nodes)} devices from all sources', event='api', handler='DeviceStatusAPIHandler')
 
         # Use thread pool for parallel checks
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -2797,17 +3350,28 @@ class DeviceStatusAPIHandler(BaseHandler):
                 for device_name in nodes.keys()
             }
 
-            for future in as_completed(futures, timeout=30):
-                device_name = futures[future]
-                try:
-                    result = future.result()
-                    statuses[device_name] = result
-                except Exception as e:
-                    statuses[device_name] = {
-                        'device': device_name,
-                        'status': 'error',
-                        'error': str(e)
-                    }
+            try:
+                for future in as_completed(futures, timeout=60):
+                    device_name = futures[future]
+                    try:
+                        result = future.result()
+                        statuses[device_name] = result
+                    except Exception as e:
+                        statuses[device_name] = {
+                            'device': device_name,
+                            'status': 'error',
+                            'error': str(e)
+                        }
+            except TimeoutError:
+                # Some futures didn't complete in time — mark remaining as timed out
+                for future, device_name in futures.items():
+                    if device_name not in statuses:
+                        statuses[device_name] = {
+                            'device': device_name,
+                            'status': 'down',
+                            'error': 'Status check timed out',
+                            'last_check': datetime.now().isoformat()
+                        }
 
         return statuses
 
@@ -2837,7 +3401,7 @@ class RunningConfigAPIHandler(BaseHandler):
             self.write(json.dumps(config))
         except Exception as e:
             safe_log('error', f'Error in RunningConfigAPIHandler: {e}', event='error', handler='RunningConfigAPIHandler')
-            pS(f"RunningConfigAPIHandler error: {e}")
+            safe_log('error', f'RunningConfigAPIHandler error: {e}', event='api', handler='RunningConfigAPIHandler')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -2876,6 +3440,8 @@ class RunningConfigAPIHandler(BaseHandler):
                 'timestamp': datetime.now().isoformat()
             }
 
+        except (socket.timeout, OSError) as e:
+            raise ValueError(f"Connection timed out to {device_name} ({device_ip})")
         except pyeapi.eapilib.ConnectionError as e:
             # Preserve auth failure info for upstream handler to detect 'unconfigured' status
             error_str = str(e)
@@ -2983,7 +3549,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle new WebSocket connection from browser."""
         user = self.get_secure_cookie("user")
         if not user:
-            pS("[Capture WS Proxy] Unauthenticated connection - closing")
+            safe_log('warning', 'Unauthenticated capture WS connection', event='capture', action='ws_reject')
             self.close(code=1008, reason="Authentication required")
             return
 
@@ -2991,7 +3557,6 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         self.client_id = str(uuid.uuid4())[:8]
         safe_log('info', 'Capture WebSocket opened', event='capture', action='ws_connect',
                  client_id=self.client_id, user=str(self.current_user))
-        pS(f"[Capture WS Proxy] Client {self.client_id} connected (user: {self.current_user})")
 
         # Connect to upstream capture service
         await self.connect_upstream()
@@ -3001,11 +3566,11 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         from tornado.websocket import websocket_connect
         import asyncio
 
-        pS(f"[Capture WS Proxy] Attempting upstream connection...")
+        safe_log('info', 'Capture WS upstream connecting', event='capture', action='upstream_connect')
 
         try:
             # Try primary URL first (works on Docker Desktop)
-            pS(f"[Capture WS Proxy] Trying primary: {self.CAPTURE_SERVICE_URL}")
+            safe_log('info', f'Capture WS trying primary: {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_primary')
             self.upstream_ws = await asyncio.wait_for(
                 websocket_connect(
                     self.CAPTURE_SERVICE_URL,
@@ -3014,12 +3579,12 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                 timeout=5.0
             )
             self.is_connected = True
-            pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL}")
+            safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_connected')
         except Exception as e:
-            pS(f"[Capture WS Proxy] Primary connection failed: {e}, trying fallback...")
+            safe_log('warning', f'Capture WS primary failed: {e}, trying fallback', event='capture', action='upstream_primary_failed')
             try:
                 # Try fallback URL (works on Linux Docker)
-                pS(f"[Capture WS Proxy] Trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                safe_log('info', f'Capture WS trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_fallback')
                 self.upstream_ws = await asyncio.wait_for(
                     websocket_connect(
                         self.CAPTURE_SERVICE_URL_FALLBACK,
@@ -3028,9 +3593,9 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                     timeout=5.0
                 )
                 self.is_connected = True
-                pS(f"[Capture WS Proxy] Connected to capture service at {self.CAPTURE_SERVICE_URL_FALLBACK}")
+                safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_connected')
             except Exception as e2:
-                pS(f"[Capture WS Proxy] Fallback connection also failed: {e2}")
+                safe_log('error', f'Capture WS fallback also failed: {e2}', event='capture', action='upstream_all_failed')
                 try:
                     self.write_message(json.dumps({
                         'type': 'error',
@@ -3044,7 +3609,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle message from capture service, relay to browser."""
         if message is None:
             # Upstream connection closed
-            pS(f"[Capture WS Proxy] Upstream connection closed")
+            safe_log('info', 'Capture WS upstream connection closed', event='capture', action='upstream_closed')
             self.is_connected = False
             if self.ws_connection:
                 self.write_message(json.dumps({
@@ -3053,22 +3618,12 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
                 }))
             return
 
-        # Debug: log first few messages
-        try:
-            msg_data = json.loads(message)
-            if msg_data.get('type') == 'packet':
-                pkt_num = msg_data.get('data', {}).get('number', 0)
-                if pkt_num <= 3:
-                    pS(f"[Capture WS Proxy] Received packet {pkt_num} from upstream, relaying to browser")
-        except:
-            pass
-
         # Relay message to browser client
         try:
             if self.ws_connection:
                 self.write_message(message)
         except Exception as e:
-            pS(f"[Capture WS Proxy] Error relaying to browser: {e}")
+            safe_log('error', f'Capture WS relay to browser failed: {e}', event='capture', action='relay_browser_error')
 
     def on_message(self, message):
         """Handle message from browser, relay to capture service."""
@@ -3083,7 +3638,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
             # Relay message to capture service
             self.upstream_ws.write_message(message)
         except Exception as e:
-            pS(f"[Capture WS Proxy] Error relaying to upstream: {e}")
+            safe_log('error', f'Capture WS relay to upstream failed: {e}', event='capture', action='relay_upstream_error')
             self.write_message(json.dumps({
                 'type': 'error',
                 'message': f'Failed to send to capture service: {e}'
@@ -3093,7 +3648,7 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
         """Handle WebSocket close from browser."""
         safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect',
                  client_id=self.client_id)
-        pS(f"[Capture WS Proxy] Client {self.client_id} disconnected")
+        safe_log('info', 'Capture WebSocket closed', event='capture', action='ws_disconnect', client_id=self.client_id)
 
         # Close upstream connection
         if self.upstream_ws:
@@ -3136,7 +3691,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 bridges = data.get('bridges', [])
             except Exception as e:
-                pS(f"[CaptureBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'CaptureBridges primary failed: {e}', event='proxy', handler='capture_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
@@ -3145,7 +3700,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     bridges = data.get('bridges', [])
                 except Exception as e2:
-                    pS(f"[CaptureBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'CaptureBridges fallback also failed: {e2}', event='proxy', handler='capture_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({
                         'error': 'Capture service unavailable',
@@ -3163,7 +3718,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in CaptureBridgesAPIHandler: {e}', event='error', handler='CaptureBridgesAPIHandler')
-            pS(f"[CaptureBridges] Error: {e}")
+            safe_log('error', f'CaptureBridges error: {e}', event='proxy', handler='capture_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3203,7 +3758,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                                     short_code = self.get_short_code(device_name).lower()
                                     device_lookup[short_code] = device_name
             except Exception as e:
-                pS(f"Warning: Error loading {user_file_path} for bridge enrichment: {e}")
+                safe_log('warning', f'Error loading {user_file_path} for bridge enrichment: {e}', event='config', handler='LatencyBridgesAPIHandler')
 
         # Enrich each bridge
         for bridge in bridges:
@@ -3339,7 +3894,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 bridges = data.get('bridges', [])
             except Exception as e:
-                pS(f"[LatencyBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyBridges primary failed: {e}', event='proxy', handler='latency_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/bridges",
@@ -3348,7 +3903,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     bridges = data.get('bridges', [])
                 except Exception as e2:
-                    pS(f"[LatencyBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyBridges fallback also failed: {e2}', event='proxy', handler='latency_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({
                         'error': 'Latency service unavailable',
@@ -3363,7 +3918,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in LatencyBridgesAPIHandler: {e}', event='error', handler='LatencyBridgesAPIHandler')
-            pS(f"[LatencyBridges] Error: {e}")
+            safe_log('error', f'LatencyBridges error: {e}', event='proxy', handler='latency_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3409,7 +3964,7 @@ class LatencyEnableAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyEnable] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyEnable primary failed: {e}', event='proxy', handler='latency_enable', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/enable",
@@ -3422,13 +3977,13 @@ class LatencyEnableAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyEnable] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyEnable fallback also failed: {e2}', event='proxy', handler='latency_enable', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyEnableAPIHandler: {e}', event='error', handler='LatencyEnableAPIHandler')
-            pS(f"[LatencyEnable] Error: {e}")
+            safe_log('error', f'LatencyEnable error: {e}', event='proxy', handler='latency_enable')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3474,7 +4029,7 @@ class LatencyDisableAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyDisable] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyDisable primary failed: {e}', event='proxy', handler='latency_disable', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable",
@@ -3487,13 +4042,13 @@ class LatencyDisableAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyDisable] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyDisable fallback also failed: {e2}', event='proxy', handler='latency_disable', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyDisableAPIHandler: {e}', event='error', handler='LatencyDisableAPIHandler')
-            pS(f"[LatencyDisable] Error: {e}")
+            safe_log('error', f'LatencyDisable error: {e}', event='proxy', handler='latency_disable')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3530,7 +4085,7 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[LatencyDisableAll] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'LatencyDisableAll primary failed: {e}', event='proxy', handler='latency_disable_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable-all",
@@ -3543,13 +4098,13 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[LatencyDisableAll] Fallback also failed: {e2}")
+                    safe_log('error', f'LatencyDisableAll fallback also failed: {e2}', event='proxy', handler='latency_disable_all', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Latency service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in LatencyDisableAllAPIHandler: {e}', event='error', handler='LatencyDisableAllAPIHandler')
-            pS(f"[LatencyDisableAll] Error: {e}")
+            safe_log('error', f'LatencyDisableAll error: {e}', event='proxy', handler='latency_disable_all')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3586,7 +4141,7 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsBridges] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsBridges primary failed: {e}', event='proxy', handler='impairments_bridges', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/bridges",
@@ -3597,13 +4152,13 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsBridges] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsBridges fallback also failed: {e2}', event='proxy', handler='impairments_bridges', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsBridgesAPIHandler: {e}', event='error', handler='ImpairmentsBridgesAPIHandler')
-            pS(f"[ImpairmentsBridges] Error: {e}")
+            safe_log('error', f'ImpairmentsBridges error: {e}', event='proxy', handler='impairments_bridges')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3651,7 +4206,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsConfigure] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsConfigure primary failed: {e}', event='proxy', handler='impairments_configure', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/configure",
@@ -3664,7 +4219,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsConfigure] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsConfigure fallback also failed: {e2}', event='proxy', handler='impairments_configure', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
@@ -3674,7 +4229,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsConfigureAPIHandler: {e}', event='error', handler='ImpairmentsConfigureAPIHandler')
-            pS(f"[ImpairmentsConfigure] Error: {e}")
+            safe_log('error', f'ImpairmentsConfigure error: {e}', event='proxy', handler='impairments_configure')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3721,7 +4276,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsClear] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsClear primary failed: {e}', event='proxy', handler='impairments_clear', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear",
@@ -3734,7 +4289,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsClear] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsClear fallback also failed: {e2}', event='proxy', handler='impairments_clear', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
@@ -3744,7 +4299,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'Invalid JSON in request body'}))
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsClearAPIHandler: {e}', event='error', handler='ImpairmentsClearAPIHandler')
-            pS(f"[ImpairmentsClear] Error: {e}")
+            safe_log('error', f'ImpairmentsClear error: {e}', event='proxy', handler='impairments_clear')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3782,7 +4337,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                 data = json.loads(response.body.decode('utf-8'))
                 self.write(json.dumps(data))
             except Exception as e:
-                pS(f"[ImpairmentsClearAll] Primary service failed: {e}, trying fallback...")
+                safe_log('warning', f'ImpairmentsClearAll primary failed: {e}', event='proxy', handler='impairments_clear_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
                         f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
@@ -3795,13 +4350,13 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                     data = json.loads(response.body.decode('utf-8'))
                     self.write(json.dumps(data))
                 except Exception as e2:
-                    pS(f"[ImpairmentsClearAll] Fallback also failed: {e2}")
+                    safe_log('error', f'ImpairmentsClearAll fallback also failed: {e2}', event='proxy', handler='impairments_clear_all', action='all_failed')
                     self.set_status(503)
                     self.write(json.dumps({'error': 'Impairments service unavailable'}))
 
         except Exception as e:
             safe_log('error', f'Error in ImpairmentsClearAllAPIHandler: {e}', event='error', handler='ImpairmentsClearAllAPIHandler')
-            pS(f"[ImpairmentsClearAll] Error: {e}")
+            safe_log('error', f'ImpairmentsClearAll error: {e}', event='proxy', handler='impairments_clear_all')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
@@ -3896,12 +4451,12 @@ class NodeBuilderProxyHandler(BaseHandler):
 
             if error:
                 # Connection error - try fallback
-                pS(f"[NodeBuilderProxy] Primary connection failed: {error}, trying fallback...")
+                safe_log('warning', f'NodeBuilderProxy primary failed: {error}', event='proxy', handler='nodebuilder_proxy', action='primary_failed')
                 response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
 
             if error:
                 # Both failed to connect
-                pS(f"[NodeBuilderProxy] Fallback also failed: {error}")
+                safe_log('error', f'NodeBuilderProxy fallback also failed: {error}', event='proxy', handler='nodebuilder_proxy', action='all_failed')
                 self.set_status(503)
                 self.write(json.dumps({
                     'error': 'Nodebuilder service unavailable',
@@ -3916,19 +4471,61 @@ class NodeBuilderProxyHandler(BaseHandler):
 
         except Exception as e:
             safe_log('error', f'Error in NodeBuilderProxyHandler: {e}', event='error', handler='NodeBuilderProxyHandler')
-            pS(f"[NodeBuilderProxy] Error: {e}")
+            safe_log('error', f'NodeBuilderProxy error: {e}', event='proxy', handler='nodebuilder_proxy')
             traceback.print_exc()
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
 
 
+class ClientLogHandler(tornado.web.RequestHandler):
+    """Receive client-side log events from browser JS and forward to Cloud Logging."""
+    VALID_LEVELS = {'info', 'warning', 'error'}
+
+    def post(self):
+        try:
+            data = json.loads(self.request.body)
+            level = data.get('level', 'info')
+            if level not in self.VALID_LEVELS:
+                level = 'info'
+            message = str(data.get('message', ''))[:500]
+            source = str(data.get('source', 'unknown'))[:50]
+            action = str(data.get('action', ''))[:50]
+            kwargs = {'event': 'client', 'source': source}
+            if action:
+                kwargs['action'] = action
+            for key in ('device', 'topology', 'session_id', 'client_id'):
+                if key in data:
+                    kwargs[key] = str(data[key])[:100]
+            safe_log(level, message, **kwargs)
+            self.set_status(204)
+        except Exception:
+            self.set_status(204)
+
+
+class ConnectivityStatusHandler(tornado.web.RequestHandler):
+    """REST endpoint returning current connectivity state for live session health"""
+    def get(self):
+        self.write(json.dumps({
+            'active_sessions': len(active_sessions),
+            'active_session_data': list(active_session_data.values()),
+            'recent_disconnects': len(recent_sessions),
+            'internal_grpc': {
+                'last_status': _last_internal_grpc_status,
+                'last_check': _last_internal_grpc_time
+            }
+        }))
+        self.set_header('Content-Type', 'application/json')
+
+
 if __name__ == "__main__":
     settings = {
         'cookie_secret': genCookieSecret(),
-        'login_url': "/login"
+        'login_url': "/login",
+        'xheaders': True
     }
 
     app = tornado.web.Application([
+        (r'/td-api/client-log', ClientLogHandler),
         (r'/exam-submitted', ExamSubmittedRedirectHandler),
         (r'/exam-already-running', ExamAlreadyRunningHandler),
         (r'/exam-redo', ExamRedoRedirectHandler),
@@ -3979,6 +4576,15 @@ if __name__ == "__main__":
         (r'/td-api/impairments/configure', ImpairmentsConfigureAPIHandler),
         (r'/td-api/impairments/clear', ImpairmentsClearAPIHandler),
         (r'/td-api/impairments/clear-all', ImpairmentsClearAllAPIHandler),
+        # Topology Converter endpoints
+        (r'/topology-converter', TopologyConverterPageHandler),
+        (r'/td-api/topology-converter/current', TopologyConverterCurrentHandler),
+        (r'/td-api/topology-converter/available', TopologyConverterAvailableHandler),
+        (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
+        (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
+        (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
+        # Connectivity status endpoint
+        (r'/td-api/connectivity-status', ConnectivityStatusHandler),
         # Nodebuilder endpoints (dynamic node addition for KVM labs)
         (r'/td-api/nodes/(.*)', NodeBuilderProxyHandler),
     ], **settings)
@@ -3987,6 +4593,17 @@ if __name__ == "__main__":
     print('*** Websocket Server Started on {} ***'.format(PORT))
     try:
         TOPO_DATA = getEventStatus(NAME, ZONE)
+
+        # Global internal gRPC health check — runs once every 30 seconds, not per-connection
+        def _grpc_check_tick():
+            try:
+                if active_sessions:
+                    tornado.ioloop.IOLoop.current().run_in_executor(None, check_cvp_grpc_internal)
+            except Exception:
+                pass
+        grpc_check_timer = tornado.ioloop.PeriodicCallback(_grpc_check_tick, 30000)
+        grpc_check_timer.start()
+
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
         tornado.ioloop.IOLoop.instance().stop()

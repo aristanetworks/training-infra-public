@@ -1,3 +1,4 @@
+hostname P4
 !
 ip routing
 mpls ip
@@ -35,9 +36,9 @@ isis network point-to-point
 no shutdown
 !
 ip prefix-list ldp-fec-prefix-list
-permit 192.168.100.0/24 ge 24
+seq 10 permit 192.168.100.0/24 eq 32
 !
 mpls ldp
 router-id interface Loopback0 force
 fec filter prefix-list ldp-fec-prefix-list
-no shutdown
+shutdown

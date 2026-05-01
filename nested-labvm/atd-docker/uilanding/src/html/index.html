@@ -7,6 +7,7 @@
   <title>Arista {{ topo_title }}</title>
   <link rel="stylesheet" href="css/foundation.min.css" />
   <script type="module" src="https://unpkg.com/@honorlock/integration-sdk-js?module"></script>
+  <script src="js/cloud-log.js"></script>
   <script src="js/atd-ws.min.js"></script>
   <link rel="stylesheet" href="css/variables.min.css" />
   <link rel="stylesheet" href="css/typography.min.css" />
@@ -59,6 +60,62 @@
       <div class="status-popup-note">
         <i class="fa-solid fa-info-circle"></i>
         <span id="connectivity-message">Monitoring connectivity...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Diagnostics Panel (Ctrl+Shift+D or ?debug=connectivity) -->
+  <div id="diagnostics-panel" class="diagnostics-panel" style="display: none;">
+    <div class="diagnostics-header">
+      <h4>Connectivity Diagnostics</h4>
+      <div class="diagnostics-header-actions">
+        <button id="diag-export-btn" class="diag-btn" type="button" title="Export diagnostics">
+          <i class="fa-solid fa-download"></i> Export
+        </button>
+        <button id="diag-close-btn" class="diag-btn diag-close" type="button">&times;</button>
+      </div>
+    </div>
+    <div class="diagnostics-body">
+      <div class="diag-section">
+        <div class="diag-section-title">Session Info</div>
+        <div class="diag-grid">
+          <span class="diag-label">Session ID</span>
+          <span id="diag-session-id" class="diag-value">--</span>
+          <span class="diag-label">Duration</span>
+          <span id="diag-duration" class="diag-value">--</span>
+          <span class="diag-label">Reconnects</span>
+          <span id="diag-reconnects" class="diag-value">0</span>
+          <span class="diag-label">Verdict</span>
+          <span id="diag-verdict" class="diag-value">--</span>
+          <span class="diag-label">Debug Mode</span>
+          <span id="diag-debug-mode" class="diag-value">
+            <button id="diag-debug-toggle" class="diag-toggle-btn" type="button">OFF</button>
+          </span>
+        </div>
+      </div>
+      <div class="diag-section">
+        <div class="diag-section-title">Live Metrics</div>
+        <div class="diag-grid">
+          <span class="diag-label">WS Latency</span>
+          <span id="diag-latency" class="diag-value">--</span>
+          <span class="diag-label">WS Uptime</span>
+          <span id="diag-uptime" class="diag-value">--</span>
+          <span class="diag-label">gRPC Status</span>
+          <span id="diag-grpc" class="diag-value">--</span>
+          <span class="diag-label">Missed Pongs</span>
+          <span id="diag-missed-pongs" class="diag-value">0</span>
+          <span class="diag-label">External (arista.com)</span>
+          <span id="diag-external" class="diag-value">--</span>
+          <span class="diag-label">Network Info</span>
+          <span id="diag-network" class="diag-value">--</span>
+        </div>
+      </div>
+      <div class="diag-section">
+        <div class="diag-section-title">
+          Event Timeline
+          <button id="diag-clear-btn" class="diag-btn diag-btn-small" type="button">Clear</button>
+        </div>
+        <div id="diag-timeline" class="diag-timeline"></div>
       </div>
     </div>
   </div>
@@ -162,7 +219,7 @@
                   <a class="site-sidebar__item menu-click" href="/cv" target="_blank"><s>CVP</s></a>
                   <span id="tooltiptext">CVP is Starting, Please wait</span>
                 </li>
-                <li id="cvpLoaded">
+                <li id="cvpLoaded" style="display: none;">
                   <a class="site-sidebar__item menu-click" href="/cv" target="_blank">CVP</a>
                 </li>
                 {% end %}
@@ -205,6 +262,11 @@
                     Status</a>
                 </li>
                 {% end %}
+                <!-- Topology Converter hidden until feature is ready for release
+                <li>
+                  <a class="site-sidebar__item" href="/topology-converter" target="_blank">Topology Converter</a>
+                </li>
+                -->
               </ul>
             </nav>
           </div>

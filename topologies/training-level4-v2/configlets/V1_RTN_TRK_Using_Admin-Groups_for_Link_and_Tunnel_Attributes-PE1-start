@@ -3,37 +3,31 @@ hostname PE1
 vrf instance B
 !
 interface Ethernet1
-   mtu 1500
    no switchport
+   ip address 192.168.11.1/30
 !
 interface Ethernet2
-   mtu 1500
    no switchport
    vrf B
    ip address 192.168.21.1/30
 !
 interface Ethernet3
-   mtu 1500
    no switchport
+   ip address 192.168.31.1/30
 !
 interface Ethernet4
-   mtu 1500
    no switchport
    ip address 172.16.13.1/24
    isis enable isis
    isis network point-to-point
 !
 interface Ethernet5
-   shutdown
-   mtu 1500
    no switchport
    ip address 172.16.14.1/24
    isis enable isis
    isis network point-to-point
 !
 interface Ethernet6
-   shutdown
-   mtu 1500
    no switchport
    ip address 172.16.15.1/24
    isis enable isis
@@ -45,9 +39,6 @@ interface Loopback0
 !
 ip routing
 ip routing vrf B
-!
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 ge 24
 !
 router bgp 100
    neighbor 192.168.100.2 remote-as 100
@@ -69,5 +60,4 @@ router isis isis
    is-type level-1
    !
    address-family ipv4 unicast
-
-
+!

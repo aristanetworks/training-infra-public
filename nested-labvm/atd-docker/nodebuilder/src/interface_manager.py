@@ -88,7 +88,7 @@ def get_vm_interfaces(vm_name: str) -> List[Dict]:
     """
     try:
         result = subprocess.run(
-            ['virsh', 'domiflist', vm_name],
+            ['virsh', 'domiflist', vm_name.lower()],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -685,6 +685,7 @@ def attach_interface_to_vm(
 ) -> Dict:
     """
     Attach a new network interface to a VM using OVS bridge.
+    Lowercases vm_name since libvirt domains are always lowercase.
 
     Uses virsh attach-device with an XML file that includes the
     OVS virtualport type, which is required for OVS bridges.
@@ -707,6 +708,9 @@ def attach_interface_to_vm(
     """
     import tempfile
     from vm_manager import get_vm_state
+
+    # Lowercase for libvirt domain name
+    vm_name = vm_name.lower()
 
     # Check if VM is running
     vm_state = get_vm_state(vm_name)
@@ -876,6 +880,9 @@ def detach_interface_from_vm(
     """
     from vm_manager import get_vm_state
 
+    # Lowercase for libvirt domain name
+    vm_name = vm_name.lower()
+
     # Check if VM is running
     vm_state = get_vm_state(vm_name)
     vm_is_running = vm_state == 'running'
@@ -951,6 +958,9 @@ def update_interface_bridge(
     """
     import tempfile
     from vm_manager import get_vm_state
+
+    # Lowercase for libvirt domain name
+    vm_name = vm_name.lower()
 
     # Check if VM is running
     vm_state = get_vm_state(vm_name)

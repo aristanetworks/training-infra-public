@@ -1,115 +1,118 @@
+!
+hostname PE1
+!
 ip routing
 mpls ip
-!
-vlan 30
-name Cust-C
 !
 service routing protocols model multi-agent
 !
 vrf instance Cust-A
+!
 vrf instance Cust-B
+!
+vrf instance Cust-C
 !
 ip routing vrf Cust-A
 ip routing vrf Cust-B
+ip routing vrf Cust-C
+!
+ip prefix-list ldp-fec-prefix-list
+   permit 192.168.100.0/24 ge 32
+!
+router isis isis
+   net 49.0000.0000.0000.0001.00
+   router-id ipv4 192.168.100.1
+   is-type level-1
+   address-family ipv4 unicast
+   segment-routing mpls
+      no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.1/32
+   isis enable isis
+   node-segment ipv4 index 1
+!
+interface Ethernet1
+   no switchport
+   description to A1
+   vrf Cust-A
+   ip address 192.168.11.1/30
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   description to B1
+   vrf Cust-B
+   ip address 192.168.21.1/30
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   description to C1
+   vrf Cust-C
+   ip address 192.168.31.1/30
+   no shutdown
+!
+interface Ethernet4
+   no switchport
+   description to P3
+   ip address 172.16.13.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet5
+   no switchport
+   description to P4
+   ip address 172.16.14.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet6
+   no switchport
+   description to P5
+   ip address 172.16.15.1/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+mpls ldp
+   router-id interface loopback 0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
 !
 ip route vrf Cust-A 192.168.10.1/32 192.168.11.2
 ip route vrf Cust-B 192.168.20.1/32 192.168.21.2
-!
-ip prefix-list ldp-fec-prefix-list
-permit 192.168.100.0/24 ge 24
-!
-mpls ldp
-router-id interface Loopback0 force
-fec filter prefix-list ldp-fec-prefix-list
-no shutdown
+ip route vrf Cust-C 192.168.30.1/32 192.168.31.2
 !
 router bgp 65100
-no bgp default ipv4-unicast
-neighbor 192.168.100.2 remote-as 65100
-neighbor 192.168.100.2 update-source Loopback0
-neighbor 192.168.100.2 next-hop-self
-neighbor 192.168.100.2 send-community extended
+   router-id 192.168.100.1
+   no bgp default ipv4-unicast
+   neighbor PE-PE peer group
+   neighbor PE-PE remote-as 65100
+   neighbor PE-PE update-source Loopback0
+   neighbor 192.168.100.2 peer group PE-PE
+   !
+   address-family vpn-ipv4
+      neighbor PE-PE activate
+      neighbor PE-PE send-community extended
+   !
+   vrf Cust-A
+      rd 65100:10
+      route-target import vpn-ipv4 65100:10
+      route-target export vpn-ipv4 65100:10
+      redistribute static
+   !
+   vrf Cust-B
+      rd 65100:20
+      route-target import vpn-ipv4 65100:20
+      route-target export vpn-ipv4 65100:20
+      redistribute static
+   !
+   vrf Cust-C
+      rd 65100:30
+      route-target import vpn-ipv4 65100:30
+      route-target export vpn-ipv4 65100:30
+      redistribute static
 !
-address-family evpn
-neighbor default encapsulation mpls next-hop-self source-interface Loopback0
-neighbor 192.168.100.2 activate
-!
-
-vlan 30
-rd 192.168.100.1:30
-route-target export 30:30
-route-target import 30:30
-redistribute learned
-redistribute static
-!
-vrf Cust-A
-rd 65100:10
-route-target import evpn 65100:10
-route-target export evpn 65100:10
-redistribute static
-redistribute connected
-!
-vrf Cust-B
-rd 65100:20
-route-target import evpn 65100:20
-route-target export evpn 65100:20
-redistribute static
-redistribute connected
-!
-router isis isis
-net 49.0000.0000.0000.0001.00
-router-id ipv4 192.168.100.1
-is-type level-1
-!
-address-family ipv4 unicast
-segment-routing mpls
-no shutdown
-!
-interface Loopback0
-ip address 192.168.100.1/32
-isis enable isis
-node-segment ipv4 index 1
-!
-interface Ethernet1
-vrf Cust-A
-no switchport
-ip address 192.168.11.1/30
-mtu 1500
-no shutdown
-!
-interface Ethernet2
-vrf Cust-B
-
-no switchport
-ip address 192.168.21.1/30
-mtu 1500
-no shutdown
-!
-interface Ethernet3
-switchport
-switchport access vlan 30
-no shutdown
-!
-interface Ethernet4
-no switchport
-ip address 172.16.13.1/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
-!
-interface Ethernet5
-no switchport
-ip address 172.16.14.1/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
-!
-interface Ethernet6
-no switchport
-ip address 172.16.15.1/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown

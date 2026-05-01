@@ -1,3 +1,4 @@
+hostname PE2
 !
 ip routing
 mpls ip
@@ -8,6 +9,7 @@ router isis isis
    net 49.0000.0000.0000.0002.00
    router-id ipv4 192.168.100.2
    is-type level-1
+   segment-routing mpls srgb 900000 900000
    address-family ipv4 unicast
       segment-routing mpls
          no shutdown
@@ -61,6 +63,6 @@ router bgp 65100
    neighbor 192.168.100.1 send-community extended
    !
    address-family evpn
-      neighbor default encapsulation mpls next-hop-self source-interface Loopback0
+      neighbor default encapsulation mpls
       neighbor 192.168.100.1 activate
 !

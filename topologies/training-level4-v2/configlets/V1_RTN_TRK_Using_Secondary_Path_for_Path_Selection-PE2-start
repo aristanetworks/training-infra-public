@@ -1,32 +1,69 @@
 hostname PE2
 !
-vrf instance B
+service routing protocols model multi-agent
+!
+ip routing
+mpls ip
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 eq 32
+!
+mpls ldp
+   router-id interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!
+mpls rsvp
+   fast-reroute mode node-protection
+   no shutdown
+!
+router isis isis
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   address-family ipv4 unicast
+   traffic-engineering
+   no shutdown
+!
+router traffic-engineering
+   router-id ipv4 192.168.100.2
+   administrative-group alias blue group 1
+   administrative-group alias red group 2
+   !
+   rsvp
+      local-interface Loopback0
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+   no shutdown
 !
 interface Ethernet1
-   mtu 1500
    no switchport
+   ip address 192.168.12.1/30
+   no shutdown
 !
 interface Ethernet2
-   mtu 1500
    no switchport
-   vrf B
    ip address 192.168.22.1/30
+   no shutdown
 !
 interface Ethernet3
-   mtu 1500
    no switchport
+   ip address 192.168.32.1/30
+   no shutdown
 !
 interface Ethernet4
-   mtu 1500
    no switchport
    ip address 172.16.23.2/24
    isis enable isis
    isis network point-to-point
    traffic-engineering
    traffic-engineering bandwidth 75 percent
+   traffic-engineering administrative-group red
+   no shutdown
 !
 interface Ethernet5
-   mtu 1500
    no switchport
    ip address 172.16.24.2/24
    isis enable isis
@@ -34,9 +71,9 @@ interface Ethernet5
    traffic-engineering
    traffic-engineering bandwidth 75 percent
    traffic-engineering administrative-group red
+   no shutdown
 !
 interface Ethernet6
-   mtu 1500
    no switchport
    ip address 172.16.26.2/24
    isis enable isis
@@ -44,61 +81,5 @@ interface Ethernet6
    traffic-engineering
    traffic-engineering bandwidth 75 percent
    traffic-engineering administrative-group blue
-!
-interface Loopback0
-   ip address 192.168.100.2/32
-   isis enable isis
-!
-interface Management1
-   vrf MGMT
-   ip address 192.168.0.42/24
-!
-ip routing
-ip routing vrf B
-!
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 ge 24
-!
-mpls ip
-!
-mpls ldp
-   router-id interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
    no shutdown
 !
-router bgp 100
-   neighbor 192.168.100.1 remote-as 100
-   neighbor 192.168.100.1 update-source Loopback0
-   neighbor 192.168.100.1 send-community extended
-   !
-   address-family vpn-ipv4
-      neighbor 192.168.100.1 activate
-   !
-   vrf B
-      rd 100:2
-      route-target import vpn-ipv4 100:2
-      route-target export vpn-ipv4 100:2
-      neighbor 192.168.22.2 remote-as 65202
-!
-router traffic-engineering
-   router-id ipv4 192.168.100.2
-   administrative-group alias blue group 1
-   administrative-group alias red group 2
-!
-router isis isis
-   net 49.0000.0000.0000.0002.00
-   router-id ipv4 192.168.100.2
-   is-type level-1
-   !
-   address-family ipv4 unicast
-   !
-   traffic-engineering
-      no shutdown
-      is-type level-1
-!
-mpls rsvp
-   fast-reroute mode node-protection
-   no shutdown
-
-
-
