@@ -15,8 +15,12 @@ Endpoints:
 - POST /announcements/refresh  - Force refresh announcements from Firestore
 - GET /config                  - Get combined config (features + announcements)
 - POST /refresh/all            - Force refresh both features and announcements
+- POST /internal/announcements - Push internal announcement from other containers
+- DELETE /internal/announcements/{id} - Remove internal announcement
+- GET /internal/announcements  - List active internal announcements
 """
 
+import json
 import logging
 import os
 import threading
@@ -40,9 +44,11 @@ from config import (
     ACCESS_INFO_PATH,
     FEATURE_CACHE_PATH,
     ANNOUNCEMENT_CACHE_PATH,
-    SERVICE_ACCOUNT_PATH
+    SERVICE_ACCOUNT_PATH,
+    INTERNAL_EVENT_CHECK_INTERVAL,
 )
 from firestore_client import FeatureFlagClient, AnnouncementClient
+from internal_events import InternalEventEngine
 from models.announcement import filter_active_announcements
 
 # Configure logging
@@ -66,6 +72,8 @@ if _HAS_CLOUD_LOGGING:
 _feature_cache: Optional[Dict] = None
 _announcement_cache: Optional[Dict] = None
 _topology: Optional[str] = None
+_lab_hostname: Optional[str] = None
+_internal_engine: Optional[InternalEventEngine] = None
 
 
 def get_topology() -> str:
@@ -77,6 +85,21 @@ def get_topology() -> str:
             access_info = yaml.load(f)
             _topology = access_info.get('topology', 'unknown')
     return _topology
+
+
+def get_lab_hostname() -> str:
+    """Get lab hostname from ACCESS_INFO.yaml (cached after first read)"""
+    global _lab_hostname
+    if _lab_hostname is None:
+        try:
+            yaml = YAML()
+            with open(ACCESS_INFO_PATH, 'r') as f:
+                access_info = yaml.load(f)
+                _lab_hostname = access_info.get('name', 'unknown')
+        except Exception as e:
+            logger.warning(f"Failed to read lab hostname from ACCESS_INFO.yaml: {e}")
+            _lab_hostname = 'unknown'
+    return _lab_hostname
 
 
 def get_user_email() -> Optional[str]:
@@ -321,11 +344,40 @@ def fetch_and_cache_announcements() -> Dict:
 
 
 def get_announcements() -> Dict:
-    """Get current announcement state (from memory cache)"""
-    global _announcement_cache
-    if _announcement_cache is None:
-        return fetch_and_cache_announcements()
-    return _announcement_cache
+    """Get current announcement state, merging Firestore and internal event announcements.
+
+    CRITICAL: This function must NEVER throw. The /announcements endpoint depends on it.
+    If internal event merging fails, fall back to Firestore-only data.
+    """
+    global _announcement_cache, _internal_engine
+
+    base = _announcement_cache if _announcement_cache else fetch_and_cache_announcements()
+
+    if not _internal_engine:
+        return base
+
+    try:
+        internal_anns = _internal_engine.get_active_announcements()
+        if not internal_anns:
+            return base
+
+        # Merge: internal announcements take precedence in dedup, sort by priority
+        seen_ids = set()
+        merged = []
+        for ann in internal_anns + base.get('active_announcements', []):
+            ann_id = ann.get('id')
+            if ann_id and ann_id not in seen_ids:
+                seen_ids.add(ann_id)
+                merged.append(ann)
+        merged.sort(key=lambda x: x.get('priority', 0), reverse=True)
+
+        result = dict(base)
+        result['active_announcements'] = merged
+        result['internal_announcements'] = internal_anns
+        return result
+    except Exception as e:
+        logger.error(f"Internal event merge failed, returning Firestore-only data: {e}")
+        return base
 
 
 # =============================================================================
@@ -394,10 +446,11 @@ class AnnouncementsHandler(tornado.web.RequestHandler):
             def log_async():
                 try:
                     active_announcements = announcements.get('active_announcements', [])
-                    announcement_ids = [ann['id'] for ann in active_announcements]
+                    announcement_ids = [ann.get('id', 'unknown') for ann in active_announcements]
 
                     log_entry = {
                         'event_type': 'announcement_fetch',
+                        'lab_hostname': get_lab_hostname(),
                         'topology': get_topology(),
                         'user_email': get_user_email(),
                         'announcements_count': len(active_announcements),
@@ -491,6 +544,62 @@ class RefreshAllHandler(tornado.web.RequestHandler):
             })
 
 
+class InternalAnnouncementHandler(tornado.web.RequestHandler):
+    """API for other containers to push/list/remove internal announcements"""
+
+    def get(self):
+        """List all active internal announcements"""
+        if not _internal_engine:
+            self.write({'internal_announcements': [], 'status': 'engine_not_initialized'})
+            return
+        anns = _internal_engine.get_active_announcements()
+        self.write({
+            'internal_announcements': anns,
+            'count': len(anns),
+            'remaining_seconds': _internal_engine.remaining_seconds,
+        })
+
+    def post(self):
+        """Push an internal announcement. Body: {id, title, message, type?, priority?, ttl_minutes?}"""
+        if not _internal_engine:
+            self.set_status(503)
+            self.write({'status': 'error', 'message': 'Internal event engine not initialized'})
+            return
+        try:
+            body = json.loads(self.request.body)
+            ann = _internal_engine.add_announcement(body)
+            self.write({'status': 'created', 'announcement': ann})
+        except (json.JSONDecodeError, ValueError) as e:
+            self.set_status(400)
+            self.write({'status': 'error', 'message': str(e)})
+        except Exception as e:
+            logger.error(f"InternalAnnouncementHandler.post failed: {e}")
+            self.set_status(500)
+            self.write({'status': 'error', 'message': 'Internal server error'})
+
+    def delete(self, announcement_id: str = None):
+        """Remove a pushed internal announcement by ID"""
+        if not _internal_engine:
+            self.set_status(503)
+            self.write({'status': 'error', 'message': 'Internal event engine not initialized'})
+            return
+        if not announcement_id:
+            self.set_status(400)
+            self.write({'status': 'error', 'message': 'announcement_id required'})
+            return
+        try:
+            removed = _internal_engine.remove_announcement(announcement_id)
+            if removed:
+                self.write({'status': 'removed', 'announcement_id': announcement_id})
+            else:
+                self.set_status(404)
+                self.write({'status': 'not_found', 'announcement_id': announcement_id})
+        except Exception as e:
+            logger.error(f"InternalAnnouncementHandler.delete failed for {announcement_id}: {e}")
+            self.set_status(500)
+            self.write({'status': 'error', 'message': 'Internal server error'})
+
+
 def make_app():
     """Create Tornado application with all routes"""
     return tornado.web.Application([
@@ -506,6 +615,10 @@ def make_app():
         (r'/announcements', AnnouncementsHandler),
         (r'/announcements/refresh', AnnouncementRefreshHandler),
         (r'/announcements/(.+)', AnnouncementCheckHandler),
+
+        # Internal events API
+        (r'/internal/announcements', InternalAnnouncementHandler),
+        (r'/internal/announcements/(.+)', InternalAnnouncementHandler),
 
         # Combined
         (r'/config', ConfigHandler),
@@ -547,6 +660,17 @@ if __name__ == "__main__":
     pS("Fetching announcements from Firestore...")
     fetch_and_cache_announcements()
 
+    # Initialize internal event engine (non-fatal — service runs without it if init fails)
+    try:
+        topology = get_topology()
+        lab_hostname = get_lab_hostname()
+        _internal_engine = InternalEventEngine(cloud_logger=_cloud_logger, topology=topology, lab_hostname=lab_hostname)
+        pS("Internal event engine initialized")
+        _internal_engine.check_and_update()
+    except Exception as e:
+        logger.error(f"Failed to initialize internal event engine: {e}. Service will run without internal events.")
+        _internal_engine = None
+
     # Start server
     app = make_app()
     app.listen(SERVICE_PORT)
@@ -556,6 +680,18 @@ if __name__ == "__main__":
     refresh_interval = 5 * 60 * 1000  # 5 minutes in milliseconds
     tornado.ioloop.PeriodicCallback(auto_refresh_cache, refresh_interval).start()
     logger.info(f"Auto-refresh enabled: Will refresh cache every 5 minutes")
+
+    # Schedule internal event check (faster interval for time-sensitive warnings)
+    if _internal_engine:
+        def _safe_internal_check():
+            try:
+                _internal_engine.check_and_update()
+            except Exception as e:
+                logger.error(f"Internal event check failed (will retry next cycle): {e}")
+
+        internal_interval = INTERNAL_EVENT_CHECK_INTERVAL * 1000  # seconds to ms
+        tornado.ioloop.PeriodicCallback(_safe_internal_check, internal_interval).start()
+        logger.info(f"Internal event check enabled: every {INTERNAL_EVENT_CHECK_INTERVAL} seconds")
 
     try:
         tornado.ioloop.IOLoop.instance().start()
