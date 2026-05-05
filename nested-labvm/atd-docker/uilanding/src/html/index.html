@@ -275,7 +275,11 @@
           <div id="home" class="panel active">
             <h1>Arista {{ topo_title }}</h1>
             <div class="common-note">
+              {% if student_name %}
+              Welcome <span style="font-weight: 600; color: #d4a843;">{{ student_name }}</span>! Please use the links on the left to navigate through the lab.
+              {% else %}
               Welcome to the Arista {{ topo_title }}! Please use the links on the left to navigate through the lab.
+              {% end %}
             </div>
 
             {% if lab_type == "Exam" %}

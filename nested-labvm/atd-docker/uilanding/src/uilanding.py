@@ -355,6 +355,12 @@ class topoRequestHandler(BaseHandler):
                         gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
                 except Exception as e:
                     safe_log('error', f'Error in topoRequestHandler: {e}', event='error', handler='topoRequestHandler')
+            try:
+                student_name = host_yaml.get('customer_details', {}).get('exam_taker_full_name', '').strip()
+                safe_log('info', f'Displaying student name: {student_name}', event='page_view', page='topology')
+            except Exception:
+                student_name = ''
+                safe_log('warning', 'Failed to read student name from customer_details', event='page_view', page='topology')
             self.render(
                 BASE_PATH + 'index.html',
                 NODES = MOD_YAML['topology']['nodes'],
@@ -366,7 +372,8 @@ class topoRequestHandler(BaseHandler):
                 labguides = labguides,
                 topo_cvp = _topo_cvp,
                 menu_options = menu,
-                lab_type = lab_type
+                lab_type = lab_type,
+                student_name = student_name
             )
     
 # ===============================
