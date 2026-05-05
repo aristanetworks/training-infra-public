@@ -1,3 +1,4 @@
+hostname PE2
 !
 ip routing
 mpls ip

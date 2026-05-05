@@ -10,13 +10,6 @@ router isis isis
    is-type level-1
    address-family ipv4 unicast
 !
-interface Ethernet1
-   no switchport
-   ip address 172.16.56.6/24
-   isis enable isis
-   isis network point-to-point
-   no shutdown
-!
 interface Ethernet2
    no switchport
    ip address 172.16.26.6/24
@@ -24,9 +17,12 @@ interface Ethernet2
    isis network point-to-point
    no shutdown
 !
-interface Ethernet3
+interface Ethernet5
    no switchport
-   shutdown
+   ip address 172.16.56.6/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 interface Loopback0
    ip address 192.168.100.6/32

@@ -1,0 +1,18 @@
+hostname B1
+!
+ip routing
+ip route 0.0.0.0/0 192.168.21.1
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.21.2/30
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.1.2/32
+!
+router bgp 65102
+   router-id 192.168.1.2
+   neighbor 192.168.21.1 remote-as 100
+   network 192.168.1.2/32
+!

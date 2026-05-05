@@ -41,5 +41,5 @@ interface Ethernet2
 mpls ldp
    router-id interface loopback 0
    fec filter prefix-list ldp-fec-prefix-list
-   shutdown
+   no shutdown
 !
