@@ -6,7 +6,7 @@ import traceback
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPClientError
 
 from handlers.auth import BaseHandler
-from utils import safe_log
+from utils import safe_log, NODEBUILDER_URL, NODEBUILDER_URL_FALLBACK
 
 
 class NodeBuilderProxyHandler(BaseHandler):
@@ -17,9 +17,6 @@ class NodeBuilderProxyHandler(BaseHandler):
     for libvirt/virsh access. This handler proxies requests from the
     UI to the nodebuilder service.
     """
-
-    NODEBUILDER_URL = "http://host.docker.internal:8090"
-    NODEBUILDER_URL_FALLBACK = "http://172.17.0.1:8090"
 
     async def get(self, path):
         if not self.current_user:
@@ -88,13 +85,13 @@ class NodeBuilderProxyHandler(BaseHandler):
 
         try:
             # Try primary URL first (Docker Desktop)
-            response, error = await try_fetch(self.NODEBUILDER_URL)
+            response, error = await try_fetch(NODEBUILDER_URL)
 
             if error:
                 # Connection error - try fallback
                 safe_log('warning', f'NodeBuilderProxy primary failed: {error}', event='proxy',
                          handler='nodebuilder_proxy', action='primary_failed')
-                response, error = await try_fetch(self.NODEBUILDER_URL_FALLBACK)
+                response, error = await try_fetch(NODEBUILDER_URL_FALLBACK)
 
             if error:
                 # Both failed to connect

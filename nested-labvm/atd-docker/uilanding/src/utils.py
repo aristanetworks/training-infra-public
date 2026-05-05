@@ -71,6 +71,17 @@ def pS(mtype):
     print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
 
+# ---------------------------------------------------------------------------
+# Service URL constants (Docker Desktop primary, Linux Docker bridge fallback)
+# ---------------------------------------------------------------------------
+CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
+CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
+CAPTURE_WS_URL = "ws://host.docker.internal:8089/ws"
+CAPTURE_WS_URL_FALLBACK = "ws://172.17.0.1:8089/ws"
+NODEBUILDER_URL = "http://host.docker.internal:8090"
+NODEBUILDER_URL_FALLBACK = "http://172.17.0.1:8090"
+
+
 def encodeID(tmp_data):
     tmp_str = json.dumps(tmp_data).encode()
     enc_str = b64encode(tmp_str).decode()

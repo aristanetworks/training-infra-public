@@ -16,16 +16,13 @@ import traceback
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
 from handlers.auth import BaseHandler
-from utils import safe_log
+from utils import safe_log, CAPTURE_SERVICE_URL, CAPTURE_SERVICE_URL_FALLBACK
 
 
 # Impairment API Handlers (unified control for latency, loss, duplication, corruption)
 
 class ImpairmentsBridgesAPIHandler(BaseHandler):
     """API endpoint to get bridges with all impairment status."""
-
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
 
     async def get(self):
         if not self.current_user:
@@ -41,7 +38,7 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/impairments/bridges",
+                    f"{CAPTURE_SERVICE_URL}/impairments/bridges",
                     method="GET",
                     request_timeout=30
                 )
@@ -52,7 +49,7 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
                 safe_log('warning', f'ImpairmentsBridges primary failed: {e}', event='proxy', handler='impairments_bridges', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/bridges",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/impairments/bridges",
                         method="GET",
                         request_timeout=30
                     )
@@ -75,10 +72,12 @@ class ImpairmentsBridgesAPIHandler(BaseHandler):
 class ImpairmentsConfigureAPIHandler(BaseHandler):
     """API endpoint to configure impairments on a bridge."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
         try:
             _body = json.loads(self.request.body.decode('utf-8')) if self.request.body else {}
             safe_log('info', 'Network impairment configured', event='impairment', action='configure',
@@ -86,10 +85,6 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                      loss=str(_body.get('loss', '')))
         except Exception:
             safe_log('info', 'Network impairment configured', event='impairment', action='configure')
-        if not self.current_user:
-            self.set_status(401)
-            self.write(json.dumps({'error': 'Authentication required'}))
-            return
 
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -103,7 +98,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/impairments/configure",
+                    f"{CAPTURE_SERVICE_URL}/impairments/configure",
                     method="POST",
                     body=json.dumps(request_data),
                     headers={"Content-Type": "application/json"},
@@ -116,7 +111,7 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
                 safe_log('warning', f'ImpairmentsConfigure primary failed: {e}', event='proxy', handler='impairments_configure', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/configure",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/impairments/configure",
                         method="POST",
                         body=json.dumps(request_data),
                         headers={"Content-Type": "application/json"},
@@ -145,20 +140,18 @@ class ImpairmentsConfigureAPIHandler(BaseHandler):
 class ImpairmentsClearAPIHandler(BaseHandler):
     """API endpoint to clear all impairments on a bridge."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
         try:
             _body = json.loads(self.request.body.decode('utf-8')) if self.request.body else {}
             safe_log('info', 'Network impairment cleared', event='impairment', action='clear',
                      bridge=str(_body.get('bridge', '')))
         except Exception:
             safe_log('info', 'Network impairment cleared', event='impairment', action='clear')
-        if not self.current_user:
-            self.set_status(401)
-            self.write(json.dumps({'error': 'Authentication required'}))
-            return
 
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -172,7 +165,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear",
+                    f"{CAPTURE_SERVICE_URL}/impairments/clear",
                     method="POST",
                     body=json.dumps(request_data),
                     headers={"Content-Type": "application/json"},
@@ -185,7 +178,7 @@ class ImpairmentsClearAPIHandler(BaseHandler):
                 safe_log('warning', f'ImpairmentsClear primary failed: {e}', event='proxy', handler='impairments_clear', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear",
                         method="POST",
                         body=json.dumps(request_data),
                         headers={"Content-Type": "application/json"},
@@ -214,9 +207,6 @@ class ImpairmentsClearAPIHandler(BaseHandler):
 class ImpairmentsClearAllAPIHandler(BaseHandler):
     """API endpoint to clear all impairments on all bridges."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
         safe_log('info', 'All network impairments cleared', event='impairment', action='clear_all')
         if not self.current_user:
@@ -232,7 +222,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/impairments/clear-all",
+                    f"{CAPTURE_SERVICE_URL}/impairments/clear-all",
                     method="POST",
                     body="{}",
                     headers={"Content-Type": "application/json"},
@@ -245,7 +235,7 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
                 safe_log('warning', f'ImpairmentsClearAll primary failed: {e}', event='proxy', handler='impairments_clear_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/impairments/clear-all",
                         method="POST",
                         body="{}",
                         headers={"Content-Type": "application/json"},
@@ -275,9 +265,6 @@ class ImpairmentsClearAllAPIHandler(BaseHandler):
 class LatencyBridgesAPIHandler(BaseHandler):
     """API endpoint to list bridges with latency status (legacy)."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def get(self):
         if not self.current_user:
             self.set_status(401)
@@ -293,7 +280,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
             bridges = []
             try:
                 response = await http_client.fetch(
-                    f"{self.CAPTURE_SERVICE_URL}/latency/bridges",
+                    f"{CAPTURE_SERVICE_URL}/latency/bridges",
                     request_timeout=5
                 )
                 data = json.loads(response.body.decode('utf-8'))
@@ -302,7 +289,7 @@ class LatencyBridgesAPIHandler(BaseHandler):
                 safe_log('warning', f'LatencyBridges primary failed: {e}', event='proxy', handler='latency_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/bridges",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/latency/bridges",
                         request_timeout=5
                     )
                     data = json.loads(response.body.decode('utf-8'))
@@ -331,9 +318,6 @@ class LatencyBridgesAPIHandler(BaseHandler):
 class LatencyEnableAPIHandler(BaseHandler):
     """API endpoint to enable latency on a bridge (legacy)."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
         if not self.current_user:
             self.set_status(401)
@@ -356,7 +340,7 @@ class LatencyEnableAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/latency/enable",
+                    f"{CAPTURE_SERVICE_URL}/latency/enable",
                     method="POST", body=request_body,
                     headers={"Content-Type": "application/json"},
                     request_timeout=10
@@ -368,7 +352,7 @@ class LatencyEnableAPIHandler(BaseHandler):
                 safe_log('warning', f'LatencyEnable primary failed: {e}', event='proxy', handler='latency_enable', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/enable",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/latency/enable",
                         method="POST", body=request_body,
                         headers={"Content-Type": "application/json"},
                         request_timeout=10
@@ -391,9 +375,6 @@ class LatencyEnableAPIHandler(BaseHandler):
 class LatencyDisableAPIHandler(BaseHandler):
     """API endpoint to disable latency on a bridge (legacy)."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
         if not self.current_user:
             self.set_status(401)
@@ -416,7 +397,7 @@ class LatencyDisableAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/latency/disable",
+                    f"{CAPTURE_SERVICE_URL}/latency/disable",
                     method="POST", body=request_body,
                     headers={"Content-Type": "application/json"},
                     request_timeout=10
@@ -428,7 +409,7 @@ class LatencyDisableAPIHandler(BaseHandler):
                 safe_log('warning', f'LatencyDisable primary failed: {e}', event='proxy', handler='latency_disable', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/latency/disable",
                         method="POST", body=request_body,
                         headers={"Content-Type": "application/json"},
                         request_timeout=10
@@ -451,9 +432,6 @@ class LatencyDisableAPIHandler(BaseHandler):
 class LatencyDisableAllAPIHandler(BaseHandler):
     """API endpoint to disable latency on all bridges (legacy)."""
 
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def post(self):
         if not self.current_user:
             self.set_status(401)
@@ -468,7 +446,7 @@ class LatencyDisableAllAPIHandler(BaseHandler):
 
             try:
                 request = HTTPRequest(
-                    f"{self.CAPTURE_SERVICE_URL}/latency/disable-all",
+                    f"{CAPTURE_SERVICE_URL}/latency/disable-all",
                     method="POST", body="{}",
                     headers={"Content-Type": "application/json"},
                     request_timeout=30
@@ -480,7 +458,7 @@ class LatencyDisableAllAPIHandler(BaseHandler):
                 safe_log('warning', f'LatencyDisableAll primary failed: {e}', event='proxy', handler='latency_disable_all', action='primary_failed')
                 try:
                     request = HTTPRequest(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/latency/disable-all",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/latency/disable-all",
                         method="POST", body="{}",
                         headers={"Content-Type": "application/json"},
                         request_timeout=30

@@ -16,6 +16,9 @@ from datetime import datetime
 import tornado.web
 from ruamel.yaml import YAML
 
+from handlers.auth import BaseHandler
+from utils import safe_log, pS
+
 # Cloud Logging Setup
 try:
     from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
@@ -26,7 +29,6 @@ except Exception:
     logger.addHandler(_logging.StreamHandler())
     logger.setLevel(_logging.INFO)
 
-    # Provide fallback stubs for operation helpers
     def log_operation_start(lgr, operation, **kwargs):
         lgr.info(f"Starting operation: {operation} {kwargs}")
 
@@ -37,29 +39,9 @@ except Exception:
         lgr.error(f"Operation failed: {operation} - {error_msg} {kwargs}")
 
 
-def safe_log(level, message, **kwargs):
-    """Safely log messages with structured labels, never raising exceptions."""
-    try:
-        labels = {k: str(v) for k, v in kwargs.items()}
-        log_method = getattr(logger, level, logger.info)
-        if labels:
-            log_method(message, extra={'labels': labels})
-        else:
-            log_method(message)
-    except Exception:
-        pass
-
-
 # Constants
 ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 BASE_PATH = '/opt/topo/html/'
-
-
-def pS(mtype):
-    """Function to send output from service file to Syslog."""
-    cur_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mmes = "\t" + mtype
-    print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
 
 
 # Global variables for conversion status
@@ -72,12 +54,6 @@ conversion_status = {
     'completed': False,
     'success': False
 }
-
-
-class BaseHandler(tornado.web.RequestHandler):
-    """Base handler with authentication support."""
-    def get_current_user(self):
-        return self.get_secure_cookie("user")
 
 
 class TopologyConverterCurrentHandler(BaseHandler):

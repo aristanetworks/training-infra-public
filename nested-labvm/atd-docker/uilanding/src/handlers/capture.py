@@ -15,7 +15,8 @@ from ruamel.yaml import YAML
 from tornado.httpclient import AsyncHTTPClient
 
 from handlers.auth import BaseHandler
-from utils import safe_log
+from utils import (safe_log, CAPTURE_SERVICE_URL, CAPTURE_SERVICE_URL_FALLBACK,
+                   CAPTURE_WS_URL, CAPTURE_WS_URL_FALLBACK)
 
 
 _TOPO_BUILD_CACHE = None
@@ -69,11 +70,6 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
     host network mode) and relays packets to the browser client.
     """
 
-    # Capture service URL (running on host network, accessible via Docker host IP)
-    CAPTURE_SERVICE_URL = "ws://host.docker.internal:8089/ws"
-    # Fallback for Linux Docker (host.docker.internal not always available)
-    CAPTURE_SERVICE_URL_FALLBACK = "ws://172.17.0.1:8089/ws"
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.client_id = None
@@ -118,30 +114,30 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
 
         try:
             # Try primary URL first (works on Docker Desktop)
-            safe_log('info', f'Capture WS trying primary: {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_primary')
+            safe_log('info', f'Capture WS trying primary: {CAPTURE_WS_URL}', event='capture', action='upstream_primary')
             self.upstream_ws = await asyncio.wait_for(
                 websocket_connect(
-                    self.CAPTURE_SERVICE_URL,
+                    CAPTURE_WS_URL,
                     on_message_callback=self.on_upstream_message
                 ),
                 timeout=5.0
             )
             self.is_connected = True
-            safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL}', event='capture', action='upstream_connected')
+            safe_log('info', f'Capture WS connected to {CAPTURE_WS_URL}', event='capture', action='upstream_connected')
         except Exception as e:
             safe_log('warning', f'Capture WS primary failed: {e}, trying fallback', event='capture', action='upstream_primary_failed')
             try:
                 # Try fallback URL (works on Linux Docker)
-                safe_log('info', f'Capture WS trying fallback: {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_fallback')
+                safe_log('info', f'Capture WS trying fallback: {CAPTURE_WS_URL_FALLBACK}', event='capture', action='upstream_fallback')
                 self.upstream_ws = await asyncio.wait_for(
                     websocket_connect(
-                        self.CAPTURE_SERVICE_URL_FALLBACK,
+                        CAPTURE_WS_URL_FALLBACK,
                         on_message_callback=self.on_upstream_message
                     ),
                     timeout=5.0
                 )
                 self.is_connected = True
-                safe_log('info', f'Capture WS connected to {self.CAPTURE_SERVICE_URL_FALLBACK}', event='capture', action='upstream_connected')
+                safe_log('info', f'Capture WS connected to {CAPTURE_WS_URL_FALLBACK}', event='capture', action='upstream_connected')
             except Exception as e2:
                 safe_log('error', f'Capture WS fallback also failed: {e2}', event='capture', action='upstream_all_failed')
                 try:
@@ -207,10 +203,6 @@ class CaptureWebSocketHandler(tornado.websocket.WebSocketHandler):
 class CaptureBridgesAPIHandler(BaseHandler):
     """API endpoint to list available OVS bridges for capture."""
 
-    # Capture service URLs (same as WebSocket handler)
-    CAPTURE_SERVICE_URL = "http://host.docker.internal:8089"
-    CAPTURE_SERVICE_URL_FALLBACK = "http://172.17.0.1:8089"
-
     async def get(self):
         if not self.current_user:
             self.set_status(401)
@@ -231,7 +223,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
             bridges = []
             try:
                 response = await http_client.fetch(
-                    f"{self.CAPTURE_SERVICE_URL}/bridges{refresh_param}",
+                    f"{CAPTURE_SERVICE_URL}/bridges{refresh_param}",
                     request_timeout=5
                 )
                 data = json.loads(response.body.decode('utf-8'))
@@ -240,7 +232,7 @@ class CaptureBridgesAPIHandler(BaseHandler):
                 safe_log('warning', f'CaptureBridges primary failed: {e}', event='proxy', handler='capture_bridges', action='primary_failed')
                 try:
                     response = await http_client.fetch(
-                        f"{self.CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
+                        f"{CAPTURE_SERVICE_URL_FALLBACK}/bridges{refresh_param}",
                         request_timeout=5
                     )
                     data = json.loads(response.body.decode('utf-8'))
