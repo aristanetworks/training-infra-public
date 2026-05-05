@@ -1,0 +1,103 @@
+hostname PE2
+!
+ip routing
+mpls ip
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 ge 32
+!
+vrf instance B
+!
+vrf instance BC
+!
+ip routing vrf B
+ip routing vrf BC
+!
+interface Ethernet1
+   no switchport
+   no ip address
+   vrf BC
+   ip address 192.168.12.1/30
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   no ip address
+   vrf B
+   ip address 192.168.22.1/30
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   no ip address
+   vrf B
+   ip address 192.168.32.1/30
+   no shutdown
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.24.2/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.26.2/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+!
+router isis isis
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   address-family ipv4 unicast
+!
+mpls ldp
+   router-id interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!
+router bgp 100
+   router-id 192.168.100.2
+   neighbor 192.168.100.1 remote-as 100
+   neighbor 192.168.100.1 update-source Loopback0
+   neighbor 192.168.100.1 send-community extended
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.1 activate
+   !
+   vrf B
+      rd 100:2
+      route-target import vpn-ipv4 100:2
+      route-target export vpn-ipv4 100:2
+      neighbor 192.168.22.2 remote-as 65202
+      neighbor 192.168.32.2 remote-as 65203
+      !
+      address-family ipv4 unicast
+         neighbor 192.168.22.2 activate
+         neighbor 192.168.32.2 activate
+   !
+   vrf BC
+      rd 100:22
+      route-target import vpn-ipv4 100:2
+      route-target import vpn-ipv4 100:3
+      route-target export vpn-ipv4 100:2
+      route-target export vpn-ipv4 100:3
+      neighbor 192.168.12.2 remote-as 65201
+      !
+      address-family ipv4 unicast
+         neighbor 192.168.12.2 activate
+!
