@@ -193,54 +193,6 @@ HonorLockSecret = get_metadata_extract('honorlockClientSecret')
 
 
 # topoRequestHandler — moved to handlers/pages.py
-
-            # Disable lab_menu for Exam type labs
-            if lab_type == "Exam" and 'lab_menu' not in disable_links:
-                disable_links.append('lab_menu')
-            if 'labguides' in host_yaml:
-                if host_yaml['labguides'] == 'self':
-                    labguides = '/labguides/index.html'
-                else:
-                    labguides = host_yaml['labguides']
-            else:
-                labguides = '/labguides/index.html'
-            if 'cvp' in host_yaml:
-                if host_yaml['cvp'] != "none":
-                    _topo_cvp = True       
-            gui_urls,servers =[],[]
-            if host_yaml['eos_type'] == 'container-labs':
-                try:
-                    servers =  MOD_YAML['topology']['servers']
-                    if servers is None:
-                        servers = [] 
-                    external_ip_url = "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip"
-                    headers = {"Metadata-Flavor": "Google"}
-                    response = requests.get(external_ip_url, headers=headers)
-                    for server in servers:
-                        gui_urls.append(f'http://{response.text}:{servers[server]["port"]}')
-                except Exception as e:
-                    safe_log('error', f'Error in topoRequestHandler: {e}', event='error', handler='topoRequestHandler')
-            try:
-                student_name = host_yaml.get('customer_details', {}).get('exam_taker_full_name', '').strip()
-                safe_log('info', f'Displaying student name: {student_name}', event='page_view', page='topology')
-            except Exception:
-                student_name = ''
-                safe_log('warning', 'Failed to read student name from customer_details', event='page_view', page='topology')
-            self.render(
-                BASE_PATH + 'index.html',
-                NODES = MOD_YAML['topology']['nodes'],
-                SERVERS = servers,
-                GUI_URLS= gui_urls,
-                ARISTA_PWD=host_yaml['login_info']['jump_host']['pw'],
-                topo_title = TITLE,
-                disable_links = disable_links,
-                labguides = labguides,
-                topo_cvp = _topo_cvp,
-                menu_options = menu,
-                lab_type = lab_type,
-                student_name = student_name
-            )
-    
 # ===============================
 # Internal CVP gRPC Health Check
 # ===============================
