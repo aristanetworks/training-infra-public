@@ -1874,7 +1874,7 @@ window.TerminalManager = TerminalManager;
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
-  TerminalManager.init();
+  await TerminalManager.init();
 
   // Initialize topology when panel is opened
   await TerminalManager.initTopology();
