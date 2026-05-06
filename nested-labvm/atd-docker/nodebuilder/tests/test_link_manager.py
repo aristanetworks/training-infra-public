@@ -19,11 +19,23 @@ class TestAddLink:
     """Tests for add_link function."""
 
     def _mock_resource_mgr(self, known_vms=None):
-        """Create a mock resource manager that knows about specific VMs."""
+        """Create a mock resource manager that knows about specific VMs.
+        Supports case-insensitive lookup like the real ResourceManager."""
         if known_vms is None:
             known_vms = ['spine1', 'leaf1', 'leaf2']
         mgr = MagicMock()
-        mgr.vm_exists.side_effect = lambda name: name in known_vms
+        # vm_exists tries original name then lowercase
+        mgr.vm_exists.side_effect = lambda name: (
+            name in known_vms or name.lower() in known_vms
+        )
+        # resolve_domain_name returns the actual VM name
+        def _resolve(name):
+            if name in known_vms:
+                return name
+            if name.lower() in known_vms:
+                return name.lower()
+            return name
+        mgr.resolve_domain_name.side_effect = _resolve
         return mgr
 
     def test_add_link_success(self, temp_dir, mock_topo_build_file, mock_user_links_file):
@@ -192,6 +204,91 @@ class TestAddLink:
         assert result['status'] == 'success'
         assert 'leaf1' in result['targets_need_reboot']
         assert 'leaf2' in result['targets_reused_slots']
+
+    def test_add_link_uppercase_vm_names(
+        self, temp_dir, mock_topo_build_file, mock_user_links_file
+    ):
+        """Test adding a link with uppercase VM names (L4 topology: P4, PE1).
+        VMs on L4 topology use uppercase domain names in libvirt."""
+        from link_manager import add_link
+
+        # L4 topology VMs are uppercase in libvirt
+        known_vms = ['P4', 'P5', 'PE1', 'PE2']
+
+        mock_slot_result = Mock()
+        mock_slot_result.reused_slot = False
+        mock_slot_result.needs_reboot = True
+        mock_slot_result.target_device = 'P4'
+
+        mock_slot_result2 = Mock()
+        mock_slot_result2.reused_slot = False
+        mock_slot_result2.needs_reboot = True
+        mock_slot_result2.target_device = 'P5'
+
+        with patch('link_manager.get_resource_manager',
+                   return_value=self._mock_resource_mgr(known_vms)):
+            with patch('link_manager.create_ovs_bridge', return_value={'status': 'created'}):
+                with patch('link_manager.attach_interface_with_slot_reuse') as mock_attach:
+                    mock_attach.side_effect = [mock_slot_result, mock_slot_result2]
+
+                    with patch('link_manager.apply_mutual_exclusivity') as mock_mutex:
+                        mock_mutex.return_value = ([], ['P4', 'P5'])
+
+                        with patch('link_manager.save_user_link', return_value=True):
+                            result = add_link(
+                                source_device='P4',
+                                source_port='Ethernet3',
+                                target_device='P5',
+                                target_port='Ethernet3',
+                                user_links_path=mock_user_links_file,
+                                topo_build_path=mock_topo_build_file
+                            )
+
+        assert result['status'] == 'success'
+        assert result['source_device'] == 'P4'
+        assert result['target_device'] == 'P5'
+
+    def test_add_link_mixed_case_vm_names(
+        self, temp_dir, mock_topo_build_file, mock_user_links_file
+    ):
+        """Test adding a link when UI sends mixed case but VMs are lowercase.
+        Verifies case-insensitive fallback works for standard topologies."""
+        from link_manager import add_link
+
+        # Standard topology VMs are lowercase
+        known_vms = ['spine1', 'leaf1']
+
+        mock_slot_result = Mock()
+        mock_slot_result.reused_slot = False
+        mock_slot_result.needs_reboot = True
+        mock_slot_result.target_device = 'spine1'
+
+        mock_slot_result2 = Mock()
+        mock_slot_result2.reused_slot = False
+        mock_slot_result2.needs_reboot = True
+        mock_slot_result2.target_device = 'leaf1'
+
+        with patch('link_manager.get_resource_manager',
+                   return_value=self._mock_resource_mgr(known_vms)):
+            with patch('link_manager.create_ovs_bridge', return_value={'status': 'created'}):
+                with patch('link_manager.attach_interface_with_slot_reuse') as mock_attach:
+                    mock_attach.side_effect = [mock_slot_result, mock_slot_result2]
+
+                    with patch('link_manager.apply_mutual_exclusivity') as mock_mutex:
+                        mock_mutex.return_value = ([], ['spine1', 'leaf1'])
+
+                        with patch('link_manager.save_user_link', return_value=True):
+                            # UI sends "Spine1" but VM is "spine1"
+                            result = add_link(
+                                source_device='Spine1',
+                                source_port='Ethernet5',
+                                target_device='Leaf1',
+                                target_port='Ethernet5',
+                                user_links_path=mock_user_links_file,
+                                topo_build_path=mock_topo_build_file
+                            )
+
+        assert result['status'] == 'success'
 
 
 class TestRemoveLink:

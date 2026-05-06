@@ -253,9 +253,38 @@ def define_vm(xml_path: str) -> Dict:
     return {'status': 'defined'}
 
 
+def resolve_domain_name(vm_name: str) -> str:
+    """Resolve the actual libvirt domain name for a VM.
+
+    Tries the name as-is first, then lowercase as fallback.
+    This handles topologies where VMs use original case from
+    topo_build.yml (e.g., L4: P4, PE1) as well as topologies
+    where VMs are lowercase (e.g., spine1, leaf1).
+
+    Args:
+        vm_name: Name of the VM to look up
+
+    Returns:
+        The actual domain name found, or vm_name as-is if neither matches
+    """
+    for name in dict.fromkeys([vm_name, vm_name.lower()]):
+        try:
+            result = subprocess.run(
+                ['virsh', 'dominfo', name],
+                capture_output=True,
+                text=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            if result.returncode == 0:
+                return name
+        except Exception:
+            continue
+    return vm_name
+
+
 def start_vm(vm_name: str) -> Dict:
     """
-    Start a VM. Lowercases the name since libvirt domains are always lowercase.
+    Start a VM. Resolves the actual libvirt domain name first.
 
     Args:
         vm_name: Name of the VM
@@ -263,7 +292,7 @@ def start_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
+    vm_name = resolve_domain_name(vm_name)
     result = subprocess.run(
         ['virsh', 'start', vm_name],
         capture_output=True,
@@ -287,7 +316,7 @@ def autostart_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
+    vm_name = resolve_domain_name(vm_name)
     result = subprocess.run(
         ['virsh', 'autostart', vm_name],
         capture_output=True,
@@ -311,7 +340,7 @@ def destroy_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
+    vm_name = resolve_domain_name(vm_name)
     result = subprocess.run(
         ['virsh', 'destroy', vm_name],
         capture_output=True,
@@ -333,7 +362,7 @@ def undefine_vm(vm_name: str) -> Dict:
     Returns:
         Dict with status
     """
-    vm_name = vm_name.lower()
+    vm_name = resolve_domain_name(vm_name)
     result = subprocess.run(
         ['virsh', 'undefine', vm_name],
         capture_output=True,
@@ -472,7 +501,8 @@ def create_veos_node(
 
 def get_vm_state(vm_name: str) -> str:
     """
-    Get the current state of a VM. Lowercases the name for libvirt.
+    Get the current state of a VM.
+    Resolves the actual domain name first (may be uppercase or lowercase).
 
     Args:
         vm_name: Name of the VM
@@ -480,9 +510,10 @@ def get_vm_state(vm_name: str) -> str:
     Returns:
         State string: 'running', 'shut off', 'paused', or 'unknown'
     """
+    resolved = resolve_domain_name(vm_name)
     try:
         result = subprocess.run(
-            ['virsh', 'domstate', vm_name.lower()],
+            ['virsh', 'domstate', resolved],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -499,7 +530,9 @@ def get_vm_state(vm_name: str) -> str:
 
 def vm_exists(vm_name: str) -> bool:
     """
-    Check if a VM is defined in libvirt. Lowercases the name for libvirt.
+    Check if a VM is defined in libvirt.
+    Tries original name first, then lowercase (virsh is case-sensitive
+    and domain names may be uppercase on some topologies like L4).
 
     Args:
         vm_name: Name of the VM
@@ -507,17 +540,19 @@ def vm_exists(vm_name: str) -> bool:
     Returns:
         True if VM exists (defined), False otherwise
     """
-    try:
-        result = subprocess.run(
-            ['virsh', 'dominfo', vm_name.lower()],
-            capture_output=True,
-            text=True,
-            timeout=SUBPROCESS_TIMEOUT_DEFAULT
-        )
-        return result.returncode == 0
-
-    except Exception:
-        return False
+    for name in dict.fromkeys([vm_name, vm_name.lower()]):
+        try:
+            result = subprocess.run(
+                ['virsh', 'dominfo', name],
+                capture_output=True,
+                text=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            if result.returncode == 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def restore_user_node(node_name: str, node_info: Dict) -> Dict:

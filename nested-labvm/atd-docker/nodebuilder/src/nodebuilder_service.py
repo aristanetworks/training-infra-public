@@ -1379,12 +1379,13 @@ async def reboot_devices(request):
 
     results = []
     errors = []
+    from resource_manager import get_resource_manager
+    rm = get_resource_manager()
 
     for device in devices:
         try:
-            import subprocess
-            # libvirt domain names are always lowercase
-            domain_name = device.lower()
+            # Resolve actual domain name (may be uppercase on some topologies)
+            domain_name = rm.resolve_domain_name(device)
 
             result = subprocess.run(
                 ['virsh', 'reboot', domain_name],
