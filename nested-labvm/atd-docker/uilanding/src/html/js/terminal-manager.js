@@ -26,6 +26,8 @@ const TerminalManager = {
   _debug: false,
   // Feature flag: tab reordering (drag-and-drop + context menu)
   _tabReorderingEnabled: false,
+  // Batch close: suppress intermediate tab activations
+  _suppressActivation: false,
 
   async init() {
     this.loadDevices();
@@ -92,17 +94,28 @@ const TerminalManager = {
    * @param {boolean} showRetry - Whether to show retry button
    */
   showDeviceLoadError(container, title, detail, showRetry) {
-    const retryButton = showRetry
-      ? '<button class="retry-btn" onclick="TerminalManager.loadDevices()">Retry</button>'
-      : '';
+    container.textContent = '';
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'device-load-error';
 
-    container.innerHTML = `
-      <div class="device-load-error">
-        <p>${title}</p>
-        <p class="error-detail">${detail}</p>
-        ${retryButton}
-      </div>
-    `;
+    const titleP = document.createElement('p');
+    titleP.textContent = title;
+    errorDiv.appendChild(titleP);
+
+    const detailP = document.createElement('p');
+    detailP.className = 'error-detail';
+    detailP.textContent = detail;
+    errorDiv.appendChild(detailP);
+
+    if (showRetry) {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'retry-btn';
+      retryBtn.textContent = 'Retry';
+      retryBtn.addEventListener('click', () => this.loadDevices());
+      errorDiv.appendChild(retryBtn);
+    }
+
+    container.appendChild(errorDiv);
   },
 
   renderDeviceTree(groups) {
@@ -145,35 +158,76 @@ const TerminalManager = {
         deviceEl.dataset.supportsWebUI = device.supportsWebUI ? 'true' : 'false';
         deviceEl.tabIndex = 0;
 
-        // Build HTML with stacked status dots and action icons
+        // Build DOM with stacked status dots and action icons
         // Show dots for available connection types: SSH (all), Console (if supported), noVNC (if supported), Web UI (if supported)
-        let html = `
-          <span class="status-dots" aria-hidden="true">
-            <span class="status-dot ssh" title="SSH"></span>
-            ${device.supportsConsole ? '<span class="status-dot console" title="Console"></span>' : ''}
-            ${device.supportsNoVnc ? '<span class="status-dot novnc" title="Desktop"></span>' : ''}
-            ${device.supportsWebUI ? '<span class="status-dot webui" title="Web UI"></span>' : ''}
-          </span>
-          <span class="device-name">${device.name}</span>
-          <span class="device-ip">${device.ip}</span>
-        `;
+        const dotsSpan = document.createElement('span');
+        dotsSpan.className = 'status-dots';
+        dotsSpan.setAttribute('aria-hidden', 'true');
+
+        const sshDot = document.createElement('span');
+        sshDot.className = 'status-dot ssh';
+        sshDot.title = 'SSH';
+        dotsSpan.appendChild(sshDot);
+
+        if (device.supportsConsole) {
+          const consoleDot = document.createElement('span');
+          consoleDot.className = 'status-dot console';
+          consoleDot.title = 'Console';
+          dotsSpan.appendChild(consoleDot);
+        }
+        if (device.supportsNoVnc) {
+          const novncDot = document.createElement('span');
+          novncDot.className = 'status-dot novnc';
+          novncDot.title = 'Desktop';
+          dotsSpan.appendChild(novncDot);
+        }
+        if (device.supportsWebUI) {
+          const webuiDot = document.createElement('span');
+          webuiDot.className = 'status-dot webui';
+          webuiDot.title = 'Web UI';
+          dotsSpan.appendChild(webuiDot);
+        }
+        deviceEl.appendChild(dotsSpan);
+
+        const deviceNameSpan = document.createElement('span');
+        deviceNameSpan.className = 'device-name';
+        deviceNameSpan.textContent = device.name;
+        deviceEl.appendChild(deviceNameSpan);
+
+        const deviceIpSpan = document.createElement('span');
+        deviceIpSpan.className = 'device-ip';
+        deviceIpSpan.textContent = device.ip;
+        deviceEl.appendChild(deviceIpSpan);
 
         // Add desktop icon for Linux hosts (noVNC)
         if (device.supportsNoVnc) {
-          html += `<span class="desktop-icon" title="Open Desktop (noVNC)" aria-label="Open desktop for ${device.name}">&#128421;</span>`;
+          const desktopIcon = document.createElement('span');
+          desktopIcon.className = 'desktop-icon';
+          desktopIcon.title = 'Open Desktop (noVNC)';
+          desktopIcon.setAttribute('aria-label', 'Open desktop for ' + device.name);
+          desktopIcon.textContent = '\u{1F5A5}';
+          deviceEl.appendChild(desktopIcon);
         }
 
         // Add console icon if device supports console
         if (device.supportsConsole) {
-          html += `<span class="console-icon" title="Open Serial Console" aria-label="Open serial console for ${device.name}">&#9000;</span>`;
+          const consoleIcon = document.createElement('span');
+          consoleIcon.className = 'console-icon';
+          consoleIcon.title = 'Open Serial Console';
+          consoleIcon.setAttribute('aria-label', 'Open serial console for ' + device.name);
+          consoleIcon.textContent = '\u2328';
+          deviceEl.appendChild(consoleIcon);
         }
 
         // Add Web UI icon for VeloCloud Orchestrator
         if (device.supportsWebUI) {
-          html += `<span class="webui-icon" title="Open Web UI" aria-label="Open web UI for ${device.name}">&#127760;</span>`;
+          const webuiIcon = document.createElement('span');
+          webuiIcon.className = 'webui-icon';
+          webuiIcon.title = 'Open Web UI';
+          webuiIcon.setAttribute('aria-label', 'Open web UI for ' + device.name);
+          webuiIcon.textContent = '\u{1F310}';
+          deviceEl.appendChild(webuiIcon);
         }
-
-        deviceEl.innerHTML = html;
 
         // Left-click on device name area
         // For Linux hosts (supportsNoVnc), open desktop by default
@@ -561,17 +615,28 @@ const TerminalManager = {
       tabEl.setAttribute('role', 'tab');
       tabEl.setAttribute('aria-selected', 'false');
 
-      tabEl.innerHTML = `
-        <span class="tab-status-dot novnc" aria-hidden="true"></span>
-        <span class="tab-name">${name} &#128421;</span>
-        <span class="close-btn" title="Close" aria-label="Close ${name} tab">&times;</span>
-      `;
+      const dotSpan = document.createElement('span');
+      dotSpan.className = 'tab-status-dot novnc';
+      dotSpan.setAttribute('aria-hidden', 'true');
 
-      tabEl.querySelector('.tab-name').addEventListener('click', () => this.activateTab(tabId));
-      tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tab-name';
+      nameSpan.textContent = name + ' \u{1F5A5}';
+      nameSpan.addEventListener('click', () => this.activateTab(tabId));
+
+      const closeSpan = document.createElement('span');
+      closeSpan.className = 'close-btn';
+      closeSpan.title = 'Close';
+      closeSpan.setAttribute('aria-label', `Close ${name} tab`);
+      closeSpan.textContent = '\u00D7';
+      closeSpan.addEventListener('click', (e) => {
         e.stopPropagation();
         this.closeTab(tabId);
       });
+
+      tabEl.appendChild(dotSpan);
+      tabEl.appendChild(nameSpan);
+      tabEl.appendChild(closeSpan);
 
       // Right-click context menu for tab actions (feature-flagged)
       if (this._tabReorderingEnabled) {
@@ -700,19 +765,18 @@ const TerminalManager = {
     // Remove from tabs array
     this.tabs.splice(tabIndex, 1);
 
-    // Activate another tab or show empty state
-    if (this.tabs.length > 0) {
-      const newActiveIndex = Math.min(tabIndex, this.tabs.length - 1);
-      this.activateTab(this.tabs[newActiveIndex].id);
-    } else {
-      this.activeTabId = null;
-      document.getElementById('emptyState').style.display = 'block';
-      // Clear sidebar active highlight when no tabs remain
-      this.updateSidebarActiveDevice();
+    // Activate another tab or show empty state (skip during batch close)
+    if (!this._suppressActivation) {
+      if (this.tabs.length > 0) {
+        const newActiveIndex = Math.min(tabIndex, this.tabs.length - 1);
+        this.activateTab(this.tabs[newActiveIndex].id);
+      } else {
+        this.activeTabId = null;
+        document.getElementById('emptyState').style.display = 'block';
+        this.updateSidebarActiveDevice();
+      }
+      this.updateTabOverflow();
     }
-
-    // Update overflow menu
-    this.updateTabOverflow();
   },
 
   /**
@@ -855,10 +919,24 @@ const TerminalManager = {
       menu.style.top = `${window.innerHeight - menuRect.height - 10}px`;
     }
 
-    // Close menu when clicking outside
+    // Close menu when clicking outside, pressing Escape, or window loses focus (iframe click)
+    const dismissMenu = () => {
+      this.hideContextMenu();
+      document.removeEventListener('mousedown', onOutsideClick);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('blur', dismissMenu);
+    };
+    const onOutsideClick = (e) => {
+      if (!menu.contains(e.target)) dismissMenu();
+    };
+    const onEscape = (e) => {
+      if (e.key === 'Escape') dismissMenu();
+    };
     setTimeout(() => {
-      document.addEventListener('click', this.hideContextMenu.bind(this), { once: true });
+      document.addEventListener('mousedown', onOutsideClick);
     }, 0);
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('blur', dismissMenu);
   },
 
   hideContextMenu() {
@@ -1071,13 +1149,12 @@ const TerminalManager = {
         dotSpan.setAttribute('aria-hidden', 'true');
 
         const nameSpan = document.createElement('span');
-        let displayName = tab.name;
+        nameSpan.textContent = tab.name;
         if (tab.type === 'console') {
-          displayName = `${tab.name} &#9000;`;
+          nameSpan.textContent = tab.name + ' \u2328';
         } else if (tab.type === 'novnc') {
-          displayName = `${tab.name} &#128421;`;
+          nameSpan.textContent = tab.name + ' \u{1F5A5}';
         }
-        nameSpan.innerHTML = displayName;
 
         const ipSpan = document.createElement('span');
         ipSpan.className = 'device-ip';
@@ -1216,16 +1293,34 @@ const TerminalManager = {
    */
   closeTabsByGroup(groupName) {
     const tabsToClose = this.tabs.filter(tab => this.getTabGroup(tab.name) === groupName);
+    this._suppressActivation = true;
     tabsToClose.forEach(tab => this.closeTab(tab.id));
+    this._suppressActivation = false;
+
+    if (this.tabs.length > 0) {
+      this.activateTab(this.tabs[this.tabs.length - 1].id);
+    } else {
+      this.activeTabId = null;
+      document.getElementById('emptyState').style.display = 'block';
+      this.updateSidebarActiveDevice();
+    }
+    this.updateTabOverflow();
   },
 
   /**
    * Close every open tab and show empty state.
    */
   closeAllTabs() {
+    this._suppressActivation = true;
     while (this.tabs.length > 0) {
       this.closeTab(this.tabs[this.tabs.length - 1].id);
     }
+    this._suppressActivation = false;
+
+    this.activeTabId = null;
+    document.getElementById('emptyState').style.display = 'block';
+    this.updateSidebarActiveDevice();
+    this.updateTabOverflow();
   },
 
   /**
@@ -1524,8 +1619,7 @@ const TerminalManager = {
     paneData.iframe = iframe;
 
     // Display name with type indicator for console
-    const displayName = type === 'console' ? `${name} &#9000;` : name;
-    deviceEl.innerHTML = displayName;
+    deviceEl.textContent = type === 'console' ? name + ' \u2328' : name;
 
     // Alternate pane for next click
     this.nextSplitPane = pane === 'left' ? 'right' : 'left';
@@ -1569,7 +1663,7 @@ const TerminalManager = {
       paneData.iframe = iframe;
 
       // Display name with desktop icon
-      deviceEl.innerHTML = `${name} &#128421;`;
+      deviceEl.textContent = name + ' \u{1F5A5}';
 
       // Alternate pane for next click
       this.nextSplitPane = pane === 'left' ? 'right' : 'left';
@@ -1583,7 +1677,11 @@ const TerminalManager = {
     } catch (error) {
       console.error('[TerminalManager] Failed to open noVNC in split pane:', error);
       cloudLog('error', 'noVNC split pane failed: ' + error.message, { source: 'terminal-manager', action: 'novnc_split_failed' });
-      contentEl.innerHTML = `<div class="split-pane-error">Failed to open desktop: ${error.message}</div>`;
+      contentEl.textContent = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'split-pane-error';
+      errorDiv.textContent = 'Failed to open desktop: ' + error.message;
+      contentEl.appendChild(errorDiv);
     }
   },
 
