@@ -1,0 +1,51 @@
+nodes:
+  - spine1:
+      ip_addr: 192.168.0.10
+      sys_mac: 00:1c:73:00:00:01
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet1
+          port: Ethernet2
+  - spine2:
+      ip_addr: 192.168.0.11
+      sys_mac: 00:1c:73:00:00:02
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: leaf2
+          neighborPort: Ethernet2
+          port: Ethernet2
+  - leaf1:
+      ip_addr: 192.168.0.12
+      sys_mac: 00:1c:73:00:00:03
+      neighbors:
+        - neighborDevice: spine1
+          neighborPort: Ethernet1
+          port: Ethernet1
+        - neighborDevice: spine2
+          neighborPort: Ethernet1
+          port: Ethernet2
+        - neighborDevice: host1
+          neighborPort: Ethernet1
+          port: Ethernet3
+  - leaf2:
+      ip_addr: 192.168.0.13
+      sys_mac: 00:1c:73:00:00:04
+      neighbors:
+        - neighborDevice: spine1
+          neighborPort: Ethernet2
+          port: Ethernet1
+        - neighborDevice: spine2
+          neighborPort: Ethernet2
+          port: Ethernet2
+  - host1:
+      ip_addr: 192.168.0.14
+      sys_mac: 00:1c:73:00:00:14
+      neighbors:
+        - neighborDevice: leaf1
+          neighborPort: Ethernet3
+          port: Ethernet1
