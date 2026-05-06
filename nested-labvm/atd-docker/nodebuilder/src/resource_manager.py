@@ -214,6 +214,7 @@ class ResourceManager:
         Returns:
             Dict with status
         """
+        vm_name = self.resolve_domain_name(vm_name)
         self.logger.info(f"Destroying VM: {vm_name}")
 
         result = subprocess.run(
@@ -245,6 +246,7 @@ class ResourceManager:
         Returns:
             Dict with status
         """
+        vm_name = self.resolve_domain_name(vm_name)
         self.logger.info(f"Undefining VM: {vm_name}")
 
         result = subprocess.run(
@@ -294,19 +296,19 @@ class ResourceManager:
         """Check if a VM is defined in libvirt.
         Tries original name first, then lowercase (virsh is case-sensitive
         and domain names may be uppercase on some topologies like L4)."""
-        resolved = self.resolve_domain_name(vm_name)
-        # resolve_domain_name returns vm_name as-is if not found,
-        # so verify the resolved name actually exists
-        try:
-            result = subprocess.run(
-                ['virsh', 'dominfo', resolved],
-                capture_output=True,
-                text=True,
-                timeout=SUBPROCESS_TIMEOUT_DEFAULT
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        for name in dict.fromkeys([vm_name, vm_name.lower()]):
+            try:
+                result = subprocess.run(
+                    ['virsh', 'dominfo', name],
+                    capture_output=True,
+                    text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+                if result.returncode == 0:
+                    return True
+            except Exception:
+                continue
+        return False
 
     def get_vm_state(self, vm_name: str) -> str:
         """Get the current state of a VM.
