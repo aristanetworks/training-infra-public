@@ -1436,8 +1436,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         if not device_ip:
             device_ip = get_device_ip_from_sources(device_name)
 
-        safe_log('info', f'Device status check: {device_name} -> {device_ip}',
-                 event='api', handler='DeviceStatusAPIHandler', device=str(device_name))
+        # Removed per-device status check log (100 logs/device/session = ~2400 logs noise)
         if not device_ip:
             return {
                 'device': device_name,
@@ -1616,8 +1615,7 @@ class DeviceStatusAPIHandler(BaseHandler):
         nodes = get_all_devices()
         statuses = {}
 
-        safe_log('info', f'Found {len(nodes)} devices from all sources',
-                 event='api', handler='DeviceStatusAPIHandler')
+        # Removed 'Found N devices' log (fires every poll cycle, ~141/session)
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {

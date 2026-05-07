@@ -443,7 +443,7 @@ class ClientLogHandler(tornado.web.RequestHandler):
             kwargs = {'event': 'client', 'source': source}
             if action:
                 kwargs['action'] = action
-            for key in ('device', 'topology', 'session_id', 'client_id'):
+            for key in ('device', 'topology', 'session_id', 'client_id', 'page', 'context', 'parent_page', 'section'):
                 if key in data:
                     kwargs[key] = str(data[key])[:100]
             safe_log(level, message, **kwargs)
