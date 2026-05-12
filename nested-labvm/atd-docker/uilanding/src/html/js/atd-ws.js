@@ -154,7 +154,11 @@ function createWS(SOCK_URL) {
         // Ping messages don't carry CVP data, so skip them to avoid resetting state
         if (reg_data['cvp'] && reg_data['cvp']['status']) {
             if (reg_data['cvp']['status'] != 'UP') {
-                cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
+                // Only log on state transition (not every WS message during CVP startup)
+                if (window._lastCvpStatus !== reg_data['cvp']['status']) {
+                    window._lastCvpStatus = reg_data['cvp']['status'];
+                    cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
+                }
 
                 // Update sidebar: show struck-through CVP, hide active CVP
                 if (elements.cvpLoading) elements.cvpLoading.style.display = "block";
@@ -194,6 +198,11 @@ function createWS(SOCK_URL) {
                     }
                 }
             } else {
+                // Log CVP UP transition (only once, not every message)
+                if (window._lastCvpStatus && window._lastCvpStatus !== 'UP') {
+                    cloudLog('info', 'CVP status: UP', { source: 'atd-ws', action: 'cvp_status_up' });
+                }
+                window._lastCvpStatus = 'UP';
                 // CVP is UP — update sidebar: hide struck-through, show active
                 if (elements.cvpLoading) elements.cvpLoading.style.display = "none";
                 if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block";

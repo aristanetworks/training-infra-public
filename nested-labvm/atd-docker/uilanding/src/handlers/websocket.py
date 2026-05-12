@@ -427,15 +427,19 @@ class topoDataHandler(tornado.websocket.WebSocketHandler):
 
         elif event == 'grpc_check':
             grpc_status = data.get('status', 'unknown')
-            log_level = 'info' if grpc_status == 'ok' else 'warning'
-            safe_log(log_level, 'Client gRPC check: ' + grpc_status,
-                event='connectivity', action='grpc_check',
-                source='client',
-                session_id=session_id,
-                client_id=str(self.session.get('client_id', '')),
-                client_ip=str(self.session['client_ip']),
-                status=str(grpc_status),
-                detail=str(data.get('detail', ''))[:200])
+            # Only log on state transitions (ok→error or error→ok), not every check
+            prev_grpc = getattr(self, '_last_grpc_status', None)
+            if grpc_status != prev_grpc:
+                self._last_grpc_status = grpc_status
+                log_level = 'info' if grpc_status == 'ok' else 'warning'
+                safe_log(log_level, 'Client gRPC check: ' + grpc_status,
+                    event='connectivity', action='grpc_check',
+                    source='client',
+                    session_id=session_id,
+                    client_id=str(self.session.get('client_id', '')),
+                    client_ip=str(self.session['client_ip']),
+                    status=str(grpc_status),
+                    detail=str(data.get('detail', ''))[:200])
 
         elif event == 'state_change':
             safe_log('info', 'Client connectivity state change',

@@ -225,9 +225,11 @@ def _get_cvp_token():
             _cvp_grpc_token_expires = now + 1200  # 20 minutes
             return token
     except Exception as e:
-        safe_log('error', 'Failed to get CVP token for internal gRPC check',
-            event='connectivity', action='internal_grpc_token_error',
-            error=str(e))
+        # Only log token failures on state transition (not every check during CVP startup)
+        if _grpc_state.get('status') != 'skipped':
+            safe_log('warning', 'Failed to get CVP token for internal gRPC check',
+                event='connectivity', action='internal_grpc_token_error',
+                error=str(e))
     return None
 
 def check_cvp_grpc_internal():
@@ -238,11 +240,13 @@ def check_cvp_grpc_internal():
     """
     token = _get_cvp_token()
     if not token:
+        prev_status = _grpc_state.get('status')
         _grpc_state['status'] = 'skipped'
         _grpc_state['last_check'] = time.time()
-        safe_log('warning', 'Internal gRPC check skipped - no token',
-            event='connectivity', action='grpc_check', source='internal',
-            status='skipped', reason='no_token')
+        if prev_status != 'skipped':
+            safe_log('warning', 'Internal gRPC check skipped - no token',
+                event='connectivity', action='grpc_check', source='internal',
+                status='skipped', reason='no_token')
         return
 
     # Same 5-byte gRPC-Web frame as frontend: flag(0x00) + length(0x00000000)
@@ -270,18 +274,21 @@ def check_cvp_grpc_internal():
 
         if status_code == 200 or grpc_status is not None:
             # Check grpc-status if present
+            prev_status = _grpc_state.get('status')
             if grpc_status is not None and int(grpc_status) == 14:
                 _grpc_state['status'] = 'unavailable'
-                safe_log('warning', 'Internal gRPC check: CVP unavailable',
-                    event='connectivity', action='grpc_check', source='internal',
-                    status='unavailable', http_status=str(status_code),
-                    grpc_status=str(grpc_status))
+                if prev_status != 'unavailable':
+                    safe_log('warning', 'Internal gRPC check: CVP unavailable',
+                        event='connectivity', action='grpc_check', source='internal',
+                        status='unavailable', http_status=str(status_code),
+                        grpc_status=str(grpc_status))
             else:
                 _grpc_state['status'] = 'ok'
-                safe_log('info', 'Internal gRPC check passed',
-                    event='connectivity', action='grpc_check', source='internal',
-                    status='ok', http_status=str(status_code),
-                    grpc_status=str(grpc_status) if grpc_status else '')
+                if prev_status != 'ok':
+                    safe_log('info', 'Internal gRPC check passed',
+                        event='connectivity', action='grpc_check', source='internal',
+                        status='ok', http_status=str(status_code),
+                        grpc_status=str(grpc_status) if grpc_status else '')
         elif status_code in (401, 403, 405):
             # Token may be stale, clear it
             global _cvp_grpc_token
@@ -507,6 +514,10 @@ if __name__ == "__main__":
 
     print('*** UILanding Multi-App Server Started ***')
     print('  ui-frontend: 8080 | api: 8081 | websocket: 8082 | exam: 8083 | proxy: 8084')
+
+    # Log lab session metadata once at startup
+    from handlers.session_logger import log_lab_session
+    log_lab_session(host_yaml)
 
     try:
         TOPO_DATA = getEventStatus(NAME, ZONE, FUNC_STATE, SCHEMA)
