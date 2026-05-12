@@ -274,6 +274,9 @@ document.addEventListener("DOMContentLoaded", function () {
       if (spinner) spinner.remove();
       textSpan.textContent = 'Download PDF';
       link.setAttribute('download', '');
+      link.addEventListener('click', function () {
+        cloudLog('info', 'PDF lab guide downloaded', { source: 'script', action: 'pdf_download' });
+      });
     }
 
     function onPdfTimeout() {
