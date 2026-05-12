@@ -229,4 +229,92 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+document.addEventListener("DOMContentLoaded", function () {
+  var simpleLi = document.getElementById('labguides-simple');
+  var expandableLi = document.getElementById('labguides-expandable');
 
+  if (!simpleLi || !expandableLi) return;
+
+  function initLabguidesSubMenu() {
+    window.featureFlags.check('labguide_pdf_download').then(function (pdfEnabled) {
+      if (!pdfEnabled) return;
+
+      simpleLi.style.display = 'none';
+      expandableLi.style.display = '';
+
+      var toggle = document.getElementById('labguidesToggle');
+      var arrow = document.getElementById('labguidesArrow');
+      var submenu = document.getElementById('labguidesSubmenu');
+
+      toggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        submenu.classList.toggle('expanded');
+        arrow.classList.toggle('expanded');
+      });
+
+      checkPdfAvailability();
+    });
+  }
+
+  function checkPdfAvailability() {
+    var link = document.getElementById('pdfDownloadLink');
+    var item = document.getElementById('pdfDownloadItem');
+    var textSpan = document.getElementById('pdfDownloadText');
+    if (!link || !item || !textSpan) return;
+
+    var attempts = 0;
+    var maxAttempts = 40;
+    var intervalMs = 15000;
+    var pollTimer = null;
+
+    function onPdfReady() {
+      link.classList.remove('pdf-building');
+      var spinner = link.querySelector('.pdf-spinner');
+      if (spinner) spinner.remove();
+      textSpan.textContent = 'Download PDF';
+      link.setAttribute('download', '');
+    }
+
+    function onPdfTimeout() {
+      item.style.display = 'none';
+    }
+
+    function checkOnce() {
+      fetch('/labguides/labguide.pdf', { method: 'HEAD' })
+        .then(function (response) {
+          if (response.ok) {
+            if (pollTimer) {
+              clearInterval(pollTimer);
+              pollTimer = null;
+            }
+            onPdfReady();
+          } else {
+            attempts++;
+            if (attempts >= maxAttempts && pollTimer) {
+              clearInterval(pollTimer);
+              pollTimer = null;
+              onPdfTimeout();
+            }
+          }
+        })
+        .catch(function () {
+          attempts++;
+          if (attempts >= maxAttempts && pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            onPdfTimeout();
+          }
+        });
+    }
+
+    checkOnce();
+
+    if (!link.classList.contains('pdf-building')) return;
+
+    pollTimer = setInterval(function () {
+      checkOnce();
+    }, intervalMs);
+  }
+
+  initLabguidesSubMenu();
+});
