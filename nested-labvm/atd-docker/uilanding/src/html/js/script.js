@@ -236,6 +236,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (!simpleLi || !expandableLi) return;
 
   function initLabguidesSubMenu() {
+    if (!window.featureFlags) return;
     window.featureFlags.check('labguide_pdf_download').then(function (pdfEnabled) {
       if (!pdfEnabled) return;
 
@@ -279,7 +280,13 @@ document.addEventListener("DOMContentLoaded", function () {
       item.style.display = 'none';
     }
 
-    function checkOnce() {
+    function startPolling() {
+      pollTimer = setInterval(function () {
+        pollCheck();
+      }, intervalMs);
+    }
+
+    function pollCheck() {
       fetch('/labguides/labguide.pdf', { method: 'HEAD' })
         .then(function (response) {
           if (response.ok) {
@@ -307,13 +314,17 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    checkOnce();
-
-    if (!link.classList.contains('pdf-building')) return;
-
-    pollTimer = setInterval(function () {
-      checkOnce();
-    }, intervalMs);
+    fetch('/labguides/labguide.pdf', { method: 'HEAD' })
+      .then(function (response) {
+        if (response.ok) {
+          onPdfReady();
+        } else {
+          startPolling();
+        }
+      })
+      .catch(function () {
+        startPolling();
+      });
   }
 
   initLabguidesSubMenu();
