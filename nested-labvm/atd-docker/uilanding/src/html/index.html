@@ -203,9 +203,25 @@
                 </li>
                 {% if "labguides" not in disable_links %}
 
-                <li>
+                <li id="labguides-simple">
                   <a data-id="lab-guides" class="site-sidebar__item menu-click" target="_blank"
                     href="{{ labguides }}">Lab Guides</a>
+                </li>
+                <li id="labguides-expandable" style="display: none;">
+                  <a class="site-sidebar__item labguides-parent" id="labguidesToggle">
+                    Lab Guides
+                    <span class="submenu-arrow" id="labguidesArrow">&#9654;</span>
+                  </a>
+                  <ul class="labguides-submenu" id="labguidesSubmenu">
+                    <li>
+                      <a class="site-sidebar__subitem" href="{{ labguides }}" target="_blank">Open Lab Guide</a>
+                    </li>
+                    <li id="pdfDownloadItem">
+                      <a class="site-sidebar__subitem pdf-building" id="pdfDownloadLink" href="/labguides/labguide.pdf">
+                        <span class="pdf-spinner"></span><span id="pdfDownloadText">Download PDF (Building...)</span>
+                      </a>
+                    </li>
+                  </ul>
                 </li>
                 {% end %}
                 {% if "console" not in disable_links %}
