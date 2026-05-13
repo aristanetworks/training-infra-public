@@ -10,11 +10,13 @@ Covers:
   - normalize_device_name usage in topology output
 """
 
+import io
 import json
 import os
 import sys
 import shutil
 import tempfile
+import zipfile
 from unittest.mock import patch, MagicMock
 
 import tornado.testing
@@ -30,6 +32,7 @@ from handlers.topology_api import (
     DeviceStatusAPIHandler,
     InterfaceStatsAPIHandler,
     RunningConfigAPIHandler,
+    BulkRunningConfigAPIHandler,
     initialize,
     invalidate_devices_cache,
 )
@@ -66,6 +69,7 @@ def _make_app(extra_settings=None):
         (r'/td-api/device-status', DeviceStatusAPIHandler),
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
+        (r'/td-api/running-config/bulk', BulkRunningConfigAPIHandler),
     ], **settings)
 
 
@@ -511,3 +515,167 @@ class TestTopologyStaticMethods:
             assert 'position' in node, f"Node {node['data']['id']!r} missing 'position'"
             assert 'x' in node['position']
             assert 'y' in node['position']
+
+
+# ---------------------------------------------------------------------------
+# BulkRunningConfigAPIHandler tests
+# ---------------------------------------------------------------------------
+
+class TestBulkRunningConfigAPIHandler(TopologyAPITestBase):
+    """Tests for bulk running config download endpoint."""
+
+    def _mock_devices_mixed(self):
+        """Devices dict with EOS nodes, a firewall, and a linux host."""
+        return {
+            'Spine1': {'ip': '192.168.0.10', 'user_added': False,
+                       'vm_name': 'spine1', 'device_category': 'node'},
+            'Leaf1': {'ip': '192.168.0.12', 'user_added': False,
+                      'vm_name': 'leaf1', 'device_category': 'node'},
+            'Firewall1': {'ip': '192.168.0.50', 'user_added': True,
+                          'device_type': 'firewall', 'vm_name': 'firewall1',
+                          'device_category': 'firewall'},
+            'Host1': {'ip': '192.168.0.60', 'user_added': True,
+                      'device_type': 'linux_host', 'vm_name': 'host1',
+                      'device_category': 'host'},
+            'VeloEdge1': {'ip': '192.168.0.70', 'user_added': True,
+                          'device_type': 'velo_edge', 'vm_name': 'veloedge1',
+                          'device_category': 'velocloud'},
+        }
+
+    def test_bulk_config_requires_auth(self):
+        resp = self.fetch('/td-api/running-config/bulk')
+        assert resp.code == 401
+
+    def test_bulk_config_success_returns_zip(self):
+        """Successful bulk download returns a valid zip with config files."""
+        mock_devices = self._mock_devices_mixed()
+
+        def mock_fetch_config(device_name, device_ip, username, password):
+            return (device_name, f'! Config for {device_name}\nhostname {device_name}', None)
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices), \
+             patch.object(BulkRunningConfigAPIHandler, '_fetch_single_config',
+                          side_effect=mock_fetch_config):
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 200
+        assert resp.headers['Content-Type'] == 'application/zip'
+        assert 'running-configs.zip' in resp.headers['Content-Disposition']
+        assert resp.headers.get('X-Config-Errors') is None
+
+        zf = zipfile.ZipFile(io.BytesIO(resp.body))
+        names = zf.namelist()
+        assert 'Spine1' in names
+        assert 'Leaf1' in names
+        assert 'Firewall1' not in names
+        assert 'Host1' not in names
+        assert 'VeloEdge1' not in names
+        assert '_errors.txt' not in names
+
+        spine_config = zf.read('Spine1').decode('utf-8')
+        assert 'hostname Spine1' in spine_config
+        zf.close()
+
+    def test_bulk_config_filters_non_eos_devices(self):
+        """Only EOS devices (no firewall, linux_host, velo_*) are included."""
+        mock_devices = self._mock_devices_mixed()
+
+        def mock_fetch_config(device_name, device_ip, username, password):
+            return (device_name, f'hostname {device_name}', None)
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices), \
+             patch.object(BulkRunningConfigAPIHandler, '_fetch_single_config',
+                          side_effect=mock_fetch_config) as mock_fetch:
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 200
+        called_devices = [call[0][0] for call in mock_fetch.call_args_list]
+        assert sorted(called_devices) == ['Leaf1', 'Spine1']
+
+    def test_bulk_config_partial_failure_includes_errors_txt(self):
+        """When some devices fail, zip includes _errors.txt and X-Config-Errors header."""
+        mock_devices = {
+            'Spine1': {'ip': '192.168.0.10', 'user_added': False,
+                       'vm_name': 'spine1', 'device_category': 'node'},
+            'Leaf1': {'ip': '192.168.0.12', 'user_added': False,
+                      'vm_name': 'leaf1', 'device_category': 'node'},
+        }
+
+        def mock_fetch_config(device_name, device_ip, username, password):
+            if device_name == 'Leaf1':
+                return (device_name, None, 'Connection timed out to Leaf1 (192.168.0.12)')
+            return (device_name, f'hostname {device_name}', None)
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices), \
+             patch.object(BulkRunningConfigAPIHandler, '_fetch_single_config',
+                          side_effect=mock_fetch_config):
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 200
+        assert resp.headers.get('X-Config-Errors') == 'true'
+
+        zf = zipfile.ZipFile(io.BytesIO(resp.body))
+        names = zf.namelist()
+        assert 'Spine1' in names
+        assert 'Leaf1' not in names
+        assert '_errors.txt' in names
+
+        errors_content = zf.read('_errors.txt').decode('utf-8')
+        assert 'Leaf1' in errors_content
+        assert 'Connection timed out' in errors_content
+        zf.close()
+
+    def test_bulk_config_all_fail_returns_500(self):
+        """When all devices fail, returns 500 with JSON error."""
+        mock_devices = {
+            'Spine1': {'ip': '192.168.0.10', 'user_added': False,
+                       'vm_name': 'spine1', 'device_category': 'node'},
+        }
+
+        def mock_fetch_config(device_name, device_ip, username, password):
+            return (device_name, None, 'Connection timed out')
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices), \
+             patch.object(BulkRunningConfigAPIHandler, '_fetch_single_config',
+                          side_effect=mock_fetch_config):
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 500
+        body = json.loads(resp.body)
+        assert 'error' in body
+
+    def test_bulk_config_no_eos_devices_returns_404(self):
+        """When topology has no EOS devices, returns 404."""
+        mock_devices = {
+            'Firewall1': {'ip': '192.168.0.50', 'user_added': True,
+                          'device_type': 'firewall', 'vm_name': 'firewall1',
+                          'device_category': 'firewall'},
+        }
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices):
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 404
+        body = json.loads(resp.body)
+        assert 'error' in body
+
+    def test_bulk_config_excludes_devices_without_ip(self):
+        """Devices with empty or missing IP are excluded."""
+        mock_devices = {
+            'Spine1': {'ip': '192.168.0.10', 'user_added': False,
+                       'vm_name': 'spine1', 'device_category': 'node'},
+            'Spine2': {'ip': '', 'user_added': False,
+                       'vm_name': 'spine2', 'device_category': 'node'},
+        }
+
+        def mock_fetch_config(device_name, device_ip, username, password):
+            return (device_name, f'hostname {device_name}', None)
+
+        with patch('handlers.topology_api.get_all_devices', return_value=mock_devices), \
+             patch.object(BulkRunningConfigAPIHandler, '_fetch_single_config',
+                          side_effect=mock_fetch_config) as mock_fetch:
+            resp = self._authed_fetch('/td-api/running-config/bulk')
+
+        assert resp.code == 200
+        called_devices = [call[0][0] for call in mock_fetch.call_args_list]
+        assert called_devices == ['Spine1']

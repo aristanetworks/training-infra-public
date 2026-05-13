@@ -7,7 +7,8 @@ Handlers:
   - DeviceTypesAPIHandler    — Device type metadata export for frontend
   - InterfaceStatsAPIHandler — Interface statistics via eAPI with rate calculation
   - DeviceStatusAPIHandler   — Device reachability via eAPI/ping (thread pool)
-  - RunningConfigAPIHandler  — Running config via eAPI
+  - RunningConfigAPIHandler      — Running config via eAPI (single device)
+  - BulkRunningConfigAPIHandler  — Bulk running config download as zip (all EOS devices)
 
 Utility functions (moved from uilanding.py, only used by these handlers):
   - _get_topo_build_data()
@@ -25,6 +26,9 @@ import socket
 import threading
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+import io
+import zipfile
 
 import pyeapi
 from ruamel.yaml import YAML
@@ -1721,3 +1725,111 @@ class RunningConfigAPIHandler(BaseHandler):
             raise ValueError(f"Cannot connect to {device_name} ({device_ip}): {e}")
         except pyeapi.eapilib.CommandError as e:
             raise ValueError(f"Command error on {device_name}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# BulkRunningConfigAPIHandler
+# ---------------------------------------------------------------------------
+
+NON_EOS_DEVICE_TYPES = frozenset([
+    'firewall', 'linux_host',
+    'velo_edge', 'velo_gateway', 'velo_orchestrator',
+])
+
+
+class BulkRunningConfigAPIHandler(BaseHandler):
+    """API endpoint to fetch running configs from all EOS devices as a zip."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        safe_log('info', 'Bulk running config requested', event='api',
+                 endpoint='running_config_bulk')
+
+        all_devices = get_all_devices()
+        eos_devices = {
+            name: info for name, info in all_devices.items()
+            if info.get('device_type', '') not in NON_EOS_DEVICE_TYPES
+            and info.get('ip')
+        }
+
+        if not eos_devices:
+            self.set_status(404)
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps({'error': 'No EOS devices found in topology'}))
+            return
+
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            host_yaml = YAML().load(f)
+        username = host_yaml['login_info']['jump_host']['user']
+        password = host_yaml['login_info']['jump_host']['pw']
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {
+                executor.submit(
+                    self._fetch_single_config, name, info['ip'], username, password
+                ): name
+                for name, info in eos_devices.items()
+            }
+            results = [f.result() for f in futures]
+
+        configs = {}
+        errors = []
+        for device_name, config_text, error in results:
+            if config_text is not None:
+                configs[device_name] = config_text
+            else:
+                errors.append(f'{device_name}: {error}')
+
+        if not configs:
+            self.set_status(500)
+            self.set_header('Content-Type', 'application/json')
+            error_detail = '; '.join(errors)
+            self.write(json.dumps({
+                'error': f'Failed to fetch config from all devices: {error_detail}'
+            }))
+            return
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for device_name, config_text in sorted(configs.items()):
+                zf.writestr(device_name, config_text)
+            if errors:
+                zf.writestr('_errors.txt', '\n'.join(sorted(errors)))
+
+        if errors:
+            self.set_header('X-Config-Errors', 'true')
+
+        self.set_header('Content-Type', 'application/zip')
+        self.set_header('Content-Disposition',
+                        'attachment; filename="running-configs.zip"')
+        self.write(buf.getvalue())
+
+    @staticmethod
+    def _fetch_single_config(device_name, device_ip, username, password):
+        """Fetch running config from one device. Returns (name, config, error)."""
+        try:
+            connection = pyeapi.connect(
+                host=device_ip,
+                username=username,
+                password=password,
+                transport='https',
+                timeout=15
+            )
+            result = connection.execute(['show running-config'], encoding='text')
+            config_output = result.get('result', [{}])[0].get('output', '')
+            return (device_name, config_output, None)
+        except (socket.timeout, OSError):
+            return (device_name, None,
+                    f'Connection timed out to {device_name} ({device_ip})')
+        except pyeapi.eapilib.ConnectionError as e:
+            return (device_name, None,
+                    f'Cannot connect to {device_name} ({device_ip}): {e}')
+        except pyeapi.eapilib.CommandError as e:
+            return (device_name, None,
+                    f'Command error on {device_name}: {e}')
+        except Exception as e:
+            return (device_name, None, f'Unexpected error on {device_name}: {e}')
