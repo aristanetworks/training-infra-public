@@ -235,6 +235,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (!simpleLi || !expandableLi) return;
 
+  var simpleLink = simpleLi.querySelector('.site-sidebar__item');
+  if (simpleLink) {
+    simpleLink.addEventListener('click', function () {
+      cloudLog('info', 'Lab guide opened', { source: 'script', action: 'labguide_open' });
+    });
+  }
+
   function initLabguidesSubMenu() {
     if (!window.featureFlags) return;
     window.featureFlags.check('labguide_pdf_download').then(function (pdfEnabled) {
@@ -280,7 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var spinner = link.querySelector('.pdf-spinner');
       if (spinner) spinner.remove();
       textSpan.textContent = 'Download PDF';
-      link.setAttribute('download', '');
+      link.setAttribute('download', 'labguide.pdf');
       link.addEventListener('click', function () {
         cloudLog('info', 'PDF lab guide downloaded', { source: 'script', action: 'pdf_download' });
       });
