@@ -33,9 +33,12 @@
     });
 
     function init() {
-        loadCurrentTopology();
-        loadAvailableTopologies();
         setupEventListeners();
+        // Load current topology first, then available — prevents race condition
+        // where dropdown renders before currentTopology is set
+        loadCurrentTopology(function() {
+            loadAvailableTopologies();
+        });
     }
 
     function setupEventListeners() {
@@ -48,7 +51,7 @@
         });
     }
 
-    function loadCurrentTopology() {
+    function loadCurrentTopology(callback) {
         console.log('[TopologyConverter] Loading current topology');
         $.ajax({
             url: API.getCurrentTopology,
@@ -58,10 +61,13 @@
                 console.log('[TopologyConverter] Current topology:', data);
                 currentTopology = data;
                 updateCurrentTopologyUI(data);
+                if (callback) callback();
             },
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to load current topology:', error);
                 showError('Failed to load current topology: ' + error);
+                // Still load available even if current fails
+                if (callback) callback();
             }
         });
     }
@@ -75,6 +81,9 @@
             success: function(data) {
                 console.log('[TopologyConverter] Available topologies:', data);
                 availableTopologies = data.topologies || [];
+                if (data.error) {
+                    console.warn('[TopologyConverter] ' + data.error);
+                }
                 updateTopologySelect();
             },
             error: function(xhr, status, error) {
@@ -94,11 +103,19 @@
     function updateTopologySelect() {
         const $select = $('#target-topology-select');
         $select.empty();
+
+        if (availableTopologies.length === 0) {
+            $select.append('<option value="">-- No topologies configured in ACCESS_INFO file --</option>');
+            $select.prop('disabled', true);
+            $('#convert-btn').prop('disabled', true);
+            return;
+        }
+
         $select.append('<option value="">-- Select a topology --</option>');
 
         availableTopologies.forEach(function(topo) {
-            // Don't show current topology
-            if (currentTopology && topo !== currentTopology.name) {
+            // Don't show current topology (show all if current unknown)
+            if (!currentTopology || topo !== currentTopology.name) {
                 $select.append(`<option value="${topo}">${topo}</option>`);
             }
         });
@@ -294,9 +311,9 @@
         updatePhases('build');
 
         // Update the UI to show waiting state
-        $('#status-callout').removeClass('callout alert').addClass('callout warning');
+        $('#status-callout').removeClass('tc-status-error').addClass('tc-status-warning');
         $('#current-status').html(
-            '<i class="fas fa-sync fa-spin"></i> Server restarting... ' +
+            '<i class="fa-solid fa-rotate fa-spin"></i> Server restarting... ' +
             '<span id="retry-count"></span>'
         );
     }
@@ -308,7 +325,7 @@
 
     function showManualCheckMessage() {
         $('#current-status').html(
-            '<i class="fas fa-exclamation-triangle"></i> Connection timeout. ' +
+            '<i class="fa-solid fa-triangle-exclamation"></i> Connection timeout. ' +
             'The conversion may have completed.'
         );
         appendLog('Connection timeout after multiple retries.');
@@ -316,10 +333,10 @@
 
         // Show a button to reload
         $('#status-callout').after(
-            '<div class="callout secondary" style="margin-top: 1rem;">' +
+            '<div class="tc-status" style="margin-top: 1rem;">' +
             '<p>The server may still be starting up. Please wait a moment and then:</p>' +
-            '<button class="button primary" onclick="location.reload();">' +
-            '<i class="fas fa-refresh"></i> Refresh Page</button>' +
+            '<button class="tc-btn tc-btn-primary" onclick="location.reload();" style="margin-top: 8px;">' +
+            '<i class="fa-solid fa-rotate"></i> Refresh Page</button>' +
             '</div>'
         );
     }
@@ -337,14 +354,14 @@
                 conversionCompleted = true;
 
                 // Keep progress visible and update header
-                $('#conversion-progress .card-divider h5').html(
-                    '<i class="fas fa-check-circle" style="color: #10b981;"></i> Conversion Complete - Waiting for Devices'
+                $('#conversion-progress .tc-card-header h5').html(
+                    '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Conversion Complete - Waiting for Devices'
                 );
 
                 // Show completion message (keep logs visible)
                 $('#completion-message').fadeIn();
-                $('#completion-message .callout').html(
-                    '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
+                $('#completion-message .tc-completion').html(
+                    '<h5><i class="fa-solid fa-circle-check"></i> Topology Conversion Completed!</h5>' +
                     '<p>The topology has been converted to: <strong>' + data.name + '</strong></p>' +
                     '<p>CVP is now configuring the devices. This may take several minutes.</p>'
                 );
@@ -356,7 +373,7 @@
                 appendLog('='.repeat(60));
 
                 updateStatus('Conversion completed! Now waiting for devices to come online...');
-                $('#status-callout').removeClass('callout alert warning').addClass('callout success');
+                $('#status-callout').removeClass('tc-status-error tc-status-warning').addClass('tc-status-success');
                 updatePhases('devices');
 
                 // Start monitoring device status
@@ -441,16 +458,16 @@
 
         if (success) {
             // Keep progress section visible but update header
-            $('#conversion-progress .card-divider h5').html(
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i> Conversion Complete - Waiting for Devices'
+            $('#conversion-progress .tc-card-header h5').html(
+                '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Conversion Complete - Waiting for Devices'
             );
             updateStatus('Conversion completed! Now waiting for devices to come online...');
-            $('#status-callout').removeClass('callout alert warning').addClass('callout success');
+            $('#status-callout').removeClass('tc-status-error tc-status-warning').addClass('tc-status-success');
 
             // Show completion message above logs (don't hide progress)
             $('#completion-message').fadeIn();
-            $('#completion-message .callout').html(
-                '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
+            $('#completion-message .tc-completion').html(
+                '<h5><i class="fa-solid fa-circle-check"></i> Topology Conversion Completed!</h5>' +
                 '<p>The topology infrastructure has been rebuilt. CVP is now configuring the devices.</p>' +
                 '<p><strong>Note:</strong> Devices may take several minutes to boot and receive their configuration from CVP.</p>'
             );
@@ -467,7 +484,7 @@
             startDeviceMonitoring();
         } else {
             updateStatus('Conversion failed. Check logs for details.');
-            $('#status-callout').removeClass('callout success warning').addClass('callout alert');
+            $('#status-callout').removeClass('tc-status-success tc-status-warning').addClass('tc-status-error');
             appendLog('='.repeat(60));
             appendLog('CONVERSION FAILED - Check logs above for details');
             appendLog('='.repeat(60));
@@ -481,9 +498,9 @@
         if ($('#device-status-section').length === 0) {
             const deviceStatusHtml = `
                 <div id="device-status-section" style="margin-top: 1.5rem;">
-                    <h6><i class="fas fa-server"></i> Device Status:</h6>
-                    <div id="device-status-grid" class="callout secondary">
-                        <p><i class="fas fa-spinner fa-spin"></i> Checking device status...</p>
+                    <h6><i class="fa-solid fa-server"></i> Device Status</h6>
+                    <div id="device-status-grid">
+                        <p><i class="fa-solid fa-spinner fa-spin"></i> Checking device status...</p>
                     </div>
                 </div>
             `;
@@ -519,7 +536,7 @@
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to get device status:', error);
                 $('#device-status-grid').html(
-                    '<p><i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ' +
+                    '<p><i class="fa-solid fa-triangle-exclamation" style="color: var(--secondary-color);"></i> ' +
                     'Unable to check device status. Devices may still be booting...</p>'
                 );
             }
@@ -558,9 +575,9 @@
 
             gridHtml += `
                 <div class="cell small-6 medium-4 large-3" style="padding: 0.5rem;">
-                    <div style="padding: 0.5rem; background: ${isOnline ? '#ecfdf5' : '#fef2f2'}; border-radius: 4px; text-align: center;">
-                        ${statusIcon} <strong>${name}</strong><br>
-                        <small>${statusText}</small>
+                    <div style="padding: 0.5rem; background: ${isOnline ? 'rgba(120,216,44,0.1)' : 'rgba(227,9,9,0.1)'}; border: 1px solid ${isOnline ? 'rgba(120,216,44,0.3)' : 'rgba(227,9,9,0.3)'}; border-radius: 4px; text-align: center;">
+                        ${statusIcon} <strong style="color: #fff;">${name}</strong><br>
+                        <small style="color: rgba(255,255,255,0.6);">${statusText}</small>
                     </div>
                 </div>
             `;
@@ -570,14 +587,14 @@
 
         // Add summary
         const summaryHtml = `
-            <div style="margin-bottom: 1rem; padding: 0.5rem; background: #f3f4f6; border-radius: 4px;">
-                <strong>Summary:</strong>
-                <span style="color: #10b981;">${onlineCount} online</span> /
-                <span style="color: #ef4444;">${offlineCount} offline</span> /
-                ${totalCount} total
+            <div style="margin-bottom: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
+                <strong style="color: #fff;">Summary:</strong>
+                <span style="color: var(--neon-green);">${onlineCount} online</span> /
+                <span style="color: var(--red);">${offlineCount} offline</span> /
+                <span style="color: rgba(255,255,255,0.6);">${totalCount} total</span>
                 ${offlineCount > 0 ?
-                    ' <span style="color: #6b7280;">(devices are still booting, please wait...)</span>' :
-                    ' <span style="color: #10b981;">✓ All devices ready!</span>'
+                    ' <span style="color: rgba(255,255,255,0.4);">(devices are still booting, please wait...)</span>' :
+                    ' <span style="color: var(--neon-green);">All devices ready!</span>'
                 }
             </div>
         `;
@@ -592,16 +609,16 @@
             stopDeviceMonitoring();
 
             // Update completion message
-            $('#completion-message .callout').html(
-                '<h5><i class="fas fa-check-circle"></i> Lab Ready!</h5>' +
+            $('#completion-message .tc-completion').html(
+                '<h5><i class="fa-solid fa-circle-check"></i> Lab Ready!</h5>' +
                 '<p>All ' + totalCount + ' devices are online and configured.</p>' +
-                '<button class="button success" onclick="window.location.href=\'/\';">' +
-                '<i class="fas fa-home"></i> Return to Home</button>'
+                '<div style="margin-top: 12px;"><button class="tc-btn tc-btn-primary" onclick="window.location.href=\'/\';">' +
+                '<i class="fa-solid fa-house"></i> Return to Home</button></div>'
             );
 
             // Update header
-            $('#conversion-progress .card-divider h5').html(
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i> Lab Ready!'
+            $('#conversion-progress .tc-card-header h5').html(
+                '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Lab Ready!'
             );
         }
     }

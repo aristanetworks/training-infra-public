@@ -447,23 +447,74 @@ class TopologyConverter:
 
     def cleanup_cvp_devices(self):
         """
-        Clean up old devices from CVP before switching topology.
-        This prevents duplicate device issues.
+        Remove all EOS devices from CVP inventory.
+
+        Must run AFTER VMs are destroyed (TerminAttr dead) so devices
+        cannot re-register. CVP VM itself is preserved.
         """
-        self.logger.info("Cleaning up CVP configuration...")
+        self.logger.info("Cleaning up CVP devices...")
 
-        # Check if cvpupdater container exists
-        result = self._run_command("docker ps -a --format '{{.Names}}' | grep atd-cvpupdater", check=False)
-        if result.returncode != 0:
-            self.logger.warning("cvpupdater container not found - skipping CVP cleanup")
-            return
+        try:
+            from cvprac.cvp_client import CvpClient
 
-        # The safest approach is to let CVP handle it via factory reset
-        # But since we can't do that, we'll just ensure the state file is removed
-        # so cvpupdater starts fresh with the new topology
+            yaml = YAML()
+            with open(ACCESS_INFO_FILE, 'r') as f:
+                data = yaml.load(f)
 
-        self.logger.info("  CVP will be reconfigured with new topology after conversion")
-        self.logger.info("  ✓ CVP cleanup noted (will be handled in CVP reset phase)")
+            cvp_nodes = data.get('nodes', {}).get('cvp', [])
+            if not cvp_nodes:
+                self.logger.warning("  No CVP node found in ACCESS_INFO — skipping cleanup")
+                return
+
+            cvp_ip = cvp_nodes[0]['ip']
+            password = data['login_info']['jump_host']['pw']
+
+            client = CvpClient()
+            client.connect([cvp_ip], 'arista', password)
+
+            devices = client.api.get_inventory()
+            self.logger.info(f"  Found {len(devices)} devices in CVP inventory")
+
+            if not devices:
+                self.logger.info("  ✓ CVP inventory already empty")
+                return
+
+            removed = 0
+            failed = 0
+            for device in devices:
+                hostname = device.get('hostname', 'unknown')
+                mac = device.get('systemMacAddress', '')
+                serial = device.get('serialNumber', '')
+
+                self.logger.info(f"  Removing: {hostname}")
+                try:
+                    # Try decommission first — prevents auto re-registration
+                    try:
+                        client.api.device_decommissioning(serial, hostname + '_decom')
+                        removed += 1
+                        continue
+                    except Exception:
+                        pass
+
+                    # Fallback to delete
+                    client.api.delete_device(mac)
+                    removed += 1
+                except Exception as e:
+                    self.logger.warning(f"  Failed to remove {hostname}: {e}")
+                    failed += 1
+
+            self.logger.info(f"  ✓ Removed {removed} devices from CVP ({failed} failed)")
+
+            # Brief pause to let CVP process deletions
+            if removed > 0:
+                time.sleep(5)
+
+        except ImportError:
+            self.logger.warning("  cvprac not installed — skipping CVP cleanup")
+        except Exception as e:
+            # Non-fatal: conversion can proceed without CVP cleanup
+            self.logger.warning(f"  CVP cleanup failed (non-fatal): {e}")
+            self.logger.warning("  Continuing with conversion...")
 
     # =========================================================================
     # DESTRUCTION PHASE
@@ -835,20 +886,20 @@ class TopologyConverter:
                 self.state.mark_phase_complete('backup')
                 self.logger.info("")
 
-            # Phase 3: CVP Cleanup (note for later)
-            if 'cvp_cleanup' not in skip_phases:
-                self.logger.info("Phase 3: CVP Cleanup Preparation")
-                self.logger.info("-" * 60)
-                self.cleanup_cvp_devices()
-                self.state.mark_phase_complete('cvp_cleanup')
-                self.logger.info("")
-
-            # Phase 4: Destroy VMs
+            # Phase 3: Destroy VMs
             if 'destroy_vms' not in skip_phases:
-                self.logger.info("Phase 4: Destroy Current VMs")
+                self.logger.info("Phase 3: Destroy Current VMs")
                 self.logger.info("-" * 60)
                 self.destroy_vms()
                 self.state.mark_phase_complete('destroy_vms')
+                self.logger.info("")
+
+            # Phase 4: CVP Cleanup (after VMs destroyed, TerminAttr is dead)
+            if 'cvp_cleanup' not in skip_phases:
+                self.logger.info("Phase 4: CVP Device Cleanup")
+                self.logger.info("-" * 60)
+                self.cleanup_cvp_devices()
+                self.state.mark_phase_complete('cvp_cleanup')
                 self.logger.info("")
 
             # Phase 5: Destroy OVS

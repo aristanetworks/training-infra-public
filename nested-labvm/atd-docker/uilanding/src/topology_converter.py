@@ -11,19 +11,23 @@ import subprocess
 import threading
 from datetime import datetime
 
+import docker
 import tornado.web
 from ruamel.yaml import YAML
+
+from cloud_logging_utils import (
+    setup_cloud_logging,
+    log_operation_start,
+    log_operation_success,
+    log_operation_error,
+)
 
 # Constants
 ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 BASE_PATH = '/opt/topo/html/'
 
-
-def pS(mtype):
-    """Function to send output from service file to Syslog."""
-    cur_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mmes = "\t" + mtype
-    print("[{0}] {1}".format(cur_dt, mmes.expandtabs(7 - len(cur_dt))))
+# Setup cloud logging for topology converter
+logger = setup_cloud_logging('topology-converter')
 
 
 # Global variables for conversion status
@@ -98,7 +102,12 @@ class TopologyConverterCurrentHandler(BaseHandler):
 
 
 class TopologyConverterAvailableHandler(BaseHandler):
-    """API endpoint to get list of available topologies."""
+    """API endpoint to get list of available topologies.
+
+    Returns only topologies listed in the 'topology-switcher' section of
+    ACCESS_INFO.yaml. If that section is missing or empty, returns an
+    error so the frontend can prompt the user to fix the file.
+    """
 
     def get(self):
         if not self.current_user:
@@ -110,19 +119,23 @@ class TopologyConverterAvailableHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            topo_dir = '/opt/atd/topologies'
-            topologies = []
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                access_info = YAML().load(f)
 
-            if os.path.exists(topo_dir):
-                for item in os.listdir(topo_dir):
-                    item_path = os.path.join(topo_dir, item)
-                    topo_build = os.path.join(item_path, 'topo_build.yml')
+            switcher_config = access_info.get('topology-switcher')
 
-                    # Only include if it has topo_build.yml
-                    if os.path.isdir(item_path) and os.path.exists(topo_build):
-                        topologies.append(item)
+            if not switcher_config:
+                logger.warning("No topology-switcher config in ACCESS_INFO.yaml")  # LOG 1
+                self.write(json.dumps({
+                    'topologies': [],
+                    'error': 'No topology-switcher configuration found in ACCESS_INFO.yaml'
+                }))
+                return
 
-            self.write(json.dumps({'topologies': sorted(topologies)}))
+            # Keys of topology-switcher dict are the allowed topology names
+            topologies = sorted(switcher_config.keys())
+
+            self.write(json.dumps({'topologies': topologies}))
 
         except Exception as e:
             self.set_status(500)
@@ -189,6 +202,70 @@ class TopologyConverterInfoHandler(BaseHandler):
             self.write(json.dumps({'error': str(e)}))
 
 
+def _update_labguides_modules(target_topology, status):
+    """Update labguides_modules in ACCESS_INFO.yaml from topology-switcher config.
+
+    Reads the topology-switcher section, finds the modules list for the
+    target topology, and writes it to the labguides_modules key.
+    """
+    try:
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            access_info = yaml.load(f)
+
+        switcher_config = access_info.get('topology-switcher')
+        if not switcher_config or target_topology not in switcher_config:
+            msg = (f'No labguides modules configured for {target_topology} '
+                   f'in topology-switcher — labguides_modules unchanged')
+            logger.warning(msg)  # LOG 2
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        new_modules = switcher_config[target_topology]
+        if not new_modules:
+            msg = (f'topology-switcher entry for {target_topology} is empty '
+                   f'— labguides_modules unchanged')
+            logger.warning(msg)  # LOG 3
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        old_modules = access_info.get('labguides_modules', [])
+        access_info['labguides_modules'] = list(new_modules)
+
+        with open(ATD_ACCESS_PATH, 'w') as f:
+            yaml.dump(access_info, f)
+
+        log_operation_success(logger, 'update-labguides-modules',  # LOG 4
+                              target_topology=target_topology,
+                              old_modules=str(old_modules),
+                              new_modules=str(list(new_modules)))
+        status['log'].append(f'Updated labguides_modules for {target_topology}: {list(new_modules)}')
+
+    except Exception as e:
+        log_operation_error(logger, 'update-labguides-modules', str(e),  # LOG 5
+                            target_topology=target_topology)
+        status['log'].append(f'WARNING: Failed to update labguides_modules: {e}')
+
+
+def _restart_labguides_container(status):
+    """Restart atd-labguides-v2 container so it rebuilds with updated modules."""
+    try:
+        client = docker.from_env()
+        container = client.containers.get('atd-labguides-v2')
+        status['log'].append('Restarting atd-labguides-v2 to rebuild labguides...')
+        container.restart(timeout=10)
+        log_operation_success(logger, 'restart-labguides-container')  # LOG 6
+        status['log'].append('atd-labguides-v2 restarted — labguides will rebuild')
+    except docker.errors.NotFound:
+        log_operation_error(logger, 'restart-labguides-container',  # LOG 7
+                            'atd-labguides-v2 container not found')
+        status['log'].append('WARNING: atd-labguides-v2 container not found — labguides not rebuilt')
+    except Exception as e:
+        log_operation_error(logger, 'restart-labguides-container', str(e))  # LOG 8
+        status['log'].append(f'WARNING: Failed to restart labguides container: {e}')
+
+
 class TopologyConverterConvertHandler(BaseHandler):
     """API endpoint to start topology conversion."""
 
@@ -206,6 +283,7 @@ class TopologyConverterConvertHandler(BaseHandler):
         try:
             # Check if conversion is already in progress
             if conversion_status['in_progress']:
+                logger.warning("Conversion rejected: already in progress")  # LOG 9
                 self.set_status(409)
                 self.write(json.dumps({'error': 'Conversion already in progress'}))
                 return
@@ -222,6 +300,7 @@ class TopologyConverterConvertHandler(BaseHandler):
             # Validate target topology exists
             topo_path = f'/opt/atd/topologies/{target_topology}'
             if not os.path.exists(topo_path):
+                logger.warning(f"Conversion rejected: topology not found: {target_topology}")  # LOG 10
                 self.set_status(404)
                 self.write(json.dumps({'error': 'Target topology not found'}))
                 return
@@ -238,7 +317,15 @@ class TopologyConverterConvertHandler(BaseHandler):
                         }))
                         return
             except Exception as e:
-                pS(f"Warning: Could not check current topology: {e}")
+                logger.warning(f"Could not check current topology: {e}")
+
+            # Get user for logging
+            user = self.current_user.decode('utf-8') if self.current_user else 'unknown'
+
+            log_operation_start(logger, 'topology-conversion',  # LOG 11
+                                target_topology=target_topology,
+                                current_topology=current_topology,
+                                user=user)
 
             # Start conversion in background thread
             def run_conversion():
@@ -253,6 +340,10 @@ class TopologyConverterConvertHandler(BaseHandler):
                 }
 
                 try:
+                    # Update labguides_modules in ACCESS_INFO.yaml before conversion
+                    # so the labguides container rebuilds with correct modules
+                    _update_labguides_modules(target_topology, conversion_status)
+
                     # Run the conversion script on HOST using docker
                     # We use nsenter via a privileged container to run on the host
                     script_path = '/opt/atd/scripts/topology_converter_v2.py'
@@ -273,6 +364,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                         '--force'  # Skip confirmation prompt
                     ]
 
+                    logger.info(f"Executing host conversion for {target_topology}")  # LOG 12
                     conversion_status['log'].append(f'Executing conversion on host via privileged container...')
 
                     # Execute with real-time output capture
@@ -285,6 +377,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                     )
 
                     # Read output line by line
+                    prev_phase = None
                     for line in iter(process.stdout.readline, ''):
                         line = line.strip()
                         if line:
@@ -295,9 +388,9 @@ class TopologyConverterConvertHandler(BaseHandler):
                                 conversion_status['phase'] = 'validate'
                             elif 'Phase 2' in line or 'Backup Current' in line:
                                 conversion_status['phase'] = 'backup'
-                            elif 'Phase 3' in line or 'CVP Cleanup' in line:
+                            elif 'Phase 3' in line or 'Destroy Current VMs' in line:
                                 conversion_status['phase'] = 'destroy'
-                            elif 'Phase 4' in line or 'Destroy Current VMs' in line:
+                            elif 'Phase 4' in line or 'CVP Device Cleanup' in line:
                                 conversion_status['phase'] = 'destroy'
                             elif 'Phase 5' in line or 'Destroy OVS' in line:
                                 conversion_status['phase'] = 'destroy'
@@ -320,6 +413,18 @@ class TopologyConverterConvertHandler(BaseHandler):
                             elif 'COMPLETED' in line:
                                 conversion_status['phase'] = 'completed'
 
+                            # Log phase transitions to Cloud Logging
+                            if conversion_status['phase'] != prev_phase:
+                                logger.info(  # LOG 13 (per phase change, ~7 unique phases)
+                                    f"Phase: {conversion_status['phase']}",
+                                    extra={'labels': {
+                                        'operation': 'topology-conversion',
+                                        'phase': conversion_status['phase'],
+                                        'target_topology': target_topology,
+                                    }}
+                                )
+                                prev_phase = conversion_status['phase']
+
                             conversion_status['status'] = line
 
                     process.wait()
@@ -329,15 +434,30 @@ class TopologyConverterConvertHandler(BaseHandler):
                         conversion_status['success'] = True
                         conversion_status['status'] = 'Conversion completed successfully!'
                         conversion_status['log'].append('SUCCESS: Conversion completed')
+
+                        log_operation_success(logger, 'topology-conversion',  # LOG 14
+                                              target_topology=target_topology,
+                                              current_topology=current_topology)
+
+                        # Restart labguides container to rebuild with new modules
+                        _restart_labguides_container(conversion_status)
                     else:
                         conversion_status['success'] = False
                         conversion_status['status'] = f'Conversion failed with exit code {process.returncode}'
                         conversion_status['log'].append(f'ERROR: Conversion failed (exit code {process.returncode})')
 
+                        log_operation_error(logger, 'topology-conversion',  # LOG 15
+                                            f'Exit code {process.returncode}',
+                                            target_topology=target_topology)
+
                 except Exception as e:
                     conversion_status['success'] = False
                     conversion_status['status'] = f'Error: {str(e)}'
                     conversion_status['log'].append(f'ERROR: {str(e)}')
+
+                    log_operation_error(logger, 'topology-conversion',  # LOG 16
+                                        str(e),
+                                        target_topology=target_topology)
 
                 finally:
                     conversion_status['in_progress'] = False
