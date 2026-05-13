@@ -1758,6 +1758,8 @@ class BulkRunningConfigAPIHandler(BaseHandler):
         }
 
         if not eos_devices:
+            safe_log('warning', 'No EOS devices found for bulk config download',
+                     event='api', endpoint='running_config_bulk')
             self.set_status(404)
             self.set_header('Content-Type', 'application/json')
             self.write(json.dumps({'error': 'No EOS devices found in topology'}))
@@ -1794,6 +1796,9 @@ class BulkRunningConfigAPIHandler(BaseHandler):
                 errors.append(f'{device_name}: {error}')
 
         if not configs:
+            safe_log('error', 'All devices failed during bulk config download',
+                     event='error', handler='BulkRunningConfigAPIHandler',
+                     device_count=len(eos_devices), errors='; '.join(errors))
             self.set_status(500)
             self.set_header('Content-Type', 'application/json')
             error_detail = '; '.join(errors)
@@ -1811,6 +1816,14 @@ class BulkRunningConfigAPIHandler(BaseHandler):
 
         if errors:
             self.set_header('X-Config-Errors', 'true')
+            safe_log('warning', 'Bulk config download completed with errors',
+                     event='api', endpoint='running_config_bulk',
+                     succeeded=len(configs), failed=len(errors),
+                     failed_devices='; '.join(sorted(e.split(':')[0] for e in errors)))
+        else:
+            safe_log('info', 'Bulk config download completed successfully',
+                     event='api', endpoint='running_config_bulk',
+                     device_count=len(configs))
 
         self.set_header('Content-Type', 'application/zip')
         self.set_header('Content-Disposition',
