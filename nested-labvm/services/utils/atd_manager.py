@@ -221,7 +221,7 @@ class AccessInfo:
     cvp_version: str = ''
     machine_name: str = ''
     lab_type: str = 'Lab'
-    exam_minutes: int = 0
+    exam_duration: int = 0
     eos_type: str = 'veos'
     zone: str = ''
     host: str = ''
@@ -246,7 +246,7 @@ class AccessInfo:
                 cvp_version=data.get('cvp', ''),
                 machine_name=data.get('name', ''),
                 lab_type=customer_details.get('lab_type', 'Lab'),
-                exam_minutes=int(customer_details.get('exam_hours', 0)),
+                exam_duration=int(customer_details.get('exam_hours', 0)),
                 eos_type=data.get('eos_type', 'veos'),
                 zone=data.get('zone', ''),
                 host=data.get('cvp_host', ''),
@@ -274,6 +274,7 @@ class ATDConfig:
     log_dir: str = '/etc/atd/logs'
     exam_log_file: str = '/var/log/exam-submission-check.log'
     default_repo: str = 'https://github.com/aristanetworks/atd-public.git'
+    branch_override_path: str = '/etc/atd/BRANCH_OVERRIDE'
 
 
 # =============================================================================
@@ -412,7 +413,7 @@ class ConfigManager:
         else:
             project = 'dev'
 
-        cvp_ver = access_info.cvp_version.replace('.', r'\.')
+        cvp_ver = str(access_info.cvp_version)
 
         try:
             # Navigate the nested structure
@@ -422,7 +423,7 @@ class ConfigManager:
 
             # Try to find matching CVP version
             for version, config in cvp_data.items():
-                if version.replace('.', r'\.') == cvp_ver:
+                if str(version) == cvp_ver:
                     return config.get('branch')
 
             return None
@@ -479,7 +480,11 @@ class GitManager:
 
     def checkout(self, ref: str) -> bool:
         """Checkout a branch or tag"""
-        # First, discard local changes
+        # Log any local changes that will be discarded
+        _, status_output = self.run_git('status', '--porcelain')
+        if status_output:
+            self.logger.warning(f"Discarding local changes before checkout:\n{status_output}")
+
         self.run_git('checkout', '.')
         success, _ = self.run_git('checkout', ref)
         if success:
@@ -889,14 +894,18 @@ class FileManager:
             self.logger.error(f"Failed to create directory {path}: {e}")
             return False
 
+    def _is_binary_file(self, file_path: str) -> bool:
+        """Check if a file is binary by looking for null bytes in first 8KB"""
+        try:
+            with open(file_path, 'rb') as f:
+                chunk = f.read(8192)
+            return b'\x00' in chunk
+        except Exception:
+            return True
+
     def sed_replace(self, file_path: str, pattern: str, replacement: str) -> bool:
         """Perform sed-like replacement in a file"""
-        # Skip binary files (images, etc.)
-        binary_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg',
-                            '.pdf', '.zip', '.tar', '.gz', '.bz2', '.xz',
-                            '.exe', '.dll', '.so', '.dylib', '.pyc'}
-
-        if any(file_path.lower().endswith(ext) for ext in binary_extensions):
+        if self._is_binary_file(file_path):
             self.logger.debug(f"Skipping binary file: {file_path}")
             return False
 
@@ -1036,8 +1045,13 @@ class LabguideManager:
                 self.logger.error(f"Failed to download labguide: {result.stderr}")
                 return False
 
-            # Extract tarball
+            # Extract tarball with path traversal protection
             with tarfile.open(target_file, 'r:gz') as tar:
+                for member in tar.getmembers():
+                    member_path = os.path.join(target_dir, member.name)
+                    if not os.path.realpath(member_path).startswith(os.path.realpath(target_dir)):
+                        self.logger.error(f"Tar path traversal blocked: {member.name}")
+                        raise ValueError(f"Tar member {member.name} would extract outside target directory")
                 tar.extractall(target_dir)
 
             self.logger.info(f"File {filename} downloaded and extracted to {target_dir}")
@@ -1072,12 +1086,12 @@ class ExamManager:
     def setup_exam_config(self, access_info: AccessInfo) -> None:
         """Setup exam configuration based on lab type"""
         if access_info.lab_type == 'Exam':
-            self.logger.info(f"Exam Duration: {access_info.exam_minutes}")
-            self.config_manager.update_access_info_field('exam_duration', access_info.exam_minutes)
+            self.logger.info(f"Exam Duration: {access_info.exam_duration}")
+            self.config_manager.update_access_info_field('exam_duration', access_info.exam_duration)
             self.config_manager.update_access_info_field('examButtonNeeded', 'True')
             self.logger.info(
                 f"Current topology is exam topology: {access_info.machine_name}, "
-                f"exam duration: {access_info.exam_minutes}"
+                f"exam duration: {access_info.exam_duration}"
             )
         else:
             self.config_manager.update_access_info_field('exam_duration', 0)
@@ -1129,10 +1143,10 @@ class ExamManager:
                 current_time=current_time
             )
 
-            # Run upload command in container
+            # Run upload command in container (matches examSubmitContainer.sh)
             success, output = self.docker.exec_command(
                 'atd-login',
-                ['sudo', 'python3', '/usr/local/bin/upload_exam_unattended.py'],
+                ['sudo', 'python3', '-m', 'exam_upload_v2.main'],
                 detach=True
             )
 
@@ -1290,7 +1304,42 @@ class ATDStartup:
             self.exam_manager.setup_exam_config(self.access_info)
 
             # Step 4: Determine and update branch name
-            branch = self.config_manager.get_branch_name(self.access_info)
+            # Check for branch override file (used for testing/development)
+            # Create /etc/atd/BRANCH_OVERRIDE with desired branch name to skip base_topo lookup
+            branch = None
+            override_path = self.config.branch_override_path
+            if os.path.exists(override_path):
+                try:
+                    with open(override_path, 'r') as f:
+                        override_branch = f.read().strip()
+                    if override_branch:
+                        branch = override_branch
+                        self.logger.info(f"Branch override active: using '{branch}' from {override_path}")
+                        self.cloud_logging.log_structured(
+                            f"Branch override active: {branch}",
+                            severity='WARNING',
+                            labels={'service': 'atd-startup', 'phase': 'branch-override'},
+                            override_branch=branch
+                        )
+                    else:
+                        self.logger.warning(f"Branch override file exists but is empty, ignoring")
+                        self.cloud_logging.log_structured(
+                            "Branch override file exists but is empty, falling back to base_topo",
+                            severity='WARNING',
+                            labels={'service': 'atd-startup', 'phase': 'branch-override', 'status': 'empty-file'}
+                        )
+                except Exception as e:
+                    self.logger.warning(f"Failed to read branch override file: {e}")
+                    self.cloud_logging.log_structured(
+                        f"Failed to read branch override file: {e}",
+                        severity='ERROR',
+                        labels={'service': 'atd-startup', 'phase': 'branch-override', 'status': 'read-error'},
+                        error=str(e)
+                    )
+
+            if not branch:
+                branch = self.config_manager.get_branch_name(self.access_info)
+
             if branch:
                 self.config_manager.update_atd_repo_branch(branch)
                 self.logger.info(f"Changing branch name to {branch}")
@@ -1512,12 +1561,22 @@ class ATDStartup:
         """Run cEOS startup if present"""
         ceos_flag = '/opt/ceos/scripts/.ceos.txt'
         ceos_startup = '/opt/ceos/scripts/Startup.sh'
+        ceos_timeout = 300  # 5 minutes
 
         if os.path.exists(ceos_flag):
-            # Wait for startup script to appear
+            elapsed = 0
             while not os.path.exists(ceos_startup):
+                if elapsed >= ceos_timeout:
+                    self.logger.error(f"cEOS Startup.sh did not appear after {ceos_timeout}s, skipping")
+                    self.cloud_logging.log_structured(
+                        f"cEOS Startup.sh wait timed out after {ceos_timeout}s",
+                        severity='ERROR',
+                        labels={'service': 'atd-startup', 'phase': 'ceos-startup', 'status': 'timeout'}
+                    )
+                    return
                 self.logger.info("Pausing until cEOS Startup.sh exists.")
                 time.sleep(1)
+                elapsed += 1
 
             subprocess.run(['bash', ceos_startup])
 
@@ -1525,17 +1584,43 @@ class ATDStartup:
         """Check and handle unhealthy containers"""
         self.logger.info("Executing script to check unhealthy containers")
 
-        # Copy script
-        self.file_manager.rsync(
-            f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/unhealthyContainers.sh',
-            '/usr/local/bin/'
-        )
+        recovery_flag = '/tmp/atd_recovery_attempt'
 
         # Run health check
         checker = ContainerHealthChecker(self.docker_manager)
         if not checker.check_container('atd-coder'):
-            self.logger.warning("Coder container unhealthy, running atdUpdate")
+            # Guard against infinite recursion
+            if os.path.exists(recovery_flag):
+                self.logger.error(
+                    "Coder container unhealthy but recovery already attempted. "
+                    "Skipping recursive atdUpdate to prevent infinite loop."
+                )
+                self.cloud_logging.log_structured(
+                    "Container recovery failed - recursion guard prevented infinite loop",
+                    severity='CRITICAL',
+                    labels={'service': 'atd-startup', 'phase': 'container-health', 'status': 'recursion-blocked'}
+                )
+                return
+
+            self.logger.warning("Coder container unhealthy, running atdUpdate (first attempt)")
+            self.cloud_logging.log_structured(
+                "Coder container unhealthy, attempting recovery via atdUpdate",
+                severity='WARNING',
+                labels={'service': 'atd-startup', 'phase': 'container-health', 'status': 'recovery-start'}
+            )
+
+            try:
+                with open(recovery_flag, 'w') as f:
+                    f.write(str(int(time.time())))
+            except Exception:
+                pass
+
             subprocess.run(['bash', '/usr/local/bin/atdUpdate.sh'])
+
+            try:
+                os.remove(recovery_flag)
+            except OSError:
+                pass
 
     def _setup_exam_timer(self) -> None:
         """Setup exam submission timer"""
