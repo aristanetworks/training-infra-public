@@ -1743,6 +1743,7 @@ class BulkRunningConfigAPIHandler(BaseHandler):
     def get(self):
         if not self.current_user:
             self.set_status(401)
+            self.set_header('Content-Type', 'application/json')
             self.write(json.dumps({'error': 'Authentication required'}))
             return
 
@@ -1762,10 +1763,18 @@ class BulkRunningConfigAPIHandler(BaseHandler):
             self.write(json.dumps({'error': 'No EOS devices found in topology'}))
             return
 
-        with open(ATD_ACCESS_PATH, 'r') as f:
-            host_yaml = YAML().load(f)
-        username = host_yaml['login_info']['jump_host']['user']
-        password = host_yaml['login_info']['jump_host']['pw']
+        try:
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                host_yaml = YAML().load(f)
+            username = host_yaml['login_info']['jump_host']['user']
+            password = host_yaml['login_info']['jump_host']['pw']
+        except Exception as e:
+            safe_log('error', f'Cannot read credentials for bulk config: {e}',
+                     event='error', handler='BulkRunningConfigAPIHandler')
+            self.set_status(500)
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps({'error': f'Cannot read credentials: {e}'}))
+            return
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
