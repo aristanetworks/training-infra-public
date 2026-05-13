@@ -253,6 +253,13 @@ document.addEventListener("DOMContentLoaded", function () {
         arrow.classList.toggle('expanded');
       });
 
+      var labguideLink = submenu.querySelector('.site-sidebar__subitem');
+      if (labguideLink) {
+        labguideLink.addEventListener('click', function () {
+          cloudLog('info', 'Lab guide opened', { source: 'script', action: 'labguide_open' });
+        });
+      }
+
       checkPdfAvailability();
     });
   }
