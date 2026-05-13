@@ -38,7 +38,8 @@ export class EventManager {
             resetTopology: false,
             addCloudeos: false,
             addWanCloudeos: false,
-            addLink: false
+            addLink: false,
+            downloadConfigs: false
         };
 
         // Capture panel reference (set externally by TopologyManager)
@@ -901,8 +902,11 @@ export class EventManager {
         menu.id = 'topo-context-menu';
         menu.className = 'topology-context-menu';
 
-        // Menu items for background
         const menuItems = [
+            {
+                type: 'section',
+                label: 'Add Devices'
+            },
             {
                 label: this.isCeosLab ? 'Add New Node (vEOS only)' : 'Add New Node',
                 action: () => {
@@ -951,7 +955,6 @@ export class EventManager {
                 disabled: this.isCeosLab,
                 hidden: !this.nodebuilderFeatures.addFirewall
             },
-            // VeloCloud device option - only visible if VeloCloud is enabled AND feature flag is enabled
             ...(this.veloEnabled && this.nodebuilderFeatures.addVelocloud ? [{
                 label: 'Add VeloCloud Device',
                 action: () => {
@@ -964,7 +967,6 @@ export class EventManager {
                 },
                 disabled: this.isCeosLab
             }] : []),
-            // Add CloudEOS Node
             {
                 label: this.isCeosLab ? 'Add CloudEOS Node (KVM only)' : 'Add CloudEOS Node',
                 action: () => {
@@ -978,7 +980,6 @@ export class EventManager {
                 disabled: this.isCeosLab,
                 hidden: !this.nodebuilderFeatures.addCloudeos
             },
-            // Deploy WAN CloudEOS (D1/D2)
             {
                 label: 'Deploy WAN CloudEOS (D1/D2)',
                 action: () => {
@@ -989,7 +990,20 @@ export class EventManager {
                 hidden: !this.nodebuilderFeatures.addWanCloudeos
             },
             {
-                type: 'separator'
+                type: 'section',
+                label: 'Tools'
+            },
+            {
+                label: 'Download All Configs',
+                action: () => {
+                    this.hideContextMenu();
+                    this.downloadAllConfigs();
+                },
+                hidden: !this.nodebuilderFeatures.downloadConfigs
+            },
+            {
+                type: 'section',
+                label: 'View'
             },
             {
                 label: 'Fit to View',
@@ -1007,7 +1021,8 @@ export class EventManager {
                 }
             },
             {
-                type: 'separator'
+                type: 'section',
+                label: 'Danger Zone'
             },
             {
                 label: this.isCeosLab ? 'Reset User Nodes (KVM only)' : 'Reset All User Nodes',
@@ -1021,12 +1036,15 @@ export class EventManager {
             }
         ];
 
-        // Build menu HTML using same pattern as showContextMenu
         menuItems.forEach(item => {
-            // Skip hidden items
             if (item.hidden) return;
 
-            if (item.type === 'separator') {
+            if (item.type === 'section') {
+                const section = document.createElement('div');
+                section.className = 'context-menu-section';
+                section.textContent = item.label;
+                menu.appendChild(section);
+            } else if (item.type === 'separator') {
                 const separator = document.createElement('div');
                 separator.className = 'context-menu-separator';
                 menu.appendChild(separator);
@@ -1043,6 +1061,23 @@ export class EventManager {
                 menu.appendChild(menuItem);
             }
         });
+
+        // Remove empty sections (section headers followed only by other sections or end of menu)
+        const children = Array.from(menu.children);
+        for (let i = children.length - 1; i >= 0; i--) {
+            if (children[i].classList.contains('context-menu-section')) {
+                let hasItems = false;
+                for (let j = i + 1; j < children.length; j++) {
+                    if (!children[j].classList.contains('context-menu-section')) {
+                        hasItems = true;
+                        break;
+                    }
+                }
+                if (!hasItems) {
+                    children[i].remove();
+                }
+            }
+        }
 
         // Position the menu at click location
         const renderedPos = evt.renderedPosition;
@@ -2970,6 +3005,99 @@ export class EventManager {
         if (existing) {
             existing.remove();
         }
+    }
+
+    /**
+     * Download all running configs as a zip file
+     */
+    async downloadAllConfigs() {
+        const toastId = this.showDownloadToast('Downloading configs...');
+
+        try {
+            const response = await fetch('/td-api/running-config/bulk');
+
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) { /* response wasn't JSON */ }
+                throw new Error(errorMsg);
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'running-configs.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.dismissDownloadToast(toastId);
+
+            if (response.headers.get('X-Config-Errors') === 'true') {
+                this.showDownloadToast('Some devices failed. Check _errors.txt in the zip', 'warning', 5000);
+            }
+
+        } catch (error) {
+            console.error('Failed to download configs:', error);
+            this.dismissDownloadToast(toastId);
+            this.showDownloadToast('Download failed: ' + error.message, 'error', 5000);
+        }
+    }
+
+    /**
+     * Show a toast notification on the topology canvas
+     */
+    showDownloadToast(message, type = 'info', autoDismissMs = 0) {
+        const id = 'topo-toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = id;
+        toast.style.cssText = [
+            'position: fixed', 'bottom: 24px', 'left: 50%', 'transform: translateX(-50%)',
+            'padding: 10px 20px', 'border-radius: 6px', 'font-family: "Proxima Nova", sans-serif',
+            'font-size: 13px', 'font-weight: 500', 'z-index: 10002', 'display: flex',
+            'align-items: center', 'gap: 8px', 'box-shadow: 0 4px 12px rgba(0,0,0,0.15)',
+            'animation: contextMenuFadeIn 0.15s ease-out'
+        ].join('; ');
+
+        const colors = {
+            info: { bg: '#071c35', text: '#ffffff' },
+            warning: { bg: '#fbb500', text: '#071c35' },
+            error: { bg: '#e30909', text: '#ffffff' },
+        };
+        const c = colors[type] || colors.info;
+        toast.style.backgroundColor = c.bg;
+        toast.style.color = c.text;
+
+        if (type === 'info') {
+            const spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            spinner.style.cssText = 'width: 14px; height: 14px; border-width: 2px;';
+            toast.appendChild(spinner);
+        }
+
+        const textNode = document.createElement('span');
+        textNode.textContent = message;
+        toast.appendChild(textNode);
+
+        document.body.appendChild(toast);
+
+        if (autoDismissMs > 0) {
+            setTimeout(() => this.dismissDownloadToast(id), autoDismissMs);
+        }
+
+        return id;
+    }
+
+    /**
+     * Dismiss a toast by ID
+     */
+    dismissDownloadToast(toastId) {
+        const el = document.getElementById(toastId);
+        if (el) el.remove();
     }
 
     /**

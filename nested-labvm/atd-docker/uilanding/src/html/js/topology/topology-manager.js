@@ -141,7 +141,8 @@ export class TopologyManager {
                 resetTopology: false,
                 addCloudeos: false,       // nb_add_cloudeos
                 addWanCloudeos: false,    // nb_wan_cloudeos
-                addLink: false            // nb_add_link
+                addLink: false,           // nb_add_link
+                downloadConfigs: false    // nb_download_configs
             };
 
             if (window.featureFlags) {
@@ -155,9 +156,10 @@ export class TopologyManager {
                 nodebuilderFeatures.addCloudeos = await window.featureFlags.check('nb_add_cloudeos');
                 nodebuilderFeatures.addWanCloudeos = await window.featureFlags.check('nb_wan_cloudeos');
                 nodebuilderFeatures.addLink = await window.featureFlags.check('nb_add_link');
+                nodebuilderFeatures.downloadConfigs = await window.featureFlags.check('nb_download_configs');
 
                 // Log feature flags status
-                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, addCloudeos=${nodebuilderFeatures.addCloudeos}, addWanCloudeos=${nodebuilderFeatures.addWanCloudeos}, addLink=${nodebuilderFeatures.addLink}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
+                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, addCloudeos=${nodebuilderFeatures.addCloudeos}, addWanCloudeos=${nodebuilderFeatures.addWanCloudeos}, addLink=${nodebuilderFeatures.addLink}, downloadConfigs=${nodebuilderFeatures.downloadConfigs}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
                 console.log('[TopologyManager]', logMessage);
                 if (window.logger) {
                     window.logger.info('topology_manager', 'NodeBuilder feature flags checked', nodebuilderFeatures);

@@ -77,6 +77,7 @@ from handlers.topology_api import (
     InterfaceStatsAPIHandler,
     DeviceStatusAPIHandler,
     RunningConfigAPIHandler,
+    BulkRunningConfigAPIHandler,
     initialize as initialize_topology_api,
 )
 
@@ -457,6 +458,7 @@ if __name__ == "__main__":
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/device-status', DeviceStatusAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
+        (r'/td-api/running-config/bulk', BulkRunningConfigAPIHandler),
     ], **settings)
     api_app.listen(8081)
     safe_log('info', 'api app started', port='8081')
