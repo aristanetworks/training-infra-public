@@ -1749,6 +1749,7 @@ class BulkRunningConfigAPIHandler(BaseHandler):
 
         safe_log('info', 'Bulk running config requested', event='api',
                  endpoint='running_config_bulk')
+        self.set_header('Access-Control-Allow-Origin', '*')
 
         all_devices = get_all_devices()
         eos_devices = {
@@ -1775,7 +1776,7 @@ class BulkRunningConfigAPIHandler(BaseHandler):
                      event='error', handler='BulkRunningConfigAPIHandler')
             self.set_status(500)
             self.set_header('Content-Type', 'application/json')
-            self.write(json.dumps({'error': f'Cannot read credentials: {e}'}))
+            self.write(json.dumps({'error': 'Internal error: cannot load device credentials'}))
             return
 
         with ThreadPoolExecutor(max_workers=10) as executor:
