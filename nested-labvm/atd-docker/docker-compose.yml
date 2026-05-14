@@ -124,7 +124,7 @@ services:
   labguides-v2:
     container_name: atd-labguides-v2
     # image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v2:1.0.3
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:e02489e2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:12688391
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
