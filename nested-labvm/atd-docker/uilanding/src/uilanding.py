@@ -78,6 +78,7 @@ from handlers.topology_api import (
     DeviceStatusAPIHandler,
     RunningConfigAPIHandler,
     BulkRunningConfigAPIHandler,
+    ACTExportAPIHandler,
     initialize as initialize_topology_api,
 )
 
@@ -459,6 +460,7 @@ if __name__ == "__main__":
         (r'/td-api/device-status', DeviceStatusAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
         (r'/td-api/running-config/bulk', BulkRunningConfigAPIHandler),
+        (r'/td-api/act-export', ACTExportAPIHandler),
     ], **settings)
     api_app.listen(8081)
     safe_log('info', 'api app started', port='8081')
