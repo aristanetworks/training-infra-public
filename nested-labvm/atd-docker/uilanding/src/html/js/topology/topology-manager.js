@@ -222,6 +222,7 @@ export class TopologyManager {
             // Pass NodeBuilder feature states to EventManager to control menu visibility
             if (this.eventManager) {
                 this.eventManager.nodebuilderFeatures = nodebuilderFeatures;
+                this.eventManager.topologyName = this.topologyData.metadata?.topology_name || '';
             }
 
             // Check VeloCloud feature availability and update EventManager
