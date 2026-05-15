@@ -7,12 +7,14 @@ project: atd-testdrivetraining-dev
 name: atd-lab-001
 zone: us-central1-a
 eos_type: veos
+version: 4.32.1F
 schema: v2
 title: Arista Training Labs - Level 1
 cvp:
   cvp1:
     ip: 192.168.0.5
     mac: 00:1c:73:00:00:05
+cvp_version: '2025.1.0'
 customer_details:
   lab_type: training
   course_name: ACE-L1 Arista Certified Engineer Level 1
