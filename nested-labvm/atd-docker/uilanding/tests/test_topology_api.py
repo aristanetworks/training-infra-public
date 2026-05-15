@@ -18,6 +18,7 @@ import shutil
 import tempfile
 import zipfile
 from unittest.mock import patch, MagicMock
+from ruamel.yaml import YAML
 
 import tornado.testing
 import tornado.web
@@ -33,6 +34,7 @@ from handlers.topology_api import (
     InterfaceStatsAPIHandler,
     RunningConfigAPIHandler,
     BulkRunningConfigAPIHandler,
+    ACTExportAPIHandler,
     initialize,
     invalidate_devices_cache,
 )
@@ -70,6 +72,7 @@ def _make_app(extra_settings=None):
         (r'/td-api/interface-stats', InterfaceStatsAPIHandler),
         (r'/td-api/running-config', RunningConfigAPIHandler),
         (r'/td-api/running-config/bulk', BulkRunningConfigAPIHandler),
+        (r'/td-api/act-export', ACTExportAPIHandler),
     ], **settings)
 
 
@@ -679,3 +682,192 @@ class TestBulkRunningConfigAPIHandler(TopologyAPITestBase):
         assert resp.code == 200
         called_devices = [call[0][0] for call in mock_fetch.call_args_list]
         assert called_devices == ['Spine1']
+
+
+class TestACTExportAPIHandler(TopologyAPITestBase):
+    """Tests for ACT YAML export endpoint."""
+
+    def _mock_topo_data(self):
+        """Topology data with nodes and neighbors for ACT export."""
+        return {
+            'nodes': [
+                {'spine1': {
+                    'ip_addr': '192.168.0.10',
+                    'sys_mac': '00:1c:73:00:00:01',
+                    'neighbors': [
+                        {'neighborDevice': 'leaf1', 'neighborPort': 'Ethernet1', 'port': 'Ethernet1'},
+                    ]
+                }},
+                {'leaf1': {
+                    'ip_addr': '192.168.0.12',
+                    'sys_mac': '00:1c:73:00:00:03',
+                    'neighbors': [
+                        {'neighborDevice': 'spine1', 'neighborPort': 'Ethernet1', 'port': 'Ethernet1'},
+                        {'neighborDevice': 'host1', 'neighborPort': 'Ethernet1', 'port': 'Ethernet3'},
+                    ]
+                }},
+                {'host1': {
+                    'ip_addr': '192.168.0.14',
+                    'sys_mac': '00:1c:73:00:00:14',
+                    'neighbors': [
+                        {'neighborDevice': 'leaf1', 'neighborPort': 'Ethernet3', 'port': 'Ethernet1'},
+                    ]
+                }},
+            ]
+        }
+
+    def _mock_all_devices(self):
+        """Devices dict matching the topology data above."""
+        return {
+            'Spine1': {'ip': '192.168.0.10', 'user_added': False,
+                       'vm_name': 'spine1', 'device_category': 'node'},
+            'Leaf1': {'ip': '192.168.0.12', 'user_added': False,
+                      'vm_name': 'leaf1', 'device_category': 'node'},
+            'Host1': {'ip': '192.168.0.14', 'user_added': False,
+                      'vm_name': 'host1', 'device_category': 'node'},
+        }
+
+    def _mock_all_devices_with_user_added(self):
+        """Devices dict including user-added non-EOS devices."""
+        devices = self._mock_all_devices()
+        devices.update({
+            'Firewall1': {'ip': '192.168.0.50', 'user_added': True,
+                          'device_type': 'firewall', 'vm_name': 'firewall1',
+                          'device_category': 'firewall'},
+            'HostDesktop1': {'ip': '192.168.0.60', 'user_added': True,
+                             'device_type': 'linux_host', 'vm_name': 'hostdesktop1',
+                             'device_category': 'host'},
+            'VeloEdge1': {'ip': '192.168.0.70', 'user_added': True,
+                          'device_type': 'velo_edge', 'vm_name': 'veloedge1',
+                          'device_category': 'velocloud'},
+        })
+        return devices
+
+    def test_act_export_requires_auth(self):
+        resp = self.fetch('/td-api/act-export')
+        assert resp.code == 401
+
+    def test_act_export_returns_yaml(self):
+        """Successful export returns YAML with correct content-type and filename."""
+        with patch('handlers.topology_api._get_topo_build_data',
+                   return_value=self._mock_topo_data()), \
+             patch('handlers.topology_api.get_all_devices',
+                   return_value=self._mock_all_devices()):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 200
+        assert 'application/x-yaml' in resp.headers['Content-Type']
+        assert 'training-level1-act.yml' in resp.headers['Content-Disposition']
+
+        body = resp.body.decode('utf-8')
+        yaml = YAML()
+        data = yaml.load(body)
+
+        assert 'veos' in data
+        assert data['veos']['username'] == 'arista'
+        assert data['veos']['password'] == 'arista123'
+        assert data['veos']['version'] == '4.32.1F'
+
+        assert 'cvp' in data
+        assert data['cvp']['username'] == 'root'
+        assert data['cvp']['password'] == 'cvproot'
+
+        assert 'generic' in data
+
+        assert 'nodes' in data
+        assert 'links' in data
+
+    def test_act_export_nodes_have_correct_types(self):
+        """All nodes appear with correct ACT node_type mapping."""
+        with patch('handlers.topology_api._get_topo_build_data',
+                   return_value=self._mock_topo_data()), \
+             patch('handlers.topology_api.get_all_devices',
+                   return_value=self._mock_all_devices_with_user_added()):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 200
+        yaml = YAML()
+        data = yaml.load(resp.body.decode('utf-8'))
+
+        nodes = data['nodes']
+        node_dict = {}
+        for entry in nodes:
+            for name, info in entry.items():
+                node_dict[name] = info
+
+        assert node_dict['Spine1']['node_type'] == 'veos'
+        assert node_dict['Leaf1']['node_type'] == 'veos'
+        assert node_dict['Host1']['node_type'] == 'veos'
+        assert node_dict['Firewall1']['node_type'] == 'generic'
+        assert node_dict['HostDesktop1']['node_type'] == 'generic'
+        assert node_dict['VeloEdge1']['node_type'] == 'generic'
+
+    def test_act_export_includes_cvp_node(self):
+        """CVP node is always included with ip 192.168.0.5."""
+        with patch('handlers.topology_api._get_topo_build_data',
+                   return_value=self._mock_topo_data()), \
+             patch('handlers.topology_api.get_all_devices',
+                   return_value=self._mock_all_devices()):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 200
+        yaml = YAML()
+        data = yaml.load(resp.body.decode('utf-8'))
+
+        node_dict = {}
+        for entry in data['nodes']:
+            for name, info in entry.items():
+                node_dict[name] = info
+
+        assert 'cvp' in node_dict
+        assert node_dict['cvp']['ip_addr'] == '192.168.0.5'
+        assert node_dict['cvp']['node_type'] == 'cvp'
+
+    def test_act_export_links_are_deduplicated(self):
+        """Links appear once (not from both sides of each neighbor pair)."""
+        with patch('handlers.topology_api._get_topo_build_data',
+                   return_value=self._mock_topo_data()), \
+             patch('handlers.topology_api.get_all_devices',
+                   return_value=self._mock_all_devices()):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 200
+        yaml = YAML()
+        data = yaml.load(resp.body.decode('utf-8'))
+
+        links = data['links']
+        connection_pairs = set()
+        for link in links:
+            conn = link['connection']
+            pair = tuple(sorted(conn))
+            assert pair not in connection_pairs, f"Duplicate link: {conn}"
+            connection_pairs.add(pair)
+
+        assert len(links) >= 1
+
+    def test_act_export_link_format(self):
+        """Links use Device:Port format."""
+        with patch('handlers.topology_api._get_topo_build_data',
+                   return_value=self._mock_topo_data()), \
+             patch('handlers.topology_api.get_all_devices',
+                   return_value=self._mock_all_devices()):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 200
+        yaml = YAML()
+        data = yaml.load(resp.body.decode('utf-8'))
+
+        for link in data['links']:
+            conn = link['connection']
+            assert len(conn) == 2
+            for endpoint in conn:
+                assert ':' in endpoint, f"Expected 'Device:Port' format, got: {endpoint}"
+
+    def test_act_export_bad_access_info_returns_500(self):
+        """Returns 500 if ACCESS_INFO cannot be read."""
+        with patch('builtins.open', side_effect=FileNotFoundError('No such file')):
+            resp = self._authed_fetch('/td-api/act-export')
+
+        assert resp.code == 500
+        body = json.loads(resp.body)
+        assert 'error' in body
