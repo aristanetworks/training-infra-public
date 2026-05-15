@@ -9,6 +9,7 @@ Handlers:
   - DeviceStatusAPIHandler   — Device reachability via eAPI/ping (thread pool)
   - RunningConfigAPIHandler      — Running config via eAPI (single device)
   - BulkRunningConfigAPIHandler  — Bulk running config download as zip (all EOS devices)
+  - ACTExportAPIHandler          — ACT YAML export (topology + user devices as ACT format)
 
 Utility functions (moved from uilanding.py, only used by these handlers):
   - _get_topo_build_data()
