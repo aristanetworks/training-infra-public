@@ -723,6 +723,72 @@
     margin-top: 0;
 }
 
+.context-menu-submenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: #071c35;
+    transition: all 0.15s;
+    position: relative;
+    font-weight: 500;
+}
+
+.context-menu-submenu:hover {
+    background-color: #fbb500;
+    color: #071c35;
+}
+
+.context-menu-submenu-arrow {
+    font-size: 10px;
+    margin-left: 12px;
+    opacity: 0.6;
+}
+
+.context-menu-submenu:hover .context-menu-submenu-arrow {
+    opacity: 1;
+}
+
+.context-menu-submenu-panel {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    background-color: #ffffff;
+    border: 2px solid #071c35;
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    font-family: "Proxima Nova", -apple-system, sans-serif;
+    font-size: 13px;
+    animation: contextMenuFadeIn 0.15s ease-out;
+    z-index: 10002;
+}
+
+.context-menu-submenu:hover > .context-menu-submenu-panel {
+    display: block;
+}
+
+.context-menu-submenu-panel.open-left {
+    left: auto;
+    right: 100%;
+}
+
+.context-menu-submenu-panel .context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: #071c35;
+    transition: all 0.15s;
+}
+
+.context-menu-submenu-panel .context-menu-item:hover {
+    background-color: #fbb500;
+    color: #071c35;
+}
+
 /* ==========================================
    Focus Mode Indicator
    ========================================== */
