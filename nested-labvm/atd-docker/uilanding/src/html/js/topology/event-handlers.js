@@ -990,16 +990,25 @@ export class EventManager {
                 hidden: !this.nodebuilderFeatures.addWanCloudeos
             },
             {
-                type: 'section',
-                label: 'Tools'
-            },
-            {
-                label: 'Download All Configs',
-                action: () => {
-                    this.hideContextMenu();
-                    this.downloadAllConfigs();
-                },
-                hidden: !this.nodebuilderFeatures.downloadConfigs
+                type: 'submenu',
+                label: 'Tools',
+                hidden: !this.nodebuilderFeatures.downloadConfigs,
+                children: [
+                    {
+                        label: 'Download All Configs',
+                        action: () => {
+                            this.hideContextMenu();
+                            this.downloadAllConfigs();
+                        }
+                    },
+                    {
+                        label: 'Download ACT File',
+                        action: () => {
+                            this.hideContextMenu();
+                            this.downloadACTFile();
+                        }
+                    }
+                ]
             },
             {
                 type: 'section',
@@ -1048,6 +1057,41 @@ export class EventManager {
                 const separator = document.createElement('div');
                 separator.className = 'context-menu-separator';
                 menu.appendChild(separator);
+            } else if (item.type === 'submenu') {
+                const submenuItem = document.createElement('div');
+                submenuItem.className = 'context-menu-submenu';
+
+                const label = document.createElement('span');
+                label.textContent = item.label;
+                submenuItem.appendChild(label);
+
+                const arrow = document.createElement('span');
+                arrow.className = 'context-menu-submenu-arrow';
+                arrow.textContent = '▶';
+                submenuItem.appendChild(arrow);
+
+                const panel = document.createElement('div');
+                panel.className = 'context-menu-submenu-panel';
+
+                item.children.forEach(child => {
+                    if (child.hidden) return;
+                    const childItem = document.createElement('div');
+                    childItem.className = 'context-menu-item';
+                    childItem.textContent = child.label;
+                    childItem.addEventListener('click', child.action);
+                    panel.appendChild(childItem);
+                });
+
+                submenuItem.appendChild(panel);
+
+                submenuItem.addEventListener('mouseenter', () => {
+                    const rect = panel.getBoundingClientRect();
+                    if (rect.right > window.innerWidth) {
+                        panel.classList.add('open-left');
+                    }
+                });
+
+                menu.appendChild(submenuItem);
             } else {
                 const menuItem = document.createElement('div');
                 let className = 'context-menu-item';
@@ -3043,6 +3087,47 @@ export class EventManager {
 
         } catch (error) {
             console.error('Failed to download configs:', error);
+            this.dismissDownloadToast(toastId);
+            this.showDownloadToast('Download failed: ' + error.message, 'error', 5000);
+        }
+    }
+
+    /**
+     * Download topology as ACT-formatted YAML file
+     */
+    async downloadACTFile() {
+        const toastId = this.showDownloadToast('Generating ACT file...');
+
+        try {
+            const response = await fetch('/td-api/act-export');
+
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) { /* response wasn't JSON */ }
+                throw new Error(errorMsg);
+            }
+
+            const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+            const filename = filenameMatch ? filenameMatch[1] : (this.topologyName || 'topology') + '-act.yml';
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.dismissDownloadToast(toastId);
+
+        } catch (error) {
+            console.error('Failed to download ACT file:', error);
             this.dismissDownloadToast(toastId);
             this.showDownloadToast('Download failed: ' + error.message, 'error', 5000);
         }
