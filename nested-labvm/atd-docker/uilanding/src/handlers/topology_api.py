@@ -1736,6 +1736,14 @@ NON_EOS_DEVICE_TYPES = frozenset([
     'velo_edge', 'velo_gateway', 'velo_orchestrator',
 ])
 
+ACT_NODE_TYPE_MAP = {
+    'node': 'veos',
+    'host': 'generic',
+    'firewall': 'generic',
+    'velocloud': 'generic',
+    'cloudeos': 'generic',
+}
+
 
 class BulkRunningConfigAPIHandler(BaseHandler):
     """API endpoint to fetch running configs from all EOS devices as a zip."""
@@ -1856,3 +1864,122 @@ class BulkRunningConfigAPIHandler(BaseHandler):
                     f'Command error on {device_name}: {e}')
         except Exception as e:
             return (device_name, None, f'Unexpected error on {device_name}: {e}')
+
+
+class ACTExportAPIHandler(BaseHandler):
+    """API endpoint to export topology as ACT-formatted YAML."""
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps({'error': 'Authentication required'}))
+            return
+
+        safe_log('info', 'ACT export requested', event='api', endpoint='act_export')
+
+        try:
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                access_info = YAML().load(f)
+        except Exception as e:
+            safe_log('error', f'Cannot read ACCESS_INFO for ACT export: {e}',
+                     event='error', handler='ACTExportAPIHandler')
+            self.set_status(500)
+            self.set_header('Content-Type', 'application/json')
+            self.write(json.dumps({'error': 'Internal error: cannot load configuration'}))
+            return
+
+        password = access_info.get('login_info', {}).get('jump_host', {}).get('pw', 'arista')
+        eos_version = access_info.get('version', '4.32.1F')
+
+        cvp_version_value = access_info.get('cvp_version')
+        if not cvp_version_value:
+            cvp_raw = access_info.get('cvp')
+            if isinstance(cvp_raw, str):
+                cvp_version_value = cvp_raw
+            else:
+                cvp_version_value = '2025.1.0'
+
+        act_data = {
+            'veos': {
+                'username': 'arista',
+                'password': password,
+                'version': eos_version,
+            },
+            'cvp': {
+                'username': 'root',
+                'password': 'cvproot',
+                'version': cvp_version_value,
+            },
+            'generic': {
+                'version': 'CentOS-8-8.2.2004',
+                'username': 'ansible',
+                'password': 'ansible',
+            },
+        }
+
+        all_devices = get_all_devices()
+        topo_data = _get_topo_build_data()
+
+        nodes = []
+        for name, info in sorted(all_devices.items()):
+            category = info.get('device_category', 'node')
+            node_type = ACT_NODE_TYPE_MAP.get(category, 'generic')
+            ip = info.get('ip', '')
+            if ip:
+                nodes.append({name: {'ip_addr': ip, 'node_type': node_type}})
+
+        nodes.append({'cvp': {'ip_addr': '192.168.0.5', 'node_type': 'cvp'}})
+
+        links = []
+        seen_edges = set()
+
+        if topo_data and 'nodes' in topo_data:
+            for node_entry in topo_data['nodes']:
+                if not isinstance(node_entry, dict):
+                    continue
+                for device_name, device_info in node_entry.items():
+                    if not isinstance(device_info, dict):
+                        continue
+                    display_name = normalize_device_name(device_name)
+                    neighbors = device_info.get('neighbors', [])
+                    if not isinstance(neighbors, list):
+                        continue
+                    for neighbor in neighbors:
+                        if not isinstance(neighbor, dict):
+                            continue
+                        neighbor_device = neighbor.get('neighborDevice', '')
+                        neighbor_display = normalize_device_name(neighbor_device)
+                        local_port = neighbor.get('port', '')
+                        remote_port = neighbor.get('neighborPort', '')
+
+                        if not neighbor_device or not local_port or not remote_port:
+                            continue
+
+                        endpoint_a = f"{display_name}:{local_port}"
+                        endpoint_b = f"{neighbor_display}:{remote_port}"
+                        edge_key = tuple(sorted([endpoint_a, endpoint_b]))
+
+                        if edge_key not in seen_edges:
+                            seen_edges.add(edge_key)
+                            links.append({'connection': [endpoint_a, endpoint_b]})
+
+        act_data['nodes'] = nodes
+        act_data['links'] = links
+
+        yaml = YAML()
+        yaml.default_flow_style = False
+        buf = io.StringIO()
+        yaml.dump(act_data, buf)
+        yaml_content = buf.getvalue()
+
+        topo_name = TOPO or 'topology'
+        filename = f"{topo_name}-act.yml"
+
+        self.set_header('Content-Type', 'application/x-yaml')
+        self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
+        self.write(yaml_content)
+
+        safe_log('info', 'ACT export completed',
+                 event='api', endpoint='act_export',
+                 node_count=len(nodes), link_count=len(links))
