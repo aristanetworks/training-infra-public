@@ -39,6 +39,12 @@ KVM_SCRIPTS_DIR = '/home/atdadmin/KVM_scripts'
 STATE_FILE = '/var/log/topology_converter_state.json'
 BACKUP_DIR = '/var/log/topology_converter_backups'
 
+# CVP fresh-disk restore (testing mode)
+CVP_VM_NAME = 'cvp1'
+CVP_DISK_DIR = '/var/lib/libvirt/images/cvp1'
+CVP_FRESH_DIR = f'{CVP_DISK_DIR}/new-folder'
+CVP_DISKS = ('disk1.qcow2', 'disk2.qcow2')
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -57,11 +63,13 @@ class ConversionState:
     PHASES = [
         'preflight',
         'backup',
-        'cvp_cleanup',
         'destroy_vms',
+        'restore_cvp_disks',
+        'cvp_cleanup',
         'destroy_ovs',
         'update_config',
         'libvirtd',
+        'start_cvp',
         'atd_startup',
         'wait_kvmbuilder',
         'create_ovs',
@@ -447,14 +455,26 @@ class TopologyConverter:
 
     def cleanup_cvp_devices(self):
         """
-        Remove all EOS devices from CVP inventory.
+        Decommission all EOS devices from CVP via Workspace API.
 
-        Must run AFTER VMs are destroyed (TerminAttr dead) so devices
-        cannot re-register. CVP VM itself is preserved.
+        Uses cvprac device_decommissioning(serial, request_id) which wraps
+        CVP 2022.2+ Workspace decommission flow:
+          1. Disables TerminAttr daemon on device via eAPI
+          2. Waits for streaming to stop
+          3. Removes from provisioning + inventory + revokes cert
+          4. Returns DECOMMISSIONING_STATUS_SUCCESS
+
+        Polls device_decommissioning_status_get_one() until SUCCESS per
+        device (typically ~90s each).
+
+        Falls back to delete_device() if decommission fails for any device.
+
+        Runs AFTER VMs are destroyed (Phase 3). CVP VM itself is preserved.
         """
-        self.logger.info("Cleaning up CVP devices...")
+        self.logger.info("Cleaning up CVP devices (decommission)...")
 
         try:
+            import uuid
             from cvprac.cvp_client import CvpClient
 
             yaml = YAML()
@@ -479,35 +499,84 @@ class TopologyConverter:
                 self.logger.info("  ✓ CVP inventory already empty")
                 return
 
-            removed = 0
+            decommissioned = 0
+            fallback_deleted = 0
             failed = 0
+            skipped = 0
+
             for device in devices:
                 hostname = device.get('hostname', 'unknown')
-                mac = device.get('systemMacAddress', '')
                 serial = device.get('serialNumber', '')
+                mac = device.get('systemMacAddress', '')
 
-                self.logger.info(f"  Removing: {hostname}")
+                if not serial:
+                    self.logger.warning(f"  Skipping {hostname}: no serial number")
+                    skipped += 1
+                    continue
+
+                req_id = f"{hostname}_decom_{uuid.uuid4().hex[:8]}"
+                self.logger.info(f"  Decommissioning {hostname} (serial={serial})")
+
                 try:
-                    # Try decommission first — prevents auto re-registration
-                    try:
-                        client.api.device_decommissioning(serial, hostname + '_decom')
-                        removed += 1
-                        continue
-                    except Exception:
-                        pass
+                    client.api.device_decommissioning(serial, req_id)
 
-                    # Fallback to delete
-                    client.api.delete_device(mac)
-                    removed += 1
+                    # Poll until SUCCESS or timeout (~3 min per device)
+                    success = False
+                    for attempt in range(18):
+                        time.sleep(10)
+                        try:
+                            status_resp = client.api.device_decommissioning_status_get_one(req_id)
+                            v = status_resp.get('value', {}) if status_resp else {}
+                            status = v.get('status', '')
+                            if status == 'DECOMMISSIONING_STATUS_SUCCESS':
+                                success = True
+                                break
+                            if status == 'DECOMMISSIONING_STATUS_FAILURE':
+                                self.logger.warning(
+                                    f"    Decommission FAILED for {hostname}: "
+                                    f"{v.get('statusMessage', 'unknown')}"
+                                )
+                                break
+                        except Exception as e:
+                            self.logger.debug(f"    Status poll error: {e}")
+
+                    if success:
+                        self.logger.info(f"    ✓ {hostname} decommissioned")
+                        decommissioned += 1
+                    elif mac:
+                        # Decommission timed out or failed — try delete as fallback
+                        self.logger.warning(
+                            f"    Decommission incomplete for {hostname}, falling back to delete_device"
+                        )
+                        try:
+                            client.api.delete_device(mac)
+                            self.logger.info(f"    ✓ {hostname} deleted (fallback)")
+                            fallback_deleted += 1
+                        except Exception as e:
+                            self.logger.warning(f"    delete_device fallback also failed: {e}")
+                            failed += 1
+                    else:
+                        failed += 1
                 except Exception as e:
-                    self.logger.warning(f"  Failed to remove {hostname}: {e}")
-                    failed += 1
+                    self.logger.warning(f"  device_decommissioning failed for {hostname}: {e}")
+                    if mac:
+                        try:
+                            client.api.delete_device(mac)
+                            fallback_deleted += 1
+                        except Exception as e2:
+                            self.logger.warning(f"    delete_device also failed: {e2}")
+                            failed += 1
+                    else:
+                        failed += 1
 
-            self.logger.info(f"  ✓ Removed {removed} devices from CVP ({failed} failed)")
+            self.logger.info(
+                f"  ✓ Cleanup complete: {decommissioned} decommissioned, "
+                f"{fallback_deleted} deleted (fallback), {failed} failed, {skipped} skipped"
+            )
 
-            # Brief pause to let CVP process deletions
-            if removed > 0:
-                time.sleep(5)
+            # Brief pause to let CVP finish processing
+            if decommissioned > 0 or fallback_deleted > 0:
+                time.sleep(10)
 
         except ImportError:
             self.logger.warning("  cvprac not installed — skipping CVP cleanup")
@@ -521,7 +590,12 @@ class TopologyConverter:
     # =========================================================================
 
     def destroy_vms(self):
-        """Destroy all running VMs except CVP"""
+        """Destroy all running VMs.
+
+        CVP VM (cvp1) is stopped but NOT undefined — XML preserved so
+        restore_cvp_disks() can overwrite the qcow2 files and start_cvp()
+        can boot the fresh image via the existing definition.
+        """
         self.logger.info("Destroying existing VMs...")
 
         # Get list of VMs
@@ -533,12 +607,14 @@ class TopologyConverter:
             return
 
         destroyed = 0
-        skipped = 0
+        cvp_stopped = 0
         for vm in vms:
-            # Skip CVP - it should persist across topology changes
+            # CVP: stop only, keep XML for fresh-disk boot in start_cvp()
             if 'cvp' in vm.lower():
-                self.logger.info(f"  Skipping CVP VM: {vm}")
-                skipped += 1
+                self.logger.info(f"  Stopping CVP VM (will rebuild from fresh disks): {vm}")
+                self._run_command(f"virsh destroy {vm}", check=False)
+                time.sleep(1)
+                cvp_stopped += 1
                 continue
 
             self.logger.info(f"  Destroying VM: {vm}")
@@ -550,7 +626,85 @@ class TopologyConverter:
             if result.returncode == 0:
                 destroyed += 1
 
-        self.logger.info(f"✓ Destroyed {destroyed} VMs (skipped {skipped})")
+        self.logger.info(f"✓ Destroyed {destroyed} VMs (CVP stopped: {cvp_stopped})")
+
+    # =========================================================================
+    # CVP DISK RESTORE (TESTING MODE)
+    # =========================================================================
+
+    def restore_cvp_disks(self):
+        """Overwrite CVP disks with fresh copies from new-folder.
+
+        Uses cp --reflink=always (XFS CoW) — instant clone, source preserved
+        for repeat test runs, no extra disk space consumed until VM writes.
+
+        Caller must ensure cvp1 is stopped (destroy_vms handles this).
+        """
+        self.logger.info("Restoring CVP disks from fresh copy...")
+
+        # Sanity: CVP must be stopped before overwriting disks
+        result = self._run_command(f"virsh domstate {CVP_VM_NAME}", check=False)
+        state = result.stdout.strip().lower() if result.returncode == 0 else ''
+        if 'running' in state:
+            self.logger.error(f"  {CVP_VM_NAME} still running — aborting disk restore")
+            return False
+
+        # Verify fresh sources exist
+        for disk in CVP_DISKS:
+            src = f'{CVP_FRESH_DIR}/{disk}'
+            if not os.path.exists(src):
+                self.logger.error(f"  Fresh disk missing: {src}")
+                self.logger.error(f"  Re-extract from {CVP_FRESH_DIR}/cvp-*.tgz first")
+                return False
+
+        for disk in CVP_DISKS:
+            src = f'{CVP_FRESH_DIR}/{disk}'
+            dst = f'{CVP_DISK_DIR}/{disk}'
+
+            # Delete existing first (frees inode, avoids any lock)
+            if os.path.exists(dst):
+                self.logger.info(f"  Removing old: {dst}")
+                self._run_command(f"rm -f {dst}", check=False)
+
+            # XFS reflink: instant CoW clone, source survives
+            self.logger.info(f"  Cloning {src} → {dst}")
+            result = self._run_command(
+                f"cp --reflink=always {src} {dst}",
+                check=False,
+                timeout=60
+            )
+            if result.returncode != 0:
+                self.logger.error(f"  Reflink failed: {result.stderr}")
+                return False
+
+            # Libvirt expects qemu:qemu ownership
+            self._run_command(f"chown qemu:qemu {dst}", check=False)
+            self._run_command(f"chmod 644 {dst}", check=False)
+
+        self.logger.info("✓ CVP disks restored from fresh copy")
+        return True
+
+    def start_cvp(self):
+        """Boot fresh CVP VM after disk restore.
+
+        Started early (before atdStartup) so CVP boots in parallel with
+        rest of conversion — full CVP boot is 5-10 min.
+        """
+        self.logger.info(f"Starting fresh CVP VM ({CVP_VM_NAME})...")
+
+        result = self._run_command(f"virsh domstate {CVP_VM_NAME}", check=False)
+        state = result.stdout.strip().lower() if result.returncode == 0 else ''
+        if 'running' in state:
+            self.logger.info(f"✓ {CVP_VM_NAME} already running")
+            return True
+
+        result = self._run_command(f"virsh start {CVP_VM_NAME}", check=False)
+        if result.returncode == 0:
+            self.logger.info(f"✓ {CVP_VM_NAME} started — full boot ~5-10 min")
+            return True
+
+        self.logger.error(f"Failed to start {CVP_VM_NAME}: {result.stderr}")
+        return False
 
     def destroy_ovs_networks(self):
         """Destroy all OVS bridges"""
@@ -886,7 +1040,7 @@ class TopologyConverter:
                 self.state.mark_phase_complete('backup')
                 self.logger.info("")
 
-            # Phase 3: Destroy VMs
+            # Phase 3: Destroy VMs (incl. stop CVP, keep XML)
             if 'destroy_vms' not in skip_phases:
                 self.logger.info("Phase 3: Destroy Current VMs")
                 self.logger.info("-" * 60)
@@ -894,11 +1048,18 @@ class TopologyConverter:
                 self.state.mark_phase_complete('destroy_vms')
                 self.logger.info("")
 
-            # Phase 4: CVP Cleanup (after VMs destroyed, TerminAttr is dead)
-            if 'cvp_cleanup' not in skip_phases:
-                self.logger.info("Phase 4: CVP Device Cleanup")
+            # Phase 3.5: Restore CVP disks from fresh copy (testing mode)
+            if 'restore_cvp_disks' not in skip_phases:
+                self.logger.info("Phase 3.5: Restore CVP Fresh Disks")
                 self.logger.info("-" * 60)
-                self.cleanup_cvp_devices()
+                self.restore_cvp_disks()
+                self.state.mark_phase_complete('restore_cvp_disks')
+                self.logger.info("")
+
+            # Phase 4: CVP Cleanup — skipped because fresh disks = empty inventory
+            if 'cvp_cleanup' not in skip_phases:
+                self.logger.info("Phase 4: CVP Device Cleanup (SKIPPED — fresh CVP)")
+                self.logger.info("-" * 60)
                 self.state.mark_phase_complete('cvp_cleanup')
                 self.logger.info("")
 
@@ -924,6 +1085,14 @@ class TopologyConverter:
                 self.logger.info("-" * 60)
                 self.ensure_libvirtd_running()
                 self.state.mark_phase_complete('libvirtd')
+                self.logger.info("")
+
+            # Phase 7.5: Start fresh CVP (boots in parallel with atdStartup)
+            if 'start_cvp' not in skip_phases:
+                self.logger.info("Phase 7.5: Start Fresh CVP")
+                self.logger.info("-" * 60)
+                self.start_cvp()
+                self.state.mark_phase_complete('start_cvp')
                 self.logger.info("")
 
             # Phase 8: Run atdStartup

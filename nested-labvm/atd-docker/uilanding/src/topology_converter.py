@@ -7,6 +7,7 @@ Extracted from uilanding.py to reduce file size.
 
 import json
 import os
+import random
 import subprocess
 import threading
 from datetime import datetime
@@ -22,12 +23,90 @@ from cloud_logging_utils import (
     log_operation_error,
 )
 
+try:
+    from google.cloud import firestore
+    FIRESTORE_AVAILABLE = True
+except ImportError:
+    FIRESTORE_AVAILABLE = False
+
 # Constants
 ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 BASE_PATH = '/opt/topo/html/'
+LABGUIDES_COLLECTION = 'labGuides'
 
 # Setup cloud logging for topology converter
 logger = setup_cloud_logging('topology-converter')
+
+
+# =============================================================================
+# Labguide module expansion (mirrors api-deploy/main.py:modularGuides)
+# =============================================================================
+
+def _mod_select_item(data):
+    """Recursively select random items from compatibility tree."""
+    if isinstance(data, dict):
+        compatible_items = data.get('compatible')
+        if compatible_items:
+            return _mod_select_item(compatible_items)
+        key = random.choice(list(data.keys()))
+        return [key] + _mod_select_item(data[key])
+    elif isinstance(data, list):
+        return [random.choice(data[0][item]) for item in data[0]]
+    return []
+
+
+def _modular_selection(data):
+    """Build module list for mod-exam type with random selection."""
+    index = list(data.keys())
+    first_mandatory = data[index[0]]['first_mandatory']
+    last_mandatory = data[index[0]]['last_mandatory']
+    selected_items = _mod_select_item(data[index[0]])
+    return index + first_mandatory + selected_items + last_mandatory
+
+
+def expand_labguide_modules(lab_names):
+    """
+    Expand labguide IDs into full module list via Firestore lookup.
+
+    Mirrors modularGuides() in cloud-functions/api-deploy/src/main.py.
+    For each lab_name:
+      - If found in Firestore labGuides collection:
+          - type 'mod-exam' -> random selection from modules tree
+          - type 'class'/'exam'/'nugget' -> use full modules list
+      - If not found: keep raw lab_name (legacy/manual modules)
+    """
+    if not FIRESTORE_AVAILABLE:
+        logger.warning("google-cloud-firestore not installed, returning raw labguide list")
+        return list(lab_names)
+
+    try:
+        db = firestore.Client()
+    except Exception as e:
+        logger.warning(f"Firestore client init failed: {e}, returning raw labguide list")
+        return list(lab_names)
+
+    modules = []
+    for lab in lab_names:
+        try:
+            doc = db.collection(LABGUIDES_COLLECTION).document(lab).get()
+            from_db = doc.to_dict() if doc.exists else None
+            if from_db:
+                info = from_db.get('metadata', {})
+                lg_type = info.get('type')
+                if lg_type == 'mod-exam':
+                    modules.extend(_modular_selection(from_db['modules']))
+                elif lg_type in ('class', 'exam', 'nugget'):
+                    modules.extend(from_db.get('modules', []))
+                else:
+                    logger.warning(f"Labguide '{lab}' has unknown type '{lg_type}', skipping")
+            else:
+                # No Firestore doc - treat as raw module name (legacy behavior)
+                modules.append(lab)
+        except Exception as e:
+            logger.warning(f"Firestore lookup failed for '{lab}': {e}, using raw value")
+            modules.append(lab)
+
+    return modules
 
 
 # Global variables for conversion status
@@ -205,8 +284,9 @@ class TopologyConverterInfoHandler(BaseHandler):
 def _update_labguides_modules(target_topology, status):
     """Update labguides_modules in ACCESS_INFO.yaml from topology-switcher config.
 
-    Reads the topology-switcher section, finds the modules list for the
-    target topology, and writes it to the labguides_modules key.
+    Reads the topology-switcher section, finds the labguide IDs for the
+    target topology, expands them via Firestore lookup (mirrors api-deploy's
+    modularGuides), and writes the expanded module list to labguides_modules.
     """
     try:
         yaml = YAML()
@@ -218,32 +298,45 @@ def _update_labguides_modules(target_topology, status):
         if not switcher_config or target_topology not in switcher_config:
             msg = (f'No labguides modules configured for {target_topology} '
                    f'in topology-switcher — labguides_modules unchanged')
-            logger.warning(msg)  # LOG 2
+            logger.warning(msg)
             status['log'].append(f'WARNING: {msg}')
             return
 
-        new_modules = switcher_config[target_topology]
-        if not new_modules:
+        raw_entries = switcher_config[target_topology]
+        if not raw_entries:
             msg = (f'topology-switcher entry for {target_topology} is empty '
                    f'— labguides_modules unchanged')
-            logger.warning(msg)  # LOG 3
+            logger.warning(msg)
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        # Expand labguide IDs via Firestore lookup (e.g. Foundations_Track -> module list)
+        expanded_modules = expand_labguide_modules(list(raw_entries))
+        if not expanded_modules:
+            msg = (f'Labguide expansion returned empty list for {target_topology}'
+                   f' — labguides_modules unchanged')
+            logger.warning(msg)
             status['log'].append(f'WARNING: {msg}')
             return
 
         old_modules = access_info.get('labguides_modules', [])
-        access_info['labguides_modules'] = list(new_modules)
+        access_info['labguides_modules'] = expanded_modules
 
         with open(ATD_ACCESS_PATH, 'w') as f:
             yaml.dump(access_info, f)
 
-        log_operation_success(logger, 'update-labguides-modules',  # LOG 4
+        log_operation_success(logger, 'update-labguides-modules',
                               target_topology=target_topology,
-                              old_modules=str(old_modules),
-                              new_modules=str(list(new_modules)))
-        status['log'].append(f'Updated labguides_modules for {target_topology}: {list(new_modules)}')
+                              raw_entries=str(list(raw_entries)),
+                              expanded_count=len(expanded_modules),
+                              old_modules=str(old_modules))
+        status['log'].append(
+            f'Updated labguides_modules for {target_topology}: '
+            f'{list(raw_entries)} -> {len(expanded_modules)} modules'
+        )
 
     except Exception as e:
-        log_operation_error(logger, 'update-labguides-modules', str(e),  # LOG 5
+        log_operation_error(logger, 'update-labguides-modules', str(e),
                             target_topology=target_topology)
         status['log'].append(f'WARNING: Failed to update labguides_modules: {e}')
 
