@@ -446,25 +446,95 @@ class TopologyConverter:
     # CVP CLEANUP
     # =========================================================================
 
+    # gRPC-over-HTTP endpoint for batched workspace decommission.
+    # Same path the CVP UI hits internally (DecommissionConfigService/SetSome).
+    DECOMMISSION_SETSOME_URL = (
+        '/api/v3/services/arista.studio_topology.v1.DecommissionConfigService/SetSome'
+    )
+
+    def _wait_for_cvp_inventory_drain(self, cvp_ip, password, expected_serials,
+                                       timeout=300, poll_interval=10):
+        """Poll CVP inventory until target devices are gone (or timeout).
+
+        CVP's async device teardown after workspace submit takes ~60-90s/device
+        but runs in parallel internally. Returns True if inventory drained on
+        time, False if timeout.
+
+        Only waits for the serials we asked to remove — other devices that may
+        appear (e.g. re-registration daemon races) are tracked but not blocking.
+        """
+        from cvprac.cvp_client import CvpClient
+
+        expected = set(expected_serials)
+        deadline = time.time() + timeout
+        client = CvpClient()
+        client.connect([cvp_ip], 'arista', password)
+
+        last_remaining = len(expected)
+        self.logger.info(
+            f"  Monitoring CVP inventory drain (waiting for {last_remaining} serials, "
+            f"timeout={timeout}s)..."
+        )
+
+        while time.time() < deadline:
+            try:
+                inv = client.api.get_inventory()
+                inv_serials = {d.get('serialNumber', '') for d in inv}
+                remaining = expected & inv_serials
+                if not remaining:
+                    elapsed = int(time.time() - (deadline - timeout))
+                    self.logger.info(
+                        f"  ✓ All {len(expected)} target devices removed from CVP "
+                        f"inventory in {elapsed}s (current inventory size: {len(inv)})"
+                    )
+                    return True
+                if len(remaining) != last_remaining:
+                    self.logger.info(
+                        f"    {len(remaining)} target device(s) still in inventory: "
+                        f"{sorted({d.get('hostname', '?') for d in inv if d.get('serialNumber') in remaining})}"
+                    )
+                    last_remaining = len(remaining)
+            except Exception as e:
+                self.logger.debug(f"    Inventory poll error: {e}")
+            time.sleep(poll_interval)
+
+        # Timeout
+        try:
+            inv = client.api.get_inventory()
+            still = [d.get('hostname', '?') for d in inv if d.get('serialNumber', '') in expected]
+            self.logger.warning(
+                f"  ⚠ Inventory drain timed out after {timeout}s — "
+                f"still {len(still)} target device(s) present: {still}"
+            )
+        except Exception:
+            self.logger.warning(f"  ⚠ Inventory drain timed out after {timeout}s")
+        return False
+
     def cleanup_cvp_devices(self):
         """
-        Decommission all EOS devices from CVP via Workspace API.
+        Decommission ALL EOS devices from CVP in a SINGLE workspace, then wait
+        for CVP inventory to drain before returning.
 
-        Uses cvprac device_decommissioning(serial, request_id) which wraps
-        CVP 2022.2+ Workspace decommission flow:
-          1. Disables TerminAttr daemon on device via eAPI
-          2. Waits for streaming to stop
-          3. Removes from provisioning + inventory + revokes cert
-          4. Returns DECOMMISSIONING_STATUS_SUCCESS
+        Mirrors the CVP UI "Decommission Device" gRPC flow (reverse-engineered
+        via Chrome devtools recorder):
+          1. Create workspace                          (WorkspaceConfigService/Set, UNSPECIFIED)
+          2. SetSome — batch add ALL devices in ONE call
+             (gRPC-over-HTTP: /api/v3/services/arista.studio_topology.v1.DecommissionConfigService/SetSome)
+          3. Start workspace build                     (request=START_BUILD)
+          4. Poll WorkspaceBuild until BUILD_STATE_SUCCESS
+          5. Submit workspace                          (request=SUBMIT)
+          6. Monitor: poll get_inventory() until target devices gone
 
-        Polls device_decommissioning_status_get_one() until SUCCESS per
-        device (typically ~90s each).
+        Steps 1-5 take ~2-5s regardless of device count (CVP UI behavior).
+        Step 6 waits for CVP's async device teardown to actually finish so the
+        next phase (atdStartup) starts from clean inventory. Without step 6,
+        new VMs could collide with stale streaming sessions.
 
-        Falls back to delete_device() if decommission fails for any device.
+        Falls back to per-device device_decommissioning() if workspace fails.
 
         Runs AFTER VMs are destroyed (Phase 3). CVP VM itself is preserved.
         """
-        self.logger.info("Cleaning up CVP devices (decommission)...")
+        self.logger.info("Cleaning up CVP devices (workspace batch — UI-style)...")
 
         try:
             import uuid
@@ -492,79 +562,149 @@ class TopologyConverter:
                 self.logger.info("  ✓ CVP inventory already empty")
                 return
 
-            decommissioned = 0
-            fallback_deleted = 0
+            entries = []
+            for d in devices:
+                s = d.get('serialNumber', '')
+                h = d.get('hostname', 'unknown')
+                if s:
+                    entries.append((h, s))
+                else:
+                    self.logger.warning(f"    Skipping {h}: no serial number")
+
+            if not entries:
+                self.logger.warning("  No devices with serials — nothing to decommission")
+                return
+
+            workspace_id = str(uuid.uuid4())
+            build_id = str(uuid.uuid4())
+            submit_id = str(uuid.uuid4())
+            display_name = f"ATD Topology Switch Decommission ({len(entries)} devices)"
+            target_serials = [s for _, s in entries]
+
+            start = time.time()
+
+            try:
+                # ---------- [1/5] Create workspace ----------
+                self.logger.info(f"  [1/5] Creating workspace {workspace_id[:8]}...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    description="Auto-created by topology switcher"
+                )
+
+                # ---------- [2/5] SetSome batched ----------
+                self.logger.info(
+                    f"  [2/5] SetSome batched: adding {len(entries)} devices in ONE call..."
+                )
+                payload = {
+                    "values": [
+                        {"key": {"workspace_id": workspace_id, "device_id": serial}}
+                        for _, serial in entries
+                    ]
+                }
+                resp = client.api.clnt.post(self.DECOMMISSION_SETSOME_URL, data=payload)
+                # Per-device errors come back in response list
+                if isinstance(resp, list):
+                    errors = [r for r in resp if r.get('error')]
+                    for r in errors:
+                        self.logger.warning(f"    SetSome per-device err: {str(r.get('error'))[:120]}")
+                    accepted = len(entries) - len(errors)
+                else:
+                    accepted = len(entries)
+                self.logger.info(f"        ✓ SetSome accepted {accepted}/{len(entries)} devices")
+
+                if accepted == 0:
+                    raise RuntimeError("No devices accepted by SetSome")
+
+                # ---------- [3/5] Start build ----------
+                self.logger.info(f"  [3/5] Starting workspace build (build_id={build_id[:8]})...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    request='REQUEST_START_BUILD',
+                    request_id=build_id
+                )
+
+                # ---------- [4/5] Poll build until SUCCESS ----------
+                self.logger.info(f"  [4/5] Polling build status...")
+                build_done = False
+                build_state = None
+                for attempt in range(30):  # 30 × 2s = 60s max
+                    time.sleep(2)
+                    try:
+                        bstatus = client.api.workspace_build_status(workspace_id, build_id)
+                        bval = bstatus.get('value', {}) if bstatus else {}
+                        build_state = bval.get('state', '')
+                        if build_state in ('BUILD_STATE_SUCCESS', 3):
+                            build_done = True
+                            break
+                        if build_state in ('BUILD_STATE_FAIL', 'BUILD_STATE_CANCELED', 4, 5):
+                            self.logger.error(f"        Build failed: state={build_state}")
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"        Build poll error: {e}")
+
+                if not build_done:
+                    raise RuntimeError(
+                        f"Workspace build did not reach SUCCESS (last state={build_state})"
+                    )
+                self.logger.info(f"        ✓ Build complete")
+
+                # ---------- [5/5] Submit ----------
+                self.logger.info(f"  [5/5] Submitting workspace (submit_id={submit_id[:8]})...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    request='REQUEST_SUBMIT',
+                    request_id=submit_id
+                )
+
+                submit_elapsed = int(time.time() - start)
+                self.logger.info(
+                    f"  ✓ Workspace submitted in {submit_elapsed}s — "
+                    f"CVP now async-decommissioning {accepted} devices in background"
+                )
+
+                # ---------- Monitor: wait for inventory to drain ----------
+                drained = self._wait_for_cvp_inventory_drain(
+                    cvp_ip, password, target_serials, timeout=300, poll_interval=10
+                )
+
+                total_elapsed = int(time.time() - start)
+                if drained:
+                    self.logger.info(
+                        f"  ✓ Phase 4 complete in {total_elapsed}s "
+                        f"(submit {submit_elapsed}s + async drain {total_elapsed - submit_elapsed}s)"
+                    )
+                else:
+                    self.logger.warning(
+                        f"  ⚠ Phase 4 finished in {total_elapsed}s with stale entries "
+                        f"(continuing — atdStartup may complete cleanup)"
+                    )
+                return
+
+            except Exception as e:
+                self.logger.warning(f"  Workspace flow failed ({e}) — falling back to per-device API")
+                # Fall through to legacy fallback below
+
+            # ---------- Fallback: per-device decommission, no poll ----------
+            self.logger.info(f"  Fallback: firing per-device decommission (no poll)...")
+            fired = 0
             failed = 0
-            skipped = 0
-
-            for device in devices:
-                hostname = device.get('hostname', 'unknown')
-                serial = device.get('serialNumber', '')
-                mac = device.get('systemMacAddress', '')
-
-                if not serial:
-                    self.logger.warning(f"  Skipping {hostname}: no serial number")
-                    skipped += 1
-                    continue
-
+            for hostname, serial in entries:
                 req_id = f"{hostname}_decom_{uuid.uuid4().hex[:8]}"
-                self.logger.info(f"  Decommissioning {hostname} (serial={serial})")
-
                 try:
                     client.api.device_decommissioning(serial, req_id)
-
-                    # Poll until SUCCESS or timeout (~3 min per device)
-                    success = False
-                    for attempt in range(18):
-                        time.sleep(10)
-                        try:
-                            status_resp = client.api.device_decommissioning_status_get_one(req_id)
-                            v = status_resp.get('value', {}) if status_resp else {}
-                            status = v.get('status', '')
-                            if status == 'DECOMMISSIONING_STATUS_SUCCESS':
-                                success = True
-                                break
-                            if status == 'DECOMMISSIONING_STATUS_FAILURE':
-                                self.logger.warning(
-                                    f"    Decommission FAILED for {hostname}: "
-                                    f"{v.get('statusMessage', 'unknown')}"
-                                )
-                                break
-                        except Exception as e:
-                            self.logger.debug(f"    Status poll error: {e}")
-
-                    if success:
-                        self.logger.info(f"    ✓ {hostname} decommissioned")
-                        decommissioned += 1
-                    elif mac:
-                        # Decommission timed out or failed — try delete as fallback
-                        self.logger.warning(
-                            f"    Decommission incomplete for {hostname}, falling back to delete_device"
-                        )
-                        try:
-                            client.api.delete_device(mac)
-                            self.logger.info(f"    ✓ {hostname} deleted (fallback)")
-                            fallback_deleted += 1
-                        except Exception as e:
-                            self.logger.warning(f"    delete_device fallback also failed: {e}")
-                            failed += 1
-                    else:
-                        failed += 1
+                    fired += 1
                 except Exception as e:
-                    self.logger.warning(f"  device_decommissioning failed for {hostname}: {e}")
-                    if mac:
-                        try:
-                            client.api.delete_device(mac)
-                            fallback_deleted += 1
-                        except Exception as e2:
-                            self.logger.warning(f"    delete_device also failed: {e2}")
-                            failed += 1
-                    else:
-                        failed += 1
-
+                    self.logger.warning(f"    Fallback failed for {hostname}: {e}")
+                    failed += 1
+            self._wait_for_cvp_inventory_drain(
+                cvp_ip, password, target_serials, timeout=600, poll_interval=15
+            )
+            elapsed = int(time.time() - start)
             self.logger.info(
-                f"  ✓ Cleanup complete: {decommissioned} decommissioned, "
-                f"{fallback_deleted} deleted (fallback), {failed} failed, {skipped} skipped"
+                f"  ✓ Fallback complete in {elapsed}s: {fired} fired, {failed} failed"
             )
 
             # Brief pause to let CVP finish processing
