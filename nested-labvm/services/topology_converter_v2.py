@@ -6,13 +6,14 @@ Converts ATD lab from one topology to another
 This script integrates with the existing atdUpdate/atdStartup workflow:
 1. Pre-flight checks (validate everything before making changes)
 2. Backup current state
-3. Clean up CVP (remove old devices to prevent duplicates)
-4. Destroys existing VMs and OVS networks
-5. Updates ACCESS_INFO.yaml with new topology
-6. Calls atdStartup.sh to rebuild everything
-7. Wait for kvmbuilder to generate scripts
-8. Create OVS bridges and VMs
-9. Reset CVP configuration flag to trigger reconfiguration
+3. Destroy existing VMs (CVP VM left running for decommission)
+4. Clean up CVP devices via Workspace decommission API
+5. Destroy OVS networks
+6. Update ACCESS_INFO.yaml with new topology
+7. Call atdStartup.sh to rebuild everything
+8. Wait for kvmbuilder to generate scripts
+9. Create OVS bridges and VMs
+10. Reset CVP configuration flag to trigger reconfiguration
 
 Rollback capability:
 - If conversion fails after Phase 4 (ACCESS_INFO updated), can restore from backup
@@ -39,12 +40,6 @@ KVM_SCRIPTS_DIR = '/home/atdadmin/KVM_scripts'
 STATE_FILE = '/var/log/topology_converter_state.json'
 BACKUP_DIR = '/var/log/topology_converter_backups'
 
-# CVP fresh-disk restore (testing mode)
-CVP_VM_NAME = 'cvp1'
-CVP_DISK_DIR = '/var/lib/libvirt/images/cvp1'
-CVP_FRESH_DIR = f'{CVP_DISK_DIR}/new-folder'
-CVP_DISKS = ('disk1.qcow2', 'disk2.qcow2')
-
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -64,12 +59,10 @@ class ConversionState:
         'preflight',
         'backup',
         'destroy_vms',
-        'restore_cvp_disks',
         'cvp_cleanup',
         'destroy_ovs',
         'update_config',
         'libvirtd',
-        'start_cvp',
         'atd_startup',
         'wait_kvmbuilder',
         'create_ovs',
@@ -590,11 +583,10 @@ class TopologyConverter:
     # =========================================================================
 
     def destroy_vms(self):
-        """Destroy all running VMs.
+        """Destroy all running VMs except CVP.
 
-        CVP VM (cvp1) is stopped but NOT undefined — XML preserved so
-        restore_cvp_disks() can overwrite the qcow2 files and start_cvp()
-        can boot the fresh image via the existing definition.
+        CVP VM is left running so the next phase can decommission devices
+        via the CVP Workspace API while CVP is reachable.
         """
         self.logger.info("Destroying existing VMs...")
 
@@ -607,14 +599,12 @@ class TopologyConverter:
             return
 
         destroyed = 0
-        cvp_stopped = 0
+        cvp_skipped = 0
         for vm in vms:
-            # CVP: stop only, keep XML for fresh-disk boot in start_cvp()
+            # CVP: leave running for workspace decommission in next phase
             if 'cvp' in vm.lower():
-                self.logger.info(f"  Stopping CVP VM (will rebuild from fresh disks): {vm}")
-                self._run_command(f"virsh destroy {vm}", check=False)
-                time.sleep(1)
-                cvp_stopped += 1
+                self.logger.info(f"  Skipping CVP VM (kept running for decommission): {vm}")
+                cvp_skipped += 1
                 continue
 
             self.logger.info(f"  Destroying VM: {vm}")
@@ -626,85 +616,7 @@ class TopologyConverter:
             if result.returncode == 0:
                 destroyed += 1
 
-        self.logger.info(f"✓ Destroyed {destroyed} VMs (CVP stopped: {cvp_stopped})")
-
-    # =========================================================================
-    # CVP DISK RESTORE (TESTING MODE)
-    # =========================================================================
-
-    def restore_cvp_disks(self):
-        """Overwrite CVP disks with fresh copies from new-folder.
-
-        Uses cp --reflink=always (XFS CoW) — instant clone, source preserved
-        for repeat test runs, no extra disk space consumed until VM writes.
-
-        Caller must ensure cvp1 is stopped (destroy_vms handles this).
-        """
-        self.logger.info("Restoring CVP disks from fresh copy...")
-
-        # Sanity: CVP must be stopped before overwriting disks
-        result = self._run_command(f"virsh domstate {CVP_VM_NAME}", check=False)
-        state = result.stdout.strip().lower() if result.returncode == 0 else ''
-        if 'running' in state:
-            self.logger.error(f"  {CVP_VM_NAME} still running — aborting disk restore")
-            return False
-
-        # Verify fresh sources exist
-        for disk in CVP_DISKS:
-            src = f'{CVP_FRESH_DIR}/{disk}'
-            if not os.path.exists(src):
-                self.logger.error(f"  Fresh disk missing: {src}")
-                self.logger.error(f"  Re-extract from {CVP_FRESH_DIR}/cvp-*.tgz first")
-                return False
-
-        for disk in CVP_DISKS:
-            src = f'{CVP_FRESH_DIR}/{disk}'
-            dst = f'{CVP_DISK_DIR}/{disk}'
-
-            # Delete existing first (frees inode, avoids any lock)
-            if os.path.exists(dst):
-                self.logger.info(f"  Removing old: {dst}")
-                self._run_command(f"rm -f {dst}", check=False)
-
-            # XFS reflink: instant CoW clone, source survives
-            self.logger.info(f"  Cloning {src} → {dst}")
-            result = self._run_command(
-                f"cp --reflink=always {src} {dst}",
-                check=False,
-                timeout=60
-            )
-            if result.returncode != 0:
-                self.logger.error(f"  Reflink failed: {result.stderr}")
-                return False
-
-            # Libvirt expects qemu:qemu ownership
-            self._run_command(f"chown qemu:qemu {dst}", check=False)
-            self._run_command(f"chmod 644 {dst}", check=False)
-
-        self.logger.info("✓ CVP disks restored from fresh copy")
-        return True
-
-    def start_cvp(self):
-        """Boot fresh CVP VM after disk restore.
-
-        Started early (before atdStartup) so CVP boots in parallel with
-        rest of conversion — full CVP boot is 5-10 min.
-        """
-        self.logger.info(f"Starting fresh CVP VM ({CVP_VM_NAME})...")
-
-        result = self._run_command(f"virsh domstate {CVP_VM_NAME}", check=False)
-        state = result.stdout.strip().lower() if result.returncode == 0 else ''
-        if 'running' in state:
-            self.logger.info(f"✓ {CVP_VM_NAME} already running")
-            return True
-
-        result = self._run_command(f"virsh start {CVP_VM_NAME}", check=False)
-        if result.returncode == 0:
-            self.logger.info(f"✓ {CVP_VM_NAME} started — full boot ~5-10 min")
-            return True
-
-        self.logger.error(f"Failed to start {CVP_VM_NAME}: {result.stderr}")
-        return False
+        self.logger.info(f"✓ Destroyed {destroyed} VMs (CVP skipped: {cvp_skipped})")
 
     def destroy_ovs_networks(self):
         """Destroy all OVS bridges"""
@@ -1040,7 +952,7 @@ class TopologyConverter:
                 self.state.mark_phase_complete('backup')
                 self.logger.info("")
 
-            # Phase 3: Destroy VMs (incl. stop CVP, keep XML)
+            # Phase 3: Destroy VMs (CVP left running for decommission)
             if 'destroy_vms' not in skip_phases:
                 self.logger.info("Phase 3: Destroy Current VMs")
                 self.logger.info("-" * 60)
@@ -1048,18 +960,11 @@ class TopologyConverter:
                 self.state.mark_phase_complete('destroy_vms')
                 self.logger.info("")
 
-            # Phase 3.5: Restore CVP disks from fresh copy (testing mode)
-            if 'restore_cvp_disks' not in skip_phases:
-                self.logger.info("Phase 3.5: Restore CVP Fresh Disks")
-                self.logger.info("-" * 60)
-                self.restore_cvp_disks()
-                self.state.mark_phase_complete('restore_cvp_disks')
-                self.logger.info("")
-
-            # Phase 4: CVP Cleanup — skipped because fresh disks = empty inventory
+            # Phase 4: CVP Device Cleanup via Workspace decommission API
             if 'cvp_cleanup' not in skip_phases:
-                self.logger.info("Phase 4: CVP Device Cleanup (SKIPPED — fresh CVP)")
+                self.logger.info("Phase 4: CVP Device Cleanup")
                 self.logger.info("-" * 60)
+                self.cleanup_cvp_devices()
                 self.state.mark_phase_complete('cvp_cleanup')
                 self.logger.info("")
 
@@ -1085,14 +990,6 @@ class TopologyConverter:
                 self.logger.info("-" * 60)
                 self.ensure_libvirtd_running()
                 self.state.mark_phase_complete('libvirtd')
-                self.logger.info("")
-
-            # Phase 7.5: Start fresh CVP (boots in parallel with atdStartup)
-            if 'start_cvp' not in skip_phases:
-                self.logger.info("Phase 7.5: Start Fresh CVP")
-                self.logger.info("-" * 60)
-                self.start_cvp()
-                self.state.mark_phase_complete('start_cvp')
                 self.logger.info("")
 
             # Phase 8: Run atdStartup
