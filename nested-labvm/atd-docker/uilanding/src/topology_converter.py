@@ -23,6 +23,8 @@ from cloud_logging_utils import (
     log_operation_success,
     log_operation_error,
 )
+from handlers.auth import BaseHandler
+from utils import safe_log
 
 try:
     from google.cloud import firestore
