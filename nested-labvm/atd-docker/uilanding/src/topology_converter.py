@@ -8,6 +8,7 @@ Extracted from uilanding.py to reduce file size.
 import json
 import os
 import random
+import re
 import subprocess
 import threading
 from collections import deque
@@ -764,8 +765,8 @@ class TopologyConverterStatusHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Return last 50 log lines
-            recent_logs = conversion_status['log'][-50:] if conversion_status['log'] else []
+            # Return last 50 log lines (log is a deque, convert to list to slice)
+            recent_logs = list(conversion_status['log'])[-50:] if conversion_status['log'] else []
 
             response = {
                 'in_progress': conversion_status['in_progress'],
