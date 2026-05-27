@@ -6,13 +6,14 @@ Converts ATD lab from one topology to another
 This script integrates with the existing atdUpdate/atdStartup workflow:
 1. Pre-flight checks (validate everything before making changes)
 2. Backup current state
-3. Clean up CVP (remove old devices to prevent duplicates)
-4. Destroys existing VMs and OVS networks
-5. Updates ACCESS_INFO.yaml with new topology
-6. Calls atdStartup.sh to rebuild everything
-7. Wait for kvmbuilder to generate scripts
-8. Create OVS bridges and VMs
-9. Reset CVP configuration flag to trigger reconfiguration
+3. Destroy existing VMs (CVP VM left running for decommission)
+4. Clean up CVP devices via Workspace decommission API
+5. Destroy OVS networks
+6. Update ACCESS_INFO.yaml with new topology
+7. Call atdStartup.sh to rebuild everything
+8. Wait for kvmbuilder to generate scripts
+9. Create OVS bridges and VMs
+10. Reset CVP configuration flag to trigger reconfiguration
 
 Rollback capability:
 - If conversion fails after Phase 4 (ACCESS_INFO updated), can restore from backup
@@ -57,8 +58,8 @@ class ConversionState:
     PHASES = [
         'preflight',
         'backup',
-        'cvp_cleanup',
         'destroy_vms',
+        'cvp_cleanup',
         'destroy_ovs',
         'update_config',
         'libvirtd',
@@ -445,32 +446,288 @@ class TopologyConverter:
     # CVP CLEANUP
     # =========================================================================
 
+    # gRPC-over-HTTP endpoint for batched workspace decommission.
+    # Same path the CVP UI hits internally (DecommissionConfigService/SetSome).
+    DECOMMISSION_SETSOME_URL = (
+        '/api/v3/services/arista.studio_topology.v1.DecommissionConfigService/SetSome'
+    )
+
+    def _wait_for_cvp_inventory_drain(self, cvp_ip, password, expected_serials,
+                                       timeout=300, poll_interval=10):
+        """Poll CVP inventory until target devices are gone (or timeout).
+
+        CVP's async device teardown after workspace submit takes ~60-90s/device
+        but runs in parallel internally. Returns True if inventory drained on
+        time, False if timeout.
+
+        Only waits for the serials we asked to remove — other devices that may
+        appear (e.g. re-registration daemon races) are tracked but not blocking.
+        """
+        from cvprac.cvp_client import CvpClient
+
+        expected = set(expected_serials)
+        deadline = time.time() + timeout
+        client = CvpClient()
+        client.connect([cvp_ip], 'arista', password)
+
+        last_remaining = len(expected)
+        self.logger.info(
+            f"  Monitoring CVP inventory drain (waiting for {last_remaining} serials, "
+            f"timeout={timeout}s)..."
+        )
+
+        while time.time() < deadline:
+            try:
+                inv = client.api.get_inventory()
+                inv_serials = {d.get('serialNumber', '') for d in inv}
+                remaining = expected & inv_serials
+                if not remaining:
+                    elapsed = int(time.time() - (deadline - timeout))
+                    self.logger.info(
+                        f"  ✓ All {len(expected)} target devices removed from CVP "
+                        f"inventory in {elapsed}s (current inventory size: {len(inv)})"
+                    )
+                    return True
+                if len(remaining) != last_remaining:
+                    self.logger.info(
+                        f"    {len(remaining)} target device(s) still in inventory: "
+                        f"{sorted({d.get('hostname', '?') for d in inv if d.get('serialNumber') in remaining})}"
+                    )
+                    last_remaining = len(remaining)
+            except Exception as e:
+                self.logger.debug(f"    Inventory poll error: {e}")
+            time.sleep(poll_interval)
+
+        # Timeout
+        try:
+            inv = client.api.get_inventory()
+            still = [d.get('hostname', '?') for d in inv if d.get('serialNumber', '') in expected]
+            self.logger.warning(
+                f"  ⚠ Inventory drain timed out after {timeout}s — "
+                f"still {len(still)} target device(s) present: {still}"
+            )
+        except Exception:
+            self.logger.warning(f"  ⚠ Inventory drain timed out after {timeout}s")
+        return False
+
     def cleanup_cvp_devices(self):
         """
-        Clean up old devices from CVP before switching topology.
-        This prevents duplicate device issues.
+        Decommission ALL EOS devices from CVP in a SINGLE workspace, then wait
+        for CVP inventory to drain before returning.
+
+        Mirrors the CVP UI "Decommission Device" gRPC flow (reverse-engineered
+        via Chrome devtools recorder):
+          1. Create workspace                          (WorkspaceConfigService/Set, UNSPECIFIED)
+          2. SetSome — batch add ALL devices in ONE call
+             (gRPC-over-HTTP: /api/v3/services/arista.studio_topology.v1.DecommissionConfigService/SetSome)
+          3. Start workspace build                     (request=START_BUILD)
+          4. Poll WorkspaceBuild until BUILD_STATE_SUCCESS
+          5. Submit workspace                          (request=SUBMIT)
+          6. Monitor: poll get_inventory() until target devices gone
+
+        Steps 1-5 take ~2-5s regardless of device count (CVP UI behavior).
+        Step 6 waits for CVP's async device teardown to actually finish so the
+        next phase (atdStartup) starts from clean inventory. Without step 6,
+        new VMs could collide with stale streaming sessions.
+
+        Falls back to per-device device_decommissioning() if workspace fails.
+
+        Runs AFTER VMs are destroyed (Phase 3). CVP VM itself is preserved.
         """
-        self.logger.info("Cleaning up CVP configuration...")
+        self.logger.info("Cleaning up CVP devices (workspace batch — UI-style)...")
 
-        # Check if cvpupdater container exists
-        result = self._run_command("docker ps -a --format '{{.Names}}' | grep atd-cvpupdater", check=False)
-        if result.returncode != 0:
-            self.logger.warning("cvpupdater container not found - skipping CVP cleanup")
-            return
+        try:
+            import uuid
+            from cvprac.cvp_client import CvpClient
 
-        # The safest approach is to let CVP handle it via factory reset
-        # But since we can't do that, we'll just ensure the state file is removed
-        # so cvpupdater starts fresh with the new topology
+            yaml = YAML()
+            with open(ACCESS_INFO_FILE, 'r') as f:
+                data = yaml.load(f)
 
-        self.logger.info("  CVP will be reconfigured with new topology after conversion")
-        self.logger.info("  ✓ CVP cleanup noted (will be handled in CVP reset phase)")
+            cvp_nodes = data.get('nodes', {}).get('cvp', [])
+            if not cvp_nodes:
+                self.logger.warning("  No CVP node found in ACCESS_INFO — skipping cleanup")
+                return
+
+            cvp_ip = cvp_nodes[0]['ip']
+            password = data['login_info']['jump_host']['pw']
+
+            client = CvpClient()
+            client.connect([cvp_ip], 'arista', password)
+
+            devices = client.api.get_inventory()
+            self.logger.info(f"  Found {len(devices)} devices in CVP inventory")
+
+            if not devices:
+                self.logger.info("  ✓ CVP inventory already empty")
+                return
+
+            entries = []
+            for d in devices:
+                s = d.get('serialNumber', '')
+                h = d.get('hostname', 'unknown')
+                if s:
+                    entries.append((h, s))
+                else:
+                    self.logger.warning(f"    Skipping {h}: no serial number")
+
+            if not entries:
+                self.logger.warning("  No devices with serials — nothing to decommission")
+                return
+
+            workspace_id = str(uuid.uuid4())
+            build_id = str(uuid.uuid4())
+            submit_id = str(uuid.uuid4())
+            display_name = f"ATD Topology Switch Decommission ({len(entries)} devices)"
+            target_serials = [s for _, s in entries]
+
+            start = time.time()
+
+            try:
+                # ---------- [1/5] Create workspace ----------
+                self.logger.info(f"  [1/5] Creating workspace {workspace_id[:8]}...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    description="Auto-created by topology switcher"
+                )
+
+                # ---------- [2/5] SetSome batched ----------
+                self.logger.info(
+                    f"  [2/5] SetSome batched: adding {len(entries)} devices in ONE call..."
+                )
+                payload = {
+                    "values": [
+                        {"key": {"workspace_id": workspace_id, "device_id": serial}}
+                        for _, serial in entries
+                    ]
+                }
+                resp = client.api.clnt.post(self.DECOMMISSION_SETSOME_URL, data=payload)
+                # Per-device errors come back in response list
+                if isinstance(resp, list):
+                    errors = [r for r in resp if r.get('error')]
+                    for r in errors:
+                        self.logger.warning(f"    SetSome per-device err: {str(r.get('error'))[:120]}")
+                    accepted = len(entries) - len(errors)
+                else:
+                    accepted = len(entries)
+                self.logger.info(f"        ✓ SetSome accepted {accepted}/{len(entries)} devices")
+
+                if accepted == 0:
+                    raise RuntimeError("No devices accepted by SetSome")
+
+                # ---------- [3/5] Start build ----------
+                self.logger.info(f"  [3/5] Starting workspace build (build_id={build_id[:8]})...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    request='REQUEST_START_BUILD',
+                    request_id=build_id
+                )
+
+                # ---------- [4/5] Poll build until SUCCESS ----------
+                self.logger.info(f"  [4/5] Polling build status...")
+                build_done = False
+                build_state = None
+                for attempt in range(30):  # 30 × 2s = 60s max
+                    time.sleep(2)
+                    try:
+                        bstatus = client.api.workspace_build_status(workspace_id, build_id)
+                        bval = bstatus.get('value', {}) if bstatus else {}
+                        build_state = bval.get('state', '')
+                        if build_state in ('BUILD_STATE_SUCCESS', 3):
+                            build_done = True
+                            break
+                        if build_state in ('BUILD_STATE_FAIL', 'BUILD_STATE_CANCELED', 4, 5):
+                            self.logger.error(f"        Build failed: state={build_state}")
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"        Build poll error: {e}")
+
+                if not build_done:
+                    raise RuntimeError(
+                        f"Workspace build did not reach SUCCESS (last state={build_state})"
+                    )
+                self.logger.info(f"        ✓ Build complete")
+
+                # ---------- [5/5] Submit ----------
+                self.logger.info(f"  [5/5] Submitting workspace (submit_id={submit_id[:8]})...")
+                client.api.workspace_config(
+                    workspace_id=workspace_id,
+                    display_name=display_name,
+                    request='REQUEST_SUBMIT',
+                    request_id=submit_id
+                )
+
+                submit_elapsed = int(time.time() - start)
+                self.logger.info(
+                    f"  ✓ Workspace submitted in {submit_elapsed}s — "
+                    f"CVP now async-decommissioning {accepted} devices in background"
+                )
+
+                # ---------- Monitor: wait for inventory to drain ----------
+                drained = self._wait_for_cvp_inventory_drain(
+                    cvp_ip, password, target_serials, timeout=300, poll_interval=10
+                )
+
+                total_elapsed = int(time.time() - start)
+                if drained:
+                    self.logger.info(
+                        f"  ✓ Phase 4 complete in {total_elapsed}s "
+                        f"(submit {submit_elapsed}s + async drain {total_elapsed - submit_elapsed}s)"
+                    )
+                else:
+                    self.logger.warning(
+                        f"  ⚠ Phase 4 finished in {total_elapsed}s with stale entries "
+                        f"(continuing — atdStartup may complete cleanup)"
+                    )
+                return
+
+            except Exception as e:
+                self.logger.warning(f"  Workspace flow failed ({e}) — falling back to per-device API")
+                # Fall through to legacy fallback below
+
+            # ---------- Fallback: per-device decommission, no poll ----------
+            self.logger.info(f"  Fallback: firing per-device decommission (no poll)...")
+            fired = 0
+            failed = 0
+            for hostname, serial in entries:
+                req_id = f"{hostname}_decom_{uuid.uuid4().hex[:8]}"
+                try:
+                    client.api.device_decommissioning(serial, req_id)
+                    fired += 1
+                except Exception as e:
+                    self.logger.warning(f"    Fallback failed for {hostname}: {e}")
+                    failed += 1
+            self._wait_for_cvp_inventory_drain(
+                cvp_ip, password, target_serials, timeout=600, poll_interval=15
+            )
+            elapsed = int(time.time() - start)
+            self.logger.info(
+                f"  ✓ Fallback complete in {elapsed}s: {fired} fired, {failed} failed"
+            )
+
+            # Brief pause to let CVP finish processing
+            if decommissioned > 0 or fallback_deleted > 0:
+                time.sleep(10)
+
+        except ImportError:
+            self.logger.warning("  cvprac not installed — skipping CVP cleanup")
+        except Exception as e:
+            # Non-fatal: conversion can proceed without CVP cleanup
+            self.logger.warning(f"  CVP cleanup failed (non-fatal): {e}")
+            self.logger.warning("  Continuing with conversion...")
 
     # =========================================================================
     # DESTRUCTION PHASE
     # =========================================================================
 
     def destroy_vms(self):
-        """Destroy all running VMs except CVP"""
+        """Destroy all running VMs except CVP.
+
+        CVP VM is left running so the next phase can decommission devices
+        via the CVP Workspace API while CVP is reachable.
+        """
         self.logger.info("Destroying existing VMs...")
 
         # Get list of VMs
@@ -482,12 +739,12 @@ class TopologyConverter:
             return
 
         destroyed = 0
-        skipped = 0
+        cvp_skipped = 0
         for vm in vms:
-            # Skip CVP - it should persist across topology changes
+            # CVP: leave running for workspace decommission in next phase
             if 'cvp' in vm.lower():
-                self.logger.info(f"  Skipping CVP VM: {vm}")
-                skipped += 1
+                self.logger.info(f"  Skipping CVP VM (kept running for decommission): {vm}")
+                cvp_skipped += 1
                 continue
 
             self.logger.info(f"  Destroying VM: {vm}")
@@ -499,7 +756,7 @@ class TopologyConverter:
             if result.returncode == 0:
                 destroyed += 1
 
-        self.logger.info(f"✓ Destroyed {destroyed} VMs (skipped {skipped})")
+        self.logger.info(f"✓ Destroyed {destroyed} VMs (CVP skipped: {cvp_skipped})")
 
     def destroy_ovs_networks(self):
         """Destroy all OVS bridges"""
@@ -835,20 +1092,20 @@ class TopologyConverter:
                 self.state.mark_phase_complete('backup')
                 self.logger.info("")
 
-            # Phase 3: CVP Cleanup (note for later)
-            if 'cvp_cleanup' not in skip_phases:
-                self.logger.info("Phase 3: CVP Cleanup Preparation")
-                self.logger.info("-" * 60)
-                self.cleanup_cvp_devices()
-                self.state.mark_phase_complete('cvp_cleanup')
-                self.logger.info("")
-
-            # Phase 4: Destroy VMs
+            # Phase 3: Destroy VMs (CVP left running for decommission)
             if 'destroy_vms' not in skip_phases:
-                self.logger.info("Phase 4: Destroy Current VMs")
+                self.logger.info("Phase 3: Destroy Current VMs")
                 self.logger.info("-" * 60)
                 self.destroy_vms()
                 self.state.mark_phase_complete('destroy_vms')
+                self.logger.info("")
+
+            # Phase 4: CVP Device Cleanup via Workspace decommission API
+            if 'cvp_cleanup' not in skip_phases:
+                self.logger.info("Phase 4: CVP Device Cleanup")
+                self.logger.info("-" * 60)
+                self.cleanup_cvp_devices()
+                self.state.mark_phase_complete('cvp_cleanup')
                 self.logger.info("")
 
             # Phase 5: Destroy OVS

@@ -14,10 +14,16 @@ echo "============================================================"
 echo ""
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting ATD Update..."
 
-# Read configuration
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Reading configuration from /etc/atd/ATD_REPO.yaml..."
-BRANCH=$(cat /etc/atd/ATD_REPO.yaml | python3 -m shyaml get-value atd-public-branch)
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Target branch: $BRANCH"
+# Check for branch override file (testing/development)
+# /etc/atd/BRANCH_OVERRIDE supersedes ATD_REPO.yaml so override takes effect THIS cycle, not next
+if [ -s /etc/atd/BRANCH_OVERRIDE ]; then
+    BRANCH=$(cat /etc/atd/BRANCH_OVERRIDE | tr -d '[:space:]')
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] BRANCH OVERRIDE active: using '$BRANCH' from /etc/atd/BRANCH_OVERRIDE"
+else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Reading configuration from /etc/atd/ATD_REPO.yaml..."
+    BRANCH=$(cat /etc/atd/ATD_REPO.yaml | python3 -m shyaml get-value atd-public-branch)
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Target branch: $BRANCH"
+fi
 
 if  [ -z "$(cat /etc/atd/ATD_REPO.yaml | grep repo)" ]
 then
