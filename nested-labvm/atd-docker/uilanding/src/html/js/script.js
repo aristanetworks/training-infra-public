@@ -282,14 +282,75 @@ document.addEventListener("DOMContentLoaded", function () {
     var intervalMs = 15000;
     var pollTimer = null;
 
+    function showPdfConfirm(href) {
+      var overlay = document.createElement('div');
+      overlay.className = 'pdf-confirm-overlay';
+
+      var panel = document.createElement('div');
+      panel.className = 'pdf-confirm-panel';
+
+      var heading = document.createElement('h3');
+      heading.textContent = 'Before you download';
+
+      var message = document.createElement('p');
+      message.textContent = 'This PDF is a snapshot of the lab guide as it exists right now. ' +
+        'We\'re always improving our labs, so if you want the latest version ' +
+        'in the future, just come back and download it again.';
+
+      var actions = document.createElement('div');
+      actions.className = 'pdf-confirm-actions';
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'pdf-confirm-cancel';
+      cancelBtn.textContent = 'Cancel';
+
+      var downloadBtn = document.createElement('button');
+      downloadBtn.className = 'pdf-confirm-download';
+      downloadBtn.textContent = 'Download';
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(downloadBtn);
+      panel.appendChild(heading);
+      panel.appendChild(message);
+      panel.appendChild(actions);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+
+      requestAnimationFrame(function () {
+        overlay.classList.add('visible');
+      });
+
+      function close() {
+        overlay.classList.remove('visible');
+        setTimeout(function () { overlay.remove(); }, 200);
+      }
+
+      cancelBtn.addEventListener('click', close);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) close();
+      });
+      downloadBtn.addEventListener('click', function () {
+        cloudLog('info', 'PDF lab guide downloaded', { source: 'script', action: 'pdf_download' });
+        var a = document.createElement('a');
+        a.href = href;
+        a.download = 'labguide.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        close();
+      });
+    }
+
     function onPdfReady() {
       link.classList.remove('pdf-building');
       var spinner = link.querySelector('.pdf-spinner');
       if (spinner) spinner.remove();
       textSpan.textContent = 'Download PDF';
-      link.setAttribute('download', 'labguide.pdf');
-      link.addEventListener('click', function () {
-        cloudLog('info', 'PDF lab guide downloaded', { source: 'script', action: 'pdf_download' });
+      link.removeAttribute('href');
+      link.style.cursor = 'pointer';
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        showPdfConfirm('/labguides/labguide.pdf');
       });
     }
 

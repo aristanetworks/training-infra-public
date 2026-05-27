@@ -355,3 +355,90 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* PDF download confirmation panel */
+.pdf-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 20, 49, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.pdf-confirm-overlay.visible {
+  opacity: 1;
+}
+
+.pdf-confirm-panel {
+  background: var(--primary-color);
+  border: 1px solid rgba(251, 181, 0, 0.35);
+  border-radius: 8px;
+  padding: 28px 32px 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(12px);
+  transition: transform 0.2s ease;
+}
+
+.pdf-confirm-overlay.visible .pdf-confirm-panel {
+  transform: translateY(0);
+}
+
+.pdf-confirm-panel h3 {
+  color: var(--secondary-color);
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 14px;
+}
+
+.pdf-confirm-panel p {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.pdf-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.pdf-confirm-actions button {
+  font-family: var(--proxima);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 8px 20px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pdf-confirm-cancel {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.pdf-confirm-cancel:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.pdf-confirm-download {
+  background: var(--secondary-color);
+  color: var(--primary-color);
+}
+
+.pdf-confirm-download:hover {
+  background: #ffc52f;
+}
