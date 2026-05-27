@@ -66,6 +66,9 @@ from config import (
     DEFAULT_NETWORK_LATENCY_MS
 )
 
+from cloudeos_manager import create_cloudeos, delete_cloudeos, get_cloudeos_status
+from link_manager import add_link, remove_link, get_user_links, get_available_ports
+
 # Configure logging (level configurable via environment variable)
 LOG_LEVEL = os.environ.get('NODEBUILDER_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
@@ -580,7 +583,7 @@ async def delete_node(request):
     """
     from persistence import get_user_node, remove_user_node, remove_all_device_references
     from resource_manager import get_resource_manager
-    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+    from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_CLOUDEOS_PATH, USER_LINKS_PATH
 
     try:
         data = await request.json()
@@ -605,8 +608,8 @@ async def delete_node(request):
             'error': f"Node '{name}' is not a user-added node or does not exist"
         }, status=400)
 
-    # Get node info for cleanup
-    node_info = user_node.get(name, {})
+    # Get node info for cleanup (use values() since key case may differ)
+    node_info = list(user_node.values())[0] if user_node else {}
 
     try:
         logger.info(f"Deleting user-added node: {name}")
@@ -618,10 +621,12 @@ async def delete_node(request):
         # Remove from persistence
         remove_user_node(name, USER_NODES_PATH)
 
-        # Clean up references in ALL device types (nodes, hosts, firewalls)
+        # Clean up references in ALL device types (nodes, hosts, firewalls, cloudeos, links)
         # (prevents orphaned references when a node connected to other devices is deleted)
         cleanup_result = remove_all_device_references(
-            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH
+            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+            user_cloudeos_path=USER_CLOUDEOS_PATH,
+            user_links_path=USER_LINKS_PATH
         )
         if cleanup_result['total'] > 0:
             result['orphaned_references_removed'] = cleanup_result
@@ -714,7 +719,7 @@ async def edit_node(request):
         logger.info(f"Editing connections for node: {name}")
 
         conn_mgr = get_connection_manager()
-        node_info = user_node.get(name, {})
+        node_info = list(user_node.values())[0] if user_node else {}
 
         # Use transaction for atomic operation
         with NodeEditTransaction(name) as txn:
@@ -830,7 +835,8 @@ async def get_node_connections(request):
     # Check vEOS nodes first
     user_node = get_user_node(name, USER_NODES_PATH)
     if user_node:
-        node_info = user_node.get(name, {})
+        # get_user_node returns {original_name: info} - use the actual key
+        node_info = list(user_node.values())[0] if user_node else {}
         device_ip = node_info.get('ip_addr', '')
         neighbors = node_info.get('neighbors', [])
         for neighbor in neighbors:
@@ -843,7 +849,7 @@ async def get_node_connections(request):
         # Check Linux hosts
         user_host = get_user_host(name, USER_HOSTS_PATH)
         if user_host:
-            host_info = user_host.get(name, {})
+            host_info = list(user_host.values())[0] if user_host else {}
             device_ip = host_info.get('mgmt_ip', '')
             device_type = 'host'
             connection = host_info.get('connection', {})
@@ -857,7 +863,7 @@ async def get_node_connections(request):
             # Check VyOS firewalls
             user_fw = get_user_firewall(name, USER_FIREWALLS_PATH)
             if user_fw:
-                fw_info = user_fw.get(name, {})
+                fw_info = list(user_fw.values())[0] if user_fw else {}
                 device_ip = fw_info.get('mgmt_ip', '')
                 device_type = 'firewall'
                 # Add inside interface connection
@@ -877,9 +883,31 @@ async def get_node_connections(request):
                         'target_port': outside.get('target_port', '')
                     })
             else:
-                return web.json_response({
-                    'error': f"Device '{name}' not found in user nodes, hosts, or firewalls"
-                }, status=400)
+                # Check CloudEOS devices
+                from persistence import load_user_cloudeos
+                from config import USER_CLOUDEOS_PATH
+                cloudeos_data = load_user_cloudeos(USER_CLOUDEOS_PATH)
+                found = False
+                for device_entry in cloudeos_data.get('devices', []):
+                    for dev_name, dev_info in device_entry.items():
+                        if dev_name.lower() == name.lower():
+                            device_ip = dev_info.get('ip_addr', '')
+                            device_type = 'cloudeos'
+                            for neighbor in dev_info.get('neighbors', []):
+                                connections.append({
+                                    'target_device': neighbor.get('neighborDevice', ''),
+                                    'target_port': neighbor.get('neighborPort', ''),
+                                    'local_port': neighbor.get('port', '')
+                                })
+                            found = True
+                            break
+                    if found:
+                        break
+
+                if not found:
+                    return web.json_response({
+                        'error': f"Device '{name}' not found in user nodes, hosts, firewalls, or CloudEOS"
+                    }, status=400)
 
     return web.json_response({
         'name': name,
@@ -1351,13 +1379,16 @@ async def reboot_devices(request):
 
     results = []
     errors = []
+    from resource_manager import get_resource_manager
+    rm = get_resource_manager()
 
     for device in devices:
         try:
-            import subprocess
+            # Resolve actual domain name (may be uppercase on some topologies)
+            domain_name = rm.resolve_domain_name(device)
 
             result = subprocess.run(
-                ['virsh', 'reboot', device],
+                ['virsh', 'reboot', domain_name],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -2986,6 +3017,322 @@ async def _vco_proxy(request, method: str):
         }, status=500)
 
 
+# ============================================================================
+# Helper functions
+# ============================================================================
+
+def get_available_ips_internal():
+    """Return available IPs for use by other handlers without going through HTTP."""
+    from validation import get_available_ips
+    from config import DNSMASQ_PATH, USER_NODES_PATH, get_topo_build_path
+    topo_build_path = get_topo_build_path()
+    return get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+
+
+# ============================================================================
+# CloudEOS Endpoints
+# ============================================================================
+
+@routes.get('/cloudeos-status')
+async def cloudeos_status(request):
+    """GET /cloudeos-status - Return CloudEOS device count and availability."""
+    try:
+        status = get_cloudeos_status()
+        return web.json_response(status)
+    except Exception as e:
+        logger.error(f"Error getting CloudEOS status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-cloudeos')
+async def add_cloudeos(request):
+    """POST /add-cloudeos - Create a CloudEOS VM."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '').lower()
+    ip = data.get('ip')
+    device_type = data.get('device_type', 'other')
+    connections = data.get('connections', [])
+
+    if not name or not ip:
+        return web.json_response({'error': 'name and ip are required'}, status=400)
+
+    try:
+        result = create_cloudeos(name=name, ip=ip, device_type=device_type, connections=connections)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error creating CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-cloudeos')
+async def delete_cloudeos_endpoint(request):
+    """POST /delete-cloudeos - Delete a CloudEOS VM."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '').lower()
+    if not name:
+        return web.json_response({'error': 'name is required'}, status=400)
+
+    try:
+        result = delete_cloudeos(name=name)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+
+        # Clean up cross-references to this CloudEOS device in all persistence files
+        # (prevents orphaned neighbor/connection entries when a CloudEOS node is deleted)
+        from persistence import remove_all_device_references
+        from config import USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_CLOUDEOS_PATH, USER_LINKS_PATH
+        cleanup_result = remove_all_device_references(
+            name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+            user_cloudeos_path=USER_CLOUDEOS_PATH,
+            user_links_path=USER_LINKS_PATH
+        )
+        if cleanup_result['total'] > 0:
+            result['orphaned_references_removed'] = cleanup_result
+
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error deleting CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# WAN CloudEOS Endpoints
+# ============================================================================
+
+@routes.get('/wan-cloudeos-preview')
+async def wan_cloudeos_preview(request):
+    """GET /wan-cloudeos-preview - Preview D1/D2 deployment details."""
+    from validation import get_topo_nodes
+    from interface_manager import find_next_available_port
+    from persistence import get_user_cloudeos_device
+    from config import get_topo_build_path
+
+    try:
+        topo_build_path = get_topo_build_path()
+        topo_nodes = get_topo_nodes(topo_build_path)
+
+        # Find PE1 and PE2 nodes (returned as flat dicts with 'name' key)
+        pe1 = None
+        pe2 = None
+        for node in topo_nodes:
+            if node.get('name', '').upper() == 'PE1':
+                pe1 = node
+            elif node.get('name', '').upper() == 'PE2':
+                pe2 = node
+
+        if not pe1 or not pe2:
+            return web.json_response({'error': 'PE1 and PE2 not found in topology'}, status=400)
+
+        # Check if D1/D2 already exist
+        d1_exists = get_user_cloudeos_device('D1') is not None
+        d2_exists = get_user_cloudeos_device('D2') is not None
+
+        if d1_exists or d2_exists:
+            existing = []
+            if d1_exists:
+                existing.append('D1')
+            if d2_exists:
+                existing.append('D2')
+            return web.json_response({
+                'error': f'{", ".join(existing)} already deployed',
+                'd1_exists': d1_exists,
+                'd2_exists': d2_exists
+            }, status=400)
+
+        # Find available ports on PE1/PE2
+        pe1_port = find_next_available_port('PE1')
+        pe2_port = find_next_available_port('PE2')
+
+        # Get available IPs
+        available_ips = get_available_ips_internal()
+        d1_ip = available_ips[0]['ip'] if len(available_ips) > 0 else None
+        d2_ip = available_ips[1]['ip'] if len(available_ips) > 1 else None
+
+        return web.json_response({
+            'status': 'ready',
+            'd1': {'name': 'D1', 'ip': d1_ip, 'target': 'PE1', 'target_port': pe1_port},
+            'd2': {'name': 'D2', 'ip': d2_ip, 'target': 'PE2', 'target_port': pe2_port},
+            'targets_need_reboot': ['PE1', 'PE2']
+        })
+    except Exception as e:
+        logger.error(f"Error previewing WAN CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-wan-cloudeos')
+async def add_wan_cloudeos(request):
+    """POST /add-wan-cloudeos - Deploy D1 and D2 CloudEOS nodes connected to PE1 and PE2."""
+    from validation import get_topo_nodes
+    from interface_manager import find_next_available_port
+    from persistence import get_user_cloudeos_device
+    from config import get_topo_build_path
+
+    try:
+        topo_build_path = get_topo_build_path()
+        topo_nodes = get_topo_nodes(topo_build_path)
+        node_names = {n.get('name', '').upper() for n in topo_nodes}
+
+        if 'PE1' not in node_names or 'PE2' not in node_names:
+            return web.json_response({'error': 'PE1 and PE2 not found in topology'}, status=400)
+
+        # Check D1/D2 don't already exist
+        if get_user_cloudeos_device('D1') is not None:
+            return web.json_response({'error': 'D1 already deployed'}, status=400)
+        if get_user_cloudeos_device('D2') is not None:
+            return web.json_response({'error': 'D2 already deployed'}, status=400)
+
+        # Get available IPs
+        available_ips = get_available_ips_internal()
+        if len(available_ips) < 2:
+            return web.json_response({'error': 'Not enough IPs available'}, status=400)
+
+        d1_ip = available_ips[0]['ip']
+        d2_ip = available_ips[1]['ip']
+        pe1_port = find_next_available_port('PE1')
+        pe2_port = find_next_available_port('PE2')
+
+        # Create D1 connected to PE1
+        d1_result = create_cloudeos(
+            name='D1', ip=d1_ip, device_type='pe',
+            connections=[{'target_device': 'PE1', 'target_port': pe1_port, 'local_port': 'Ethernet1'}]
+        )
+
+        if d1_result.get('status') == 'error':
+            return web.json_response(
+                {'error': f'Failed to create D1: {d1_result.get("message")}'},
+                status=500
+            )
+
+        # Create D2 connected to PE2
+        d2_result = create_cloudeos(
+            name='D2', ip=d2_ip, device_type='pe',
+            connections=[{'target_device': 'PE2', 'target_port': pe2_port, 'local_port': 'Ethernet1'}]
+        )
+
+        if d2_result.get('status') == 'error':
+            # Rollback D1
+            logger.warning("D2 creation failed, rolling back D1")
+            delete_cloudeos('D1')
+            return web.json_response({
+                'error': f'Failed to create D2 (D1 rolled back): {d2_result.get("message")}'
+            }, status=500)
+
+        # Merge reboot lists from both deployments
+        all_need_reboot = list(set(
+            d1_result.get('targets_need_reboot', []) + d2_result.get('targets_need_reboot', [])
+        ))
+        all_reused = list(set(
+            d1_result.get('targets_reused_slots', []) + d2_result.get('targets_reused_slots', [])
+        ))
+
+        return web.json_response({
+            'status': 'success',
+            'd1': d1_result,
+            'd2': d2_result,
+            'targets_need_reboot': all_need_reboot,
+            'targets_reused_slots': all_reused
+        })
+
+    except Exception as e:
+        logger.error(f"Error deploying WAN CloudEOS: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
+# Link Management Endpoints
+# ============================================================================
+
+@routes.get('/user-links')
+async def get_user_links_endpoint(request):
+    """GET /user-links - List user-added links between topology nodes."""
+    try:
+        links = get_user_links()
+        return web.json_response({'links': links})
+    except Exception as e:
+        logger.error(f"Error getting user links: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-link')
+async def add_link_endpoint(request):
+    """POST /add-link - Add a link between two original topology nodes."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    source_device = data.get('source_device')
+    source_port = data.get('source_port')
+    target_device = data.get('target_device')
+    target_port = data.get('target_port')
+
+    if not all([source_device, source_port, target_device, target_port]):
+        return web.json_response(
+            {'error': 'source_device, source_port, target_device, target_port required'},
+            status=400
+        )
+
+    try:
+        result = add_link(source_device, source_port, target_device, target_port)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error adding link: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/remove-link')
+async def remove_link_endpoint(request):
+    """POST /remove-link - Remove a user-added link between topology nodes."""
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    source_device = data.get('source_device')
+    source_port = data.get('source_port')
+    target_device = data.get('target_device')
+    target_port = data.get('target_port')
+
+    if not all([source_device, source_port, target_device, target_port]):
+        return web.json_response(
+            {'error': 'source_device, source_port, target_device, target_port required'},
+            status=400
+        )
+
+    try:
+        result = remove_link(source_device, source_port, target_device, target_port)
+        if result.get('status') == 'error':
+            return web.json_response(result, status=400)
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Error removing link: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/available-ports/{device}')
+async def available_ports(request):
+    """GET /available-ports/{device} - List free ports on a topology device."""
+    try:
+        device = request.match_info['device']
+        ports = get_available_ports(device)
+        return web.json_response({'device': device, 'ports': ports})
+    except Exception as e:
+        logger.error(f"Error getting available ports: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
 async def on_startup(app):
     """Called when the aiohttp server starts.
 
@@ -2995,9 +3342,11 @@ async def on_startup(app):
     from persistence import (
         cleanup_stale_user_hosts,
         cleanup_stale_user_firewalls,
-        cleanup_stale_velo_devices
+        cleanup_stale_velo_devices,
+        cleanup_stale_cloudeos
     )
-    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH
+    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH, USER_CLOUDEOS_PATH
+    from orphaned_interfaces import cleanup_stale_orphaned_interfaces
 
     # Clean up any stale device entries from crashed creations
     # This prevents orphaned 'creating' entries from blocking new device creation
@@ -3021,8 +3370,34 @@ async def on_startup(app):
     except Exception as e:
         logger.warning(f"Nodebuilder startup: Failed to clean stale VeloCloud devices: {e}")
 
+    try:
+        cleaned = cleanup_stale_cloudeos(USER_CLOUDEOS_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale CloudEOS devices: {e}")
+
     if total_cleaned > 0:
         logger.info(f"Nodebuilder startup: Cleaned up {total_cleaned} stale device entry/entries")
+
+    # Clean up interfaces pointing to deleted OVS bridges
+    # This prevents VMs from failing to start with "Cannot get interface MTU" errors
+    try:
+        orphan_result = cleanup_stale_orphaned_interfaces()
+        if orphan_result['detached_count'] > 0:
+            logger.info(
+                f"Nodebuilder startup: Detached {orphan_result['detached_count']} stale interface(s) "
+                f"from {orphan_result['devices_cleaned']}"
+            )
+        if orphan_result.get('vms_restarted'):
+            logger.info(
+                f"Nodebuilder startup: Restarted {len(orphan_result['vms_restarted'])} VM(s) "
+                f"after cleanup: {orphan_result['vms_restarted']}"
+            )
+        if orphan_result['errors']:
+            for err in orphan_result['errors']:
+                logger.warning(f"Nodebuilder startup: Orphan cleanup issue: {err}")
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale orphaned interfaces: {e}")
 
     logger.info("Nodebuilder startup: Initiating background image pre-staging")
     await start_background_prestaging()

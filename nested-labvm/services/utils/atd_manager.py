@@ -1383,8 +1383,7 @@ class ATDStartup:
             # Step 12: Setup Docker containers
             self._setup_docker()
 
-            # Step 13: Restart sshd
-            self.systemd_manager.restart('sshd')
+            # Step 13: (removed — sshd restart moved to Step 20 after config change)
 
             # Step 14: Run container labs setup if present
             self._run_container_labs_setup()

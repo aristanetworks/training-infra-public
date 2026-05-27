@@ -1,125 +1,106 @@
-hostname PE1
-!
-vrf instance B
-!
-interface Ethernet1
-   mtu 1500
-   no switchport
-!
-interface Ethernet2
-   mtu 1500
-   no switchport
-   vrf B
-   ip address 192.168.21.1/30
-!
-interface Ethernet3
-   mtu 1500
-   no switchport
-!
-interface Ethernet4
-   mtu 1500
-   no switchport
-   ip address 172.16.13.1/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-!
-interface Ethernet5
-   shutdown
-   mtu 1500
-   no switchport
-   ip address 172.16.14.1/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-!
-interface Ethernet6
-   shutdown
-   mtu 1500
-   no switchport
-   ip address 172.16.15.1/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group blue,red
-!
-interface Loopback0
-   ip address 192.168.100.1/32
-   isis enable isis
-!
-ip routing
-ip routing vrf B
-!
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 ge 24
-!
-mpls ip
-!
-mpls ldp
-   router-id interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
-   no shutdown
-!
-router bgp 100
-   neighbor 192.168.100.2 remote-as 100
-   neighbor 192.168.100.2 update-source Loopback0
-   neighbor 192.168.100.2 send-community extended
+   hostname PE1
    !
-   address-family vpn-ipv4
-      neighbor 192.168.100.2 activate
+   service routing protocols model multi-agent
    !
-   vrf B
-      rd 100:2
-      route-target import vpn-ipv4 100:2
-      route-target export vpn-ipv4 100:2
-      neighbor 192.168.21.2 remote-as 65102
-!
-router traffic-engineering
-   rsvp
-      local-interface Loopback0
-      !
-      path Blue-path-to-PE2 dynamic
-         administrative-group include all blue
-      !
-      path Red-path-to-PE2 dynamic
-         administrative-group include any red
-      !
-      tunnel Tunnel-1-to-PE2
-         destination ip 192.168.100.2
-         path Blue-path-to-PE2
-         bandwidth 30.00 mbps
-         igp shortcut
-         optimization interval 2 seconds
-         no shutdown
-      !
-      tunnel Tunnel-2-to-PE2
-         destination ip 192.168.100.2
-         path Red-path-to-PE2
-         bandwidth 40.00 mbps
-         igp shortcut
-         optimization interval 2 seconds
-         no shutdown
-   router-id ipv4 192.168.100.1
-   administrative-group alias blue group 1
-   administrative-group alias red group 2
-
-!
-router isis isis
-   net 49.0000.0000.0000.0001.00
-   router-id ipv4 192.168.100.1
-   is-type level-1
+   ip routing
+   mpls ip
    !
-   address-family ipv4 unicast
+   ip prefix-list ldp-fec-prefix-list
+      seq 10 permit 192.168.100.0/24 eq 32
    !
-   traffic-engineering
+   mpls ldp
+      router-id interface Loopback0
+      fec filter prefix-list ldp-fec-prefix-list
       no shutdown
+   !
+   mpls rsvp
+      fast-reroute mode node-protection
+      no shutdown
+   !
+   router isis isis
+      net 49.0000.0000.0000.0001.00
+      router-id ipv4 192.168.100.1
       is-type level-1
-!
-mpls rsvp
-   fast-reroute mode node-protection
-   no shutdown
-
-
+      address-family ipv4 unicast
+      traffic-engineering
+      no shutdown
+   !
+   router traffic-engineering
+      router-id ipv4 192.168.100.1
+      administrative-group alias blue group 1
+      administrative-group alias red group 2
+      !
+      rsvp
+         local-interface Loopback0
+         path Blue-path-to-PE2 dynamic
+            administrative-group include all blue
+         !
+         path Red-path-to-PE2 dynamic
+            administrative-group include any red
+         !
+         tunnel Tunnel-1-to-PE2
+            destination ip 192.168.100.2
+            path Blue-path-to-PE2
+            bandwidth 30.00 mbps
+            igp shortcut
+            optimization interval 2 seconds
+            no shutdown
+         !
+         tunnel Tunnel-2-to-PE2
+            destination ip 192.168.100.2
+            path Red-path-to-PE2
+            bandwidth 40.00 mbps
+            igp shortcut
+            optimization interval 2 seconds
+            no shutdown
+   !
+   interface Loopback0
+      ip address 192.168.100.1/32
+      isis enable isis
+      no shutdown
+   !
+   interface Ethernet1
+      no switchport
+      ip address 192.168.11.1/30
+      no shutdown
+   !
+   interface Ethernet2
+      no switchport
+      ip address 192.168.21.1/30
+      no shutdown
+   !
+   interface Ethernet3
+      no switchport
+      ip address 192.168.31.1/30
+      no shutdown
+   !
+   interface Ethernet4
+      no switchport
+      ip address 172.16.13.1/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group red
+      no shutdown
+   !
+   interface Ethernet5
+      no switchport
+      ip address 172.16.14.1/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue
+      no shutdown
+   !
+   interface Ethernet6
+      no switchport
+      ip address 172.16.15.1/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue,red
+      no shutdown
+   !

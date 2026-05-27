@@ -228,7 +228,7 @@ body {
     margin-top: 16px;
 }
 
-/* Progress Phases */
+/* ===== Progress Phases ===== */
 #progress-phases {
     display: flex;
     justify-content: space-between;
@@ -427,6 +427,14 @@ body {
 
 /* Responsive */
 @media screen and (max-width: 640px) {
+    .topo-converter-container {
+        padding: 1rem;
+    }
+
+    .topo-converter-header h1 {
+        font-size: 1.4rem;
+    }
+
     #progress-phases {
         flex-direction: column;
     }
@@ -436,7 +444,18 @@ body {
     }
 
     .phase-item {
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .topo-btn {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+        text-align: center;
     }
 
     .tc-main {

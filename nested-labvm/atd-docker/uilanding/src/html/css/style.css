@@ -721,3 +721,226 @@ label{
     z-index: 99;
   }
 }
+
+/* ============================================
+   Hidden Diagnostics Panel
+   ============================================ */
+
+.diagnostics-panel {
+  position: fixed;
+  top: 65px;
+  right: 20px;
+  z-index: 1200;
+  width: 420px;
+  max-height: calc(100vh - 100px);
+  background: rgba(7, 28, 53, 0.98);
+  border: 2px solid var(--secondary-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  color: white;
+  font-family: 'proxima-nova', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  animation: popupFadeIn 0.2s ease;
+}
+
+.diagnostics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--secondary-color);
+  flex-shrink: 0;
+}
+
+.diagnostics-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.diagnostics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diag-btn {
+  background: rgba(251, 181, 0, 0.15);
+  border: 1px solid rgba(251, 181, 0, 0.3);
+  color: var(--secondary-color);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.diag-btn:hover {
+  background: rgba(251, 181, 0, 0.3);
+  border-color: var(--secondary-color);
+}
+
+.diag-btn-small {
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.diag-close {
+  background: none;
+  border: none;
+  color: #6c8eaf;
+  font-size: 20px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.diag-close:hover {
+  color: var(--secondary-color);
+}
+
+.diagnostics-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.diag-section {
+  margin-bottom: 16px;
+}
+
+.diag-section:last-child {
+  margin-bottom: 0;
+}
+
+.diag-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed rgba(251, 181, 0, 0.2);
+  padding-bottom: 4px;
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+}
+
+.diag-label {
+  color: #6c8eaf;
+  font-weight: 500;
+}
+
+.diag-value {
+  color: #b8c5d6;
+  font-family: monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.diag-toggle-btn {
+  background: rgba(120, 216, 44, 0.15);
+  border: 1px solid rgba(120, 216, 44, 0.3);
+  color: var(--neon-green);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.diag-toggle-btn:hover {
+  background: rgba(120, 216, 44, 0.3);
+}
+
+.diag-toggle-btn.active {
+  background: rgba(120, 216, 44, 0.3);
+  border-color: var(--neon-green);
+  color: white;
+}
+
+.diag-timeline {
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.diag-timeline-entry {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.diag-timeline-entry:last-child {
+  border-bottom: none;
+}
+
+.diag-timeline-ts {
+  color: #6c8eaf;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.diag-timeline-type {
+  font-weight: 600;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.diag-timeline-type.evt-connect {
+  color: var(--neon-green);
+}
+
+.diag-timeline-type.evt-disconnect {
+  color: var(--red);
+}
+
+.diag-timeline-type.evt-warning {
+  color: var(--secondary-color);
+}
+
+.diag-timeline-type.evt-info {
+  color: #b8c5d6;
+}
+
+.diag-timeline-data {
+  color: #8a9bb0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diag-timeline-empty {
+  color: #6c8eaf;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+@media screen and (max-width: 63.9375em) {
+  .diagnostics-panel {
+    width: calc(100vw - 40px);
+    max-width: 420px;
+    top: 100px;
+    right: 10px;
+  }
+}

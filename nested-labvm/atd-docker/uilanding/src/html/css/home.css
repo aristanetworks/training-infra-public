@@ -286,3 +286,72 @@ body {
 }
 
 /* CVP Status Badge styles moved to style.css (unified system status badge) */
+
+/* Lab Guides expandable sub-menu */
+.labguides-submenu {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.labguides-submenu.expanded {
+  display: block;
+}
+
+.labguides-parent {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.labguides-parent .submenu-arrow {
+  color: var(--secondary-color);
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.labguides-parent .submenu-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.labguides-submenu li .site-sidebar__subitem {
+  display: block;
+  font-size: 13px;
+  line-height: 20px;
+  color: #fff;
+  padding: 8px 24px 8px 36px;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 3px solid rgba(251, 181, 0, 0.3);
+  text-decoration: none;
+  transition: background 0.25s;
+}
+
+.labguides-submenu li .site-sidebar__subitem:hover {
+  background: rgba(217, 217, 217, 0.1);
+}
+
+.labguides-submenu li .site-sidebar__subitem.pdf-building {
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.labguides-submenu li .site-sidebar__subitem.pdf-building .pdf-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: rgba(251, 181, 0, 0.6);
+  border-radius: 50%;
+  animation: pdf-spin 1s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes pdf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

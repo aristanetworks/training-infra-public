@@ -1,0 +1,22 @@
+hostname C2
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.32.2/30
+!
+interface Ethernet2
+!
+interface Ethernet3
+!
+interface Loopback0
+   ip address 192.168.3.2/32
+!
+ip routing
+!
+ip route 0.0.0.0/0 192.168.32.1
+!
+router bgp 65203
+   neighbor 192.168.32.1 remote-as 100
+   network 192.168.3.2/32
+!
+end

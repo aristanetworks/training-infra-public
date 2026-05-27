@@ -135,6 +135,7 @@ async function setSessionSetup() {
                 console.log('BeginExamHandler response:', beginExamData);
 
                 console.log('Exam has begun');
+                cloudLog('info', 'Exam begun', { source: 'honorlock', action: 'exam_begin' });
 
                 // Hide instructions iframe
                 const instructionsFrame = document.getElementById('exam-instructions-frame');

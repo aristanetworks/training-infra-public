@@ -1,12 +1,15 @@
+hostname A2
 !
-ip route 0.0.0.0/0 192.168.12.1
+service routing protocols model multi-agent
 !
-int loop0
+ip routing
+!
+interface Loopback0
    ip address 192.168.10.2/32
+   no shutdown
 !
-int eth1
+interface Ethernet1
    no switchport
    ip address 192.168.12.2/30
-   mtu 1500
-   no shut
+   no shutdown
 !

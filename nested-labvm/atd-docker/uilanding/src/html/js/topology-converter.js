@@ -213,6 +213,7 @@
             dataType: 'json',
             success: function(data) {
                 console.log('[TopologyConverter] Conversion started:', data);
+                cloudLog('info', 'Topology conversion started: ' + targetTopology, { source: 'topology-converter', action: 'conversion_start', topology: targetTopology });
                 conversionInProgress = true;
 
                 if (data.status === 'started') {
@@ -227,6 +228,7 @@
             },
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to start conversion:', error);
+                cloudLog('error', 'Topology conversion failed: ' + error, { source: 'topology-converter', action: 'conversion_failed' });
                 let errorMsg = 'Failed to start conversion: ' + error;
 
                 try {
@@ -352,6 +354,7 @@
                 stopStatusPolling();
                 conversionInProgress = false;
                 conversionCompleted = true;
+                cloudLog('info', 'Topology conversion completed', { source: 'topology-converter', action: 'conversion_complete' });
 
                 // Keep progress visible and update header
                 $('#conversion-progress .tc-card-header h5').html(
@@ -563,8 +566,8 @@
             const device = devices[name];
             const isOnline = device.status === 'up';
             const statusIcon = isOnline ?
-                '<i class="fas fa-check-circle" style="color: #10b981;"></i>' :
-                '<i class="fas fa-times-circle" style="color: #ef4444;"></i>';
+                '<i class="fas fa-check-circle" style="color: #78d82c;"></i>' :
+                '<i class="fas fa-times-circle" style="color: #e30909;"></i>';
             const statusText = isOnline ? 'Online' : 'Offline';
 
             if (isOnline) {

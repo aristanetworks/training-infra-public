@@ -1,79 +1,70 @@
-hostname P6
-!
-interface Ethernet1
-   mtu 1500
-   no switchport
-   ip address 172.16.56.6/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group blue,red
-!
-interface Ethernet2
-   mtu 1500
-   no switchport
-   ip address 172.16.26.6/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group blue
-!
-interface Ethernet3
-   no switchport
-   ip address 172.16.46.6/24
-   isis enable isis
-   isis network point-to-point
-   traffic-engineering
-   traffic-engineering bandwidth 75 percent
-   traffic-engineering administrative-group red
-!
-interface Loopback0
-   ip address 192.168.100.6/32
-   isis enable isis
-!
-interface Management1
-   vrf MGMT
-   ip address 192.168.0.46/24
-!
-ip routing
-ip routing vrf MGMT
-!
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 ge 24
-!
-ip route vrf MGMT 0.0.0.0/0 192.168.0.1
-!
-mpls ip
-!
-mpls ldp
-   router-id interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
-   no shutdown
-!
-ntp server vrf MGMT 192.168.0.1 iburst source Management1
-!
-ip radius source-interface Management1
-!
-router traffic-engineering
+   hostname P6
+   !
+   service routing protocols model multi-agent
+   !
+   ip routing
+   mpls ip
+   !
+   ip prefix-list ldp-fec-prefix-list
+      seq 10 permit 192.168.100.0/24 eq 32
+   !
+   mpls ldp
+      router-id interface Loopback0
+      fec filter prefix-list ldp-fec-prefix-list
+      no shutdown
+   !
+   mpls rsvp
+      fast-reroute mode node-protection
+      no shutdown
+   !
+   router isis isis
+      net 49.0000.0000.0000.0006.00
+      router-id ipv4 192.168.100.6
+      is-type level-1
+      address-family ipv4 unicast
+      traffic-engineering
+      no shutdown
+   !
+   router traffic-engineering
    router-id ipv4 192.168.100.6
    administrative-group alias blue group 1
    administrative-group alias red group 2
-
-!
-router isis isis
-   net 49.0000.0000.0000.0006.00
-   router-id ipv4 192.168.100.6
-   is-type level-1
    !
-   address-family ipv4 unicast
+   rsvp
+      local-interface Loopback0
    !
-   traffic-engineering
+   interface Loopback0
+      ip address 192.168.100.6/32
+      isis enable isis
       no shutdown
-      is-type level-1
-!
-mpls rsvp
-   fast-reroute mode node-protection
-   no shutdown
-
+   !
+   interface Ethernet1
+      no switchport
+      ip address 172.16.56.6/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue,red
+      no shutdown
+   !
+   interface Ethernet2
+      no switchport
+      ip address 172.16.26.6/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group blue
+      no shutdown
+   !
+   interface Ethernet3
+      no switchport
+      ip address 172.16.46.6/24
+      isis enable isis
+      isis network point-to-point
+      traffic-engineering
+      traffic-engineering bandwidth 75 percent
+      traffic-engineering administrative-group red
+      no shutdown
+   !
