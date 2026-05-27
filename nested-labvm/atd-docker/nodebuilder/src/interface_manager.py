@@ -76,7 +76,7 @@ from config import (
 def get_vm_interfaces(vm_name: str) -> List[Dict]:
     """
     Query libvirt for interfaces attached to a VM.
-    Lowercases vm_name since libvirt domains are always lowercase.
+    Resolves the actual domain name first (may be uppercase or lowercase).
 
     Uses virsh domiflist to get the list of network interfaces.
 
@@ -86,9 +86,11 @@ def get_vm_interfaces(vm_name: str) -> List[Dict]:
     Returns:
         List of interface dicts with 'type', 'source', 'model', 'mac'
     """
+    from vm_manager import resolve_domain_name
+    vm_name = resolve_domain_name(vm_name)
     try:
         result = subprocess.run(
-            ['virsh', 'domiflist', vm_name.lower()],
+            ['virsh', 'domiflist', vm_name],
             capture_output=True,
             text=True,
             timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -707,10 +709,10 @@ def attach_interface_to_vm(
         Dict with status and details
     """
     import tempfile
-    from vm_manager import get_vm_state
+    from vm_manager import get_vm_state, resolve_domain_name
 
-    # Lowercase for libvirt domain name
-    vm_name = vm_name.lower()
+    # Resolve actual libvirt domain name (may be uppercase on some topologies)
+    vm_name = resolve_domain_name(vm_name)
 
     # Check if VM is running
     vm_state = get_vm_state(vm_name)
@@ -878,10 +880,10 @@ def detach_interface_from_vm(
     Returns:
         Dict with status
     """
-    from vm_manager import get_vm_state
+    from vm_manager import get_vm_state, resolve_domain_name
 
-    # Lowercase for libvirt domain name
-    vm_name = vm_name.lower()
+    # Resolve actual libvirt domain name (may be uppercase on some topologies)
+    vm_name = resolve_domain_name(vm_name)
 
     # Check if VM is running
     vm_state = get_vm_state(vm_name)
@@ -957,10 +959,10 @@ def update_interface_bridge(
         RuntimeError: If update fails
     """
     import tempfile
-    from vm_manager import get_vm_state
+    from vm_manager import get_vm_state, resolve_domain_name
 
-    # Lowercase for libvirt domain name
-    vm_name = vm_name.lower()
+    # Resolve actual libvirt domain name (may be uppercase on some topologies)
+    vm_name = resolve_domain_name(vm_name)
 
     # Check if VM is running
     vm_state = get_vm_state(vm_name)

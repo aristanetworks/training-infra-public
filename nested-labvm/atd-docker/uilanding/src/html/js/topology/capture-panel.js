@@ -244,6 +244,7 @@ export class CapturePanel {
             this.populateBridgeSelector(this.bridges);
         } catch (error) {
             console.error('[CapturePanel] Failed to load bridges:', error);
+            cloudLog('error', 'Capture bridges load failed: ' + error.message, { source: 'capture-panel', action: 'bridges_load_failed' });
             this.bridges = [];
             this.elements.bridgeSelect.innerHTML = '<option value="">Error loading bridges</option>';
         }
@@ -477,6 +478,7 @@ export class CapturePanel {
             this.updateUICapturing(true);
         }).catch(error => {
             console.error('[CapturePanel] WebSocket connection failed:', error);
+            cloudLog('error', 'Capture WS connection failed: ' + error, { source: 'capture-panel', action: 'capture_ws_failed' });
             this.showError('Failed to connect for capture');
         });
     }
@@ -550,6 +552,7 @@ export class CapturePanel {
                     } else {
                         // Max reconnection attempts reached - notify user
                         console.error('[CapturePanel] Max reconnection attempts reached');
+                        cloudLog('error', 'Capture reconnection exhausted', { source: 'capture-panel', action: 'capture_reconnect_exhausted' });
                         this.showReconnectionFailedNotification();
                     }
                 }

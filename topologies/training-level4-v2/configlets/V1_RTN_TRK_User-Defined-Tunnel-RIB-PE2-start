@@ -1,120 +1,103 @@
 !
+hostname PE2
+!
 ip routing
+!
 mpls ip
+!
+vrf instance Cust-A
+!
+vrf instance Cust-B
 !
 vlan 30
    name Cust-C
 !
-service routing protocols model multi-agent
-!
-vrf instance Cust-A
-vrf instance Cust-B
-!
-ip routing vrf Cust-A
-ip routing vrf Cust-B
-!
-ip route vrf Cust-A 192.168.10.2/32 192.168.12.2
-ip route vrf Cust-B 192.168.20.2/32 192.168.22.2
-!
-router bgp 65100
-   no bgp default ipv4-unicast
-   neighbor 192.168.100.1 remote-as 65100
-   neighbor 192.168.100.1 next-hop-self
-   neighbor 192.168.100.1 update-source Loopback0
-   neighbor 192.168.100.1 send-community extended
-   !
-   address-family evpn
-      neighbor default encapsulation mpls next-hop-self source-interface Loopback0
-      neighbor 192.168.100.1 activate
-   !
-   vlan 30
-      rd 192.168.100.2:30
-      route-target export 30:30
-      route-target import 30:30
-      redistribute learned
-      redistribute static
-   !
-   vrf Cust-A
-      rd 65100:10
-      route-target import evpn 65100:10
-      route-target export evpn 65100:10
-      redistribute static
-      redistribute connected
-   !
-   vrf Cust-B
-      rd 65100:20
-      route-target import evpn 65100:20
-      route-target export evpn 65100:20
-      redistribute static
-      redistribute connected
-!
-router isis isis
-   net 49.0000.0000.0000.0002.00
-   router-id ipv4 192.168.100.2
-   is-type level-1
-   !
-   address-family ipv4 unicast
-      segment-routing mpls
-         no shutdown
-!
-interface Loopback0
-   ip address 192.168.100.2/32
-   isis enable isis
-   node-segment ipv4 index 2
-!
 interface Ethernet1
-   vrf Cust-A
    no switchport
+   vrf Cust-A
    ip address 192.168.12.1/30
-   mtu 1500
-   no shutdown
 !
 interface Ethernet2
-   vrf Cust-B
    no switchport
+   vrf Cust-B
    ip address 192.168.22.1/30
-   mtu 1500
-   no shutdown
 !
 interface Ethernet3
-   switchport
    switchport access vlan 30
-   no shutdown
+!
+interface Vlan30
+   ip address 192.168.32.1/30
 !
 interface Ethernet4
    no switchport
    ip address 172.16.23.2/24
-   mtu 1500
    isis enable isis
    isis network point-to-point
-   no shutdown
+   mpls ldp interface
 !
 interface Ethernet5
    no switchport
    ip address 172.16.24.2/24
-   mtu 1500
    isis enable isis
    isis network point-to-point
-   no shutdown
+   mpls ldp interface
 !
 interface Ethernet6
    no switchport
    ip address 172.16.26.2/24
-   mtu 1500
    isis enable isis
    isis network point-to-point
-   no shutdown
+   mpls ldp interface
 !
-ip prefix-list ldp-fec-prefix-list
-   permit 192.168.100.0/24 ge 24
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+!
+router isis isis
+   net 49.0001.0000.0000.0002.00
+   is-type level-1
+   router-id ipv4 192.168.100.2
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
 !
 mpls ldp
-   router-id interface Loopback0 force
-   fec filter prefix-list ldp-fec-prefix-list
+   router-id 192.168.100.2
    no shutdown
+   transport-address interface Loopback0
 !
 tunnel-ribs
-   tunnel-rib system-tunnel-rib
+   system tunnel-rib
       source-protocol isis segment-routing preference 50
 !
-
+ip route vrf Cust-A 192.168.10.2/32 192.168.12.2
+ip route vrf Cust-B 192.168.20.2/32 192.168.22.2
+ip route 192.168.30.2/32 192.168.32.2
+!
+router bgp 65100
+   router-id 192.168.100.2
+   neighbor 192.168.100.1 remote-as 65100
+   neighbor 192.168.100.1 update-source Loopback0
+   !
+   address-family ipv4
+   !
+   address-family evpn
+      neighbor 192.168.100.1 activate
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.1 activate
+   !
+   vrf Cust-A
+      rd 192.168.100.2:10
+      route-target import evpn 10:10
+      route-target export evpn 10:10
+      redistribute static
+      redistribute connected
+   !
+   vrf Cust-B
+      rd 192.168.100.2:20
+      route-target import evpn 20:20
+      route-target export evpn 20:20
+      redistribute static
+      redistribute connected
+!

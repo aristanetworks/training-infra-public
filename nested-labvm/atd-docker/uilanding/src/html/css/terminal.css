@@ -126,24 +126,6 @@ body.terminal-page {
   padding: 8px 0;
 }
 
-/* ============================================
-   Open All Authentication Notice
-   ============================================ */
-.open-all-notice {
-  padding: 10px 16px;
-  margin: 8px 12px;
-  background: rgba(251, 181, 0, 0.1);
-  border: 1px solid var(--secondary-color);
-  color: var(--secondary-color);
-  font-size: 12px;
-  line-height: 1.4;
-  animation: noticeIn 0.2s ease-out;
-}
-
-@keyframes noticeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 /* ============================================
    Jump Server Link
@@ -223,24 +205,6 @@ body.terminal-page {
   flex: 1;
 }
 
-.group-header .group-open-all {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.15s;
-  margin-left: auto;
-}
-
-.group-header .group-open-all:hover {
-  color: var(--secondary-color);
-  border-color: var(--secondary-color);
-  background: rgba(251, 181, 0, 0.1);
-}
 
 .group-header .arrow {
   margin-right: 10px;
@@ -533,6 +497,64 @@ body.terminal-page {
 }
 
 /* ============================================
+   Tab Context Menu
+   ============================================ */
+.tab-context-menu {
+  position: fixed;
+  background: var(--primary-color);
+  border: 1px solid var(--secondary-color);
+  min-width: 200px;
+  z-index: 100000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tab-context-menu .menu-section-label {
+  padding: 6px 14px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-context-menu .menu-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.15s;
+}
+
+.tab-context-menu .menu-item:hover {
+  background: rgba(251, 181, 0, 0.1);
+}
+
+.tab-context-menu .menu-item.destructive {
+  color: var(--danger-red, #e30909);
+}
+
+.tab-context-menu .menu-item.destructive:hover {
+  background: rgba(227, 9, 9, 0.1);
+}
+
+.tab-context-menu .menu-item .group-name-highlight {
+  color: var(--secondary-color);
+}
+
+.tab-context-menu .menu-divider {
+  height: 1px;
+  background: rgba(251, 181, 0, 0.3);
+  margin: 4px 0;
+}
+
+.tab-context-menu .menu-item .menu-icon {
+  width: 16px;
+  text-align: center;
+}
+
+/* ============================================
    Credentials Panel
    ============================================ */
 .credentials-panel {
@@ -635,7 +657,6 @@ body.terminal-page {
   border-bottom: none;
   border-radius: 0;
   margin-right: 4px;
-  cursor: pointer;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
@@ -697,6 +718,47 @@ body.terminal-page {
 
 .tab .tab-status-dot.novnc {
   background: #9b59b6;  /* Purple for desktop/VNC */
+}
+
+/* ============================================
+   Tab Drag & Drop
+   ============================================ */
+.tab {
+  cursor: grab;
+}
+
+.tab:active {
+  cursor: grabbing;
+}
+
+.tab-ghost {
+  opacity: 0.4;
+  border: 2px solid var(--secondary-color);
+  background: rgba(251, 181, 0, 0.15);
+}
+
+.tab-chosen {
+  cursor: grabbing;
+}
+
+/* The original element left behind during drag — shows drop position */
+.tab-dragging-source {
+  border: 2px dashed var(--secondary-color) !important;
+  background: rgba(251, 181, 0, 0.1) !important;
+  color: transparent !important;
+}
+
+.tab-dragging-source * {
+  visibility: hidden;
+}
+
+/* The fallback ghost that follows the cursor */
+.tab-drag-fallback {
+  opacity: 0.85;
+  border: 2px solid var(--secondary-color);
+  background: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  cursor: grabbing;
 }
 
 /* ============================================

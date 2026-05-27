@@ -6,7 +6,14 @@ else {
     atdURL = atdURL.replace("http:", "ws:");
 }
 atdURL += "/td-ws";
-var ws = new WebSocket(atdURL);
+var ws = null;  // Initialized by createWS() below
+
+// Persistent client ID — survives page refreshes via localStorage
+var atdClientId = localStorage.getItem('atl_client_id');
+if (!atdClientId) {
+    atdClientId = 'c-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem('atl_client_id', atdClientId);
+}
 var event_timer_ids = {};
 var topo_notify = false;
 var notifications_sent = {
@@ -98,6 +105,7 @@ function createWS(SOCK_URL) {
     // Create a websocket connection
     ws = new WebSocket(SOCK_URL);
     ws.onopen = function () {
+        cloudLog('info', 'WebSocket connected', { source: 'atd-ws', action: 'ws_connect' });
         // Note: We don't set wsConnected here because we wait for the first message
         // to confirm the connection is fully working. ConnectivityMonitor is updated
         // separately for UI status display.
@@ -109,12 +117,14 @@ function createWS(SOCK_URL) {
         ws.send(JSON.stringify({
             type: "hello",
             data: {
-                action: "status"
+                action: "status",
+                client_id: atdClientId
             }
         }));
     };
 
     ws.onclose = function (evt) {
+        cloudLog('warning', 'WebSocket disconnected', { source: 'atd-ws', action: 'ws_disconnect' });
         // Reset wsConnected flag and update connectivity monitor
         setWSConnected(false);
 
@@ -140,114 +150,127 @@ function createWS(SOCK_URL) {
         // Get cached DOM elements for performance
         var elements = getCachedExamElements();
 
-        // Handle Start Exam button visibility and state based on CVP status
-        // Read flags LIVE from window (not snapshots) to get current values
-        if (reg_data['cvp'] && reg_data['cvp']['status'] && reg_data['cvp']['status'] != 'UP') {
-            // Only show modal for exam labs when we have confirmed the exam status
-            // Using live window references to ensure we have the latest values
-            if (window.examStatusLoaded && window.isExamLab) {
-      // Hide loading overlay and show exam modal simultaneously
-      var initialLoading = document.getElementById('initialLoadingOverlay');
-      if (initialLoading) {
-          initialLoading.style.display = 'none';
-      }                
-                // Show CVP waiting modal with waiting state
-                if (elements.cvpModal) {
-                    elements.cvpModal.style.display = 'flex';
+        // Handle CVP status UI updates — only when message contains CVP data
+        // Ping messages don't carry CVP data, so skip them to avoid resetting state
+        if (reg_data['cvp'] && reg_data['cvp']['status']) {
+            if (reg_data['cvp']['status'] != 'UP') {
+                // Only log on state transition (not every WS message during CVP startup)
+                if (window._lastCvpStatus !== reg_data['cvp']['status']) {
+                    window._lastCvpStatus = reg_data['cvp']['status'];
+                    cloudLog('warning', 'CVP status: ' + reg_data['cvp']['status'], { source: 'atd-ws', action: 'cvp_status_down' });
                 }
 
-                // Show loading icon, hide ready icon
-                if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'block';
-                if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'none';
+                // Update sidebar: show struck-through CVP, hide active CVP
+                if (elements.cvpLoading) elements.cvpLoading.style.display = "block";
+                if (elements.cvpLoaded) elements.cvpLoaded.style.display = "none";
 
-                // Set waiting state messages
-                if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Starting';
-                if (elements.cvpModalMessage) {
-                    elements.cvpModalMessage.innerHTML = 'Please wait for CVP to start, this can take <strong>15 minutes</strong>.';
-                }
-                if (elements.cvpNoticeText) {
-                    elements.cvpNoticeText.innerHTML = 'This time is <strong>NOT</strong> part of your allocated exam.';
-                }
-                if (elements.cvpSuggestion) {
-                    elements.cvpSuggestion.innerHTML = 'Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.';
+                // Disable lab menu button
+                if (elements.labBtn) {
+                    elements.labBtn.disabled = true;
+                    if (elements.cvpStatus) {
+                        elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up";
+                    }
                 }
 
-                // Disable the Start Exam button in modal
-                if (elements.cvpModalBtn) {
-                    elements.cvpModalBtn.disabled = true;
+                // Show exam modal in waiting state (exam labs only)
+                if (window.examStatusLoaded && window.isExamLab) {
+                    var initialLoading = document.getElementById('initialLoadingOverlay');
+                    if (initialLoading) {
+                        initialLoading.style.display = 'none';
+                    }
+                    if (elements.cvpModal) {
+                        elements.cvpModal.style.display = 'flex';
+                    }
+                    if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'block';
+                    if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'none';
+                    if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Starting';
+                    if (elements.cvpModalMessage) {
+                        elements.cvpModalMessage.innerHTML = 'Please wait for CVP to start, this can take <strong>15 minutes</strong>.';
+                    }
+                    if (elements.cvpNoticeText) {
+                        elements.cvpNoticeText.innerHTML = 'This time is <strong>NOT</strong> part of your allocated exam.';
+                    }
+                    if (elements.cvpSuggestion) {
+                        elements.cvpSuggestion.innerHTML = 'Please leave this tab open and grab a drink or use the restroom. The <strong>Start Exam</strong> button will be enabled once CVP is up.';
+                    }
+                    if (elements.cvpModalBtn) {
+                        elements.cvpModalBtn.disabled = true;
+                    }
                 }
-            }
+            } else {
+                // Log CVP UP transition (only once, not every message)
+                if (window._lastCvpStatus && window._lastCvpStatus !== 'UP') {
+                    cloudLog('info', 'CVP status: UP', { source: 'atd-ws', action: 'cvp_status_up' });
+                }
+                window._lastCvpStatus = 'UP';
+                // CVP is UP — update sidebar: hide struck-through, show active
+                if (elements.cvpLoading) elements.cvpLoading.style.display = "none";
+                if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block";
 
-            if (elements.labBtn) {
-                elements.labBtn.disabled = true
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = "CVP is currently starting, Lab menu will be available once CVP is up"
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "block"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "none"
-                }
-            }
-        } else {
-            // CVP is UP
-            // Only update modal for exam labs when we have confirmed the exam status
-            // Using live window references to ensure we have the latest values
-            if (window.examStatusLoaded && window.isExamLab) {
-                      // Hide loading overlay and show exam modal simultaneously
-      var initialLoading = document.getElementById('initialLoadingOverlay');
-      if (initialLoading) {
-          initialLoading.style.display = 'none';
-      }
-
-                // Update modal to ready state
-                if (elements.cvpModal) {
-                    elements.cvpModal.style.display = 'flex';
-                }
-
-                // Hide loading icon, show ready icon
-                if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'none';
-                if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'block';
-
-                // Set ready state messages
-                if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Ready!';
-                if (elements.cvpModalMessage) {
-                    elements.cvpModalMessage.innerHTML = 'CVP has successfully started and is ready for your exam.';
-                }
-                if (elements.cvpNoticeText) {
-                    elements.cvpNoticeText.innerHTML = 'You can now start your exam. <strong>Good luck!</strong>';
-                }
-                if (elements.cvpSuggestion) {
-                    elements.cvpSuggestion.innerHTML = 'Click the <strong>Start Exam</strong> button below to begin.';
+                // Enable lab menu button
+                if (elements.labBtn) {
+                    elements.labBtn.disabled = false;
+                    if (elements.cvpStatus) {
+                        elements.cvpStatus.textContent = "";
+                    }
                 }
 
-                // Enable the Start Exam button in modal
-                if (elements.cvpModalBtn) {
-                    elements.cvpModalBtn.disabled = false;
-                }
-
-                // Hide the original overlay
-                if (elements.overlay) {
-                    elements.overlay.style.display = 'none';
-                }
-            }
-
-            if (elements.labBtn) {
-                elements.labBtn.disabled = false
-                if (elements.cvpStatus) {
-                    elements.cvpStatus.textContent = ""
-                    if (elements.cvpLoading) elements.cvpLoading.style.display = "none"
-                    if (elements.cvpLoaded) elements.cvpLoaded.style.display = "block"
+                // Show exam modal in ready state (exam labs only)
+                if (window.examStatusLoaded && window.isExamLab) {
+                    var initialLoading = document.getElementById('initialLoadingOverlay');
+                    if (initialLoading) {
+                        initialLoading.style.display = 'none';
+                    }
+                    if (elements.cvpModal) {
+                        elements.cvpModal.style.display = 'flex';
+                    }
+                    if (elements.cvpLoadingIcon) elements.cvpLoadingIcon.style.display = 'none';
+                    if (elements.cvpReadyIcon) elements.cvpReadyIcon.style.display = 'block';
+                    if (elements.cvpModalTitle) elements.cvpModalTitle.textContent = 'CVP is Ready!';
+                    if (elements.cvpModalMessage) {
+                        elements.cvpModalMessage.innerHTML = 'CVP has successfully started and is ready for your exam.';
+                    }
+                    if (elements.cvpNoticeText) {
+                        elements.cvpNoticeText.innerHTML = 'You can now start your exam. <strong>Good luck!</strong>';
+                    }
+                    if (elements.cvpSuggestion) {
+                        elements.cvpSuggestion.innerHTML = 'Click the <strong>Start Exam</strong> button below to begin.';
+                    }
+                    if (elements.cvpModalBtn) {
+                        elements.cvpModalBtn.disabled = false;
+                    }
+                    if (elements.overlay) {
+                        elements.overlay.style.display = 'none';
+                    }
                 }
             }
         }
         if (received_msg['type'] == 'ping') {
-            // Update connectivity monitor on successful ping
+            // Respond with timing data for latency measurement
+            var serverTs = received_msg['data'] ? received_msg['data']['ts'] : null;
+            var clientTs = Date.now();
+
+            // Record server-measured RTT (authoritative, not affected by clock skew)
+            var serverRtt = received_msg['data'] ? received_msg['data']['server_rtt'] : null;
+            if (serverRtt && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.recordLatency === 'function') {
+                window.ConnectivityMonitor.recordLatency(serverRtt);
+            }
+
+            // Update connectivity monitor
             if (window.ConnectivityMonitor) {
                 window.ConnectivityMonitor.updateWSStatus(true);
+            }
+
+            // Trigger synchronized gRPC check if internal status is included
+            if (received_msg['data'] && window.ConnectivityMonitor && typeof window.ConnectivityMonitor.handlePingData === 'function') {
+                window.ConnectivityMonitor.handlePingData(received_msg['data']);
             }
 
             ws.send(JSON.stringify({
                 type: "pong",
                 data: {
-                    message: 'pong'
+                    server_ts: serverTs,
+                    client_ts: clientTs
                 }
             }));
         }
@@ -300,6 +323,23 @@ function createWS(SOCK_URL) {
                     message: 'ACK'
                 }
             }));
+        }
+        else if (received_msg['type'] == 'session_info') {
+            // Forward session info to connectivity monitor
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateSessionInfo === 'function') {
+                window.ConnectivityMonitor.updateSessionInfo(received_msg['data']);
+            }
+        }
+        else if (received_msg['type'] == 'debug_ack') {
+            // Forward debug mode acknowledgment
+            if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.updateDebugMode === 'function') {
+                window.ConnectivityMonitor.updateDebugMode(received_msg['data']['debug_mode']);
+            }
+        }
+        else if (received_msg['type'] == 'token_refresh') {
+            if (window.ConnectivityMonitor && received_msg['data'] && received_msg['data']['cvp_token']) {
+                window.ConnectivityMonitor.updateCVPToken(received_msg['data']['cvp_token']);
+            }
         }
     }
 }

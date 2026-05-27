@@ -1,12 +1,21 @@
 !
-interface Ethernet1
-  no switchport
-  ip address 192.168.32.2/30
-
+hostname C2
+!
+ip routing
+!
+service routing protocols model multi-agent
+!
 interface Loopback0
    ip address 192.168.3.2/32
+   no shutdown
 !
 interface Loopback1
    ip address 192.168.3.12/32
+   no shutdown
 !
-
+interface Ethernet1
+   no switchport
+   description to PE2
+   ip address 192.168.32.2/30
+   no shutdown
+!

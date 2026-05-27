@@ -1,113 +1,93 @@
-ip routing
-mpls ip
-!
-vlan 30
-
-name Cust-C
+hostname PE2
 !
 service routing protocols model multi-agent
 !
-vrf instance Cust-B
+ip routing
 !
-ip routing vrf Cust-B
+mpls ip
 !
 router bgp 65100
-no bgp default ipv4-unicast
-neighbor 192.168.100.1 remote-as 65100
-neighbor 192.168.100.1 next-hop-self
-neighbor 192.168.100.1 update-source Loopback0
-neighbor 192.168.100.1 send-community extended
-!
-address-family evpn
-neighbor default encapsulation mpls next-hop-self source-interface Loopback0
-neighbor 192.168.100.1 activate
-!
-vlan 30
-rd 192.168.100.2:30
-route-target export 30:30
-route-target import 30:30
-redistribute learned
-redistribute static
-!
-vrf Cust-B
-rd 65100:20
-route-target import evpn 65100:20
-route-target export evpn 65100:20
-redistribute static
-redistribute connected
+   no bgp default ipv4-unicast
+   neighbor 192.168.100.1 remote-as 65100
+   neighbor 192.168.100.1 next-hop-self
+   neighbor 192.168.100.1 update-source Loopback0
+   neighbor 192.168.100.1 send-community extended
+   !
+   address-family evpn
+      neighbor default encapsulation mpls next-hop-self source-interface Loopback0
+      neighbor 192.168.100.1 activate
 !
 router traffic-engineering
-router-id ipv4 192.168.100.2
-!
-segment-routing
-rib system-colored-tunnel-rib
+   router-id ipv4 192.168.100.2
+   segment-routing
+      rib system-colored-tunnel-rib
 !
 router isis isis
-net 49.0000.0000.0000.0002.00
-router-id ipv4 192.168.100.2
-
-is-type level-1
-!
-address-family ipv4 unicast
-segment-routing mpls
-no shutdown
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+         no shutdown
 !
 interface Loopback0
-ip address 192.168.100.2/32
-isis enable isis
-node-segment ipv4 index 2
+   ip address 192.168.100.2/32
+   isis enable isis
+   node-segment ipv4 index 2
 !
 interface Ethernet1
-no switchport
-ip address 192.168.12.1/30
-mtu 1500
-no shutdown
+   no switchport
+   ip address 192.168.12.1/30
+   mtu 1500
+   no shutdown
 !
 interface Ethernet2
-vrf Cust-B
-no switchport
-ip address 192.168.22.1/30
-mtu 1500
-no shutdown
+   no switchport
+   ip address 192.168.22.1/30
+   mtu 1500
+   no shutdown
 !
 interface Ethernet3
-switchport
-switchport access vlan 30
-no shutdown
+   no switchport
+   ip address 192.168.32.1/30
+   mtu 1500
+   no shutdown
 !
 interface Ethernet4
-no switchport
-ip address 172.16.23.2/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
+   no switchport
+   ip address 172.16.23.2/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 interface Ethernet5
-no switchport
-ip address 172.16.24.2/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
-
+   no switchport
+   ip address 172.16.24.2/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 interface Ethernet6
-no switchport
-ip address 172.16.26.2/24
-mtu 1500
-isis enable isis
-isis network point-to-point
-no shutdown
+   no switchport
+   ip address 172.16.26.2/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
 !
 ip prefix-list ldp-fec-prefix-list
-permit 192.168.100.0/24 ge 24
+   seq 10 permit 192.168.100.0/24 eq 32
 !
 mpls ldp
-router-id interface Loopback0 force
-fec filter prefix-list ldp-fec-prefix-list
-no shutdown
+   router-id interface Loopback0
+   transport-address interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
 !
 tunnel-ribs
-tunnel-rib system-tunnel-rib
-source-protocol isis segment-routing preference 50
+   tunnel-rib system-tunnel-rib
+      source-protocol isis segment-routing preference 50
+!

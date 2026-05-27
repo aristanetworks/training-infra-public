@@ -12,7 +12,7 @@ services:
       - atd_nginx
   configservice:
     container_name: atd-configservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:2.0.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:3.1.0
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.33
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.36
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -124,7 +124,7 @@ services:
   labguides-v2:
     container_name: atd-labguides-v2
     # image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v2:1.0.3
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:e02489e2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:12688391
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
@@ -173,7 +173,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.16
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.18
     restart: always
     depends_on:
       - uilanding
@@ -284,7 +284,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.3
+    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.5
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host

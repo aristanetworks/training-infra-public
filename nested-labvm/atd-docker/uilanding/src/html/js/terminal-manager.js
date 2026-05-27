@@ -24,14 +24,27 @@ const TerminalManager = {
   _sshSettleMs: 1000,
   // Debug logging — enable via console: TerminalManager._debug = true
   _debug: false,
+  // Feature flag: tab reordering (drag-and-drop + context menu)
+  _tabReorderingEnabled: false,
+  // Batch close: suppress intermediate tab activations
+  _suppressActivation: false,
 
-  init() {
+  async init() {
     this.loadDevices();
     this.setupJumpServer();
     this.setupPanelToggles();
     this.setupSidebarToggle();
     this.setupTabOverflow();
     this.setupSplitView();
+
+    // Check feature flag for tab reordering
+    if (window.featureFlags) {
+      this._tabReorderingEnabled = await window.featureFlags.check('tab_reordering');
+      console.log('[TerminalManager] Tab reordering feature flag:', this._tabReorderingEnabled);
+    }
+    if (this._tabReorderingEnabled) {
+      this.setupTabSorting();
+    }
   },
 
   setupJumpServer() {
@@ -68,6 +81,7 @@ const TerminalManager = {
       this.renderDeviceTree(data.groups);
     } catch (error) {
       console.error('Failed to load devices:', error);
+      cloudLog('error', 'Failed to load devices: ' + error.message, { source: 'terminal-manager', action: 'device_load_failed' });
       this.showDeviceLoadError(deviceGroups, 'Failed to load devices', error.message, true);
     }
   },
@@ -80,17 +94,28 @@ const TerminalManager = {
    * @param {boolean} showRetry - Whether to show retry button
    */
   showDeviceLoadError(container, title, detail, showRetry) {
-    const retryButton = showRetry
-      ? '<button class="retry-btn" onclick="TerminalManager.loadDevices()">Retry</button>'
-      : '';
+    container.textContent = '';
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'device-load-error';
 
-    container.innerHTML = `
-      <div class="device-load-error">
-        <p>${title}</p>
-        <p class="error-detail">${detail}</p>
-        ${retryButton}
-      </div>
-    `;
+    const titleP = document.createElement('p');
+    titleP.textContent = title;
+    errorDiv.appendChild(titleP);
+
+    const detailP = document.createElement('p');
+    detailP.className = 'error-detail';
+    detailP.textContent = detail;
+    errorDiv.appendChild(detailP);
+
+    if (showRetry) {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'retry-btn';
+      retryBtn.textContent = 'Retry';
+      retryBtn.addEventListener('click', () => this.loadDevices());
+      errorDiv.appendChild(retryBtn);
+    }
+
+    container.appendChild(errorDiv);
   },
 
   renderDeviceTree(groups) {
@@ -114,14 +139,8 @@ const TerminalManager = {
       nameSpan.className = 'group-name';
       nameSpan.textContent = group.group;
 
-      const openAllSpan = document.createElement('span');
-      openAllSpan.className = 'group-open-all';
-      openAllSpan.textContent = 'All';
-      openAllSpan.title = 'Open SSH to all devices in this group';
-
       headerEl.appendChild(arrowSpan);
       headerEl.appendChild(nameSpan);
-      headerEl.appendChild(openAllSpan);
 
       const devicesEl = document.createElement('div');
       devicesEl.className = 'group-devices';
@@ -139,35 +158,76 @@ const TerminalManager = {
         deviceEl.dataset.supportsWebUI = device.supportsWebUI ? 'true' : 'false';
         deviceEl.tabIndex = 0;
 
-        // Build HTML with stacked status dots and action icons
+        // Build DOM with stacked status dots and action icons
         // Show dots for available connection types: SSH (all), Console (if supported), noVNC (if supported), Web UI (if supported)
-        let html = `
-          <span class="status-dots" aria-hidden="true">
-            <span class="status-dot ssh" title="SSH"></span>
-            ${device.supportsConsole ? '<span class="status-dot console" title="Console"></span>' : ''}
-            ${device.supportsNoVnc ? '<span class="status-dot novnc" title="Desktop"></span>' : ''}
-            ${device.supportsWebUI ? '<span class="status-dot webui" title="Web UI"></span>' : ''}
-          </span>
-          <span class="device-name">${device.name}</span>
-          <span class="device-ip">${device.ip}</span>
-        `;
+        const dotsSpan = document.createElement('span');
+        dotsSpan.className = 'status-dots';
+        dotsSpan.setAttribute('aria-hidden', 'true');
+
+        const sshDot = document.createElement('span');
+        sshDot.className = 'status-dot ssh';
+        sshDot.title = 'SSH';
+        dotsSpan.appendChild(sshDot);
+
+        if (device.supportsConsole) {
+          const consoleDot = document.createElement('span');
+          consoleDot.className = 'status-dot console';
+          consoleDot.title = 'Console';
+          dotsSpan.appendChild(consoleDot);
+        }
+        if (device.supportsNoVnc) {
+          const novncDot = document.createElement('span');
+          novncDot.className = 'status-dot novnc';
+          novncDot.title = 'Desktop';
+          dotsSpan.appendChild(novncDot);
+        }
+        if (device.supportsWebUI) {
+          const webuiDot = document.createElement('span');
+          webuiDot.className = 'status-dot webui';
+          webuiDot.title = 'Web UI';
+          dotsSpan.appendChild(webuiDot);
+        }
+        deviceEl.appendChild(dotsSpan);
+
+        const deviceNameSpan = document.createElement('span');
+        deviceNameSpan.className = 'device-name';
+        deviceNameSpan.textContent = device.name;
+        deviceEl.appendChild(deviceNameSpan);
+
+        const deviceIpSpan = document.createElement('span');
+        deviceIpSpan.className = 'device-ip';
+        deviceIpSpan.textContent = device.ip;
+        deviceEl.appendChild(deviceIpSpan);
 
         // Add desktop icon for Linux hosts (noVNC)
         if (device.supportsNoVnc) {
-          html += `<span class="desktop-icon" title="Open Desktop (noVNC)" aria-label="Open desktop for ${device.name}">&#128421;</span>`;
+          const desktopIcon = document.createElement('span');
+          desktopIcon.className = 'desktop-icon';
+          desktopIcon.title = 'Open Desktop (noVNC)';
+          desktopIcon.setAttribute('aria-label', 'Open desktop for ' + device.name);
+          desktopIcon.textContent = '\u{1F5A5}';
+          deviceEl.appendChild(desktopIcon);
         }
 
         // Add console icon if device supports console
         if (device.supportsConsole) {
-          html += `<span class="console-icon" title="Open Serial Console" aria-label="Open serial console for ${device.name}">&#9000;</span>`;
+          const consoleIcon = document.createElement('span');
+          consoleIcon.className = 'console-icon';
+          consoleIcon.title = 'Open Serial Console';
+          consoleIcon.setAttribute('aria-label', 'Open serial console for ' + device.name);
+          consoleIcon.textContent = '\u2328';
+          deviceEl.appendChild(consoleIcon);
         }
 
         // Add Web UI icon for VeloCloud Orchestrator
         if (device.supportsWebUI) {
-          html += `<span class="webui-icon" title="Open Web UI" aria-label="Open web UI for ${device.name}">&#127760;</span>`;
+          const webuiIcon = document.createElement('span');
+          webuiIcon.className = 'webui-icon';
+          webuiIcon.title = 'Open Web UI';
+          webuiIcon.setAttribute('aria-label', 'Open web UI for ' + device.name);
+          webuiIcon.textContent = '\u{1F310}';
+          deviceEl.appendChild(webuiIcon);
         }
-
-        deviceEl.innerHTML = html;
 
         // Left-click on device name area
         // For Linux hosts (supportsNoVnc), open desktop by default
@@ -250,16 +310,8 @@ const TerminalManager = {
         devicesEl.appendChild(deviceEl);
       });
 
-      // "Open All" button click
-      openAllSpan.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.openAllInGroup(devicesEl);
-      });
-
       // Group header collapse toggle
       headerEl.addEventListener('click', (e) => {
-        // Don't toggle collapse when clicking "Open All"
-        if (e.target.classList.contains('group-open-all')) return;
         const isCollapsed = headerEl.classList.toggle('collapsed');
         headerEl.setAttribute('aria-expanded', !isCollapsed);
         devicesEl.classList.toggle('hidden');
@@ -276,6 +328,7 @@ const TerminalManager = {
     const effectiveVmName = vmName || name;
     const callTime = performance.now();
 
+    cloudLog('info', 'Terminal opened: ' + name + ' (' + type + ')', { source: 'terminal-manager', action: 'terminal_open', device: name });
     this._debug && console.log(`%c[DEBUG openTerminal] ENTER name="${name}" ip="${ip}" type="${type}" time=${callTime.toFixed(2)}ms`, 'color: #fbb500; font-weight: bold');
     this._debug && console.log(`[DEBUG openTerminal]   tabs.length=${this.tabs.length} _tabCounter=${this._tabCounter} activeTabId=${this.activeTabId}`);
     this._debug && console.log(`[DEBUG openTerminal]   current tabs:`, this.tabs.map(t => `${t.id}(${t.name}/${t.type})`).join(', '));
@@ -436,6 +489,13 @@ const TerminalManager = {
         this.closeTab(tabId);
       });
 
+      // Right-click context menu for tab actions (feature-flagged)
+      if (this._tabReorderingEnabled) {
+        tabEl.addEventListener('contextmenu', (e) => {
+          this.showTabContextMenu(e, tabId);
+        });
+      }
+
       tabsScrollArea.appendChild(tabEl);
 
       // Create iframe
@@ -555,17 +615,35 @@ const TerminalManager = {
       tabEl.setAttribute('role', 'tab');
       tabEl.setAttribute('aria-selected', 'false');
 
-      tabEl.innerHTML = `
-        <span class="tab-status-dot novnc" aria-hidden="true"></span>
-        <span class="tab-name">${name} &#128421;</span>
-        <span class="close-btn" title="Close" aria-label="Close ${name} tab">&times;</span>
-      `;
+      const dotSpan = document.createElement('span');
+      dotSpan.className = 'tab-status-dot novnc';
+      dotSpan.setAttribute('aria-hidden', 'true');
 
-      tabEl.querySelector('.tab-name').addEventListener('click', () => this.activateTab(tabId));
-      tabEl.querySelector('.close-btn').addEventListener('click', (e) => {
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tab-name';
+      nameSpan.textContent = name + ' \u{1F5A5}';
+      nameSpan.addEventListener('click', () => this.activateTab(tabId));
+
+      const closeSpan = document.createElement('span');
+      closeSpan.className = 'close-btn';
+      closeSpan.title = 'Close';
+      closeSpan.setAttribute('aria-label', `Close ${name} tab`);
+      closeSpan.textContent = '\u00D7';
+      closeSpan.addEventListener('click', (e) => {
         e.stopPropagation();
         this.closeTab(tabId);
       });
+
+      tabEl.appendChild(dotSpan);
+      tabEl.appendChild(nameSpan);
+      tabEl.appendChild(closeSpan);
+
+      // Right-click context menu for tab actions (feature-flagged)
+      if (this._tabReorderingEnabled) {
+        tabEl.addEventListener('contextmenu', (e) => {
+          this.showTabContextMenu(e, tabId);
+        });
+      }
 
       tabsScrollArea.appendChild(tabEl);
 
@@ -598,6 +676,7 @@ const TerminalManager = {
 
     } catch (error) {
       console.error('[TerminalManager] Failed to open noVNC terminal:', error);
+      cloudLog('error', 'noVNC terminal failed: ' + error.message, { source: 'terminal-manager', action: 'novnc_failed', device: name });
       alert(`Failed to open desktop: ${error.message}`);
     }
   },
@@ -670,6 +749,7 @@ const TerminalManager = {
     if (tabIndex === -1) return;
 
     const tab = this.tabs[tabIndex];
+    cloudLog('info', 'Terminal closed: ' + tab.name + ' (' + tab.type + ')', { source: 'terminal-manager', action: 'terminal_close', device: tab.name });
 
     // Remove tab element
     const tabEl = document.getElementById(tabId);
@@ -685,19 +765,18 @@ const TerminalManager = {
     // Remove from tabs array
     this.tabs.splice(tabIndex, 1);
 
-    // Activate another tab or show empty state
-    if (this.tabs.length > 0) {
-      const newActiveIndex = Math.min(tabIndex, this.tabs.length - 1);
-      this.activateTab(this.tabs[newActiveIndex].id);
-    } else {
-      this.activeTabId = null;
-      document.getElementById('emptyState').style.display = 'block';
-      // Clear sidebar active highlight when no tabs remain
-      this.updateSidebarActiveDevice();
+    // Activate another tab or show empty state (skip during batch close)
+    if (!this._suppressActivation) {
+      if (this.tabs.length > 0) {
+        const newActiveIndex = Math.min(tabIndex, this.tabs.length - 1);
+        this.activateTab(this.tabs[newActiveIndex].id);
+      } else {
+        this.activeTabId = null;
+        document.getElementById('emptyState').style.display = 'block';
+        this.updateSidebarActiveDevice();
+      }
+      this.updateTabOverflow();
     }
-
-    // Update overflow menu
-    this.updateTabOverflow();
   },
 
   /**
@@ -840,10 +919,24 @@ const TerminalManager = {
       menu.style.top = `${window.innerHeight - menuRect.height - 10}px`;
     }
 
-    // Close menu when clicking outside
+    // Close menu when clicking outside, pressing Escape, or window loses focus (iframe click)
+    const dismissMenu = () => {
+      this.hideContextMenu();
+      document.removeEventListener('mousedown', onOutsideClick);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('blur', dismissMenu);
+    };
+    const onOutsideClick = (e) => {
+      if (!menu.contains(e.target)) dismissMenu();
+    };
+    const onEscape = (e) => {
+      if (e.key === 'Escape') dismissMenu();
+    };
     setTimeout(() => {
-      document.addEventListener('click', this.hideContextMenu.bind(this), { once: true });
+      document.addEventListener('mousedown', onOutsideClick);
     }, 0);
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('blur', dismissMenu);
   },
 
   hideContextMenu() {
@@ -1056,13 +1149,12 @@ const TerminalManager = {
         dotSpan.setAttribute('aria-hidden', 'true');
 
         const nameSpan = document.createElement('span');
-        let displayName = tab.name;
+        nameSpan.textContent = tab.name;
         if (tab.type === 'console') {
-          displayName = `${tab.name} &#9000;`;
+          nameSpan.textContent = tab.name + ' \u2328';
         } else if (tab.type === 'novnc') {
-          displayName = `${tab.name} &#128421;`;
+          nameSpan.textContent = tab.name + ' \u{1F5A5}';
         }
-        nameSpan.innerHTML = displayName;
 
         const ipSpan = document.createElement('span');
         ipSpan.className = 'device-ip';
@@ -1081,6 +1173,326 @@ const TerminalManager = {
     } else {
       overflow.classList.remove('visible');
     }
+  },
+
+  /**
+   * Rebuild this.tabs[] from the current DOM child order of #tabsScrollArea.
+   * Called after any reorder (drag-and-drop or context menu action).
+   */
+  _syncTabsFromDom() {
+    const tabEls = document.getElementById('tabsScrollArea').children;
+    const newTabs = [];
+    for (const el of tabEls) {
+      const tab = this.tabs.find(t => t.id === el.id);
+      if (tab) newTabs.push(tab);
+    }
+    this.tabs = newTabs;
+  },
+
+  /**
+   * Initialize SortableJS on the tab scroll area for drag-and-drop reordering.
+   */
+  setupTabSorting() {
+    const tabsScrollArea = document.getElementById('tabsScrollArea');
+    this._sortable = new Sortable(tabsScrollArea, {
+      animation: 150,
+      filter: '.close-btn',
+      preventOnFilter: false,
+      ghostClass: 'tab-ghost',
+      chosenClass: 'tab-chosen',
+      forceFallback: true,
+      fallbackClass: 'tab-drag-fallback',
+      direction: 'horizontal',
+      onStart: (evt) => {
+        // Add a placeholder style to the original element's slot
+        evt.item.classList.add('tab-dragging-source');
+      },
+      onEnd: (evt) => {
+        evt.item.classList.remove('tab-dragging-source');
+        this._syncTabsFromDom();
+        this.updateTabOverflow();
+      }
+    });
+  },
+
+  /**
+   * Look up which sidebar group a device belongs to.
+   * Finds the .device-item[data-name] in the sidebar DOM and walks up to .device-group.
+   * @param {string} deviceName - The device name to look up
+   * @returns {string} The group name, or 'Other' if not found
+   */
+  getTabGroup(deviceName) {
+    const deviceEl = document.querySelector('.device-item[data-name="' + CSS.escape(deviceName) + '"]');
+    if (!deviceEl) return 'Other';
+    const groupEl = deviceEl.closest('.device-group');
+    if (!groupEl) return 'Other';
+    const groupName = groupEl.querySelector('.group-name');
+    return groupName ? groupName.textContent.trim() : 'Other';
+  },
+
+  /**
+   * Reorder tabs to match sidebar device group order.
+   * Within each group, tabs maintain their current relative order.
+   */
+  groupTabsByDeviceGroup() {
+    // Get sidebar group order and device order from DOM
+    const groupEls = document.querySelectorAll('.device-group');
+    const groupOrder = [];
+    const deviceOrder = new Map(); // deviceName -> index for sorting within group
+    let deviceIndex = 0;
+    groupEls.forEach(groupEl => {
+      const nameEl = groupEl.querySelector('.group-name');
+      if (nameEl) {
+        groupOrder.push(nameEl.textContent.trim());
+      }
+      // Record the sidebar order of each device within this group
+      groupEl.querySelectorAll('.device-item').forEach(deviceEl => {
+        deviceOrder.set(deviceEl.dataset.name, deviceIndex++);
+      });
+    });
+
+    const grouped = new Map();
+    this.tabs.forEach(tab => {
+      const group = this.getTabGroup(tab.name);
+      if (!grouped.has(group)) grouped.set(group, []);
+      grouped.get(group).push(tab);
+    });
+
+    // Sort tabs within each group to match sidebar device order
+    grouped.forEach(tabs => {
+      tabs.sort((a, b) => {
+        const orderA = deviceOrder.has(a.name) ? deviceOrder.get(a.name) : Infinity;
+        const orderB = deviceOrder.has(b.name) ? deviceOrder.get(b.name) : Infinity;
+        return orderA - orderB;
+      });
+    });
+
+    const sorted = [];
+    groupOrder.forEach(groupName => {
+      if (grouped.has(groupName)) {
+        sorted.push(...grouped.get(groupName));
+        grouped.delete(groupName);
+      }
+    });
+    grouped.forEach(tabs => sorted.push(...tabs));
+
+    this.tabs = sorted;
+
+    const tabsScrollArea = document.getElementById('tabsScrollArea');
+    this.tabs.forEach(tab => {
+      const tabEl = document.getElementById(tab.id);
+      if (tabEl) tabsScrollArea.appendChild(tabEl);
+    });
+
+    this.updateTabOverflow();
+  },
+
+  /**
+   * Close all tabs belonging to a specific sidebar group.
+   * @param {string} groupName - The sidebar group name (e.g., 'Spines', 'Leafs')
+   */
+  closeTabsByGroup(groupName) {
+    const tabsToClose = this.tabs.filter(tab => this.getTabGroup(tab.name) === groupName);
+    this._suppressActivation = true;
+    tabsToClose.forEach(tab => this.closeTab(tab.id));
+    this._suppressActivation = false;
+
+    if (this.tabs.length > 0) {
+      this.activateTab(this.tabs[this.tabs.length - 1].id);
+    } else {
+      this.activeTabId = null;
+      document.getElementById('emptyState').style.display = 'block';
+      this.updateSidebarActiveDevice();
+    }
+    this.updateTabOverflow();
+  },
+
+  /**
+   * Close every open tab and show empty state.
+   */
+  closeAllTabs() {
+    this._suppressActivation = true;
+    while (this.tabs.length > 0) {
+      this.closeTab(this.tabs[this.tabs.length - 1].id);
+    }
+    this._suppressActivation = false;
+
+    this.activeTabId = null;
+    document.getElementById('emptyState').style.display = 'block';
+    this.updateSidebarActiveDevice();
+    this.updateTabOverflow();
+  },
+
+  /**
+   * Show a context menu when right-clicking a tab.
+   * Menu items: Group by Device Group, Close This Tab, Close All [Group], Close All Tabs
+   */
+  showTabContextMenu(event, tabId) {
+    event.preventDefault();
+    this.hideContextMenu();
+    this.hideTabContextMenu();
+
+    const tab = this.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const menu = document.createElement('div');
+    menu.className = 'tab-context-menu';
+    menu.id = 'tabContextMenu';
+    menu.setAttribute('role', 'menu');
+
+    // -- Group section --
+    const groupLabel = document.createElement('div');
+    groupLabel.className = 'menu-section-label';
+    groupLabel.textContent = 'Group tabs by';
+    menu.appendChild(groupLabel);
+
+    const groupItem = document.createElement('div');
+    groupItem.className = 'menu-item';
+    groupItem.setAttribute('role', 'menuitem');
+    groupItem.dataset.action = 'group-by-device';
+    const groupIcon = document.createElement('span');
+    groupIcon.className = 'menu-icon';
+    groupIcon.setAttribute('aria-hidden', 'true');
+    groupIcon.textContent = '\u2338';
+    groupItem.appendChild(groupIcon);
+    groupItem.appendChild(document.createTextNode(' Device Group'));
+    menu.appendChild(groupItem);
+
+    const divider1 = document.createElement('div');
+    divider1.className = 'menu-divider';
+    divider1.setAttribute('role', 'separator');
+    menu.appendChild(divider1);
+
+    // -- Close section --
+    const closeLabel = document.createElement('div');
+    closeLabel.className = 'menu-section-label';
+    closeLabel.textContent = 'Close';
+    menu.appendChild(closeLabel);
+
+    // Close This Tab
+    const closeThisItem = document.createElement('div');
+    closeThisItem.className = 'menu-item';
+    closeThisItem.setAttribute('role', 'menuitem');
+    closeThisItem.dataset.action = 'close-this';
+    const closeThisIcon = document.createElement('span');
+    closeThisIcon.className = 'menu-icon';
+    closeThisIcon.setAttribute('aria-hidden', 'true');
+    closeThisIcon.textContent = '\u2715';
+    closeThisItem.appendChild(closeThisIcon);
+    closeThisItem.appendChild(document.createTextNode(' Close This Tab'));
+    menu.appendChild(closeThisItem);
+
+    // Dynamic per-group close items for groups with open tabs
+    const groupCounts = new Map();
+    this.tabs.forEach(t => {
+      const group = this.getTabGroup(t.name);
+      groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
+    });
+
+    const groupHeaders = document.querySelectorAll('.device-group .group-name');
+    const groupOrder = Array.from(groupHeaders).map(el => el.textContent.trim());
+    if (groupCounts.has('Other') && !groupOrder.includes('Other')) {
+      groupOrder.push('Other');
+    }
+
+    groupOrder.forEach(groupName => {
+      const count = groupCounts.get(groupName) || 0;
+      if (count >= 1) {
+        const item = document.createElement('div');
+        item.className = 'menu-item';
+        item.setAttribute('role', 'menuitem');
+        item.dataset.action = 'close-group';
+        item.dataset.group = groupName;
+        const icon = document.createElement('span');
+        icon.className = 'menu-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '\u2715';
+        const highlight = document.createElement('span');
+        highlight.className = 'group-name-highlight';
+        highlight.textContent = groupName;
+        item.appendChild(icon);
+        item.appendChild(document.createTextNode(' Close All '));
+        item.appendChild(highlight);
+        menu.appendChild(item);
+      }
+    });
+
+    // Separator + destructive Close All
+    const divider2 = document.createElement('div');
+    divider2.className = 'menu-divider';
+    divider2.setAttribute('role', 'separator');
+    menu.appendChild(divider2);
+
+    const closeAllItem = document.createElement('div');
+    closeAllItem.className = 'menu-item destructive';
+    closeAllItem.setAttribute('role', 'menuitem');
+    closeAllItem.dataset.action = 'close-all';
+    const closeAllIcon = document.createElement('span');
+    closeAllIcon.className = 'menu-icon';
+    closeAllIcon.setAttribute('aria-hidden', 'true');
+    closeAllIcon.textContent = '\u2715';
+    closeAllItem.appendChild(closeAllIcon);
+    closeAllItem.appendChild(document.createTextNode(' Close All Tabs'));
+    menu.appendChild(closeAllItem);
+
+    // Position menu at click location
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+
+    // Add click handlers
+    menu.querySelectorAll('.menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.action;
+        if (action === 'group-by-device') {
+          this.groupTabsByDeviceGroup();
+        } else if (action === 'close-this') {
+          this.closeTab(tabId);
+        } else if (action === 'close-group') {
+          this.closeTabsByGroup(item.dataset.group);
+        } else if (action === 'close-all') {
+          this.closeAllTabs();
+        }
+        this.hideTabContextMenu();
+      });
+    });
+
+    document.body.appendChild(menu);
+
+    // Adjust position if menu goes off screen
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth) {
+      menu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
+    }
+    if (menuRect.bottom > window.innerHeight) {
+      menu.style.top = (window.innerHeight - menuRect.height - 10) + 'px';
+    }
+
+    // Close menu when clicking outside, pressing Escape, or window loses focus (iframe click)
+    const dismissMenu = () => {
+      this.hideTabContextMenu();
+      document.removeEventListener('mousedown', onOutsideClick);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('blur', dismissMenu);
+    };
+    const onOutsideClick = (e) => {
+      if (!menu.contains(e.target)) dismissMenu();
+    };
+    const onEscape = (e) => {
+      if (e.key === 'Escape') dismissMenu();
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', onOutsideClick);
+    }, 0);
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('blur', dismissMenu);
+  },
+
+  /**
+   * Remove the tab context menu from the DOM.
+   */
+  hideTabContextMenu() {
+    const existing = document.getElementById('tabContextMenu');
+    if (existing) existing.remove();
   },
 
   setupSplitView() {
@@ -1207,8 +1619,7 @@ const TerminalManager = {
     paneData.iframe = iframe;
 
     // Display name with type indicator for console
-    const displayName = type === 'console' ? `${name} &#9000;` : name;
-    deviceEl.innerHTML = displayName;
+    deviceEl.textContent = type === 'console' ? name + ' \u2328' : name;
 
     // Alternate pane for next click
     this.nextSplitPane = pane === 'left' ? 'right' : 'left';
@@ -1252,7 +1663,7 @@ const TerminalManager = {
       paneData.iframe = iframe;
 
       // Display name with desktop icon
-      deviceEl.innerHTML = `${name} &#128421;`;
+      deviceEl.textContent = name + ' \u{1F5A5}';
 
       // Alternate pane for next click
       this.nextSplitPane = pane === 'left' ? 'right' : 'left';
@@ -1265,7 +1676,12 @@ const TerminalManager = {
 
     } catch (error) {
       console.error('[TerminalManager] Failed to open noVNC in split pane:', error);
-      contentEl.innerHTML = `<div class="split-pane-error">Failed to open desktop: ${error.message}</div>`;
+      cloudLog('error', 'noVNC split pane failed: ' + error.message, { source: 'terminal-manager', action: 'novnc_split_failed' });
+      contentEl.textContent = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'split-pane-error';
+      errorDiv.textContent = 'Failed to open desktop: ' + error.message;
+      contentEl.appendChild(errorDiv);
     }
   },
 
@@ -1494,70 +1910,6 @@ const TerminalManager = {
   },
 
   /**
-   * Open SSH terminals for all devices in a group
-   *
-   * WebSSH2 requires authentication on the first connection — a session cookie
-   * is set after the user logs in. Subsequent connections reuse that cookie.
-   *
-   * If no SSH session exists yet, we open only the first device and prompt the
-   * user to authenticate before clicking "All" again. This prevents multiple
-   * simultaneous login prompts.
-   */
-  openAllInGroup(groupEl) {
-    const devices = groupEl.querySelectorAll('.device-item');
-
-    // Collect devices that need opening (have IP and no existing SSH tab)
-    const toOpen = [];
-    devices.forEach(deviceEl => {
-      const name = deviceEl.dataset.name;
-      const ip = deviceEl.dataset.ip;
-      if (ip && ip !== 'N/A' && !this.tabs.some(t => t.name === name && t.type === 'ssh')) {
-        toOpen.push({ name, ip });
-      }
-    });
-
-    if (toOpen.length === 0) return;
-
-    // Check if user has an existing SSH session (any SSH tab already open)
-    const hasExistingSession = this.tabs.some(t => t.type === 'ssh');
-
-    if (!hasExistingSession) {
-      // No session yet — open only the first device so user can authenticate
-      this.openTerminal(toOpen[0].name, toOpen[0].ip, 'ssh');
-      this.showOpenAllNotice(toOpen.length - 1);
-      return;
-    }
-
-    // Session exists — open all devices (queue serializes them automatically)
-    toOpen.forEach(device => {
-      this.openTerminal(device.name, device.ip, 'ssh');
-    });
-  },
-
-  /**
-   * Show a brief notice prompting the user to authenticate then retry "All"
-   */
-  showOpenAllNotice(remaining) {
-    // Remove any existing notice
-    const existing = document.getElementById('openAllNotice');
-    if (existing) existing.remove();
-
-    const notice = document.createElement('div');
-    notice.id = 'openAllNotice';
-    notice.className = 'open-all-notice';
-    notice.textContent = `Log in to the terminal, then click "All" again to open the remaining ${remaining} device${remaining !== 1 ? 's' : ''}.`;
-
-    // Insert at top of device tree
-    const tree = document.getElementById('deviceGroups');
-    tree.parentElement.insertBefore(notice, tree);
-
-    // Auto-dismiss after 10 seconds
-    setTimeout(() => {
-      if (notice.parentElement) notice.remove();
-    }, 10000);
-  },
-
-  /**
    * DEBUG: Full state audit — call from browser console: TerminalManager._debugAudit()
    * Dumps the complete mapping of tabs array to DOM elements to find any drift
    */
@@ -1620,7 +1972,7 @@ window.TerminalManager = TerminalManager;
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
-  TerminalManager.init();
+  await TerminalManager.init();
 
   // Initialize topology when panel is opened
   await TerminalManager.initTopology();
