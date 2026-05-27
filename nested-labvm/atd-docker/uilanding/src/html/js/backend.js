@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 10000);
 
     // Fetch exam status from the server with timeout
-    fetch('/examStatus', { signal: controller.signal })
+            fetch('/examStatus', { signal: controller.signal })
         .then(function(response) {
             clearTimeout(timeoutId);
             if (!response.ok) {
@@ -87,12 +87,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log("[ExamStatus] This is an exam lab");
                 addExamButton();
                 window.examStatusLoaded = true;
+        cloudLog('info', 'Exam status loaded: ' + (window.isExamLab ? 'exam' : 'lab'), { source: 'backend', action: 'exam_status_loaded' });
                 //window.checkAndHideLoadingOverlay();
             } else {
                 // This is a regular lab - hide overlay immediately (don't wait for WS)
                 // Regular labs don't need the exam modal, so no need to wait
                 window.isExamLab = false;
                 window.examStatusLoaded = true;
+        cloudLog('info', 'Exam status loaded: ' + (window.isExamLab ? 'exam' : 'lab'), { source: 'backend', action: 'exam_status_loaded' });
                 console.log("[ExamStatus] This is a regular lab - hiding overlay immediately");
                 var initialLoading = document.getElementById('initialLoadingOverlay');
                 if (initialLoading) {
@@ -116,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Note: This is a security trade-off - we allow access but log the issue
             window.isExamLab = false;
             window.examStatusLoaded = true;
+        cloudLog('info', 'Exam status loaded: ' + (window.isExamLab ? 'exam' : 'lab'), { source: 'backend', action: 'exam_status_loaded' });
             window.checkAndHideLoadingOverlay();
         });
 
@@ -162,6 +165,7 @@ function addExamButton() {
             btn.disabled = true;
             btn.textContent = 'Starting...';
 
+            cloudLog('info', 'Exam start requested', { source: 'backend', action: 'exam_start' });
             fetch('/examStatus', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -232,6 +236,7 @@ $('#resetLabs').click((event) => {
         isAllSwitchesOk = false;
         localStorage.setItem('isAllSwitchesOk', 'no')
         localStorage.setItem('resetRequestSubmittedTime', new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString())
+        cloudLog('info', 'Lab reset requested: ' + failedSwitches.join(','), { source: 'backend', action: 'lab_reset' });
         $.get('/resetLab?lab_names=' + failedSwitches.join(','), (res) => {
 
         })
@@ -297,6 +302,7 @@ function getLabStatus() {
 document.getElementById("labBtn").addEventListener("click", function () {
     const selected_lab_options = $('.lab-button.active').attr('id'); // Get the ID instead of text
     // document.getElementById('loader').style.display = 'block'
+    cloudLog('info', 'Lab started: ' + selected_lab_options, { source: 'backend', action: 'lab_start' });
     $.get("/lab?lab_value=" + selected_lab_options, (res) => {
         console.log(res)
         if (res.response) {
@@ -310,6 +316,7 @@ document.getElementById("labBtn").addEventListener("click", function () {
         }
     }).fail((err) => {
         console.log(err)
+        cloudLog('error', 'Lab start failed', { source: 'backend', action: 'lab_start_failed' });
         document.getElementById('apiResponse').textContent = "Some thing went wrong"
         // document.getElementById('loader').style.display = 'none'
     })

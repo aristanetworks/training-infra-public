@@ -111,6 +111,7 @@ const ConsoleManager = {
 
       this.ws.onopen = () => {
         console.log('WebSocket connected');
+        cloudLog('info', 'Console connected', { source: 'console-manager', action: 'console_connect' });
         document.getElementById('connectingOverlay').classList.add('hidden');
         this.reconnectAttempts = 0;
         this.sendResize();
@@ -144,6 +145,7 @@ const ConsoleManager = {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        cloudLog('error', 'Console WebSocket error', { source: 'console-manager', action: 'console_ws_error' });
         document.getElementById('connectingOverlay').classList.add('hidden');
         this.showError('Failed to connect to console service');
       };
@@ -157,6 +159,7 @@ const ConsoleManager = {
 
     } catch (error) {
       console.error('Connection error:', error);
+      cloudLog('error', 'Console connection failed: ' + (error.message || error), { source: 'console-manager', action: 'console_connect_failed' });
       document.getElementById('connectingOverlay').classList.add('hidden');
       this.showError(error.message || 'Failed to establish connection');
     }

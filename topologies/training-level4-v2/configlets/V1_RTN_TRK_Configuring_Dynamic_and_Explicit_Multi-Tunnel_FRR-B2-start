@@ -2,8 +2,6 @@ hostname B2
 !
 ip routing
 !
-service routing protocols model multi-agent
-!
 interface Ethernet1
    no switchport
    ip address 192.168.22.2/30

@@ -196,6 +196,7 @@
             dataType: 'json',
             success: function(data) {
                 console.log('[TopologyConverter] Conversion started:', data);
+                cloudLog('info', 'Topology conversion started: ' + targetTopology, { source: 'topology-converter', action: 'conversion_start', topology: targetTopology });
                 conversionInProgress = true;
 
                 if (data.status === 'started') {
@@ -210,6 +211,7 @@
             },
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to start conversion:', error);
+                cloudLog('error', 'Topology conversion failed: ' + error, { source: 'topology-converter', action: 'conversion_failed' });
                 let errorMsg = 'Failed to start conversion: ' + error;
 
                 try {
@@ -335,6 +337,7 @@
                 stopStatusPolling();
                 conversionInProgress = false;
                 conversionCompleted = true;
+                cloudLog('info', 'Topology conversion completed', { source: 'topology-converter', action: 'conversion_complete' });
 
                 // Keep progress visible and update header
                 $('#conversion-progress .topo-card-header h5').html(

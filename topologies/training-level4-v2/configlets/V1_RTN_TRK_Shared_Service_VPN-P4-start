@@ -1,15 +1,18 @@
+hostname P4
 !
 interface Ethernet1
   no switchport
   ip address 172.16.14.4/24
   isis enable isis
   isis network point-to-point
+  no shutdown
 !
 interface Ethernet2
   no switchport
   ip address 172.16.24.4/24
   isis enable isis
   isis network point-to-point
+  no shutdown
 !
 interface Loopback0
    ip address 192.168.100.4/32

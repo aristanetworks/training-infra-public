@@ -15,7 +15,7 @@ router isis isis
    is-type level-1
    address-family ipv4 unicast
    segment-routing mpls
-      shutdown
+   no shutdown
 !
 interface Loopback0
    ip address 192.168.100.3/32

@@ -86,16 +86,20 @@ def add_link(
         topo_build_path = get_topo_build_path()
 
     # Step 1: Validate both devices exist as libvirt domains
+    # Use resolve_domain_name to find the actual virsh domain name
+    # (may be uppercase on some topologies like L4: P4, PE1)
     resource_mgr = get_resource_manager()
 
-    if not resource_mgr.vm_exists(source_device.lower()):
+    source_domain = resource_mgr.resolve_domain_name(source_device)
+    if not resource_mgr.vm_exists(source_device):
         logger.error(f"add_link: source device '{source_device}' not found as libvirt domain")
         return {
             'status': 'error',
             'error': f"Device '{source_device}' not found (VM does not exist)"
         }
 
-    if not resource_mgr.vm_exists(target_device.lower()):
+    target_domain = resource_mgr.resolve_domain_name(target_device)
+    if not resource_mgr.vm_exists(target_device):
         logger.error(f"add_link: target device '{target_device}' not found as libvirt domain")
         return {
             'status': 'error',
@@ -126,11 +130,6 @@ def add_link(
     # Step 6: Attach interfaces on both devices using slot reuse
     targets_need_reboot = []
     targets_reused_slots = []
-
-    # libvirt domain names are lowercase, but topo_build.yml may use mixed case
-    # (e.g., "Borderleaf1" in YAML but "borderleaf1" as the virsh domain name)
-    source_domain = source_device.lower()
-    target_domain = target_device.lower()
 
     connections = [
         {
@@ -294,9 +293,12 @@ def remove_link(
     # Step 4: Detach interfaces from both VMs before deleting bridge
     # This prevents "Cannot get interface MTU" errors on VM restart
     from interface_manager import get_vm_interfaces, detach_interface_from_vm
+    from resource_manager import get_resource_manager as _get_rm
 
-    source_domain = source_device.lower()
-    target_domain = target_device.lower()
+    # Resolve actual domain names (may be uppercase on L4 topology)
+    _rm = _get_rm()
+    source_domain = _rm.resolve_domain_name(source_device)
+    target_domain = _rm.resolve_domain_name(target_device)
 
     for domain_name in [source_domain, target_domain]:
         try:
