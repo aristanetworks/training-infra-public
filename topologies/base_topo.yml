@@ -734,3 +734,41 @@ topologies:
     access: standard
     disable_links: [jenkins, lab_grading, Tools, cvaas]
     labguides: self 
+  training-level-toposwitcher:
+    dev:
+      veos:
+        cpu: 80
+        ram: 110
+        cvp:
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2026.1
+            orderable: true
+            image: base-veos-training-l4-v2-2024-3-20250616
+            eos:
+              - 4.30.1F
+    prod:
+      veos:
+        cpu: 80
+        ram: 110
+        cvp:
+          2025.1.0:
+            schema: 1
+            resources:
+              cpu: 80
+              ram: 110
+            branch: nested/2026.1
+            orderable: true
+            image: base-veos-training-l4-v2-2024-3-20250616
+            eos:
+              - 4.30.1F
+    desc: 'TopoSwitcher Lab. For use by the Arista Training Team.'
+    name: 'TopoSwitcher Lab'
+    title: 'TopoSwitcher Lab'
+    disk_size: 500
+    access: standard
+    disable_links: [jenkins, lab_grading, Tools, cvaas]
+    labguides: self 
