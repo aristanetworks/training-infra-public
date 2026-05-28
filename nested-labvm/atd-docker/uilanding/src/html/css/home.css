@@ -367,11 +367,13 @@ body {
   align-items: center;
   justify-content: center;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
 }
 
 .pdf-confirm-overlay.visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .pdf-confirm-panel {

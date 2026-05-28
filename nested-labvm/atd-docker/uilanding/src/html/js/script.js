@@ -263,7 +263,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var labguideLink = submenu.querySelector('.site-sidebar__subitem');
       if (labguideLink) {
         labguideLink.addEventListener('click', function () {
-          cloudLog('info', 'Lab guide opened', { source: 'script', action: 'labguide_open' });
+          cloudLog('info', 'Lab guide opened', { source: 'script', action: 'labguide_open', menu: 'submenu' });
         });
       }
 
@@ -282,12 +282,28 @@ document.addEventListener("DOMContentLoaded", function () {
     var intervalMs = 15000;
     var pollTimer = null;
 
+    var pdfConfirmOpen = false;
+
+    function getDownloadFilename() {
+      var title = link.getAttribute('data-topo-title');
+      if (title) {
+        return title.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '-').toLowerCase() + '-labguide.pdf';
+      }
+      return 'labguide.pdf';
+    }
+
     function showPdfConfirm(href) {
+      if (pdfConfirmOpen) return;
+      pdfConfirmOpen = true;
+
       var overlay = document.createElement('div');
       overlay.className = 'pdf-confirm-overlay';
 
       var panel = document.createElement('div');
       panel.className = 'pdf-confirm-panel';
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', 'PDF download confirmation');
 
       var heading = document.createElement('h3');
       heading.textContent = 'Before you download';
@@ -318,11 +334,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
       requestAnimationFrame(function () {
         overlay.classList.add('visible');
+        downloadBtn.focus();
       });
 
+      function onKeydown(e) {
+        if (e.key === 'Escape') {
+          close();
+          return;
+        }
+        if (e.key === 'Tab') {
+          var focusable = [cancelBtn, downloadBtn];
+          var idx = focusable.indexOf(document.activeElement);
+          if (e.shiftKey) {
+            idx = idx <= 0 ? focusable.length - 1 : idx - 1;
+          } else {
+            idx = idx >= focusable.length - 1 ? 0 : idx + 1;
+          }
+          focusable[idx].focus();
+          e.preventDefault();
+        }
+      }
+
+      document.addEventListener('keydown', onKeydown);
+
       function close() {
+        document.removeEventListener('keydown', onKeydown);
         overlay.classList.remove('visible');
-        setTimeout(function () { overlay.remove(); }, 200);
+        setTimeout(function () {
+          overlay.remove();
+          pdfConfirmOpen = false;
+        }, 200);
       }
 
       cancelBtn.addEventListener('click', close);
@@ -333,7 +374,7 @@ document.addEventListener("DOMContentLoaded", function () {
         cloudLog('info', 'PDF lab guide downloaded', { source: 'script', action: 'pdf_download' });
         var a = document.createElement('a');
         a.href = href;
-        a.download = 'labguide.pdf';
+        a.download = getDownloadFilename();
         document.body.appendChild(a);
         a.click();
         a.remove();
