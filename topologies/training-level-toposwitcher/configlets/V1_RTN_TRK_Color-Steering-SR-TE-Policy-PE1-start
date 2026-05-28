@@ -1,0 +1,93 @@
+hostname PE1
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+mpls ip
+!
+router bgp 65100
+   no bgp default ipv4-unicast
+   neighbor 192.168.100.2 remote-as 65100
+   neighbor 192.168.100.2 next-hop-self
+   neighbor 192.168.100.2 update-source Loopback0
+   neighbor 192.168.100.2 send-community extended
+   !
+   address-family evpn
+      neighbor default encapsulation mpls next-hop-self source-interface Loopback0
+      neighbor 192.168.100.2 activate
+!
+router traffic-engineering
+   router-id ipv4 192.168.100.1
+   segment-routing
+      rib system-colored-tunnel-rib
+!
+router isis isis
+   net 49.0000.0000.0000.0001.00
+   router-id ipv4 192.168.100.1
+   is-type level-1
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+         no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.1/32
+   isis enable isis
+   node-segment ipv4 index 1
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.11.1/30
+   mtu 1500
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   ip address 192.168.21.1/30
+   mtu 1500
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   ip address 192.168.31.1/30
+   mtu 1500
+   no shutdown
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.13.1/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.14.1/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.15.1/24
+   mtu 1500
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 eq 32
+!
+mpls ldp
+   router-id interface Loopback0
+   transport-address interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!
+tunnel-ribs
+   tunnel-rib system-tunnel-rib
+      source-protocol isis segment-routing preference 50
+!

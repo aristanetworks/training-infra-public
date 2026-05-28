@@ -1,0 +1,12 @@
+hostname C1
+!
+ip routing
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.31.2/30
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.30.1/32
+!

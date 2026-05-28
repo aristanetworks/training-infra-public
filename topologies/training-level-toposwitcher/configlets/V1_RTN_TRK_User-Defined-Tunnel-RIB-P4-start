@@ -1,0 +1,40 @@
+!
+! V1_RTN_TRK_User-Defined-Tunnel-RIB-P4-start
+!
+hostname P4
+!
+ip routing
+!
+mpls ip
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.14.4/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.24.4/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Loopback0
+   ip address 192.168.100.4/32
+   isis enable isis
+!
+router isis isis
+   net 49.0001.0000.0000.0004.00
+   is-type level-1
+   router-id ipv4 192.168.100.4
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+!
+mpls ldp
+   router-id 192.168.100.4
+   transport-address interface Loopback0
+   shutdown
+!

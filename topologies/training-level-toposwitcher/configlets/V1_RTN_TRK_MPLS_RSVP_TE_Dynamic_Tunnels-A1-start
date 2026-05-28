@@ -1,0 +1,21 @@
+!
+hostname A1
+!
+ip routing
+!
+service routing protocols model multi-agent
+!
+interface Loopback0
+   ip address 192.168.1.1/32
+   no shutdown
+!
+interface Loopback1
+   ip address 192.168.1.11/32
+   no shutdown
+!
+interface Ethernet1
+   no switchport
+   description to PE1
+   ip address 192.168.11.2/30
+   no shutdown
+!

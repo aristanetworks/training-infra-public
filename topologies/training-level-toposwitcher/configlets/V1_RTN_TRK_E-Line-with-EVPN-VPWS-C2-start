@@ -1,0 +1,16 @@
+!
+hostname C2
+!
+ip routing
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.39.2/24
+   no shutdown
+!
+interface Ethernet2
+   shutdown
+!
+interface Ethernet3
+   shutdown
+!

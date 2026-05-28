@@ -1,0 +1,57 @@
+!
+ip routing
+!
+service routing protocols model multi-agent
+!
+Router isis isis
+   Net 49.0000.0000.0000.0001.00
+   router-id 192.168.100.1
+   Is-type level-1
+   Address-family ipv4 unicast
+!
+int loop0
+ ip address 192.168.100.1/32
+ isis enable isis
+!
+int eth1
+ no switchport
+ ip address 192.168.11.1/30
+ mtu 1500
+ no shut
+!
+int eth2
+ no switchport
+ ip address 192.168.21.1/30
+ mtu 1500
+ no shut
+!
+int eth3
+ no switchport
+ ip address 192.168.31.1/30
+ mtu 1500
+ no shut
+!
+int eth4
+ no switchport
+ ip address 172.16.13.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ no shut
+!
+int eth5
+ no switchport
+ ip address 172.16.14.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ no shut
+!
+int eth6
+ no switchport
+ ip address 172.16.15.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ no shut
+!

@@ -1,0 +1,100 @@
+hostname PE2
+   !
+   service routing protocols model multi-agent
+   !
+   ip routing
+   mpls ip
+   !
+   vrf instance Cust-A
+   vrf instance Cust-B
+   vrf instance Cust-C
+   !
+   ip routing vrf Cust-A
+   ip routing vrf Cust-B
+   ip routing vrf Cust-C
+   !
+   router isis isis
+      net 49.0000.0000.0000.0002.00
+      router-id ipv4 192.168.100.2
+      is-type level-1
+      address-family ipv4 unicast
+      segment-routing mpls
+         no shutdown
+   !
+   router bgp 65100
+      router-id 192.168.100.2
+      no bgp default ipv4-unicast
+      neighbor 192.168.100.1 remote-as 65100
+      neighbor 192.168.100.1 update-source Loopback0
+      !
+      address-family vpn-ipv4
+         neighbor 192.168.100.1 activate
+         neighbor 192.168.100.1 send-community extended
+      !
+      vrf Cust-A
+         rd 65100:10
+         route-target import vpn-ipv4 65100:10
+         route-target export vpn-ipv4 65100:10
+         redistribute static
+      !
+      vrf Cust-B
+         rd 65100:20
+         route-target import vpn-ipv4 65100:20
+         route-target export vpn-ipv4 65100:20
+         redistribute static
+      !
+      vrf Cust-C
+         rd 65100:30
+         route-target import vpn-ipv4 65100:30
+         route-target export vpn-ipv4 65100:30
+         redistribute static
+   !
+   interface Loopback0
+      ip address 192.168.100.2/32
+      isis enable isis
+      node-segment ipv4 index 2
+      no shutdown
+   !
+   interface Ethernet1
+      no switchport
+      vrf Cust-A
+      ip address 192.168.12.1/30
+      no shutdown
+   !
+   interface Ethernet2
+      no switchport
+      vrf Cust-B
+      ip address 192.168.22.1/30
+      no shutdown
+   !
+   interface Ethernet3
+      no switchport
+      vrf Cust-C
+      ip address 192.168.32.1/30
+      no shutdown
+   !
+   interface Ethernet4
+      no switchport
+      ip address 172.16.23.2/24
+      isis enable isis
+      isis network point-to-point
+      no shutdown
+   !
+   interface Ethernet5
+      no switchport
+      ip address 172.16.24.2/24
+      isis enable isis
+      isis network point-to-point
+      no shutdown
+   !
+   interface Ethernet6
+      no switchport
+      ip address 172.16.26.2/24
+      isis enable isis
+      isis network point-to-point
+      no shutdown
+   !
+   ip route vrf Cust-A 192.168.10.2/32 192.168.12.2
+   ip route vrf Cust-B 192.168.20.2/32 192.168.22.2
+   ip route vrf Cust-C 192.168.30.2/32 192.168.32.2
+   !
