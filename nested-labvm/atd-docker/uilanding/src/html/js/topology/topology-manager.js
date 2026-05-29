@@ -138,7 +138,11 @@ export class TopologyManager {
                 addHost: false,
                 addFirewall: false,
                 addVelocloud: false,
-                resetTopology: false
+                resetTopology: false,
+                addCloudeos: false,       // nb_add_cloudeos
+                addWanCloudeos: false,    // nb_wan_cloudeos
+                addLink: false,           // nb_add_link
+                downloadConfigs: false    // nb_download_configs
             };
 
             if (window.featureFlags) {
@@ -149,9 +153,13 @@ export class TopologyManager {
                 nodebuilderFeatures.addFirewall = await window.featureFlags.check('nb_add_firewall');
                 nodebuilderFeatures.addVelocloud = await window.featureFlags.check('nb_add_velocloud');
                 nodebuilderFeatures.resetTopology = await window.featureFlags.check('nb_reset_topology');
+                nodebuilderFeatures.addCloudeos = await window.featureFlags.check('nb_add_cloudeos');
+                nodebuilderFeatures.addWanCloudeos = await window.featureFlags.check('nb_wan_cloudeos');
+                nodebuilderFeatures.addLink = await window.featureFlags.check('nb_add_link');
+                nodebuilderFeatures.downloadConfigs = await window.featureFlags.check('nb_download_configs');
 
                 // Log feature flags status
-                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
+                const logMessage = `NodeBuilder feature flags: addNode=${nodebuilderFeatures.addNode}, addCluster=${nodebuilderFeatures.addCluster}, addHost=${nodebuilderFeatures.addHost}, addFirewall=${nodebuilderFeatures.addFirewall}, addVelocloud=${nodebuilderFeatures.addVelocloud}, addCloudeos=${nodebuilderFeatures.addCloudeos}, addWanCloudeos=${nodebuilderFeatures.addWanCloudeos}, addLink=${nodebuilderFeatures.addLink}, downloadConfigs=${nodebuilderFeatures.downloadConfigs}, resetTopology=${nodebuilderFeatures.resetTopology}, topology=${window.featureFlags.getTopology()}`;
                 console.log('[TopologyManager]', logMessage);
                 if (window.logger) {
                     window.logger.info('topology_manager', 'NodeBuilder feature flags checked', nodebuilderFeatures);
@@ -194,6 +202,23 @@ export class TopologyManager {
                 console.log('[TopologyManager] AddVelocloudWizard initialized (nb_add_velocloud enabled)');
             }
 
+            // Initialize AddCloudeosWizard if enabled (KVM labs only)
+            if (nodebuilderFeatures.addCloudeos && typeof window.AddCloudeosWizard !== 'undefined') {
+                window.addCloudeosWizard = new window.AddCloudeosWizard(this);
+                console.log('[TopologyManager] AddCloudeosWizard initialized (nb_add_cloudeos enabled)');
+            }
+
+            // Check for PE1/PE2 nodes to determine WAN CloudEOS eligibility
+            if (nodebuilderFeatures.addWanCloudeos) {
+                const nodes = this.cy.nodes();
+                const hasPE1 = nodes.some(n => n.data('label') === 'PE1');
+                const hasPE2 = nodes.some(n => n.data('label') === 'PE2');
+                nodebuilderFeatures.addWanCloudeos = hasPE1 && hasPE2;
+                if (!nodebuilderFeatures.addWanCloudeos) {
+                    console.log('[TopologyManager] WAN CloudEOS disabled: PE1/PE2 not found in topology');
+                }
+            }
+
             // Pass NodeBuilder feature states to EventManager to control menu visibility
             if (this.eventManager) {
                 this.eventManager.nodebuilderFeatures = nodebuilderFeatures;
@@ -212,13 +237,14 @@ export class TopologyManager {
                 }
             }
 
-            // Initialize OrphanedSlotsMonitor for tracking orphaned interface slots (KVM labs only)
-            // This monitors for interface slots preserved from deleted devices
-            if (this.topologyData.metadata?.eos_type === 'veos') {
-                this.orphanedSlotsMonitor = new OrphanedSlotsMonitor(this);
-                this.orphanedSlotsMonitor.init();
-                console.log('[TopologyManager] OrphanedSlotsMonitor initialized');
-            }
+            // OrphanedSlotsMonitor disabled - slot preservation is off by default
+            // (nodebuilder ENABLE_SLOT_PRESERVATION=false). Re-enable here if
+            // slot preservation is turned back on in the future.
+            // if (this.topologyData.metadata?.eos_type === 'veos') {
+            //     this.orphanedSlotsMonitor = new OrphanedSlotsMonitor(this);
+            //     this.orphanedSlotsMonitor.init();
+            //     console.log('[TopologyManager] OrphanedSlotsMonitor initialized');
+            // }
 
             this.isInitialized = true;
             this.hideLoading();
@@ -232,6 +258,7 @@ export class TopologyManager {
 
         } catch (error) {
             console.error('[TopologyManager] Initialization failed', error);
+            cloudLog('error', 'Topology init failed: ' + error.message, { source: 'topology-manager', action: 'init_failed' });
             this.showError(error.message);
             throw error;
         }

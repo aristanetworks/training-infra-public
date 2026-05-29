@@ -1,12 +1,16 @@
-!
-interface Ethernet1
-  no switchport
-  ip address 192.168.12.2/30
-
-interface Loopback0
-   ip address 192.168.1.2/32
-!
-interface Loopback1
-   ip address 192.168.1.12/32
-!
-
+hostname A2
+   !
+   ip routing
+   !
+   interface Ethernet1
+      no switchport
+      ip address 192.168.12.2/30
+   !
+   interface Loopback0
+      ip address 192.168.1.2/32
+   !
+   interface Loopback1
+      ip address 192.168.1.12/32
+   !
+   ip route 0.0.0.0/0 192.168.12.1
+   !

@@ -23,7 +23,7 @@ if [[ "$CURRENT_TIME" -gt "$END_EXAM_TIME" ]]; then
     echo "[$(date)] Exam duration expired. Executing container command..." >> "$LOG_FILE"
 
     # Run Docker command and capture status
-    if docker exec -d atd-login sudo python3 /usr/local/bin/upload_exam_unattended.py; then
+    if docker exec -d atd-login sudo python3 -m exam_upload_v2.main; then
         echo "[$(date)] Successfully executed Docker command inside atd-login container." >> "$LOG_FILE"
     else
         echo "[$(date)] ERROR: Docker command execution failed!" >> "$LOG_FILE"

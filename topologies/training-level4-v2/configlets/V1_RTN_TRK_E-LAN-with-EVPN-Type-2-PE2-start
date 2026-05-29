@@ -1,3 +1,5 @@
+hostname PE2
+!
 ip routing
 !
 service routing protocols model multi-agent
@@ -29,8 +31,7 @@ no shutdown
 !
 interface Ethernet3
 no switchport
-ip address 192.168.32.1/30
-mtu 1500
+no ip address
 no shutdown
 !
 interface Ethernet4

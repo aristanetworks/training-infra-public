@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip install --upgrade pip
 
-RUN pip install tornado requests ruamel.yaml docker pyeapi
+RUN pip install tornado requests ruamel.yaml docker pyeapi pyyaml google-cloud-logging
 
 RUN mkdir -p /opt/topo/html
 
@@ -47,13 +47,18 @@ COPY --from=builder /build/src/html /opt/topo/html/
 
 # Copy Python modules to site-packages
 COPY ./src/device_types.py /usr/local/bin/device_types.py
+COPY ./src/topology_converter.py /usr/local/bin/topology_converter.py
+COPY ./src/utils.py /usr/local/bin/utils.py
+COPY ./src/handlers/ /usr/local/bin/handlers/
 # Note: capture_manager.py and packet_parser.py are not needed here
 # Packet capture runs in the dedicated captureservice container with host network mode
 
+COPY ./src/cloud_logging_utils.py /usr/local/lib/python3.9/site-packages/
 COPY ./src/uilanding.py /usr/local/bin/uilanding
+COPY ./scripts/connectivity-report.py /usr/local/bin/connectivity-report
 
-RUN chmod +x /usr/local/bin/uilanding
+RUN chmod +x /usr/local/bin/uilanding /usr/local/bin/connectivity-report
 
-EXPOSE 80
+EXPOSE 8080 8081 8082 8083 8084
 
 CMD ["uilanding"]

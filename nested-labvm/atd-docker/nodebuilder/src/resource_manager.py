@@ -214,6 +214,7 @@ class ResourceManager:
         Returns:
             Dict with status
         """
+        vm_name = self.resolve_domain_name(vm_name)
         self.logger.info(f"Destroying VM: {vm_name}")
 
         result = subprocess.run(
@@ -245,6 +246,7 @@ class ResourceManager:
         Returns:
             Dict with status
         """
+        vm_name = self.resolve_domain_name(vm_name)
         self.logger.info(f"Undefining VM: {vm_name}")
 
         result = subprocess.run(
@@ -262,24 +264,59 @@ class ResourceManager:
 
         return {'status': 'undefined'}
 
+    def resolve_domain_name(self, vm_name: str) -> str:
+        """Resolve the actual libvirt domain name for a VM.
+
+        Tries the name as-is first, then lowercase as fallback.
+        This handles topologies where VMs use original case from
+        topo_build.yml (e.g., L4: P4, PE1) as well as topologies
+        where VMs are lowercase (e.g., spine1, leaf1).
+
+        Args:
+            vm_name: Name of the VM to look up
+
+        Returns:
+            The actual domain name found, or vm_name as-is if neither matches
+        """
+        for name in dict.fromkeys([vm_name, vm_name.lower()]):
+            try:
+                result = subprocess.run(
+                    ['virsh', 'dominfo', name],
+                    capture_output=True,
+                    text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+                if result.returncode == 0:
+                    return name
+            except Exception:
+                continue
+        return vm_name
+
     def vm_exists(self, vm_name: str) -> bool:
-        """Check if a VM is defined in libvirt."""
-        try:
-            result = subprocess.run(
-                ['virsh', 'dominfo', vm_name],
-                capture_output=True,
-                text=True,
-                timeout=SUBPROCESS_TIMEOUT_DEFAULT
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        """Check if a VM is defined in libvirt.
+        Tries original name first, then lowercase (virsh is case-sensitive
+        and domain names may be uppercase on some topologies like L4)."""
+        for name in dict.fromkeys([vm_name, vm_name.lower()]):
+            try:
+                result = subprocess.run(
+                    ['virsh', 'dominfo', name],
+                    capture_output=True,
+                    text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+                if result.returncode == 0:
+                    return True
+            except Exception:
+                continue
+        return False
 
     def get_vm_state(self, vm_name: str) -> str:
-        """Get the current state of a VM."""
+        """Get the current state of a VM.
+        Resolves the actual domain name first (may be uppercase or lowercase)."""
+        resolved = self.resolve_domain_name(vm_name)
         try:
             result = subprocess.run(
-                ['virsh', 'domstate', vm_name],
+                ['virsh', 'domstate', resolved],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT_DEFAULT
@@ -666,7 +703,7 @@ class ResourceManager:
 
     def reset_all_user_nodes(self) -> Dict:
         """
-        Fully reset all user-added nodes, hosts, firewalls, and VeloCloud devices.
+        Fully reset all user-added nodes, hosts, firewalls, VeloCloud, CloudEOS, and links.
 
         This removes all user-added devices and restores the topology to its
         original state. Operations performed:
@@ -674,9 +711,11 @@ class ResourceManager:
         2. Delete all user-added Linux hosts
         3. Delete all user-added VyOS firewalls
         4. Delete all user-added VeloCloud devices
-        5. Clean up any orphaned OVS bridges
-        6. Clear persistence files
-        7. Clear orphaned interface slots
+        5. Delete all user-added CloudEOS devices
+        6. Remove all user-added links (clear user_links.yaml and OVS bridges)
+        7. Clean up any orphaned OVS bridges
+        8. Clear persistence files
+        9. Clear orphaned interface slots
 
         Returns:
             Dict with detailed reset results
@@ -849,9 +888,97 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 5: Clean up any orphaned OVS bridges (user-created)
+        # Phase 5: Delete all user-added CloudEOS devices
+        self.logger.info("Phase 5: Deleting user-added CloudEOS devices")
+        from cloudeos_manager import delete_cloudeos
+        from persistence import list_user_cloudeos
+        from config import USER_CLOUDEOS_PATH
+
+        successfully_deleted_cloudeos = []
+        results['cloudeos_deleted'] = []
+
+        try:
+            cloudeos_entries = list_user_cloudeos(USER_CLOUDEOS_PATH)
+            for device_entry in cloudeos_entries:
+                if isinstance(device_entry, dict):
+                    for cloudeos_name, cloudeos_info in device_entry.items():
+                        try:
+                            # Track affected target devices
+                            for conn in (cloudeos_info.get('neighbors') or []):
+                                target = conn.get('neighborDevice', '')
+                                if target:
+                                    results['affected_devices'].add(target)
+
+                            # Delete the CloudEOS device
+                            delete_result = delete_cloudeos(name=cloudeos_name)
+                            delete_status = delete_result.get('status', 'unknown')
+                            results['cloudeos_deleted'].append({
+                                'name': cloudeos_name,
+                                'status': delete_status
+                            })
+                            if delete_status in ('deleted', 'success', 'completed'):
+                                successfully_deleted_cloudeos.append(cloudeos_name)
+                            self.logger.info(f"Deleted user CloudEOS device: {cloudeos_name}")
+                        except Exception as e:
+                            self.logger.error(f"Failed to delete CloudEOS device {cloudeos_name}: {e}")
+                            results['errors'].append({
+                                'type': 'cloudeos',
+                                'name': cloudeos_name,
+                                'error': str(e)
+                            })
+        except Exception as e:
+            self.logger.error(f"Failed to load CloudEOS devices: {e}")
+            results['errors'].append({
+                'type': 'cloudeos_load',
+                'error': str(e)
+            })
+
+        # Phase 6: Clear user-added links (user_links.yaml) and delete their OVS bridges
+        self.logger.info("Phase 6: Removing user-added links")
+        from link_manager import remove_link
+        from persistence import list_user_links, save_user_links, get_empty_user_links
+        from config import USER_LINKS_PATH
+
+        results['links_deleted'] = []
+
+        try:
+            user_links = list_user_links(USER_LINKS_PATH)
+            for link in list(user_links):  # iterate a copy since we modify the file
+                src = link.get('source_device', '')
+                src_port = link.get('source_port', '')
+                tgt = link.get('target_device', '')
+                tgt_port = link.get('target_port', '')
+                if not (src and tgt):
+                    continue
+                try:
+                    link_result = remove_link(src, src_port, tgt, tgt_port, USER_LINKS_PATH)
+                    link_status = link_result.get('status', 'unknown')
+                    results['links_deleted'].append({
+                        'source': src,
+                        'target': tgt,
+                        'status': link_status
+                    })
+                    self.logger.info(f"Removed user link: {src}:{src_port} <-> {tgt}:{tgt_port}")
+                except Exception as e:
+                    self.logger.error(f"Failed to remove link {src} <-> {tgt}: {e}")
+                    results['errors'].append({
+                        'type': 'link',
+                        'source': src,
+                        'target': tgt,
+                        'error': str(e)
+                    })
+            # Ensure the file is cleared even if individual removals had issues
+            save_user_links(get_empty_user_links(), USER_LINKS_PATH)
+        except Exception as e:
+            self.logger.error(f"Failed to process user links: {e}")
+            results['errors'].append({
+                'type': 'links_load',
+                'error': str(e)
+            })
+
+        # Phase 7: Clean up any orphaned OVS bridges (user-created)
         # Uses enhanced cleanup with port-count detection
-        self.logger.info("Phase 5: Cleaning up orphaned OVS bridges")
+        self.logger.info("Phase 7: Cleaning up orphaned OVS bridges")
         try:
             cleanup_result = self.cleanup_all_orphaned_bridges()
             results['bridges_cleaned'] = cleanup_result.get('deleted', [])
@@ -862,9 +989,9 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 6: Remove successfully deleted entries from persistence
+        # Phase 8: Remove successfully deleted entries from persistence
         # Only remove entries that were successfully deleted to prevent zombie VMs
-        self.logger.info("Phase 6: Updating persistence files (removing successfully deleted entries)")
+        self.logger.info("Phase 8: Updating persistence files (removing successfully deleted entries)")
         try:
             # Remove successfully deleted nodes from user_nodes.yaml
             for node_name in successfully_deleted_nodes:
@@ -906,10 +1033,10 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 7: Clear orphaned interface slots
+        # Phase 9: Clear orphaned interface slots
         # When doing a full reset, we need to clear the orphaned slots registry
         # and optionally detach the orphaned interfaces from VMs
-        self.logger.info("Phase 7: Clearing orphaned interface slots")
+        self.logger.info("Phase 9: Clearing orphaned interface slots")
         try:
             from orphaned_interfaces import clear_all_orphaned_slots, list_all_orphaned_slots
             from interface_manager import detach_interface_from_vm
@@ -979,7 +1106,8 @@ class ResourceManager:
             len(results['nodes_deleted']) +
             len(results['hosts_deleted']) +
             len(results['firewalls_deleted']) +
-            len(results.get('velo_deleted', []))
+            len(results.get('velo_deleted', [])) +
+            len(results.get('cloudeos_deleted', []))
         )
 
         results['status'] = 'completed' if not results['errors'] else 'completed_with_errors'
@@ -988,6 +1116,8 @@ class ResourceManager:
             'hosts': len(results['hosts_deleted']),
             'firewalls': len(results['firewalls_deleted']),
             'velocloud': len(results.get('velo_deleted', [])),
+            'cloudeos': len(results.get('cloudeos_deleted', [])),
+            'links': len(results.get('links_deleted', [])),
             'bridges': len(results['bridges_cleaned']),
             'orphaned_slots': results.get('orphaned_slots_cleared', 0),
             'orphaned_detach_failures': len(results.get('orphaned_detach_failures', [])),
@@ -997,6 +1127,7 @@ class ResourceManager:
 
         self.logger.info(
             f"Reset complete: {total_deleted} devices deleted, "
+            f"{len(results.get('links_deleted', []))} links removed, "
             f"{len(results['bridges_cleaned'])} bridges cleaned, "
             f"{results.get('orphaned_slots_cleared', 0)} orphaned slots cleared, "
             f"{len(results['errors'])} errors"

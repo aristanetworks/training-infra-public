@@ -14,10 +14,6 @@ interface Loopback0
 interface Loopback1
    ip address 192.168.3.11/32
 !
-interface Management1
-   vrf MGMT
-   ip address 192.168.0.23/24
-!
 ip routing
 !
 ip route 0.0.0.0/0 192.168.31.1
@@ -26,5 +22,3 @@ router bgp 65103
    neighbor 192.168.31.1 remote-as 100
    network 192.168.3.1/32
    network 192.168.3.11/32
-!
-end

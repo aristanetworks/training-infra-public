@@ -126,6 +126,7 @@ body.terminal-page {
   padding: 8px 0;
 }
 
+
 /* ============================================
    Jump Server Link
    ============================================ */
@@ -200,6 +201,11 @@ body.terminal-page {
   background: rgba(251, 181, 0, 0.05);
 }
 
+.group-header .group-name {
+  flex: 1;
+}
+
+
 .group-header .arrow {
   margin-right: 10px;
   transition: transform 0.2s;
@@ -237,6 +243,40 @@ body.terminal-page {
   background: rgba(217, 217, 217, 0.1);
 }
 
+/* Queue states — shown while SSH tabs are waiting to open */
+.device-item.ssh-queued {
+  border-left-color: var(--secondary-color);
+  opacity: 0.7;
+}
+
+.device-item.ssh-queued .status-dot.ssh {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
+  animation: queuePulse 1.2s ease-in-out infinite;
+}
+
+.device-item.ssh-loading {
+  border-left-color: var(--secondary-color);
+}
+
+.device-item.ssh-loading .status-dot.ssh {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
+  animation: loadingSpin 0.8s linear infinite;
+  border-radius: 50%;
+  border-top-color: transparent;
+}
+
+@keyframes queuePulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes loadingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Connection status colors */
 .device-item.ssh-connected {
   background: rgba(217, 217, 217, 0.1);
@@ -261,6 +301,24 @@ body.terminal-page {
 .device-item.multi-connected {
   background: rgba(217, 217, 217, 0.15);
   border-left-color: var(--secondary-color);  /* Yellow for multiple connections */
+}
+
+/* Hover on connected devices — must be visually distinct from resting connected state */
+.device-item.ssh-connected:hover,
+.device-item.console-connected:hover,
+.device-item.both-connected:hover,
+.device-item.novnc-connected:hover,
+.device-item.multi-connected:hover {
+  background: rgba(217, 217, 217, 0.2);
+}
+
+/* Active tab's device in sidebar — bold name with yellow underline */
+.device-item.active-tab .device-name {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--secondary-color);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
 }
 
 /* Status dots container for stacked dots (macOS-style) */
@@ -439,6 +497,64 @@ body.terminal-page {
 }
 
 /* ============================================
+   Tab Context Menu
+   ============================================ */
+.tab-context-menu {
+  position: fixed;
+  background: var(--primary-color);
+  border: 1px solid var(--secondary-color);
+  min-width: 200px;
+  z-index: 100000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tab-context-menu .menu-section-label {
+  padding: 6px 14px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-context-menu .menu-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.15s;
+}
+
+.tab-context-menu .menu-item:hover {
+  background: rgba(251, 181, 0, 0.1);
+}
+
+.tab-context-menu .menu-item.destructive {
+  color: var(--danger-red, #e30909);
+}
+
+.tab-context-menu .menu-item.destructive:hover {
+  background: rgba(227, 9, 9, 0.1);
+}
+
+.tab-context-menu .menu-item .group-name-highlight {
+  color: var(--secondary-color);
+}
+
+.tab-context-menu .menu-divider {
+  height: 1px;
+  background: rgba(251, 181, 0, 0.3);
+  margin: 4px 0;
+}
+
+.tab-context-menu .menu-item .menu-icon {
+  width: 16px;
+  text-align: center;
+}
+
+/* ============================================
    Credentials Panel
    ============================================ */
 .credentials-panel {
@@ -502,6 +618,23 @@ body.terminal-page {
   border-radius: 2px;
 }
 
+/* Queue progress indicator — shown between tabs and actions */
+.queue-progress {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.queue-progress.visible {
+  opacity: 1;
+}
+
 .tab-bar-actions {
   display: flex;
   align-items: center;
@@ -524,7 +657,6 @@ body.terminal-page {
   border-bottom: none;
   border-radius: 0;
   margin-right: 4px;
-  cursor: pointer;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
@@ -586,6 +718,47 @@ body.terminal-page {
 
 .tab .tab-status-dot.novnc {
   background: #9b59b6;  /* Purple for desktop/VNC */
+}
+
+/* ============================================
+   Tab Drag & Drop
+   ============================================ */
+.tab {
+  cursor: grab;
+}
+
+.tab:active {
+  cursor: grabbing;
+}
+
+.tab-ghost {
+  opacity: 0.4;
+  border: 2px solid var(--secondary-color);
+  background: rgba(251, 181, 0, 0.15);
+}
+
+.tab-chosen {
+  cursor: grabbing;
+}
+
+/* The original element left behind during drag — shows drop position */
+.tab-dragging-source {
+  border: 2px dashed var(--secondary-color) !important;
+  background: rgba(251, 181, 0, 0.1) !important;
+  color: transparent !important;
+}
+
+.tab-dragging-source * {
+  visibility: hidden;
+}
+
+/* The fallback ghost that follows the cursor */
+.tab-drag-fallback {
+  opacity: 0.85;
+  border: 2px solid var(--secondary-color);
+  background: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  cursor: grabbing;
 }
 
 /* ============================================

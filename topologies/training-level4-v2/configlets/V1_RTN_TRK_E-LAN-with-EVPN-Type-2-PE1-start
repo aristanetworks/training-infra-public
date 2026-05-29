@@ -1,3 +1,4 @@
+hostname PE1
 !
 ip routing
 !
@@ -30,8 +31,7 @@ no shutdown
 !
 interface Ethernet3
 no switchport
-ip address 192.168.31.1/30
-mtu 1500
+no ip address
 no shutdown
 !
 interface Ethernet4

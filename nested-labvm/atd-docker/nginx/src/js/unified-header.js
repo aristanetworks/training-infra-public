@@ -21,6 +21,65 @@ if (window.__unifiedHeaderInjected) {
     }
 }
 
+// cloudLog: fire-and-forget log to Cloud Logging via uilanding endpoint
+if (typeof window.cloudLog === 'undefined') {
+    window.cloudLog = function(level, message, extra) {
+        try {
+            var payload = { level: level || 'info', message: message || '' };
+            if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) payload[k] = extra[k]; } }
+            if (navigator.sendBeacon) { navigator.sendBeacon('/td-api/client-log', JSON.stringify(payload)); }
+        } catch(e) {}
+    };
+}
+
+// Track labguide page views: /labguides/CVP-Navigating-L3-2023.2-RST.html
+if (!window.__labguideTracked) {
+    window.__labguideTracked = true;
+    (function() {
+        var path = window.location.pathname;
+        if (path.indexOf('/labguides') === 0) {
+            var page = path.replace('/labguides/', '').replace(/\.html$/, '') || 'index';
+            if (path === '/labguides' || path === '/labguides/') { page = 'index'; }
+
+            // Skip Sphinx utility pages
+            if (['genindex', 'search', 'py-modindex'].indexOf(page) !== -1) { return; }
+
+            // Capture section from hash fragment (e.g., #lab-topology)
+            var section = window.location.hash ? window.location.hash.replace('#', '') : '';
+
+            // Detect context: standalone vs iframe (unified header panel)
+            var isIframe = (window.self !== window.top);
+            var context = 'standalone';
+            var parentPage = '';
+            if (isIframe) {
+                try {
+                    var parentPath = window.top.location.pathname;
+                    if (parentPath.indexOf('/cv') === 0) { context = 'cvp'; }
+                    else if (parentPath.indexOf('/terminal') === 0) { context = 'terminal'; }
+                    else if (parentPath.indexOf('/coder') === 0) { context = 'coder'; }
+                    else if (parentPath.indexOf('/firefox') === 0) { context = 'browser'; }
+                    else if (parentPath.indexOf('/console') === 0) { context = 'console'; }
+                    else if (parentPath.indexOf('/topology-converter') === 0) { context = 'topology-converter'; }
+                    else if (parentPath.indexOf('/host') === 0) { context = 'host-vm'; }
+                    else if (parentPath === '/' || parentPath.indexOf('/topology') === 0) { context = 'uilanding'; }
+                    else { context = 'iframe'; }
+                    parentPage = parentPath;
+                } catch(e) { context = 'iframe'; }
+            }
+
+            var logData = {
+                source: 'unified-header',
+                action: 'labguide_page_viewed',
+                page: page,
+                context: context,
+                parent_page: parentPage
+            };
+            if (section) { logData.section = section; }
+            window.cloudLog('info', 'Lab guide viewed: ' + page, logData);
+        }
+    })();
+}
+
 function init() {
     if (document.querySelector('.unified-header')) {
         console.log('[UnifiedHeader] Header appeared during load, skipping');
@@ -87,12 +146,17 @@ function injectCSS() {
         /* Collapse feature */
         .header-collapse-btn {
             padding: 4px 8px;
-            height: 28px;
+            height: 32px;
+            box-sizing: border-box;
             background: transparent;
             border: 1px solid #fbb500;
+            border-radius: 0;
             color: #fbb500;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .header-expand-btn {
@@ -724,12 +788,17 @@ function injectCSS() {
         /* Collapse feature */
         .header-collapse-btn {
             padding: 4px 8px;
-            height: 28px;
+            height: 32px;
+            box-sizing: border-box;
             background: transparent;
             border: 1px solid #fbb500;
+            border-radius: 0;
             color: #fbb500;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .header-expand-btn {

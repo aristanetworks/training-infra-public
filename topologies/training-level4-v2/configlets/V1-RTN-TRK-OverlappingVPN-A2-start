@@ -1,12 +1,10 @@
+hostname A2
 !
 interface Ethernet1
-  no switchport
-  ip address 192.168.12.2/30
-
+   no switchport
+   ip address 192.168.12.2/30
+   no shutdown
+!
 interface Loopback0
-   ip address 192.168.1.2/32
+   ip address 192.168.2.1/32
 !
-interface Loopback1
-   ip address 192.168.1.12/32
-!
-

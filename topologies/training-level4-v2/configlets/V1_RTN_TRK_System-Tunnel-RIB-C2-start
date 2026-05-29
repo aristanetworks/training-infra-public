@@ -1,13 +1,17 @@
 !
-int loop0
+hostname C2
+!
+service routing protocols model multi-agent
+ip routing
+!
+interface Loopback0
    ip address 192.168.30.2/32
 !
-int eth1
+interface Ethernet1
    no switchport
-   ip address 192.168.39.2/30
-   mtu 1500
-   no shut
+   description to PE2
+   ip address 192.168.32.2/30
+   no shutdown
 !
-int eth2
-   shut
+ip route 0.0.0.0/0 192.168.32.1
 !

@@ -830,3 +830,141 @@ def get_orphaned_slot_info(
         'original_connection': slot.get('original_connection'),
         'is_orphaned': True
     }
+
+
+def cleanup_stale_orphaned_interfaces() -> Dict:
+    """
+    Detach interfaces from VMs where the OVS bridge has been deleted.
+
+    When slot preservation records an orphaned slot, the interface remains in the
+    VM's libvirt XML but the OVS bridge is deleted. If the VM restarts, virsh
+    fails with "Cannot get interface MTU on 'bridge': No such device".
+
+    This function scans all VMs for interfaces pointing to non-existent bridges
+    and detaches them, preventing boot failures.
+
+    Should be called at nodebuilder startup.
+
+    Returns:
+        Dict with detached_count, devices_cleaned, and errors
+    """
+    import subprocess
+    from config import SUBPROCESS_TIMEOUT_DEFAULT
+
+    result = {
+        'detached_count': 0,
+        'devices_cleaned': [],
+        'errors': []
+    }
+
+    try:
+        # Get list of all existing OVS bridges
+        bridge_result = subprocess.run(
+            ['ovs-vsctl', 'list-br'],
+            capture_output=True, text=True,
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
+        )
+        if bridge_result.returncode != 0:
+            result['errors'].append(f"Failed to list OVS bridges: {bridge_result.stderr}")
+            return result
+
+        existing_bridges = set(bridge_result.stdout.strip().split('\n')) if bridge_result.stdout.strip() else set()
+
+        # System bridges that are always expected (not OVS data bridges)
+        system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+
+        # Get list of all VMs
+        vm_result = subprocess.run(
+            ['virsh', 'list', '--all', '--name'],
+            capture_output=True, text=True,
+            timeout=SUBPROCESS_TIMEOUT_DEFAULT
+        )
+        if vm_result.returncode != 0:
+            result['errors'].append(f"Failed to list VMs: {vm_result.stderr}")
+            return result
+
+        vm_names = [name.strip() for name in vm_result.stdout.strip().split('\n') if name.strip()]
+
+        for vm_name in vm_names:
+            try:
+                # Get interfaces for this VM
+                intf_result = subprocess.run(
+                    ['virsh', 'domiflist', vm_name],
+                    capture_output=True, text=True,
+                    timeout=SUBPROCESS_TIMEOUT_DEFAULT
+                )
+                if intf_result.returncode != 0:
+                    continue
+
+                lines = intf_result.stdout.strip().split('\n')
+                for line in lines[2:]:  # Skip header lines
+                    if not line.strip():
+                        continue
+                    parts = line.split()
+                    if len(parts) < 5:
+                        continue
+
+                    bridge_name = parts[2]
+                    mac = parts[4]
+
+                    # Skip system/management bridges
+                    if bridge_name in system_bridges or bridge_name == '-':
+                        continue
+
+                    # Check if the bridge exists
+                    if bridge_name not in existing_bridges:
+                        logger.warning(
+                            f"Startup cleanup: {vm_name} has interface (MAC {mac}) "
+                            f"pointing to non-existent bridge '{bridge_name}'. Detaching."
+                        )
+                        try:
+                            from interface_manager import detach_interface_from_vm
+                            detach_interface_from_vm(vm_name, mac)
+                            result['detached_count'] += 1
+                            if vm_name not in result['devices_cleaned']:
+                                result['devices_cleaned'].append(vm_name)
+                            logger.info(
+                                f"Startup cleanup: Detached stale interface from {vm_name} "
+                                f"(bridge: {bridge_name}, MAC: {mac})"
+                            )
+                        except Exception as e:
+                            result['errors'].append(
+                                f"Failed to detach from {vm_name} (bridge {bridge_name}): {e}"
+                            )
+
+            except Exception as e:
+                result['errors'].append(f"Error checking {vm_name}: {e}")
+
+    except Exception as e:
+        result['errors'].append(f"Startup cleanup error: {e}")
+
+    # After detaching stale interfaces, try to start any affected VMs
+    # that are shut off. Original topology VMs boot via libvirt autostart
+    # BEFORE nodebuilder starts, so they may have failed to start due to
+    # the stale interfaces. Now that we've cleaned them, try starting them.
+    result['vms_restarted'] = []
+    for vm_name in result['devices_cleaned']:
+        try:
+            state_result = subprocess.run(
+                ['virsh', 'domstate', vm_name],
+                capture_output=True, text=True,
+                timeout=SUBPROCESS_TIMEOUT_DEFAULT
+            )
+            if state_result.returncode == 0 and 'shut off' in state_result.stdout:
+                logger.info(f"Startup cleanup: Starting {vm_name} after interface cleanup")
+                start_result = subprocess.run(
+                    ['virsh', 'start', vm_name],
+                    capture_output=True, text=True,
+                    timeout=60
+                )
+                if start_result.returncode == 0:
+                    result['vms_restarted'].append(vm_name)
+                    logger.info(f"Startup cleanup: Successfully started {vm_name}")
+                else:
+                    result['errors'].append(
+                        f"Failed to start {vm_name} after cleanup: {start_result.stderr.strip()}"
+                    )
+        except Exception as e:
+            result['errors'].append(f"Error starting {vm_name}: {e}")
+
+    return result

@@ -23,4 +23,3 @@ router bgp 65202
    network 192.168.2.2/32
    network 192.168.2.12/32
 !
-end

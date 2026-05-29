@@ -1,3 +1,6 @@
+hostname A2
+!
+ip routing
 !
 ip route 0.0.0.0/0 192.168.12.1
 !

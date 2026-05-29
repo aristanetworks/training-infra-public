@@ -1,0 +1,99 @@
+hostname PE1
+!
+vrf instance B
+!
+vrf instance C
+!
+vrf instance SS
+!
+interface Ethernet1
+   no switchport
+   vrf SS
+   ip address 192.168.11.1/30
+!
+interface Ethernet2
+   no switchport
+   vrf B
+   ip address 192.168.21.1/30
+!
+interface Ethernet3
+   no switchport
+   vrf C
+   ip address 192.168.31.1/30
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.13.1/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.14.1/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.15.1/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Loopback0
+   ip address 192.168.100.1/32
+   isis enable isis
+!
+ip routing vrf B
+ip routing vrf C
+ip routing vrf SS
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 ge 24
+!
+mpls ip
+!
+mpls ldp
+   router-id interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!
+router bgp 100
+   neighbor 192.168.100.2 remote-as 100
+   neighbor 192.168.100.2 update-source Loopback0
+   neighbor 192.168.100.2 send-community extended
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.2 activate
+   !
+  vrf B
+      rd 100:2
+      route-target import vpn-ipv4 100:2
+      route-target import vpn-ipv4 100:1000
+      route-target export vpn-ipv4 100:2
+      route-target export vpn-ipv4 100:2000
+      neighbor 192.168.21.2 remote-as 65102
+   !
+   vrf C
+      rd 100:3
+      route-target import vpn-ipv4 100:3
+      route-target import vpn-ipv4 100:1000
+      route-target export vpn-ipv4 100:3
+      route-target export vpn-ipv4 100:2000
+      neighbor 192.168.31.2 remote-as 65103
+   !
+   vrf SS
+      rd 100:100
+      route-target import vpn-ipv4 100:100
+      route-target import vpn-ipv4 100:2000
+      route-target export vpn-ipv4 100:100
+      route-target export vpn-ipv4 100:1000
+      neighbor 192.168.11.2 remote-as 65101
+!
+router isis isis
+   net 49.0000.0000.0000.0001.00
+   router-id ipv4 192.168.100.1
+   is-type level-1
+   !
+   address-family ipv4 unicast
+!
+
