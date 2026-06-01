@@ -4,7 +4,7 @@
  */
 
 body {
-    background-color: var(--navy-blue);
+    background-color: var(--primary-color);
     min-height: 100vh;
 }
 
@@ -477,3 +477,109 @@ body {
         height: 35px;
     }
 }
+
+/* =============================================================
+ * Unified-header overrides
+ * -------------------------------------------------------------
+ * variables.css ships a greedy rule:
+ *     body * :not(i) { font-family: var(--proxima) !important; }
+ * which clobbers the Segoe UI font that CVP's injected
+ * unified-header (see nginx/src/js/unified-header.js) expects.
+ * The rules below re-assert the unified-header's intended
+ * typography and bar background, scoped strictly to the
+ * unified-header / announcement-banner / notifications-panel
+ * subtrees so the rest of the toposwitcher page is untouched.
+ * `!important` is required to beat variables.css's `!important`.
+ * ============================================================= */
+.unified-header,
+.unified-header *:not(i),
+.announcement-banner,
+.announcement-banner *:not(i),
+.notifications-panel,
+.notifications-panel *:not(i) {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+.unified-header {
+    background: #071c35;
+}
+
+/* =============================================================
+ * CVP readiness gate overlay
+ * -------------------------------------------------------------
+ * Full-viewport modal shown until /td-api/conftopo?action=cvp_status
+ * returns {status:"UP"}. z-index sits below unified-header (100000).
+ * ============================================================= */
+.cvp-gate-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(7, 28, 53, 0.92);
+    z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 200ms ease-in-out;
+}
+
+.cvp-gate-overlay.cvp-gate-hiding {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cvp-gate-card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid var(--secondary-color);
+    border-radius: 4px;
+    padding: 36px 44px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.cvp-gate-spinner {
+    font-size: 42px;
+    color: var(--secondary-color);
+    margin-bottom: 18px;
+}
+
+.cvp-gate-heading {
+    color: var(--secondary-color);
+    font-size: 20px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0 0 14px 0;
+}
+
+.cvp-gate-state {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.cvp-gate-state span {
+    color: var(--secondary-color);
+}
+
+.cvp-gate-body {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+}
+
+.cvp-gate-timestamp {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    font-style: italic;
+}
+

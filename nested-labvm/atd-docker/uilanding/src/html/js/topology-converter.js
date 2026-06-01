@@ -26,11 +26,105 @@
     const MAX_CONNECTION_RETRIES = 60; // 5 minutes of retrying (5 sec intervals)
     const CVP_MONITOR_INTERVAL = 10000; // 10 seconds
 
+    // CVP readiness gate
+    const CVP_GATE_URL = '/td-api/topology-converter/cvp-status';
+    const CVP_GATE_POLL_MS = 10000; // 10 seconds
+    const CVP_GATE_MAX_ATTEMPTS = 360; // ~1 hour
+    let cvpGateInterval = null;
+    let cvpGateAttempts = 0;
+    let cvpGateOpened = false;
+
     // Initialize on page load
     $(document).ready(function() {
         console.log('[TopologyConverter] Page loaded');
-        init();
+        startCvpGate();
     });
+
+    function startCvpGate() {
+        console.log('[TopologyConverter] Starting CVP readiness gate');
+        showCvpGate();
+        // Force-disable interactive controls until gate opens
+        $('#convert-btn').prop('disabled', true);
+        $('#target-topology-select').prop('disabled', true);
+        // Immediate check, then poll
+        checkCvpReady();
+        cvpGateInterval = setInterval(checkCvpReady, CVP_GATE_POLL_MS);
+    }
+
+    function showCvpGate() {
+        const $overlay = $('#cvp-gate-overlay');
+        $overlay.removeClass('cvp-gate-hiding');
+        $overlay.css('display', 'flex');
+        $overlay.attr('aria-hidden', 'false');
+    }
+
+    function updateCvpGateState(stateText) {
+        $('#cvp-gate-state-text').text(stateText || 'Unknown');
+        $('#cvp-gate-last-checked').text(new Date().toLocaleTimeString());
+    }
+
+    function hideCvpGate() {
+        const $overlay = $('#cvp-gate-overlay');
+        $overlay.addClass('cvp-gate-hiding');
+        $overlay.attr('aria-hidden', 'true');
+        // Wait for opacity transition (200ms) before removing from layout
+        setTimeout(function() {
+            $overlay.css('display', 'none');
+        }, 220);
+    }
+
+    function checkCvpReady() {
+        cvpGateAttempts++;
+        console.log('[TopologyConverter] CVP gate check attempt #' + cvpGateAttempts);
+
+        $.ajax({
+            url: CVP_GATE_URL,
+            method: 'GET',
+            dataType: 'json',
+            timeout: 5000,
+            success: function(data) {
+                const state = (data && data.status) ? data.status : 'Unknown';
+                console.log('[TopologyConverter] CVP status response:', data);
+
+                if (state === 'UP') {
+                    console.log('[TopologyConverter] CVP is UP — opening gate');
+                    openCvpGate();
+                    return;
+                }
+                updateCvpGateState(state);
+                maybeExhaustCvpGate();
+            },
+            error: function(xhr, status, error) {
+                console.warn('[TopologyConverter] CVP status check failed:', status, error);
+                updateCvpGateState('Unknown');
+                maybeExhaustCvpGate();
+            }
+        });
+    }
+
+    function maybeExhaustCvpGate() {
+        if (cvpGateAttempts >= CVP_GATE_MAX_ATTEMPTS) {
+            console.error('[TopologyConverter] CVP gate exhausted after ' + cvpGateAttempts + ' attempts');
+            if (cvpGateInterval) {
+                clearInterval(cvpGateInterval);
+                cvpGateInterval = null;
+            }
+            $('#cvp-gate-state-text').text('Timed out');
+            $('.cvp-gate-body').text('CVP did not come up after 1 hour. Contact admin or refresh page.');
+        }
+    }
+
+    function openCvpGate() {
+        if (cvpGateOpened) return;
+        cvpGateOpened = true;
+        if (cvpGateInterval) {
+            clearInterval(cvpGateInterval);
+            cvpGateInterval = null;
+        }
+        hideCvpGate();
+        // Now run the normal page init flow
+        init();
+    }
 
     function init() {
         setupEventListeners();

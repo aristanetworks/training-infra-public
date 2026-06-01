@@ -11,6 +11,19 @@
     <link rel="stylesheet" href="https://kit.fontawesome.com/be2f0b0e50.css" crossorigin="anonymous">
 </head>
 <body>
+    <!-- CVP readiness gate overlay (shown until CVP reports UP) -->
+    <div id="cvp-gate-overlay" class="cvp-gate-overlay" style="display: none;" aria-hidden="true" role="dialog" aria-labelledby="cvp-gate-heading">
+        <div class="cvp-gate-card">
+            <div class="cvp-gate-spinner">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+            </div>
+            <h3 id="cvp-gate-heading" class="cvp-gate-heading">Waiting for CVP</h3>
+            <div class="cvp-gate-state">Current state: <span id="cvp-gate-state-text">Checking...</span></div>
+            <p class="cvp-gate-body">Topology Converter is disabled until CloudVision Portal is online. This page will unlock automatically.</p>
+            <div class="cvp-gate-timestamp">Last checked: <span id="cvp-gate-last-checked">never</span></div>
+        </div>
+    </div>
+
     <div class="tc-main">
         <h1 class="tc-page-title">Topology Converter</h1>
         <!-- Current Topology -->

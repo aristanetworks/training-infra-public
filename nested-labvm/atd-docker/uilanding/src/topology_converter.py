@@ -25,7 +25,7 @@ from cloud_logging_utils import (
     log_operation_error,
 )
 from handlers.auth import BaseHandler
-from utils import safe_log
+from utils import getAPI, safe_log
 
 try:
     from google.cloud import firestore
@@ -793,6 +793,36 @@ class TopologyConverterStatusHandler(BaseHandler):
                      event='error', handler='TopologyConverterStatusHandler', error=str(e))
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
+
+
+class TopologyConverterCvpStatusHandler(BaseHandler):
+    """Proxy endpoint returning CVP readiness status from conftopo.
+
+    Returns the dict from getAPI('cvp_status'), shape:
+        {'status': 'UP'|'DOWN'|other, 'version': str (optional), ...}
+    Used by topology-converter.html overlay gate to unlock the page only
+    when CVP is online.
+    """
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps({'status': 'DOWN', 'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        try:
+            result = getAPI('cvp_status')
+            if not isinstance(result, dict):
+                result = {'status': 'DOWN', 'error': 'invalid response'}
+            self.write(json.dumps(result))
+        except Exception as e:
+            safe_log('error', f'Error fetching cvp_status: {e}',
+                     event='error', handler='TopologyConverterCvpStatusHandler', error=str(e))
+            self.set_status(500)
+            self.write(json.dumps({'status': 'DOWN', 'error': str(e)}))
 
 
 class TopologyConverterPageHandler(BaseHandler):
