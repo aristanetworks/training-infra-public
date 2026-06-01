@@ -747,7 +747,7 @@ topologies:
               ram: 110
             branch: nested/2026.1
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2026-1-20260417
             eos:
               - 4.30.1F
     prod:
@@ -762,7 +762,7 @@ topologies:
               ram: 110
             branch: nested/2026.1
             orderable: true
-            image: base-veos-training-l4-v2-2024-3-20250616
+            image: base-veos-training-l4-v2-2026-1-20260417
             eos:
               - 4.30.1F
     desc: 'TopoSwitcher Lab. For use by the Arista Training Team.'
