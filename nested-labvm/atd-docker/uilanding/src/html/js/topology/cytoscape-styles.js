@@ -380,6 +380,19 @@ export function getCytoscapeStyles() {
         },
 
         // ==========================================
+        // Node Highlight (author-defined emphasis)
+        // ==========================================
+        {
+            selector: 'node[highlight]',
+            style: {
+                'underlay-color': 'data(highlight)',
+                'underlay-padding': 8,
+                'underlay-opacity': 0.35,
+                'underlay-shape': 'ellipse',
+            }
+        },
+
+        // ==========================================
         // Edge Styles
         // ==========================================
         {
@@ -389,6 +402,8 @@ export function getCytoscapeStyles() {
                 'line-color': '#071c35',
                 'curve-style': 'bezier',
                 'opacity': 0.7,
+                'label': 'data(label)',
+                'text-margin-y': -10,
                 'transition-property': 'line-color, width, opacity',
                 'transition-duration': '0.2s',
                 // Source and target port labels anchored to respective endpoints
@@ -624,6 +639,28 @@ export function getCytoscapeStyles() {
                 'line-color': '#e30909',
                 'line-style': 'dashed',
                 'width': 3
+            }
+        },
+
+        // ==========================================
+        // Flow Path Styles (diagram builder)
+        // ==========================================
+        {
+            selector: 'node.flow-path-node',
+            style: {
+                'underlay-color': '#4c5cae',
+                'underlay-padding': 6,
+                'underlay-opacity': 0.2,
+                'underlay-shape': 'ellipse',
+            }
+        },
+        {
+            selector: 'edge.flow-active',
+            style: {
+                'line-color': '#fbb500',
+                'width': 4,
+                'opacity': 1,
+                'z-index': 998,
             }
         },
 

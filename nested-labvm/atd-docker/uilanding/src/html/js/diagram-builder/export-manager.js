@@ -41,6 +41,7 @@ export class ExportManager {
                 lines.push(`    label: "${this.escapeYaml(node.label)}"`);
                 lines.push(`    type: ${node.type}`);
                 if (node.ip) lines.push(`    ip: ${node.ip}`);
+                if (node.highlight) lines.push(`    highlight: "${node.highlight}"`);
                 if (node.zone) lines.push(`    zone: ${node.zone}`);
                 if (node.position) {
                     lines.push(`    position:`);
@@ -59,6 +60,7 @@ export class ExportManager {
                 lines.push(`    target: ${edge.target}`);
                 if (edge.source_port) lines.push(`    source_port: ${edge.source_port}`);
                 if (edge.target_port) lines.push(`    target_port: ${edge.target_port}`);
+                if (edge.label) lines.push(`    label: "${this.escapeYaml(edge.label)}"`);
             }
             lines.push('');
         }
@@ -90,6 +92,42 @@ export class ExportManager {
                 if (ann.color) lines.push(`    color: "${ann.color}"`);
                 if (ann.font_size && ann.font_size !== 12) lines.push(`    font_size: ${ann.font_size}`);
                 if (ann.background === false) lines.push(`    background: false`);
+            }
+            lines.push('');
+        }
+
+        // Flows
+        if (state.flows && state.flows.length > 0) {
+            lines.push('flows:');
+            for (const flow of state.flows) {
+                lines.push(`  - name: "${this.escapeYaml(flow.name)}"`);
+                lines.push(`    path: [${flow.path.join(', ')}]`);
+                if (flow.color) lines.push(`    color: "${flow.color}"`);
+                if (flow.packet_size && flow.packet_size !== 12) lines.push(`    packet_size: ${flow.packet_size}`);
+                if (flow.speed && flow.speed !== 1) lines.push(`    speed: ${flow.speed}`);
+                if (flow.description) lines.push(`    description: "${this.escapeYaml(flow.description)}"`);
+                if (flow.labels && Object.keys(flow.labels).length > 0) {
+                    lines.push('    labels:');
+                    for (const [nodeId, label] of Object.entries(flow.labels)) {
+                        lines.push(`      ${nodeId}: "${this.escapeYaml(label)}"`);
+                    }
+                }
+                if (flow.initial_headers && flow.initial_headers.length > 0) {
+                    const defaults = flow.initial_headers.length === 1 && flow.initial_headers[0] === 'Packet';
+                    if (!defaults) {
+                        lines.push(`    initial_headers: [${flow.initial_headers.map(h => `"${this.escapeYaml(h)}"`).join(', ')}]`);
+                    }
+                }
+                if (flow.encapsulation && Object.keys(flow.encapsulation).length > 0) {
+                    lines.push('    encapsulation:');
+                    for (const [nodeId, ops] of Object.entries(flow.encapsulation)) {
+                        lines.push(`      ${nodeId}:`);
+                        for (const op of ops) {
+                            lines.push(`        - action: ${op.action}`);
+                            lines.push(`          header: "${this.escapeYaml(op.header)}"`);
+                        }
+                    }
+                }
             }
             lines.push('');
         }

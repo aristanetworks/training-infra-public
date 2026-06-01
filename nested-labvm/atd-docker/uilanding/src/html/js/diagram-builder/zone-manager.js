@@ -27,7 +27,7 @@ export class ZoneManager {
             id,
             label,
             color: '#071c35',
-            background: 'rgba(7, 28, 53, 0.05)',
+            background: 'rgba(7, 28, 53, 0.15)',
             border_style: 'solid',
             layer: maxLayer + 1,
         });
@@ -70,7 +70,7 @@ export class ZoneManager {
                 label: zoneData.label || zoneData.id,
                 isZone: true,
                 zoneColor: zoneData.color || '#071c35',
-                zoneBackground: zoneData.background || 'rgba(7, 28, 53, 0.05)',
+                zoneBackground: zoneData.background || 'rgba(7, 28, 53, 0.15)',
                 zoneBorderStyle: zoneData.border_style || 'solid',
                 zoneLayer: layer,
             },
@@ -125,7 +125,7 @@ export class ZoneManager {
                 id: node.id(),
                 label: node.data('label') || node.id(),
                 color: node.data('zoneColor') || '#071c35',
-                background: node.data('zoneBackground') || 'rgba(7, 28, 53, 0.05)',
+                background: node.data('zoneBackground') || 'rgba(7, 28, 53, 0.15)',
                 border_style: node.data('zoneBorderStyle') || 'solid',
                 layer: node.data('zoneLayer') || 0,
             });

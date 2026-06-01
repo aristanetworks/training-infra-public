@@ -71,23 +71,6 @@ export class ConnectionManager {
                 return;
             }
 
-            // Check for duplicate edge
-            const existingEdge = this.cy.edges().filter(e => {
-                const s = e.source().id();
-                const t = e.target().id();
-                return (s === this.sourceNode.id() && t === targetNode.id()) ||
-                       (s === targetNode.id() && t === this.sourceNode.id());
-            });
-
-            if (existingEdge.length > 0) {
-                this.sourceNode.removeClass('highlighted');
-                this.sourceNode = null;
-                this.cy.nodes().forEach(n => {
-                    if (!n.data('isZone')) n.addClass('hover');
-                });
-                return;
-            }
-
             // Create edge (use timestamp suffix to allow parallel links)
             const edgeId = `${this.sourceNode.id()}|${targetNode.id()}:${Date.now()}`;
             const edge = this.cy.add({

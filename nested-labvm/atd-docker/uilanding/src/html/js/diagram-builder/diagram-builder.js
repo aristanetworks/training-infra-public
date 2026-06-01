@@ -12,6 +12,7 @@ import { AnnotationManager } from './annotation-manager.js';
 import { ExportManager } from './export-manager.js';
 import { ImportManager } from './import-manager.js';
 import { PreviewManager } from './preview-manager.js';
+import { FlowEditor } from './flow-editor.js';
 
 class DiagramBuilder {
     constructor() {
@@ -24,6 +25,7 @@ class DiagramBuilder {
         this.exportMgr = null;
         this.importMgr = null;
         this.preview = null;
+        this.flowEditor = null;
 
         // Undo/Redo history
         this.undoStack = [];
@@ -31,7 +33,7 @@ class DiagramBuilder {
         this.maxHistory = 50;
 
         // Current mode
-        this.mode = 'select'; // select | connection | annotation
+        this.mode = 'select'; // select | connection | annotation | flow
 
         this.init();
     }
@@ -71,12 +73,94 @@ class DiagramBuilder {
             onModeChange: (active) => this.setMode(active ? 'connection' : 'select'),
         });
 
+        // Initialize flow editor
+        this.flowEditor = new FlowEditor(this.canvas.cy, {
+            onChange: () => {
+                this.saveState();
+                this.refreshFlowList();
+            },
+            onSelect: (flow, index) => this.properties.showFlow(flow, index),
+            onModeChange: (active) => {
+                if (!active && this.mode === 'flow') {
+                    this.setMode('select');
+                    const flow = this.flowEditor.flows[this.flowEditor.currentFlowIndex];
+                    if (flow && flow.path.length >= 2) {
+                        this.showToast(`Path set: ${flow.path.join(' → ')}`, 'success');
+                        this.properties.showFlow(flow, this.flowEditor.currentFlowIndex);
+                    }
+                }
+            },
+            onPathUpdate: (path) => {
+                this.showBuildingPathStatus(path);
+            },
+        });
+
         // Initialize properties panel
         this.properties = new PropertiesPanel({
             onNodeChange: (id, changes) => this.updateNode(id, changes),
             onEdgeChange: (id, changes) => this.updateEdge(id, changes),
             onZoneChange: (id, changes) => this.zones.updateZone(id, changes),
             onAnnotationChange: (index, changes) => this.annotations.updateAnnotation(index, changes),
+            onAnnotationDelete: (index) => {
+                this.annotations.removeAnnotation(index);
+                this.properties.clear();
+                this.saveState();
+            },
+            onFlowChange: (index, changes) => {
+                this.flowEditor.updateFlow(index, changes);
+                this.refreshFlowList();
+            },
+            onFlowDelete: (index) => {
+                this.flowEditor.removeFlow(index);
+                this.properties.clear();
+                this.refreshFlowList();
+            },
+            onFlowBuildPath: (index) => {
+                this.flowEditor.selectFlow(index);
+                this.flowEditor.startPathBuild();
+                this.setMode('flow');
+                this.showToast('Click nodes to build the flow path. Press Enter to finish, Escape to cancel.', 'info');
+            },
+            onFlowExtendPath: (index) => {
+                this.flowEditor.selectFlow(index);
+                this.flowEditor.startExtendPath();
+                this.setMode('flow');
+                this.showToast('Click nodes to extend the path. Press Enter to finish, Escape to cancel.', 'info');
+            },
+            onFlowRemoveHop: (flowIndex, hopIndex) => {
+                this.flowEditor.removePathNode(flowIndex, hopIndex);
+                const flow = this.flowEditor.flows[flowIndex];
+                this.properties.showFlow(flow, flowIndex);
+                this.refreshFlowList();
+            },
+            onFlowHopLabel: (flowIndex, nodeId, text) => {
+                this.flowEditor.updateHopLabel(flowIndex, nodeId, text);
+            },
+            onFlowEncapAdd: (flowIndex, nodeId) => {
+                const flow = this.flowEditor.flows[flowIndex];
+                if (!flow.encapsulation) flow.encapsulation = {};
+                if (!flow.encapsulation[nodeId]) flow.encapsulation[nodeId] = [];
+                flow.encapsulation[nodeId].push({ action: 'push', header: '' });
+                this.flowEditor.onChange();
+                this.properties.showFlow(flow, flowIndex);
+            },
+            onFlowEncapUpdate: (flowIndex, nodeId, opIdx, changes) => {
+                const flow = this.flowEditor.flows[flowIndex];
+                if (!flow.encapsulation || !flow.encapsulation[nodeId]) return;
+                const op = flow.encapsulation[nodeId][opIdx];
+                if (!op) return;
+                if (changes.action !== undefined) op.action = changes.action;
+                if (changes.header !== undefined) op.header = changes.header;
+                this.flowEditor.onChange();
+            },
+            onFlowEncapRemove: (flowIndex, nodeId, opIdx) => {
+                const flow = this.flowEditor.flows[flowIndex];
+                if (!flow.encapsulation || !flow.encapsulation[nodeId]) return;
+                flow.encapsulation[nodeId].splice(opIdx, 1);
+                if (flow.encapsulation[nodeId].length === 0) delete flow.encapsulation[nodeId];
+                this.flowEditor.onChange();
+                this.properties.showFlow(flow, flowIndex);
+            },
             zones: this.zones,
         });
 
@@ -122,6 +206,14 @@ class DiagramBuilder {
 
         document.getElementById('btn-add-annotation').addEventListener('click', () => {
             this.toggleAnnotationMode();
+        });
+
+        document.getElementById('btn-add-flow').addEventListener('click', () => {
+            this.addNewFlow();
+        });
+
+        document.getElementById('btn-new-flow').addEventListener('click', () => {
+            this.addNewFlow();
         });
 
         document.getElementById('btn-delete').addEventListener('click', () => {
@@ -228,11 +320,19 @@ class DiagramBuilder {
                 this.addZone();
             } else if (e.key === 'a' && !e.ctrlKey && !e.metaKey) {
                 this.toggleAnnotationMode();
+            } else if (e.key === 'w' && !e.ctrlKey && !e.metaKey) {
+                this.addNewFlow();
+            } else if (e.key === 'Enter' && this.mode === 'flow') {
+                this.flowEditor.finishPathBuild();
+                this.setMode('select');
             } else if (e.key === 'f') {
                 this.canvas.fit();
             } else if (e.key === 'p') {
                 this.preview.show();
             } else if (e.key === 'Escape') {
+                if (this.mode === 'flow') {
+                    this.flowEditor.cancelPathBuild();
+                }
                 this.setMode('select');
                 this.canvas.cy.elements(':selected').unselect();
             } else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -252,10 +352,19 @@ class DiagramBuilder {
         const indicator = document.getElementById('mode-indicator');
         const canvasEl = document.getElementById('cy-builder');
 
+        // Deactivate previous mode's handlers
+        if (this.mode === 'connection' && mode !== 'connection') {
+            this.connections.deactivate();
+        }
+        if (this.mode === 'annotation' && mode !== 'annotation') {
+            this.annotations.deactivateCreateMode();
+        }
+
         // Reset toolbar button states
         document.getElementById('btn-add-connection').classList.remove('active');
         document.getElementById('btn-add-annotation').classList.remove('active');
-        canvasEl.classList.remove('connection-mode', 'annotation-mode');
+        document.getElementById('btn-add-flow').classList.remove('active');
+        canvasEl.classList.remove('connection-mode', 'annotation-mode', 'flow-mode');
 
         switch (mode) {
             case 'connection':
@@ -268,8 +377,78 @@ class DiagramBuilder {
                 document.getElementById('btn-add-annotation').classList.add('active');
                 canvasEl.classList.add('annotation-mode');
                 break;
+            case 'flow':
+                indicator.textContent = 'Flow Path';
+                document.getElementById('btn-add-flow').classList.add('active');
+                canvasEl.classList.add('flow-mode');
+                break;
             default:
                 indicator.textContent = 'Select';
+        }
+    }
+
+    addNewFlow() {
+        if (this.canvas.cy.nodes().filter(n => !n.data('isZone')).length < 2) {
+            this.showToast('Add at least 2 devices before creating a flow', 'error');
+            return;
+        }
+        // If already in flow path build mode, finish current build first
+        if (this.mode === 'flow') {
+            this.flowEditor.finishPathBuild();
+        }
+        this.flowEditor.addFlow();
+        this.refreshFlowList();
+        // Immediately enter path building mode
+        this.flowEditor.startPathBuild();
+        this.setMode('flow');
+        this.showToast('Click nodes in order to define the flow path. Press Enter to finish, Escape to cancel.', 'info');
+    }
+
+    showBuildingPathStatus(path) {
+        const titleEl = document.getElementById('properties-title');
+        const contentEl = document.getElementById('properties-content');
+        if (!titleEl || !contentEl) return;
+
+        titleEl.textContent = 'Building Flow Path';
+        const pathStr = path.length > 0 ? path.join(' → ') : '(click a node)';
+        const countText = path.length + ' node' + (path.length !== 1 ? 's' : '');
+
+        contentEl.textContent = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'padding:12px 0;';
+
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size:11px;color:#666;margin-bottom:8px;';
+        status.textContent = countText + ' selected' + (path.length < 2 ? ' (need at least 2)' : '');
+        wrapper.appendChild(status);
+
+        const pathDisplay = document.createElement('div');
+        pathDisplay.className = 'flow-path-display';
+        pathDisplay.textContent = pathStr;
+        wrapper.appendChild(pathDisplay);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:11px;color:#999;margin-top:12px;';
+        hint.textContent = 'Enter = finish path  |  Escape = cancel';
+        wrapper.appendChild(hint);
+
+        const finishBtn = document.createElement('button');
+        finishBtn.className = 'import-btn import-btn-primary';
+        finishBtn.textContent = 'Finish Path';
+        finishBtn.style.marginTop = '8px';
+        finishBtn.addEventListener('click', () => {
+            this.flowEditor.finishPathBuild();
+            this.setMode('select');
+        });
+        wrapper.appendChild(finishBtn);
+
+        contentEl.appendChild(wrapper);
+    }
+
+    refreshFlowList() {
+        const listEl = document.getElementById('flow-list');
+        if (listEl) {
+            this.flowEditor.renderFlowList(listEl);
         }
     }
 
@@ -347,10 +526,21 @@ class DiagramBuilder {
             node.classes(`device-type-${changes.device_type}`);
         }
         if (changes.zone !== undefined) {
+            const oldParent = node.parent().length ? node.parent().id() : null;
             if (changes.zone) {
+                if (oldParent && oldParent !== changes.zone) {
+                    this.showToast(`Moved ${node.data('label') || node.id()} from ${oldParent} to ${changes.zone}`, 'info');
+                }
                 node.move({ parent: changes.zone });
             } else {
                 node.move({ parent: null });
+            }
+        }
+        if (changes.highlight !== undefined) {
+            if (changes.highlight) {
+                node.data('highlight', changes.highlight);
+            } else {
+                node.removeData('highlight');
             }
         }
         this.saveState();
@@ -362,6 +552,7 @@ class DiagramBuilder {
 
         if (changes.source_port !== undefined) edge.data('source_port', changes.source_port);
         if (changes.target_port !== undefined) edge.data('target_port', changes.target_port);
+        if (changes.label !== undefined) edge.data('label', changes.label);
         this.saveState();
     }
 
@@ -385,6 +576,16 @@ class DiagramBuilder {
 
     addZone() {
         const selected = this.canvas.cy.nodes(':selected').filter(n => !n.isParent());
+
+        // Warn if any selected nodes are already in a zone
+        const inZone = selected.filter(n => n.parent().length > 0);
+        if (inZone.length > 0) {
+            const names = inZone.map(n => n.data('label') || n.id()).join(', ');
+            if (!confirm(`${names} will be moved out of their current zone. Continue?`)) {
+                return;
+            }
+        }
+
         this.zones.createZone(selected);
         this.saveState();
         this.updateStatusBar();
@@ -393,6 +594,9 @@ class DiagramBuilder {
     // --- Selection ---
 
     onSelectionChange(elements) {
+        // Don't let selection override the properties panel during flow path building
+        if (this.mode === 'flow') return;
+
         if (elements.length === 0) {
             this.properties.clear();
             return;
@@ -434,6 +638,7 @@ class DiagramBuilder {
                 position: { x: Math.round(pos.x), y: Math.round(pos.y) },
             };
             if (node.data('ip')) nodeData.ip = node.data('ip');
+            if (node.data('highlight')) nodeData.highlight = node.data('highlight');
             if (node.parent().length) nodeData.zone = node.parent().id();
             nodes.push(nodeData);
         });
@@ -447,6 +652,7 @@ class DiagramBuilder {
             };
             if (edge.data('source_port')) edgeData.source_port = edge.data('source_port');
             if (edge.data('target_port')) edgeData.target_port = edge.data('target_port');
+            if (edge.data('label')) edgeData.label = edge.data('label');
             edges.push(edgeData);
         });
 
@@ -456,7 +662,10 @@ class DiagramBuilder {
         // Collect annotations
         const annotationsList = this.annotations.getAnnotations();
 
-        return { settings, nodes, edges, zones, annotations: annotationsList };
+        // Collect flows
+        const flows = this.flowEditor.getFlows();
+
+        return { settings, nodes, edges, zones, annotations: annotationsList, flows };
     }
 
     loadState(data) {
@@ -488,6 +697,7 @@ class DiagramBuilder {
                     device_type: node.type || 'other',
                     ip: node.ip || '',
                 };
+                if (node.highlight) nodeData.highlight = node.highlight;
                 if (node.zone) nodeData.parent = node.zone;
 
                 const elem = {
@@ -515,6 +725,7 @@ class DiagramBuilder {
                         target: edge.target,
                         source_port: edge.source_port || '',
                         target_port: edge.target_port || '',
+                        label: edge.label || '',
                     },
                 });
             });
@@ -529,6 +740,12 @@ class DiagramBuilder {
                     background: ann.background !== false,
                 });
             });
+        }
+
+        // Load flows
+        if (data.flows) {
+            this.flowEditor.setFlows(data.flows);
+            this.refreshFlowList();
         }
 
         // Reapply zone layer z-index after all elements are loaded

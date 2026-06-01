@@ -105,6 +105,12 @@ export class ImportManager {
     }
 
     confirmImport() {
+        if (this.canvas && this.canvas.cy.elements().length > 0) {
+            if (!confirm('This will replace the current diagram. Continue?')) {
+                return;
+            }
+        }
+
         const textarea = document.getElementById('import-textarea');
         const content = textarea.value.trim();
         const importType = textarea.getAttribute('data-import-type');
@@ -140,6 +146,12 @@ export class ImportManager {
      * Import from the live topology API
      */
     async importFromAPI() {
+        if (this.canvas && this.canvas.cy.elements().length > 0) {
+            if (!confirm('This will replace the current diagram. Continue?')) {
+                return;
+            }
+        }
+
         try {
             this.showToast('Fetching topology from API...', 'info');
 
@@ -233,6 +245,7 @@ export class ImportManager {
             edges,
             zones: [],
             annotations: [],
+            flows: [],
         };
     }
 

@@ -117,6 +117,11 @@ html, body {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+.toolbar-btn:focus-visible {
+    outline: 2px solid #fbb500;
+    outline-offset: 1px;
+}
+
 .toolbar-btn.active {
     background: rgba(251, 181, 0, 0.25);
     border-color: #fbb500;
@@ -158,6 +163,12 @@ html, body {
     font-family: inherit;
     font-size: 12px;
     cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.toolbar-select:focus-visible {
+    outline: 2px solid #fbb500;
+    outline-offset: 1px;
 }
 
 .toolbar-select option {
@@ -340,7 +351,9 @@ html, body {
     position: absolute;
     font-family: "proxima-nova", sans-serif;
     font-weight: 600;
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 300px;
+    word-wrap: break-word;
     transform-origin: left top;
     pointer-events: auto;
     cursor: move;
@@ -522,6 +535,12 @@ html, body {
 .import-btn:hover {
     background: #f5f6fa;
     border-color: #bbb;
+}
+
+.export-btn:focus-visible,
+.import-btn:focus-visible {
+    outline: 2px solid #4c5cae;
+    outline-offset: 1px;
 }
 
 .import-btn-primary {
@@ -752,6 +771,300 @@ html, body {
 
 .panel-body::-webkit-scrollbar-thumb:hover {
     background: #aaa;
+}
+
+/* --- Flow Editor --- */
+.flow-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-left: 3px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+
+.flow-list-item:hover {
+    background: #f0f2ff;
+}
+
+.flow-list-item.selected {
+    background: rgba(251, 181, 0, 0.1);
+    border-left-color: #fbb500;
+}
+
+.flow-list-item .flow-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.flow-list-item .flow-name {
+    font-size: 12px;
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.builder-canvas.flow-mode {
+    cursor: crosshair;
+}
+
+/* Header stack badge - travels with packet dot in preview */
+.atl-flow-header-stack {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    z-index: 42;
+    transform: translateX(-50%);
+}
+
+.atl-flow-header {
+    padding: 1px 6px;
+    font-family: "proxima-nova", sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #fff;
+    background: #4c5cae;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    text-align: center;
+    min-width: 60px;
+    transition: all 0.3s ease;
+}
+
+.atl-flow-header:first-child { border-radius: 3px 3px 0 0; }
+.atl-flow-header:last-child { border-radius: 0 0 3px 3px; border-bottom: none; }
+.atl-flow-header:only-child { border-radius: 3px; }
+.atl-flow-header.header-original { background: #071c35; }
+.atl-flow-header.header-encap { background: #4c5cae; }
+
+.atl-flow-header.pushing {
+    animation: atl-header-push 0.4s ease-out;
+}
+
+@keyframes atl-header-push {
+    0% { opacity: 0; transform: scaleY(0); max-height: 0; padding: 0 6px; }
+    100% { opacity: 1; transform: scaleY(1); max-height: 20px; padding: 1px 6px; }
+}
+
+/* Encapsulation editor in flow properties */
+.encap-node-group {
+    margin-bottom: 6px;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.encap-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 6px;
+    background: #f5f6fa;
+    font-size: 11px;
+}
+
+.encap-add-btn {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 10px;
+    padding: 1px 6px;
+    cursor: pointer;
+    color: #4c5cae;
+    font-weight: 600;
+}
+
+.encap-add-btn:hover {
+    background: #f0f2ff;
+    border-color: #4c5cae;
+}
+
+.encap-op {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.encap-op select {
+    width: 60px;
+    padding: 2px 4px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: inherit;
+}
+
+.encap-op input[type="text"] {
+    flex: 1;
+    padding: 2px 4px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: inherit;
+    min-width: 0;
+}
+
+.encap-op .encap-remove {
+    font-size: 14px;
+}
+
+.flow-hop-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.flow-hop-item:last-child {
+    border-bottom: none;
+}
+
+.flow-hop-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #071c35;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.flow-hop-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: #333;
+    min-width: 50px;
+    flex-shrink: 0;
+}
+
+.flow-hop-item input[type="text"] {
+    flex: 1;
+    padding: 3px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+    min-width: 0;
+}
+
+.flow-hop-item input[type="text"]:focus {
+    border-color: #4c5cae;
+}
+
+.flow-hop-remove {
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+
+.flow-hop-remove:hover {
+    color: #e30909;
+}
+
+.flow-path-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.flow-path-actions .import-btn,
+.flow-path-actions .export-btn {
+    flex: 1;
+    font-size: 11px;
+    padding: 5px 8px;
+}
+
+.flow-list-item .flow-node-count {
+    font-size: 10px;
+    color: #999;
+    white-space: nowrap;
+}
+
+/* --- Danger Button (for delete actions) --- */
+.btn-danger {
+    color: #e30909;
+}
+
+.btn-danger:hover {
+    background: rgba(227, 9, 9, 0.06);
+    border-color: #e30909;
+}
+
+#btn-new-flow {
+    margin-top: 4px;
+}
+
+#btn-delete-saved {
+    margin-top: 4px;
+}
+
+/* --- Inline Button (compact, for use beside inputs) --- */
+.btn-inline {
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* --- Range Input (sliders) --- */
+.form-group input[type="range"] {
+    width: 100%;
+    accent-color: #fbb500;
+    cursor: pointer;
+}
+
+/* --- Flow Hop Label Rows --- */
+.flow-hop-row {
+    margin-bottom: 4px;
+}
+
+.flow-hop-row .form-group {
+    margin-bottom: 0;
+}
+
+.flow-hop-row .form-group:first-child {
+    flex: 0.4;
+}
+
+.flow-hop-row .form-group:last-child {
+    flex: 0.6;
+}
+
+.flow-hop-row input {
+    font-size: 11px;
+}
+
+/* --- Flow Path Display --- */
+.flow-path-display {
+    font-size: 11px;
+    color: #666;
+    padding: 4px 0;
+    word-break: break-word;
+}
+
+.flow-path-empty {
+    font-size: 11px;
+    color: #999;
 }
 
 /* --- Responsive adjustments --- */

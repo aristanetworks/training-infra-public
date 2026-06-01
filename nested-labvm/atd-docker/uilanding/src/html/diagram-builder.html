@@ -40,6 +40,10 @@
           <span class="toolbar-icon">T</span>
           <span class="toolbar-label">Annotation</span>
         </button>
+        <button class="toolbar-btn" id="btn-add-flow" title="Add Flow (W)">
+          <span class="toolbar-icon">&#x2794;</span>
+          <span class="toolbar-label">Flow</span>
+        </button>
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn" id="btn-delete" title="Delete Selected (Del)">
           <span class="toolbar-icon">&#x2715;</span>
@@ -154,6 +158,15 @@
           </div>
         </div>
 
+        <!-- Flow Section -->
+        <div class="properties-section" id="flow-section">
+          <h4 class="section-header" data-toggle="flow-body">Flows</h4>
+          <div class="section-body" id="flow-body">
+            <div id="flow-list"></div>
+            <button class="import-btn" id="btn-new-flow">New Flow</button>
+          </div>
+        </div>
+
         <!-- Export Section -->
         <div class="properties-section" id="export-section">
           <h4 class="section-header" data-toggle="export-body">Export</h4>
@@ -180,7 +193,7 @@
               </select>
             </div>
             <button class="import-btn" id="btn-load" title="Load selected diagram">Load</button>
-            <button class="export-btn" id="btn-delete-saved" title="Delete selected diagram" style="color:#e30909;margin-top:4px">Delete</button>
+            <button class="export-btn btn-danger" id="btn-delete-saved" title="Delete selected diagram">Delete</button>
           </div>
         </div>
 
