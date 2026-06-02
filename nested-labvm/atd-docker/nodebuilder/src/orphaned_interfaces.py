@@ -960,6 +960,15 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
                                     result['detached_count'] += 1
                                     if vm_name not in result['devices_cleaned']:
                                         result['devices_cleaned'].append(vm_name)
+                                    # Remove the stale orphaned slot record since
+                                    # the interface has been detached
+                                    slot_num = orphaned_slot.get('slot_number')
+                                    if slot_num is not None:
+                                        remove_orphaned_slot(vm_name, slot_num)
+                                        logger.info(
+                                            f"Startup cleanup: Removed stale orphaned "
+                                            f"slot record {vm_name}:Ethernet{slot_num}"
+                                        )
                                 except Exception as e2:
                                     result['errors'].append(
                                         f"Failed to detach from {vm_name} "
