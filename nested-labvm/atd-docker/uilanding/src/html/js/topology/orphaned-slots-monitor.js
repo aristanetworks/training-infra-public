@@ -64,7 +64,7 @@ export class OrphanedSlotsMonitor {
      */
     async checkOrphanedSlots() {
         try {
-            const response = await fetch('/nb-api/orphaned-slots');
+            const response = await fetch('/td-api/nodes/orphaned-slots');
 
             if (!response.ok) {
                 console.warn('[OrphanedSlotsMonitor] Failed to fetch orphaned slots:', response.status);
@@ -307,7 +307,7 @@ export class OrphanedSlotsMonitor {
      * Perform the cleanup API call
      */
     async performCleanup(trulyDetach = true) {
-        const response = await fetch('/nb-api/cleanup-orphaned-slots', {
+        const response = await fetch('/td-api/nodes/cleanup-orphaned-slots', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ truly_detach: trulyDetach })

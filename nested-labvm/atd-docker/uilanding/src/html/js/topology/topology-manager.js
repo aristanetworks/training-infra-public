@@ -237,14 +237,11 @@ export class TopologyManager {
                 }
             }
 
-            // OrphanedSlotsMonitor disabled - slot preservation is off by default
-            // (nodebuilder ENABLE_SLOT_PRESERVATION=false). Re-enable here if
-            // slot preservation is turned back on in the future.
-            // if (this.topologyData.metadata?.eos_type === 'veos') {
-            //     this.orphanedSlotsMonitor = new OrphanedSlotsMonitor(this);
-            //     this.orphanedSlotsMonitor.init();
-            //     console.log('[TopologyManager] OrphanedSlotsMonitor initialized');
-            // }
+            if (this.topologyData.metadata?.eos_type === 'veos') {
+                this.orphanedSlotsMonitor = new OrphanedSlotsMonitor(this);
+                this.orphanedSlotsMonitor.init();
+                console.log('[TopologyManager] OrphanedSlotsMonitor initialized');
+            }
 
             this.isInitialized = true;
             this.hideLoading();
