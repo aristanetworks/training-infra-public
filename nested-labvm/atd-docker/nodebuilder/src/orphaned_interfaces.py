@@ -834,26 +834,27 @@ def get_orphaned_slot_info(
 
 def cleanup_stale_orphaned_interfaces() -> Dict:
     """
-    Detach interfaces from VMs where the OVS bridge has been deleted.
+    Handle interfaces pointing to non-existent OVS bridges at startup.
 
-    When slot preservation records an orphaned slot, the interface remains in the
-    VM's libvirt XML but the OVS bridge is deleted. If the VM restarts, virsh
-    fails with "Cannot get interface MTU on 'bridge': No such device".
+    For interfaces that match recorded orphaned slots: recreate the missing bridge
+    so the VM can boot. The slot is still available for reuse.
 
-    This function scans all VMs for interfaces pointing to non-existent bridges
-    and detaches them, preventing boot failures.
+    For interfaces that don't match any orphaned slot: detach them to prevent
+    boot failures.
 
     Should be called at nodebuilder startup.
 
     Returns:
-        Dict with detached_count, devices_cleaned, and errors
+        Dict with detached_count, bridges_recreated, devices_cleaned, and errors
     """
     import subprocess
     from config import SUBPROCESS_TIMEOUT_DEFAULT
 
     result = {
         'detached_count': 0,
+        'bridges_recreated': 0,
         'devices_cleaned': [],
+        'devices_bridges_recreated': [],
         'errors': []
     }
 
@@ -872,6 +873,18 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
 
         # System bridges that are always expected (not OVS data bridges)
         system_bridges = {'oob_mgmt', 'br0', 'br1', 'br-mgmt', 'br-ext', 'vmgmt'}
+
+        # Load orphaned slots registry to check against
+        orphaned_data = load_orphaned_interfaces()
+        all_orphaned = orphaned_data.get('orphaned_interfaces', {})
+
+        # Build a lookup: (device_lower, mac_lower) -> orphaned_slot
+        orphaned_lookup = {}
+        for device_name, slots in all_orphaned.items():
+            for slot in slots:
+                mac = slot.get('mac_address', '').lower()
+                if mac:
+                    orphaned_lookup[(device_name.lower(), mac)] = slot
 
         # Get list of all VMs
         vm_result = subprocess.run(
@@ -913,24 +926,65 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
 
                     # Check if the bridge exists
                     if bridge_name not in existing_bridges:
-                        logger.warning(
-                            f"Startup cleanup: {vm_name} has interface (MAC {mac}) "
-                            f"pointing to non-existent bridge '{bridge_name}'. Detaching."
-                        )
-                        try:
-                            from interface_manager import detach_interface_from_vm
-                            detach_interface_from_vm(vm_name, mac)
-                            result['detached_count'] += 1
-                            if vm_name not in result['devices_cleaned']:
-                                result['devices_cleaned'].append(vm_name)
+                        # Check if this matches a recorded orphaned slot
+                        lookup_key = (vm_name.lower(), mac.lower())
+                        orphaned_slot = orphaned_lookup.get(lookup_key)
+
+                        if orphaned_slot:
+                            # This is an intentionally preserved slot -- recreate
+                            # the bridge so the VM can boot
                             logger.info(
-                                f"Startup cleanup: Detached stale interface from {vm_name} "
-                                f"(bridge: {bridge_name}, MAC: {mac})"
+                                f"Startup cleanup: {vm_name} has orphaned slot (MAC {mac}) "
+                                f"with missing bridge '{bridge_name}'. Recreating bridge."
                             )
-                        except Exception as e:
-                            result['errors'].append(
-                                f"Failed to detach from {vm_name} (bridge {bridge_name}): {e}"
+                            try:
+                                from interface_manager import create_ovs_bridge
+                                create_ovs_bridge(bridge_name)
+                                existing_bridges.add(bridge_name)
+                                result['bridges_recreated'] += 1
+                                if vm_name not in result['devices_bridges_recreated']:
+                                    result['devices_bridges_recreated'].append(vm_name)
+                                logger.info(
+                                    f"Startup cleanup: Recreated bridge {bridge_name} "
+                                    f"for orphaned slot on {vm_name}"
+                                )
+                            except Exception as e:
+                                # Bridge recreation failed -- fall back to detach
+                                logger.warning(
+                                    f"Startup cleanup: Failed to recreate bridge "
+                                    f"{bridge_name} for {vm_name}: {e}. Detaching instead."
+                                )
+                                try:
+                                    from interface_manager import detach_interface_from_vm
+                                    detach_interface_from_vm(vm_name, mac)
+                                    result['detached_count'] += 1
+                                    if vm_name not in result['devices_cleaned']:
+                                        result['devices_cleaned'].append(vm_name)
+                                except Exception as e2:
+                                    result['errors'].append(
+                                        f"Failed to detach from {vm_name} "
+                                        f"(bridge {bridge_name}): {e2}"
+                                    )
+                        else:
+                            # No orphaned slot -- detach the stale interface
+                            logger.warning(
+                                f"Startup cleanup: {vm_name} has interface (MAC {mac}) "
+                                f"pointing to non-existent bridge '{bridge_name}'. Detaching."
                             )
+                            try:
+                                from interface_manager import detach_interface_from_vm
+                                detach_interface_from_vm(vm_name, mac)
+                                result['detached_count'] += 1
+                                if vm_name not in result['devices_cleaned']:
+                                    result['devices_cleaned'].append(vm_name)
+                                logger.info(
+                                    f"Startup cleanup: Detached stale interface from {vm_name} "
+                                    f"(bridge: {bridge_name}, MAC: {mac})"
+                                )
+                            except Exception as e:
+                                result['errors'].append(
+                                    f"Failed to detach from {vm_name} (bridge {bridge_name}): {e}"
+                                )
 
             except Exception as e:
                 result['errors'].append(f"Error checking {vm_name}: {e}")
@@ -938,12 +992,13 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
     except Exception as e:
         result['errors'].append(f"Startup cleanup error: {e}")
 
-    # After detaching stale interfaces, try to start any affected VMs
-    # that are shut off. Original topology VMs boot via libvirt autostart
-    # BEFORE nodebuilder starts, so they may have failed to start due to
-    # the stale interfaces. Now that we've cleaned them, try starting them.
+    # After cleanup, try to start any affected VMs that are shut off.
+    # Original topology VMs boot via libvirt autostart BEFORE nodebuilder
+    # starts, so they may have failed due to stale/missing bridges.
+    # Now that we've fixed them (detached stale or recreated missing), try starting.
     result['vms_restarted'] = []
-    for vm_name in result['devices_cleaned']:
+    vms_to_restart = set(result['devices_cleaned']) | set(result['devices_bridges_recreated'])
+    for vm_name in vms_to_restart:
         try:
             state_result = subprocess.run(
                 ['virsh', 'domstate', vm_name],
@@ -966,5 +1021,11 @@ def cleanup_stale_orphaned_interfaces() -> Dict:
                     )
         except Exception as e:
             result['errors'].append(f"Error starting {vm_name}: {e}")
+
+    if result['bridges_recreated'] > 0:
+        logger.info(
+            f"Startup cleanup: Recreated {result['bridges_recreated']} bridge(s) "
+            f"for recorded orphaned slots"
+        )
 
     return result

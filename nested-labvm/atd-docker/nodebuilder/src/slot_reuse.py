@@ -104,6 +104,16 @@ def attach_interface_with_slot_reuse(
                 if connection_dict is not None:
                     connection_dict['reused_orphaned_slot'] = True
 
+                # Clean up the old bridge that was kept alive for the orphaned slot
+                old_bridge = orphaned_slot.get('old_bridge')
+                if old_bridge and old_bridge != bridge_name:
+                    try:
+                        from interface_manager import delete_ovs_bridge
+                        delete_ovs_bridge(old_bridge)
+                        logger.info(f"Cleaned up old bridge {old_bridge} after slot reuse")
+                    except Exception as e:
+                        logger.debug(f"Old bridge {old_bridge} cleanup skipped: {e}")
+
                 # If 'configured', the VM still needs a reboot for changes to take effect
                 needs_reboot = (status == 'configured')
                 logger.info(
