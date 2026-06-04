@@ -16,6 +16,7 @@
     };
 
     let currentTopology = null;
+    let targetLabInfo = null;
     let availableTopologies = [];
     let conversionInProgress = false;
     let statusCheckInterval = null;
@@ -188,7 +189,13 @@
     }
 
     function updateCurrentTopologyUI(data) {
-        $('#current-topology-name').text(data.name || 'Unknown');
+        // Prefer the lab label (display_name) — the topology id is shown
+        // as a secondary qualifier when both are available.
+        var label = data.display_name || data.name || data.topology || 'Unknown';
+        if (data.display_name && data.topology && data.topology !== data.display_name) {
+            label = data.display_name + ' (' + data.topology + ')';
+        }
+        $('#current-topology-name').text(label);
         $('#current-topology-devices').text(data.node_count || '0');
         $('#current-topology-type').text(data.eos_type || 'Unknown');
         $('#current-topology-configlets').text(data.configlet_count || '0');
@@ -199,52 +206,79 @@
         $select.empty();
 
         if (availableTopologies.length === 0) {
-            $select.append('<option value="">-- No topologies configured in ACCESS_INFO file --</option>');
+            $select.append('<option value="">-- No labs configured in ACCESS_INFO file --</option>');
             $select.prop('disabled', true);
             $('#convert-btn').prop('disabled', true);
             return;
         }
 
-        $select.append('<option value="">-- Select a topology --</option>');
+        $select.append('<option value="">-- Select a lab --</option>');
 
-        availableTopologies.forEach(function(topo) {
-            // Don't show current topology (show all if current unknown)
-            if (!currentTopology || topo !== currentTopology.name) {
-                $select.append(`<option value="${topo}">${topo}</option>`);
+        // Available topologies are display names (lab labels) keyed under
+        // `topology-switcher` in ACCESS_INFO.yaml. Hide the lab that is
+        // already active so the user cannot select a no-op conversion.
+        var currentLabel = currentTopology
+            ? (currentTopology.display_name || currentTopology.name)
+            : null;
+        availableTopologies.forEach(function(labLabel) {
+            if (!currentLabel || labLabel !== currentLabel) {
+                $select.append(`<option value="${labLabel}">${labLabel}</option>`);
             }
         });
+
+        // CVP-readiness gate disables the select on page load. Re-enable
+        // it once the lab list is populated; convert-btn stays disabled
+        // until the user picks a target.
+        $select.prop('disabled', false);
     }
 
     function handleTopologySelection() {
         const selected = $('#target-topology-select').val();
-        console.log('[TopologyConverter] Selected topology:', selected);
+        console.log('[TopologyConverter] Selected lab:', selected);
 
         if (!selected) {
+            targetLabInfo = null;
             $('#target-topology-info').hide();
             $('#convert-btn').prop('disabled', true);
             return;
         }
 
-        // Load topology info
+        // Load lab info — backend resolves display_name → topology + labguides.
         $.ajax({
-            url: API.getTopologyInfo + '?topology=' + encodeURIComponent(selected),
+            url: API.getTopologyInfo + '?display_name=' + encodeURIComponent(selected),
             method: 'GET',
             dataType: 'json',
             success: function(data) {
-                console.log('[TopologyConverter] Topology info:', data);
+                console.log('[TopologyConverter] Lab info:', data);
+                targetLabInfo = data;
                 updateTargetTopologyUI(data);
                 $('#target-topology-info').fadeIn();
                 $('#convert-btn').prop('disabled', false);
             },
             error: function(xhr, status, error) {
-                console.error('[TopologyConverter] Failed to load topology info:', error);
-                showError('Failed to load topology information: ' + error);
+                console.error('[TopologyConverter] Failed to load lab info:', error);
+                showError('Failed to load lab information: ' + error);
             }
         });
     }
 
+    // Labguides-only mode = source/target labs share the same topology id.
+    // Backend skips VM rebuild and only runs atdUpdate.sh, but the UI
+    // intentionally hides this distinction from the user — same warning,
+    // same confirm dialog, same phase list — so they always see a uniform
+    // "switching lab" experience and never see the internal mechanics.
+    function isLabguidesOnlyMode() {
+        return !!(currentTopology && targetLabInfo
+                  && currentTopology.topology
+                  && currentTopology.topology === targetLabInfo.topology);
+    }
+
     function updateTargetTopologyUI(data) {
-        $('#target-topology-name').text(data.name || 'Unknown');
+        var label = data.display_name || data.name || data.topology || 'Unknown';
+        if (data.display_name && data.topology && data.topology !== data.display_name) {
+            label = data.display_name + ' (' + data.topology + ')';
+        }
+        $('#target-topology-name').text(label);
         $('#target-topology-devices').text(data.node_count || '0');
         $('#target-topology-device-list').text((data.nodes || []).slice(0, 8).join(', ') +
             (data.nodes && data.nodes.length > 8 ? '...' : ''));
@@ -255,12 +289,14 @@
         const selected = $('#target-topology-select').val();
 
         if (!selected) {
-            showError('Please select a target topology');
+            showError('Please select a target lab');
             return;
         }
 
-        // Show confirmation
-        const confirmed = confirm(
+        // Same confirmation flow for every switch — the UI deliberately
+        // does not differentiate between full conversion and same-topology
+        // labguides-only update, so the user always sees the same prompt.
+        const confirmMsg =
             `Are you sure you want to convert to ${selected}?\n\n` +
             `This will:\n` +
             `- Destroy all existing VMs\n` +
@@ -268,14 +304,12 @@
             `- Create new topology\n` +
             `- Reconfigure CVP\n\n` +
             `This process takes 10-15 minutes and cannot be interrupted.\n\n` +
-            `Type 'yes' to confirm.`
-        );
+            `Type 'yes' to confirm.`;
 
-        if (!confirmed) {
+        if (!confirm(confirmMsg)) {
             return;
         }
 
-        // Additional confirmation
         const userInput = prompt('Please type "yes" to confirm the conversion:');
         if (userInput !== 'yes') {
             alert('Conversion cancelled.');
@@ -285,8 +319,8 @@
         startConversion(selected);
     }
 
-    function startConversion(targetTopology) {
-        console.log('[TopologyConverter] Starting conversion to:', targetTopology);
+    function startConversion(targetDisplayName) {
+        console.log('[TopologyConverter] Starting conversion to lab:', targetDisplayName);
 
         // Disable UI
         $('#convert-btn').prop('disabled', true);
@@ -296,13 +330,14 @@
         $('#conversion-progress').fadeIn();
         updatePhases('starting');
 
-        // Start conversion
+        // Start conversion — body field is `target_display_name`; backend
+        // resolves it to the underlying topology id via topology-switcher.
         $.ajax({
             url: API.startConversion,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                target_topology: targetTopology
+                target_display_name: targetDisplayName
             }),
             dataType: 'json',
             success: function(data) {
@@ -515,6 +550,9 @@
     }
 
     function updatePhases(currentPhase) {
+        // One phase list for every switch — UI does not expose the fast
+        // labguides-only path. Phases the backend never emits in the fast
+        // path simply stay in their default "pending" state on screen.
         const phases = [
             { id: 'validate', name: 'Validation', icon: 'check-circle' },
             { id: 'backup', name: 'Backup', icon: 'save' },
@@ -554,14 +592,15 @@
         conversionCompleted = true;
 
         if (success) {
-            // Keep progress section visible but update header
+            // Same completion UX for every successful switch. The fast
+            // labguides-only path also lands here; device monitoring runs
+            // either way and simply reports the existing devices as online.
             $('#conversion-progress .tc-card-header h5').html(
                 '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Conversion Complete - Waiting for Devices'
             );
             updateStatus('Conversion completed! Now waiting for devices to come online...');
             $('#status-callout').removeClass('tc-status-error tc-status-warning').addClass('tc-status-success');
 
-            // Show completion message above logs (don't hide progress)
             $('#completion-message').fadeIn();
             $('#completion-message .tc-completion').html(
                 '<h5><i class="fa-solid fa-circle-check"></i> Topology Conversion Completed!</h5>' +
@@ -574,10 +613,7 @@
             appendLog('Devices will appear as "online" once they boot and eAPI is enabled.');
             appendLog('='.repeat(60));
 
-            // Update phase to show we're in "devices" phase
             updatePhases('devices');
-
-            // Start monitoring device status
             startDeviceMonitoring();
         } else {
             updateStatus('Conversion failed. Check logs for details.');
