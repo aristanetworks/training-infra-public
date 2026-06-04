@@ -113,6 +113,41 @@ def expand_labguide_modules(lab_names):
     return modules
 
 
+def validate_lab_labguides(raw_labguides):
+    """Pre-flight validation of a lab's `labguides` list.
+
+    Returns (is_valid, error_message). Treats a `labguides` list as valid
+    when either:
+      - it contains a single Firestore class/exam/nugget/mod-exam id that
+        expands to >= 2 modules (so lgbuild's `len < 2` guard passes), or
+      - it contains >= 2 raw module ids (legacy "detailed" form, passed to
+        lgbuild verbatim with no Firestore lookup needed).
+
+    A single raw id that does not exist in Firestore is rejected here —
+    that is what causes lgbuild.py:285-288 to raise an empty exception
+    downstream, surfacing as "Failed to load ACCESS_INFO data" and a
+    blank labguide.pdf in the user's browser.
+    """
+    raw = list(raw_labguides or [])
+    if not raw:
+        return False, 'No labguides configured for this lab.'
+
+    # Detailed form: 2+ raw module ids. lgbuild accepts as-is.
+    if len(raw) >= 2:
+        return True, ''
+
+    # Expandable form: single Firestore id.
+    expanded = expand_labguide_modules(raw)
+    if len(expanded) >= 2:
+        return True, ''
+
+    return False, (
+        f'Labguide "{raw[0]}" unavailable: not found in Firestore '
+        f'(or expands to fewer than 2 modules). Use a valid Firestore '
+        f'class/exam id, or provide 2+ raw module ids in the labguides list.'
+    )
+
+
 # Global variables for conversion status
 _conversion_lock = threading.Lock()
 conversion_status = {
@@ -124,14 +159,17 @@ conversion_status = {
     'success': False
 }
 
-# Persist conversion_status across uilanding restarts. The labguides-only
-# path runs `atdUpdate.sh` which calls `atdStartup.sh`, and that restarts
-# atd-uilanding mid-thread — wiping the in-memory `conversion_status` and
-# leaving the UI polling /status forever. By snapshotting to /tmp on each
-# meaningful state change (writable container layer, survives docker
-# restart) and reloading on import, the UI can see the final outcome
-# even when the writing thread is killed.
-STATUS_PERSIST_PATH = '/tmp/topo_conversion_status.json'
+# Persist conversion_status across uilanding restarts/recreations. The
+# labguides-only path runs `atdUpdate.sh` which calls `atdStartup.sh`,
+# and that does `docker compose up -d` — recreating atd-uilanding from
+# scratch (not just restarting it). A recreate wipes the container's
+# writable overlay, so /tmp does NOT survive. /etc/atd is the only
+# host-bind-mounted writable directory available inside this container,
+# so the snapshot lives there. Reloaded on import; if a prior conversion
+# was in_progress when uilanding was killed, it is promoted to completed
+# (atdStartup only returns after success, so by the time we are reading
+# this file again the conversion has effectively finished).
+STATUS_PERSIST_PATH = '/etc/atd/topo_conversion_status.json'
 
 
 def _persist_conversion_status():
@@ -459,6 +497,12 @@ class TopologyConverterInfoHandler(BaseHandler):
                          event='topology_info', handler='TopologyConverterInfoHandler',
                          topology=topology_name, configlet_count=configlet_count)
 
+            # Pre-flight labguide validation. Surfaces as `labguides_valid`
+            # + `labguides_warning` in the response so the UI can warn the
+            # user before they trigger a conversion that would crash
+            # lgbuild downstream.
+            lg_valid, lg_error = validate_lab_labguides(labguides)
+
             response = {
                 'name': display_name or topology_name,
                 'display_name': display_name,
@@ -467,6 +511,8 @@ class TopologyConverterInfoHandler(BaseHandler):
                 'nodes': nodes,
                 'configlet_count': configlet_count,
                 'labguides': labguides,
+                'labguides_valid': lg_valid,
+                'labguides_warning': lg_error if not lg_valid else '',
             }
 
             safe_log('info', f'Successfully returned info for topology: {topology_name}',
@@ -730,6 +776,26 @@ class TopologyConverterConvertHandler(BaseHandler):
                 logger.warning(f"Conversion rejected: topology not found: {target_topology}")
                 self.set_status(404)
                 self.write(json.dumps({'error': 'Target topology not found'}))
+                return
+
+            # Pre-flight labguide validation. lgbuild crashes on labguide
+            # lists with fewer than 2 effective modules (Foundations_Track
+            # → 1 raw entry when Firestore doesn't have the doc), leaving
+            # the user with a blank labguide.pdf and no obvious error.
+            # Reject the conversion up-front so the operator sees the
+            # real failure ("labguide X unavailable") instead of a stuck
+            # progress bar.
+            entry = (switcher_config or {}).get(target_display_name)
+            target_labguides = list((entry or {}).get('labguides') or [])
+            lg_valid, lg_error = validate_lab_labguides(target_labguides)
+            if not lg_valid:
+                safe_log('warning', f'Conversion rejected: invalid labguides for {target_display_name}: {lg_error}',
+                         event='conversion_rejected', handler='TopologyConverterConvertHandler',
+                         reason='invalid_labguides', display_name=target_display_name,
+                         labguides=str(target_labguides))
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': lg_error}))
                 return
 
             # Reject re-selecting the currently-active lab. Compare strictly

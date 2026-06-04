@@ -253,7 +253,16 @@
                 targetLabInfo = data;
                 updateTargetTopologyUI(data);
                 $('#target-topology-info').fadeIn();
-                $('#convert-btn').prop('disabled', false);
+                // Block conversion when backend's labguide pre-flight failed
+                // (Firestore doc missing or expansion < 2 modules). Surface
+                // the warning so the user understands why they cannot
+                // proceed, instead of letting lgbuild crash downstream.
+                if (data.labguides_valid === false) {
+                    $('#convert-btn').prop('disabled', true);
+                    showError('Labguide unavailable: ' + (data.labguides_warning || 'invalid labguide configuration for this lab'));
+                } else {
+                    $('#convert-btn').prop('disabled', false);
+                }
             },
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to load lab info:', error);
