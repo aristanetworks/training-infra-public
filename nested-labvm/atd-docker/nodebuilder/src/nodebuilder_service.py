@@ -36,6 +36,12 @@ VeloCloud Endpoints:
 - POST /delete-velo-device  - Delete a VeloCloud device
 - GET/POST/PUT/DELETE /vco-proxy/{path} - Proxy requests to VCO web UI
 
+DMF Endpoints:
+- GET  /dmf-status          - Get DMF device count and availability
+- GET  /dmf-devices         - List all DMF devices
+- POST /add-dmf-device      - Create new DMF device (Controller, Switch, Service Node)
+- POST /delete-dmf-device   - Delete a DMF device
+
 Bridge Utilities Endpoints (Single Source of Truth):
 - GET  /bridge/parse/{name} - Parse a bridge name to device/port info
 - POST /bridge/parse        - Batch parse multiple bridge names
@@ -3106,6 +3112,242 @@ async def delete_cloudeos_endpoint(request):
 
 
 # ============================================================================
+# DMF (DANZ Monitoring Fabric) Endpoints
+# ============================================================================
+
+
+@routes.get('/dmf-status')
+async def dmf_status(request):
+    """GET /dmf-status - Return DMF device count and availability."""
+    from dmf_manager import get_dmf_status
+    try:
+        status = get_dmf_status()
+        return web.json_response(status)
+    except Exception as e:
+        logger.error(f"Error getting DMF status: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.get('/dmf-devices')
+async def dmf_devices(request):
+    """GET /dmf-devices - List all DMF devices."""
+    from dmf_manager import list_dmf_devices
+    try:
+        devices = list_dmf_devices()
+        return web.json_response({'devices': devices})
+    except Exception as e:
+        logger.error(f"Error listing DMF devices: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/add-dmf-device')
+async def add_dmf_device(request):
+    """
+    Create a new DMF device VM.
+
+    Request body: {
+        "name": "dmfcontroller1",
+        "device_type": "controller",  # controller, switch, or servicenode
+        "mgmt_ip": "192.168.0.60",
+        "connections": [
+            {
+                "local_port": "data",
+                "target_device": "spine1",
+                "target_port": "Ethernet8"
+            }
+        ]
+    }
+    """
+    from dmf_manager import create_dmf_device
+    from persistence import (
+        save_user_dmf_device_pending,
+        update_user_dmf_device_status,
+        remove_user_dmf_device
+    )
+    from interface_manager import creation_lock
+    from validation import (
+        validate_dmf_name, validate_dmf_limit, validate_dmf_enabled,
+        validate_dmf_device_type, validate_dmf_device_type_enabled,
+        get_available_ips
+    )
+    from config import (
+        DNSMASQ_PATH, USER_NODES_PATH, USER_HOSTS_PATH,
+        USER_FIREWALLS_PATH, USER_VELO_PATH, USER_DMF_PATH,
+        get_topo_build_path,
+        MAX_DMF_CONTROLLER_PER_TOPOLOGY,
+        MAX_DMF_SWITCH_PER_TOPOLOGY,
+        MAX_DMF_SERVICENODE_PER_TOPOLOGY
+    )
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '').lower()
+    device_type = data.get('device_type', '')
+    mgmt_ip = data.get('mgmt_ip', '')
+    connections = data.get('connections', [])
+
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+    if not device_type:
+        return web.json_response({'error': 'Device type is required'}, status=400)
+    if not mgmt_ip:
+        return web.json_response({'error': 'Management IP is required'}, status=400)
+
+    valid, error = validate_dmf_device_type(device_type)
+    if not valid:
+        return web.json_response({'error': error}, status=400)
+
+    try:
+        with creation_lock(f'add-dmf:{name}'):
+            topo_build_path = get_topo_build_path()
+
+            valid, error = validate_dmf_enabled()
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            valid, error = validate_dmf_device_type_enabled(device_type)
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            valid, error = validate_dmf_limit(
+                device_type, USER_DMF_PATH,
+                MAX_DMF_CONTROLLER_PER_TOPOLOGY,
+                MAX_DMF_SWITCH_PER_TOPOLOGY,
+                MAX_DMF_SERVICENODE_PER_TOPOLOGY
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            valid, error = validate_dmf_name(
+                name, topo_build_path, USER_NODES_PATH,
+                USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+                USER_VELO_PATH, USER_DMF_PATH
+            )
+            if not valid:
+                return web.json_response({'error': error}, status=400)
+
+            available = get_available_ips(DNSMASQ_PATH, topo_build_path, USER_NODES_PATH)
+            if not any(entry['ip'] == mgmt_ip for entry in available):
+                return web.json_response({
+                    'error': f'Management IP {mgmt_ip} is not available or already in use'
+                }, status=400)
+
+            logger.info(f"Creating DMF {device_type}: {name} (Mgmt IP: {mgmt_ip})")
+
+            pending_entry = {
+                'device_type': device_type.lower(),
+                'mgmt_ip': mgmt_ip,
+                'connections': connections,
+                'neighbors': []
+            }
+            save_user_dmf_device_pending(name, device_type, pending_entry, USER_DMF_PATH)
+
+            try:
+                result = create_dmf_device(name, device_type, mgmt_ip, connections)
+
+                neighbors = []
+                for conn in result.get('connections', []):
+                    if conn.get('target_device'):
+                        neighbors.append({
+                            'neighborDevice': conn['target_device'],
+                            'neighborPort': conn.get('target_port', ''),
+                            'port': conn.get('local_port', '')
+                        })
+
+                update_info = {
+                    'connections': result.get('connections', []),
+                    'neighbors': neighbors
+                }
+                update_user_dmf_device_status(name, 'active', update_info, USER_DMF_PATH)
+
+                logger.info(f"Successfully created DMF {device_type}: {name}")
+
+                return web.json_response({
+                    'status': 'created',
+                    'device': result,
+                    'targets_reused_slots': result.get('targets_reused_slots', []),
+                    'targets_need_reboot': result.get('targets_need_reboot', [])
+                })
+
+            except Exception as e:
+                logger.error(f"DMF VM creation failed for {name}: {e}")
+                from resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                try:
+                    if rm.vm_exists(name):
+                        rm.destroy_vm(name, force=True)
+                        rm.undefine_vm(name, force=True)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up DMF VM {name}: {cleanup_error}")
+                remove_user_dmf_device(name, USER_DMF_PATH)
+                raise
+
+    except TimeoutError as e:
+        logger.warning(f"Concurrent creation in progress: {e}")
+        return web.json_response({'error': 'Server busy with another creation request, please retry'}, status=503)
+    except ValueError as e:
+        return web.json_response({'error': sanitize_error(e)}, status=400)
+    except FileNotFoundError as e:
+        logger.error(f"Required file not found for DMF device {name}: {e}")
+        return web.json_response({'error': 'Required file not found'}, status=500)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed for DMF device {name}: {e}")
+        return web.json_response({'error': f'VM operation failed: {sanitize_error(e)}'}, status=500)
+    except Exception as e:
+        logger.error(f"Unexpected error creating DMF device {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+@routes.post('/delete-dmf-device')
+async def delete_dmf_device_endpoint(request):
+    """POST /delete-dmf-device - Delete a DMF device."""
+    from dmf_manager import delete_dmf_device
+    from persistence import remove_user_dmf_device
+    from interface_manager import creation_lock
+    from config import USER_DMF_PATH
+
+    try:
+        data = await request.json()
+    except Exception as e:
+        return web.json_response({'error': f'Invalid JSON: {e}'}, status=400)
+
+    name = data.get('name', '').lower()
+    if not name:
+        return web.json_response({'error': 'Device name is required'}, status=400)
+
+    try:
+        with creation_lock(f'delete-dmf:{name}'):
+            result = delete_dmf_device(name)
+
+            remove_user_dmf_device(name, USER_DMF_PATH)
+
+            from persistence import remove_all_device_references
+            from config import (
+                USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+                USER_CLOUDEOS_PATH, USER_LINKS_PATH
+            )
+            cleanup_result = remove_all_device_references(
+                name, USER_NODES_PATH, USER_HOSTS_PATH, USER_FIREWALLS_PATH,
+                user_cloudeos_path=USER_CLOUDEOS_PATH,
+                user_links_path=USER_LINKS_PATH,
+                user_dmf_path=USER_DMF_PATH
+            )
+            if cleanup_result['total'] > 0:
+                result['orphaned_references_removed'] = cleanup_result
+
+            return web.json_response(result)
+
+    except TimeoutError:
+        return web.json_response({'error': 'Server busy, please retry'}, status=503)
+    except Exception as e:
+        logger.error(f"Error deleting DMF device {name}: {e}", exc_info=True)
+        return web.json_response({'error': sanitize_error(e)}, status=500)
+
+
+# ============================================================================
 # WAN CloudEOS Endpoints
 # ============================================================================
 
@@ -3343,9 +3585,10 @@ async def on_startup(app):
         cleanup_stale_user_hosts,
         cleanup_stale_user_firewalls,
         cleanup_stale_velo_devices,
-        cleanup_stale_cloudeos
+        cleanup_stale_cloudeos,
+        cleanup_stale_dmf_devices
     )
-    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH, USER_CLOUDEOS_PATH
+    from config import USER_HOSTS_PATH, USER_FIREWALLS_PATH, USER_VELO_PATH, USER_CLOUDEOS_PATH, USER_DMF_PATH
     from orphaned_interfaces import cleanup_stale_orphaned_interfaces
 
     # Clean up any stale device entries from crashed creations
@@ -3376,6 +3619,12 @@ async def on_startup(app):
     except Exception as e:
         logger.warning(f"Nodebuilder startup: Failed to clean stale CloudEOS devices: {e}")
 
+    try:
+        cleaned = cleanup_stale_dmf_devices(USER_DMF_PATH)
+        total_cleaned += cleaned
+    except Exception as e:
+        logger.warning(f"Nodebuilder startup: Failed to clean stale DMF devices: {e}")
+
     if total_cleaned > 0:
         logger.info(f"Nodebuilder startup: Cleaned up {total_cleaned} stale device entry/entries")
 
@@ -3383,6 +3632,11 @@ async def on_startup(app):
     # This prevents VMs from failing to start with "Cannot get interface MTU" errors
     try:
         orphan_result = cleanup_stale_orphaned_interfaces()
+        if orphan_result.get('bridges_recreated', 0) > 0:
+            logger.info(
+                f"Nodebuilder startup: Recreated {orphan_result['bridges_recreated']} bridge(s) "
+                f"for recorded orphaned slots"
+            )
         if orphan_result['detached_count'] > 0:
             logger.info(
                 f"Nodebuilder startup: Detached {orphan_result['detached_count']} stale interface(s) "

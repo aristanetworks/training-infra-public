@@ -363,13 +363,16 @@ class ResourceManager:
     # Bridge Operations
     # =========================================================================
 
-    def cleanup_node_bridges(self, node_name: str, node_info: Dict) -> List[str]:
+    def cleanup_node_bridges(
+        self, node_name: str, node_info: Dict, skip_bridges: Optional[set] = None
+    ) -> List[str]:
         """
         Delete all OVS bridges associated with a node.
 
         Args:
             node_name: Name of the node
             node_info: Node info dict containing neighbors
+            skip_bridges: Optional set of bridge names to skip (preserved for orphaned slots)
 
         Returns:
             List of bridge names that were deleted
@@ -389,6 +392,12 @@ class ResourceManager:
                     node_name, local_port,
                     target_device, target_port
                 )
+
+                if skip_bridges and bridge_name in skip_bridges:
+                    self.logger.info(
+                        f"Keeping bridge {bridge_name} (preserved for orphaned slot)"
+                    )
+                    continue
 
                 try:
                     result = delete_ovs_bridge(bridge_name)
@@ -617,6 +626,7 @@ class ResourceManager:
             })
 
         # Step 2: Detach interfaces from target VMs
+        detached = []
         try:
             detached = self.detach_all_node_interfaces(vm_name, node_info)
             results['steps'].append({
@@ -629,9 +639,17 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Step 3: Delete OVS bridges
+        # Collect bridges that were preserved for orphaned slots -- don't delete them
+        preserved_bridges = {
+            item.get('bridge') for item in detached
+            if item.get('status') == 'slot_preserved' and item.get('bridge')
+        }
+
+        # Step 3: Delete OVS bridges (skip preserved ones)
         try:
-            deleted_bridges = self.cleanup_node_bridges(vm_name, node_info)
+            deleted_bridges = self.cleanup_node_bridges(
+                vm_name, node_info, skip_bridges=preserved_bridges or None
+            )
             results['steps'].append({
                 'step': 'delete_bridges',
                 'deleted': deleted_bridges
@@ -933,8 +951,51 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 6: Clear user-added links (user_links.yaml) and delete their OVS bridges
-        self.logger.info("Phase 6: Removing user-added links")
+        # Phase 6: Delete all user-added DMF devices
+        self.logger.info("Phase 6: Deleting user-added DMF devices")
+        from dmf_manager import delete_dmf_device
+        from persistence import list_user_dmf_devices, remove_user_dmf_device
+        from config import USER_DMF_PATH
+
+        successfully_deleted_dmf = []
+        results['dmf_deleted'] = []
+
+        try:
+            dmf_entries = list_user_dmf_devices(USER_DMF_PATH)
+            for device_entry in dmf_entries:
+                if isinstance(device_entry, dict):
+                    for dmf_name, dmf_info in device_entry.items():
+                        try:
+                            for conn in (dmf_info.get('neighbors') or []):
+                                target = conn.get('neighborDevice', '')
+                                if target:
+                                    results['affected_devices'].add(target)
+
+                            delete_result = delete_dmf_device(name=dmf_name)
+                            delete_status = delete_result.get('status', 'unknown')
+                            results['dmf_deleted'].append({
+                                'name': dmf_name,
+                                'status': delete_status
+                            })
+                            if delete_status in ('deleted', 'success', 'completed'):
+                                successfully_deleted_dmf.append(dmf_name)
+                            self.logger.info(f"Deleted user DMF device: {dmf_name}")
+                        except Exception as e:
+                            self.logger.error(f"Failed to delete DMF device {dmf_name}: {e}")
+                            results['errors'].append({
+                                'type': 'dmf',
+                                'name': dmf_name,
+                                'error': str(e)
+                            })
+        except Exception as e:
+            self.logger.error(f"Failed to load DMF devices: {e}")
+            results['errors'].append({
+                'type': 'dmf_load',
+                'error': str(e)
+            })
+
+        # Phase 7: Clear user-added links (user_links.yaml) and delete their OVS bridges
+        self.logger.info("Phase 7: Removing user-added links")
         from link_manager import remove_link
         from persistence import list_user_links, save_user_links, get_empty_user_links
         from config import USER_LINKS_PATH
@@ -976,9 +1037,9 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 7: Clean up any orphaned OVS bridges (user-created)
+        # Phase 8: Clean up any orphaned OVS bridges (user-created)
         # Uses enhanced cleanup with port-count detection
-        self.logger.info("Phase 7: Cleaning up orphaned OVS bridges")
+        self.logger.info("Phase 8: Cleaning up orphaned OVS bridges")
         try:
             cleanup_result = self.cleanup_all_orphaned_bridges()
             results['bridges_cleaned'] = cleanup_result.get('deleted', [])
@@ -989,9 +1050,9 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 8: Remove successfully deleted entries from persistence
+        # Phase 9: Remove successfully deleted entries from persistence
         # Only remove entries that were successfully deleted to prevent zombie VMs
-        self.logger.info("Phase 8: Updating persistence files (removing successfully deleted entries)")
+        self.logger.info("Phase 9: Updating persistence files (removing successfully deleted entries)")
         try:
             # Remove successfully deleted nodes from user_nodes.yaml
             for node_name in successfully_deleted_nodes:
@@ -1021,10 +1082,18 @@ class ResourceManager:
                 except Exception as e:
                     self.logger.warning(f"Failed to remove VeloCloud device {velo_name} from persistence: {e}")
 
+            # Remove successfully deleted DMF devices from user_dmf.yaml
+            for dmf_name in successfully_deleted_dmf:
+                try:
+                    remove_user_dmf_device(dmf_name, USER_DMF_PATH)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove DMF device {dmf_name} from persistence: {e}")
+
             self.logger.info(
                 f"Persistence updated: removed {len(successfully_deleted_nodes)} nodes, "
                 f"{len(successfully_deleted_hosts)} hosts, {len(successfully_deleted_firewalls)} firewalls, "
-                f"{len(successfully_deleted_velo)} VeloCloud devices"
+                f"{len(successfully_deleted_velo)} VeloCloud devices, "
+                f"{len(successfully_deleted_dmf)} DMF devices"
             )
         except Exception as e:
             self.logger.error(f"Failed to update persistence files: {e}")
@@ -1033,10 +1102,10 @@ class ResourceManager:
                 'error': str(e)
             })
 
-        # Phase 9: Clear orphaned interface slots
+        # Phase 10: Clear orphaned interface slots
         # When doing a full reset, we need to clear the orphaned slots registry
         # and optionally detach the orphaned interfaces from VMs
-        self.logger.info("Phase 9: Clearing orphaned interface slots")
+        self.logger.info("Phase 10: Clearing orphaned interface slots")
         try:
             from orphaned_interfaces import clear_all_orphaned_slots, list_all_orphaned_slots
             from interface_manager import detach_interface_from_vm
@@ -1117,6 +1186,7 @@ class ResourceManager:
             'firewalls': len(results['firewalls_deleted']),
             'velocloud': len(results.get('velo_deleted', [])),
             'cloudeos': len(results.get('cloudeos_deleted', [])),
+            'dmf': len(results.get('dmf_deleted', [])),
             'links': len(results.get('links_deleted', [])),
             'bridges': len(results['bridges_cleaned']),
             'orphaned_slots': results.get('orphaned_slots_cleared', 0),
@@ -1317,9 +1387,9 @@ class ResourceManager:
         1. User-created (matching naming patterns)
         2. Truly orphaned, determined by:
            a) Port count (0-1 ports means one/both VMs deleted)
-           b) NOT in persistence (bridge for a deleted user device)
+           b) NOT preserved for an orphaned interface slot
 
-        Cross-references with persistence files to improve detection accuracy.
+        Cross-references with persistence files and orphaned slot registry.
 
         Returns:
             Dict with cleanup results including found/deleted counts
@@ -1332,12 +1402,26 @@ class ResourceManager:
             'deleted': [],
             'failed': [],
             'skipped_system': 0,
-            'skipped_healthy': 0
+            'skipped_healthy': 0,
+            'skipped_preserved': 0
         }
 
         try:
             # Get expected bridges from persistence for cross-reference
             expected_bridges = self._get_expected_bridges_from_persistence()
+
+            # Get bridges preserved for orphaned slots -- these must NOT be deleted
+            preserved_slot_bridges = set()
+            try:
+                from orphaned_interfaces import list_all_orphaned_slots
+                all_orphaned = list_all_orphaned_slots()
+                for device_name, slots in all_orphaned.items():
+                    for slot in slots:
+                        old_bridge = slot.get('old_bridge')
+                        if old_bridge:
+                            preserved_slot_bridges.add(old_bridge)
+            except Exception as e:
+                self.logger.warning(f"Could not load orphaned slots for bridge cleanup: {e}")
 
             # Get all OVS bridges
             result = subprocess.run(
@@ -1371,6 +1455,14 @@ class ResourceManager:
                 # Check if it matches user-created patterns
                 if not self._is_user_created_bridge(bridge):
                     results['skipped_healthy'] += 1
+                    continue
+
+                # Skip bridges preserved for orphaned interface slots
+                if bridge in preserved_slot_bridges:
+                    results['skipped_preserved'] += 1
+                    self.logger.debug(
+                        f"Skipping bridge {bridge} (preserved for orphaned slot)"
+                    )
                     continue
 
                 # Check port count - healthy bridges should have 2 ports
@@ -1568,8 +1660,8 @@ class ResourceManager:
                 self.logger.error(error_msg)
                 result['errors'].append(error_msg)
 
-        # Delete OVS bridge (always)
-        if bridge_name:
+        # Delete OVS bridge (skip if slot was preserved -- bridge keeps target VM bootable)
+        if bridge_name and not result['slot_preserved']:
             try:
                 self.logger.info(f"{log_prefix}Deleting OVS bridge: {bridge_name}")
                 delete_ovs_bridge(bridge_name)
@@ -1578,6 +1670,10 @@ class ResourceManager:
                 error_msg = f"Failed to delete {log_prefix}bridge {bridge_name}: {e}"
                 self.logger.warning(error_msg)
                 result['errors'].append(error_msg)
+        elif bridge_name and result['slot_preserved']:
+            self.logger.info(
+                f"{log_prefix}Keeping bridge {bridge_name} (preserved for orphaned slot)"
+            )
 
         return result
 

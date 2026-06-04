@@ -3495,12 +3495,19 @@ export class EventManager {
                         const result = await resp.json();
                         if (result.status === 'success') {
                             const rebootTargets = result.targets_need_reboot || [];
+                            const reusedSlots = result.targets_reused_slots || [];
 
                             let successHtml = `<div style="text-align: center; padding: 20px;">
                                 <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
                                 <h3 style="color: #fff; margin: 0 0 8px;">Link Added</h3>
                                 <p style="color: #ccc;">${this.escapeHtml(sourceDevice)}:${this.escapeHtml(sourcePort)} &#8596; ${this.escapeHtml(targetDevice)}:${this.escapeHtml(targetPort)}</p>
                             </div>`;
+
+                            if (reusedSlots.length > 0) {
+                                successHtml += `<p class="reused-slots-info" style="color: #78d82c; text-align: center; margin: 8px 0;">
+                                    &#8505; Reused interface slot on <strong>${this.escapeHtml(reusedSlots.join(', '))}</strong> — no reboot needed.
+                                </p>`;
+                            }
 
                             let rebootManager = null;
                             if (rebootTargets.length > 0) {
@@ -3660,12 +3667,19 @@ export class EventManager {
                         const result = await deployResp.json();
                         if (result.status === 'success') {
                             const rebootTargets = result.targets_need_reboot || [];
+                            const reusedSlots = result.targets_reused_slots || [];
 
                             let successHtml = `<div style="text-align: center; padding: 20px;">
                                 <div style="font-size: 48px; color: #78d82c; margin-bottom: 12px;">&#10004;</div>
                                 <h3 style="color: #fff; margin: 0 0 8px;">Deployment Complete</h3>
                                 <p style="color: #ccc;">D1 and D2 have been created successfully.</p>
                             </div>`;
+
+                            if (reusedSlots.length > 0) {
+                                successHtml += `<p class="reused-slots-info" style="color: #78d82c; text-align: center; margin: 8px 0;">
+                                    &#8505; Reused interface slots on <strong>${this.escapeHtml(reusedSlots.join(', '))}</strong> — no reboot needed.
+                                </p>`;
+                            }
 
                             let rebootManager = null;
                             if (rebootTargets.length > 0) {
@@ -3765,6 +3779,7 @@ export class EventManager {
                     const result = await resp.json();
                     if (result.status === 'success' || result.status === 'deleted_with_errors') {
                         const rebootTargets = result.targets_need_reboot || [];
+                        const reusedSlots = result.targets_reused_slots || [];
 
                         let successHtml = [
                             '<div style="text-align: center; padding: 20px;">',
@@ -3773,6 +3788,12 @@ export class EventManager {
                             `    <p style="color: #ccc;">${src}:${srcPort} &harr; ${tgt}:${tgtPort}</p>`,
                             '</div>'
                         ].join('\n');
+
+                        if (reusedSlots.length > 0) {
+                            successHtml += `<p class="reused-slots-info" style="color: #78d82c; text-align: center; margin: 8px 0;">
+                                &#8505; Preserved interface slots on <strong>${reusedSlots.map(d => this.escapeHtml(d)).join(', ')}</strong> — no reboot needed.
+                            </p>`;
+                        }
 
                         let rebootManager = null;
                         if (rebootTargets.length > 0) {
