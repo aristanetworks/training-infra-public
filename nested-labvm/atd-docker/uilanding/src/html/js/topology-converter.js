@@ -351,7 +351,7 @@
             dataType: 'json',
             success: function(data) {
                 console.log('[TopologyConverter] Conversion started:', data);
-                cloudLog('info', 'Topology conversion started: ' + targetTopology, { source: 'topology-converter', action: 'conversion_start', topology: targetTopology });
+                cloudLog('info', 'Topology conversion started: ' + targetDisplayName, { source: 'topology-converter', action: 'conversion_start', topology: targetDisplayName });
                 conversionInProgress = true;
 
                 if (data.status === 'started') {
