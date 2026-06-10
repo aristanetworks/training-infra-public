@@ -1,0 +1,10 @@
+hostname B2
+ip routing
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.22.2/30
+!
+interface Loopback0
+   ip address 192.168.20.2/32
+!
