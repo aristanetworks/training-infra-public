@@ -1,300 +1,262 @@
 /**
  * Topology Converter - CSS Styles
- * Matches uilanding dark navy theme (variables.css colors)
+ * Matches uilanding dark Arista branding
  */
 
-/* ===== Layout ===== */
 body {
-    background-color: var(--navy-blue, #051431);
+    background-color: var(--primary-color);
     min-height: 100vh;
 }
 
-.topo-converter-container {
-    max-width: 900px;
+/* Page title (header now provided by unified-header.js) */
+.tc-page-title {
+    color: var(--secondary-color);
+    font-size: 22px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0 0 24px 0;
+}
+
+/* Main content area */
+.tc-main {
+    max-width: 960px;
     margin: 0 auto;
-    padding: 2rem 1.5rem 3rem;
+    padding: 40px 30px;
 }
 
-.topo-converter-header {
-    margin-bottom: 2rem;
+/* Section titles */
+.tc-section-title {
+    color: var(--secondary-color);
+    font-size: 16px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
 }
 
-.topo-converter-header h1 {
-    color: #fff;
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-bottom: 0.25rem;
+/* Cards */
+.tc-card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    margin-bottom: 24px;
 }
 
-.topo-converter-header .subtitle {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 1rem;
-    margin-bottom: 0;
+.tc-card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.back-link {
-    display: inline-block;
-    color: var(--secondary-color, #fbb500);
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.back-link:hover {
-    color: #ffc52f;
-}
-
-.back-link i {
-    margin-right: 0.35rem;
-}
-
-/* ===== Cards ===== */
-.topo-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(251, 181, 0, 0.15);
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-}
-
-.topo-card-header {
-    background: rgba(7, 28, 53, 0.8);
-    border-bottom: 1px solid rgba(251, 181, 0, 0.2);
-    padding: 0.85rem 1.25rem;
-}
-
-.topo-card-header.active {
-    border-bottom-color: var(--secondary-color, #fbb500);
-}
-
-.topo-card-header h5 {
+.tc-card-header h5 {
     margin: 0;
     color: #fff;
+    font-size: 15px;
     font-weight: 600;
-    font-size: 1rem;
 }
 
-.topo-card-header h5 i {
-    color: var(--secondary-color, #fbb500);
-    margin-right: 0.5rem;
+.tc-card-header i {
+    color: var(--secondary-color);
 }
 
-.topo-card-body {
-    padding: 1.25rem;
+.tc-card-body {
+    padding: 20px;
 }
 
-.topo-card-body h6 {
-    color: rgba(255, 255, 255, 0.8);
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-}
-
-/* ===== Info Items ===== */
-.info-item {
+/* Info grid inside cards */
+.tc-info-row {
     display: flex;
-    align-items: baseline;
-    margin-bottom: 0.6rem;
+    gap: 40px;
+    flex-wrap: wrap;
 }
 
-.info-label {
+.tc-info-item {
+    margin-bottom: 10px;
+}
+
+.tc-info-item .label {
     color: rgba(255, 255, 255, 0.5);
-    font-size: 0.85rem;
-    min-width: 90px;
-    font-weight: 500;
-}
-
-.info-value {
-    color: #fff;
-    font-size: 0.95rem;
+    font-size: 13px;
     font-weight: 600;
-}
-
-/* ===== Select ===== */
-.select-label {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.topo-select {
-    background-color: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(251, 181, 0, 0.3);
-    border-radius: 4px;
-    color: #fff;
-    font-size: 1rem;
-    padding: 0.65rem 0.75rem;
-    width: 100%;
-    margin-top: 0.35rem;
-    transition: border-color 0.2s;
-}
-
-.topo-select:focus {
-    border-color: var(--secondary-color, #fbb500);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(251, 181, 0, 0.15);
-}
-
-.topo-select option {
-    background-color: #071c35;
-    color: #fff;
-}
-
-/* ===== Callouts ===== */
-.topo-callout {
-    border-radius: 6px;
-    border-left: 4px solid;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.75rem;
-}
-
-.topo-callout h5,
-.topo-callout h6 {
-    margin-bottom: 0.5rem;
-}
-
-.topo-callout p {
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-}
-
-.topo-callout p:last-child {
-    margin-bottom: 0;
-}
-
-.topo-callout ul {
-    margin-bottom: 0.5rem;
-    margin-left: 1.25rem;
-}
-
-.topo-callout ul li {
-    font-size: 0.9rem;
-    margin-bottom: 0.2rem;
-}
-
-/* Callout Variants */
-.topo-callout.info {
-    border-left-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.topo-callout.info h6 {
-    color: #93c5fd;
-}
-
-.topo-callout.warning {
-    border-left-color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.topo-callout.warning h6 {
-    color: #fbbf24;
-}
-
-.topo-callout.warning ul li {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.topo-callout.success {
-    border-left-color: var(--neon-green, #78d82c);
-    background: rgba(120, 216, 44, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.topo-callout.success h5 {
-    color: var(--neon-green, #78d82c);
-}
-
-.topo-callout.status {
-    border-left-color: var(--secondary-color, #fbb500);
-    background: rgba(251, 181, 0, 0.08);
-    color: #fff;
-}
-
-.topo-callout.alert {
-    border-left-color: var(--red, #e30909);
-    background: rgba(227, 9, 9, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-/* ===== Buttons ===== */
-.topo-btn {
-    display: inline-block;
-    padding: 10px 25px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 1px;
     text-transform: uppercase;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-right: 0.5rem;
-}
-
-.topo-btn.primary {
-    background-color: var(--secondary-color, #fbb500);
-    color: #000;
-}
-
-.topo-btn.primary:hover:not(:disabled) {
-    background: #ffc52f;
-}
-
-.topo-btn.secondary {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.topo-btn.secondary:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-}
-
-.topo-btn.small {
-    padding: 6px 16px;
-    font-size: 0.8rem;
     letter-spacing: 0.5px;
 }
 
-.topo-btn:disabled {
-    opacity: 0.4;
+.tc-info-item .value {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* Dropdown select */
+.tc-select {
+    width: 100%;
+    padding: 10px 14px;
+    background-color: #0d2240 !important;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: #fff !important;
+    font-size: 15px;
+    font-family: var(--proxima);
+    appearance: auto;
+    box-shadow: none;
+}
+
+.tc-select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    background-color: #0d2240 !important;
+    box-shadow: 0 0 0 1px var(--secondary-color);
+}
+
+.tc-select option {
+    background-color: #0d2240;
+    color: #fff;
+    padding: 8px;
+}
+
+.tc-select-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* Warning callout */
+.tc-warning {
+    background-color: rgba(251, 181, 0, 0.08);
+    border: 1px solid rgba(251, 181, 0, 0.25);
+    border-left: 3px solid var(--secondary-color);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-top: 20px;
+}
+
+.tc-warning h6 {
+    color: var(--secondary-color);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 0 0 8px 0;
+}
+
+.tc-warning h6 i {
+    margin-right: 6px;
+}
+
+.tc-warning p,
+.tc-warning li {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.tc-warning ul {
+    margin: 8px 0 8px 20px;
+    list-style: disc;
+}
+
+.tc-warning .tc-warning-note {
+    color: var(--secondary-color);
+    font-weight: 600;
+    font-size: 13px;
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+/* Buttons */
+.tc-btn {
+    padding: 10px 25px;
+    display: inline-block;
+    font-size: 14px;
+    line-height: 24px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.2s;
+    font-family: var(--proxima);
+}
+
+.tc-btn-primary {
+    background-color: var(--secondary-color);
+    color: #000;
+}
+
+.tc-btn-primary:hover:not(:disabled) {
+    background: #ffc52f;
+    color: #000;
+}
+
+.tc-btn-primary:disabled {
+    background-color: rgba(251, 181, 0, 0.3);
+    color: rgba(0, 0, 0, 0.4);
     cursor: not-allowed;
 }
 
-.topo-btn i {
-    margin-right: 0.4rem;
+.tc-btn-secondary {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
 }
 
-.action-buttons {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+.tc-btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.tc-btn-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* Target topology details */
+.tc-target-details {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-top: 16px;
 }
 
 /* ===== Progress Phases ===== */
 #progress-phases {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 2rem;
-    padding: 1rem 0;
+    margin-bottom: 24px;
+    padding: 16px 0;
 }
 
 .phase-item {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     text-align: center;
     position: relative;
-    padding: 0.5rem;
+    padding: 0.5rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
+/* Connector line runs from this item's icon center (left:50%) to the
+ * next item's icon center (width:100%, so the line ends 50% past the
+ * right edge of this item — i.e. centered on the next item). Top is
+ * the icon's vertical center: padding-top (0.5rem ≈ 8px) + half icon
+ * height (20px) ≈ 28px. */
 .phase-item:not(:last-child)::after {
     content: '';
     position: absolute;
-    top: 20px;
-    right: -50%;
+    top: 28px;
+    left: 50%;
     width: 100%;
     height: 2px;
     background-color: rgba(255, 255, 255, 0.1);
@@ -305,7 +267,7 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.4);
     display: flex;
     align-items: center;
@@ -320,30 +282,34 @@ body {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.4);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 /* Phase States */
 .phase-item.complete .phase-icon {
-    background-color: var(--neon-green, #78d82c);
+    background-color: var(--neon-green);
     color: #000;
 }
 
 .phase-item.complete .phase-name {
-    color: var(--neon-green, #78d82c);
+    color: var(--neon-green);
 }
 
 .phase-item.complete:not(:last-child)::after {
-    background-color: var(--neon-green, #78d82c);
+    background-color: var(--neon-green);
 }
 
 .phase-item.active .phase-icon {
-    background-color: var(--secondary-color, #fbb500);
+    background-color: var(--secondary-color);
     color: #000;
     animation: pulse 2s ease-in-out infinite;
 }
 
 .phase-item.active .phase-name {
-    color: var(--secondary-color, #fbb500);
+    color: var(--secondary-color);
     font-weight: 600;
 }
 
@@ -356,69 +322,123 @@ body {
     }
 }
 
-/* ===== Log Container ===== */
+/* Status callout */
+.tc-status {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.tc-status p {
+    margin: 0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.tc-status.tc-status-success {
+    border-color: var(--neon-green);
+    background-color: rgba(120, 216, 44, 0.08);
+}
+
+.tc-status.tc-status-warning {
+    border-color: var(--secondary-color);
+    background-color: rgba(251, 181, 0, 0.08);
+}
+
+.tc-status.tc-status-error {
+    border-color: var(--red);
+    background-color: rgba(227, 9, 9, 0.08);
+}
+
+/* Log Container */
 .log-container {
-    background-color: #0a0e17;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 6px;
-    padding: 1rem;
+    background-color: #0a0e14;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 16px;
     max-height: 400px;
     overflow-y: auto;
     font-family: 'Courier New', monospace;
 }
 
 #log-output {
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 255, 255, 0.7);
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     line-height: 1.6;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
-/* Log scrollbar */
 .log-container::-webkit-scrollbar {
     width: 6px;
 }
 
 .log-container::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 3px;
 }
 
 .log-container::-webkit-scrollbar-thumb {
-    background: rgba(251, 181, 0, 0.3);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 3px;
 }
 
 .log-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(251, 181, 0, 0.5);
+    background: rgba(255, 255, 255, 0.25);
 }
 
-/* ===== Status Indicator ===== */
-#current-status {
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0;
-    color: #fff;
+/* Completion */
+.tc-completion {
+    background-color: rgba(120, 216, 44, 0.08);
+    border: 1px solid rgba(120, 216, 44, 0.3);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-top: 24px;
 }
 
-/* ===== Progress Wrapper ===== */
-.progress-wrapper {
-    padding: 0.5rem 0;
+.tc-completion h5 {
+    color: var(--neon-green);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
 }
 
-/* ===== Loading Animation ===== */
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.tc-completion p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    margin-bottom: 4px;
 }
 
-.fa-spin {
-    animation: spin 1s linear infinite;
+/* Sub-label for log/status sections */
+.tc-sub-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
 }
 
-/* ===== Responsive ===== */
+/* Device status grid */
+#device-status-section h6 {
+    color: var(--secondary-color);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+#device-status-grid {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 16px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Responsive */
 @media screen and (max-width: 640px) {
     .topo-converter-container {
         padding: 1rem;
@@ -450,6 +470,14 @@ body {
         margin-bottom: 0.5rem;
         text-align: center;
     }
+
+    .tc-main {
+        padding: 20px 15px;
+    }
+
+    .tc-btn-group {
+        flex-direction: column;
+    }
 }
 
 @media screen and (max-width: 1024px) {
@@ -462,3 +490,109 @@ body {
         height: 35px;
     }
 }
+
+/* =============================================================
+ * Unified-header overrides
+ * -------------------------------------------------------------
+ * variables.css ships a greedy rule:
+ *     body * :not(i) { font-family: var(--proxima) !important; }
+ * which clobbers the Segoe UI font that CVP's injected
+ * unified-header (see nginx/src/js/unified-header.js) expects.
+ * The rules below re-assert the unified-header's intended
+ * typography and bar background, scoped strictly to the
+ * unified-header / announcement-banner / notifications-panel
+ * subtrees so the rest of the toposwitcher page is untouched.
+ * `!important` is required to beat variables.css's `!important`.
+ * ============================================================= */
+.unified-header,
+.unified-header *:not(i),
+.announcement-banner,
+.announcement-banner *:not(i),
+.notifications-panel,
+.notifications-panel *:not(i) {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+.unified-header {
+    background: #071c35;
+}
+
+/* =============================================================
+ * CVP readiness gate overlay
+ * -------------------------------------------------------------
+ * Full-viewport modal shown until /td-api/conftopo?action=cvp_status
+ * returns {status:"UP"}. z-index sits below unified-header (100000).
+ * ============================================================= */
+.cvp-gate-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(7, 28, 53, 0.92);
+    z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 200ms ease-in-out;
+}
+
+.cvp-gate-overlay.cvp-gate-hiding {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cvp-gate-card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid var(--secondary-color);
+    border-radius: 4px;
+    padding: 36px 44px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.cvp-gate-spinner {
+    font-size: 42px;
+    color: var(--secondary-color);
+    margin-bottom: 18px;
+}
+
+.cvp-gate-heading {
+    color: var(--secondary-color);
+    font-size: 20px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0 0 14px 0;
+}
+
+.cvp-gate-state {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.cvp-gate-state span {
+    color: var(--secondary-color);
+}
+
+.cvp-gate-body {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+}
+
+.cvp-gate-timestamp {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    font-style: italic;
+}
+

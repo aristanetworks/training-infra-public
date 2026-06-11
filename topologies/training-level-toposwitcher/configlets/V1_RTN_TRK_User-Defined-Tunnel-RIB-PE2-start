@@ -1,0 +1,103 @@
+!
+hostname PE2
+!
+ip routing
+!
+mpls ip
+!
+vrf instance Cust-A
+!
+vrf instance Cust-B
+!
+vlan 30
+   name Cust-C
+!
+interface Ethernet1
+   no switchport
+   vrf Cust-A
+   ip address 192.168.12.1/30
+!
+interface Ethernet2
+   no switchport
+   vrf Cust-B
+   ip address 192.168.22.1/30
+!
+interface Ethernet3
+   switchport access vlan 30
+!
+interface Vlan30
+   ip address 192.168.32.1/30
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.24.2/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.26.2/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+!
+router isis isis
+   net 49.0001.0000.0000.0002.00
+   is-type level-1
+   router-id ipv4 192.168.100.2
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+!
+mpls ldp
+   router-id 192.168.100.2
+   no shutdown
+   transport-address interface Loopback0
+!
+tunnel-ribs
+   system tunnel-rib
+      source-protocol isis segment-routing preference 50
+!
+ip route vrf Cust-A 192.168.10.2/32 192.168.12.2
+ip route vrf Cust-B 192.168.20.2/32 192.168.22.2
+ip route 192.168.30.2/32 192.168.32.2
+!
+router bgp 65100
+   router-id 192.168.100.2
+   neighbor 192.168.100.1 remote-as 65100
+   neighbor 192.168.100.1 update-source Loopback0
+   !
+   address-family ipv4
+   !
+   address-family evpn
+      neighbor 192.168.100.1 activate
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.1 activate
+   !
+   vrf Cust-A
+      rd 192.168.100.2:10
+      route-target import evpn 10:10
+      route-target export evpn 10:10
+      redistribute static
+      redistribute connected
+   !
+   vrf Cust-B
+      rd 192.168.100.2:20
+      route-target import evpn 20:20
+      route-target export evpn 20:20
+      redistribute static
+      redistribute connected
+!

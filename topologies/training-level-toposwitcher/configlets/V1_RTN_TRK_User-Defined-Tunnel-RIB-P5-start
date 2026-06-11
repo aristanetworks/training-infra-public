@@ -1,0 +1,38 @@
+!
+hostname P5
+!
+ip routing
+!
+mpls ip
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.15.5/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.56.5/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Loopback0
+   ip address 192.168.100.5/32
+   isis enable isis
+!
+router isis isis
+   net 49.0001.0000.0000.0005.00
+   is-type level-1
+   router-id ipv4 192.168.100.5
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+!
+mpls ldp
+   router-id 192.168.100.5
+   no shutdown
+   transport-address interface Loopback0
+!

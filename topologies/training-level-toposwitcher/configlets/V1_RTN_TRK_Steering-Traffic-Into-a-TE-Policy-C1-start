@@ -1,0 +1,15 @@
+hostname C1
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+interface Loopback0
+   ip address 192.168.30.1/32
+   no shutdown
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.31.2/30
+   no shutdown
+!

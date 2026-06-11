@@ -1,0 +1,183 @@
+!
+ip routing
+mpls ip
+!
+vlan 30
+  name Cust-C
+!
+service routing protocols model multi-agent
+!
+tunnel-ribs
+   tunnel-rib system-tunnel-rib
+      source-protocol isis segment-routing preference 50
+!
+vrf instance Cust-A
+vrf instance Cust-B
+!
+ip routing vrf Cust-A
+ip routing vrf Cust-B
+!
+no ip route 192.168.10.1/32 192.168.11.2
+no ip route 192.168.20.1/32 192.168.21.2
+no ip route 192.168.30.1/32 192.168.31.2
+!
+ip route vrf Cust-A 192.168.10.1/32 192.168.11.2
+ip route vrf Cust-B 192.168.20.1/32 192.168.21.2
+!
+ip prefix-list A seq 10 permit 192.168.10.0/24 le 32
+ip prefix-list A seq 20 permit 192.168.11.0/24 le 32
+ip prefix-list A seq 30 permit 192.168.12.0/24 le 32
+!
+ip prefix-list B seq 10 permit 192.168.20.0/24 le 32
+ip prefix-list B seq 20 permit 192.168.21.0/24 le 32
+ip prefix-list B seq 30 permit 192.168.22.0/24 le 32
+!
+ip prefix-list C seq 10 permit 192.168.30.0/24 le 32
+ip prefix-list C seq 20 permit 192.168.31.0/24 le 32
+ip prefix-list C seq 30 permit 192.168.32.0/24 le 32
+!
+route-map sr-policy permit 10
+	match ip address prefix-list A
+	set extcommunity color 10 additive
+route-map sr-policy permit 20
+	match ip address prefix-list B
+	set extcommunity color 20 additive
+route-map sr-policy permit 30
+	match ip address prefix-list C
+	set extcommunity color 30 additive
+route-map sr-policy permit 99999
+!
+router bgp 65100
+   no bgp default ipv4-unicast
+   neighbor 192.168.100.2 remote-as 65100
+   neighbor 192.168.100.2 next-hop-self
+   neighbor 192.168.100.2 update-source Loopback0
+   neighbor 192.168.100.2 send-community extended
+   redistribute static route-map sr-policy
+   !
+   address-family evpn
+      neighbor default encapsulation mpls next-hop-self source-interface Loopback0
+      neighbor 192.168.100.2 activate
+   !
+   vlan 30
+      rd 192.168.100.1:30
+      route-target export 30:30
+      route-target import 30:30
+      redistribute learned
+      redistribute static
+   !
+   vrf Cust-A
+      rd 65100:10
+      route-target import evpn 65100:10
+      route-target export evpn 65100:10
+      redistribute static
+      redistribute connected
+   !
+   vrf Cust-B
+      rd 65100:20
+      route-target import evpn 65100:20
+      route-target export evpn 65100:20
+      redistribute static
+      redistribute connected
+   !
+!
+router traffic-engineering
+   router-id ipv4 192.168.100.1
+   !
+   segment-routing
+      rib system-colored-tunnel-rib
+      !
+      policy endpoint 192.168.12.2 color 10
+         binding-sid 1000010
+         !
+         path-group preference 100
+            segment-list label-stack 900003 900002  
+      !
+      policy endpoint 192.168.22.2 color 20
+         binding-sid 1000020
+         !
+         path-group preference 100
+            segment-list label-stack 900004 900002
+      !
+      policy endpoint 192.168.100.2 color 10
+         binding-sid 1000012
+         !
+         path-group preference 100
+            segment-list label-stack 900003 900002  
+      !
+      policy endpoint 192.168.100.2 color 20
+         binding-sid 1000022
+         !
+         path-group preference 100
+            segment-list label-stack 900004 900002
+!
+Router isis isis
+   Net 49.0000.0000.0000.0001.00
+   router-id ipv4 192.168.100.1
+   Is-type level-1
+   Address-family ipv4 unicast
+   segment-routing mpls
+      no shutdown
+   traffic-engineering 
+      is-type level-1
+      no shut
+!
+int loop0
+ ip address 192.168.100.1/32
+ isis enable isis
+ node-segment ipv4 index 1
+!
+int eth1
+ no switchport
+ vrf Cust-A
+ ip address 192.168.11.1/30
+ mtu 1500
+ no shut
+!
+int eth2
+ no switchport
+ vrf Cust-B
+ ip address 192.168.21.1/30
+ mtu 1500
+ no shut
+!
+int eth3
+ switchport
+ switchport access vlan 30
+ no shut
+!
+int eth4
+ no switchport
+ ip address 172.16.13.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ traffic-engineering 
+ no shut
+!
+int eth5
+ no switchport
+ ip address 172.16.14.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ traffic-engineering 
+ no shut
+!
+int eth6
+ no switchport
+ ip address 172.16.15.1/24
+ mtu 1500
+ isis enable isis
+ isis network point-to-point
+ traffic-engineering 
+ no shut
+!
+ip prefix-list ldp-fec-prefix-list
+ permit 192.168.100.0/24 ge 24
+!
+mpls ldp
+ Router-id interface loopback 0
+ fec filter prefix-list ldp-fec-prefix-list
+ no shutdown
+!

@@ -1,0 +1,35 @@
+   hostname P6
+   !
+   service routing protocols model multi-agent
+   !
+   ip routing
+   mpls ip
+   !
+   router isis isis
+      net 49.0000.0000.0000.0006.00
+      router-id ipv4 192.168.100.6
+      is-type level-1
+      address-family ipv4 unicast
+      segment-routing mpls
+         no shutdown
+   !
+   interface Loopback0
+      ip address 192.168.100.6/32
+      isis enable isis
+      node-segment ipv4 index 6
+      no shutdown
+   !
+   interface Ethernet1
+      no switchport
+      ip address 172.16.56.6/24
+      isis enable isis
+      isis network point-to-point
+      no shutdown
+   !
+   interface Ethernet2
+      no switchport
+      ip address 172.16.26.6/24
+      isis enable isis
+      isis network point-to-point
+      no shutdown
+   !

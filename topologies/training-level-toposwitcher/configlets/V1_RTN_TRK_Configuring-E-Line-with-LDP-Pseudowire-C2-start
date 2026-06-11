@@ -1,0 +1,10 @@
+!
+hostname C2
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.32.2/30
+!
+ip routing
+ip route 0.0.0.0/0 192.168.32.1
+!

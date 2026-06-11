@@ -329,7 +329,7 @@ ORPHANED_INTERFACES_PATH = os.getenv(
 # When enabled, interfaces are preserved as orphaned slots for reuse (avoids reboot
 # and prevents vEOS interface renumbering when intermediate interfaces are removed)
 ENABLE_SLOT_PRESERVATION = os.getenv(
-    'ENABLE_SLOT_PRESERVATION', 'true'
+    'ENABLE_SLOT_PRESERVATION', 'false'
 ).lower() == 'true'
 
 # Orphaned slot aging policy limits

@@ -1,0 +1,38 @@
+hostname P3
+!
+service routing protocols model multi-agent
+!
+ip routing
+mpls ip
+!
+router traffic-engineering
+   router-id ipv4 192.168.100.3
+!
+router isis isis
+   net 49.0000.0000.0000.0003.00
+   router-id ipv4 192.168.100.3
+   is-type level-1
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+         no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.3/32
+   isis enable isis
+   node-segment ipv4 index 3
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.13.3/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.23.3/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!

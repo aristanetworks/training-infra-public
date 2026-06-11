@@ -1,0 +1,37 @@
+!
+hostname P3
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.13.3/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.23.3/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Loopback0
+   ip address 192.168.100.3/32
+   isis enable isis
+!
+ip routing
+!
+router isis isis
+   net 49.0000.0000.0000.0003.00
+   router-id ipv4 192.168.100.3
+   is-type level-1
+   address-family ipv4 unicast
+!
+mpls ip
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 eq 32
+!
+mpls ldp
+   router-id interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!

@@ -16,6 +16,7 @@
     };
 
     let currentTopology = null;
+    let targetLabInfo = null;
     let availableTopologies = [];
     let conversionInProgress = false;
     let statusCheckInterval = null;
@@ -26,16 +27,113 @@
     const MAX_CONNECTION_RETRIES = 60; // 5 minutes of retrying (5 sec intervals)
     const CVP_MONITOR_INTERVAL = 10000; // 10 seconds
 
+    // CVP readiness gate
+    const CVP_GATE_URL = '/td-api/topology-converter/cvp-status';
+    const CVP_GATE_POLL_MS = 10000; // 10 seconds
+    const CVP_GATE_MAX_ATTEMPTS = 360; // ~1 hour
+    let cvpGateInterval = null;
+    let cvpGateAttempts = 0;
+    let cvpGateOpened = false;
+
     // Initialize on page load
     $(document).ready(function() {
         console.log('[TopologyConverter] Page loaded');
-        init();
+        startCvpGate();
     });
 
+    function startCvpGate() {
+        console.log('[TopologyConverter] Starting CVP readiness gate');
+        showCvpGate();
+        // Force-disable interactive controls until gate opens
+        $('#convert-btn').prop('disabled', true);
+        $('#target-topology-select').prop('disabled', true);
+        // Immediate check, then poll
+        checkCvpReady();
+        cvpGateInterval = setInterval(checkCvpReady, CVP_GATE_POLL_MS);
+    }
+
+    function showCvpGate() {
+        const $overlay = $('#cvp-gate-overlay');
+        $overlay.removeClass('cvp-gate-hiding');
+        $overlay.css('display', 'flex');
+        $overlay.attr('aria-hidden', 'false');
+    }
+
+    function updateCvpGateState(stateText) {
+        $('#cvp-gate-state-text').text(stateText || 'Unknown');
+        $('#cvp-gate-last-checked').text(new Date().toLocaleTimeString());
+    }
+
+    function hideCvpGate() {
+        const $overlay = $('#cvp-gate-overlay');
+        $overlay.addClass('cvp-gate-hiding');
+        $overlay.attr('aria-hidden', 'true');
+        // Wait for opacity transition (200ms) before removing from layout
+        setTimeout(function() {
+            $overlay.css('display', 'none');
+        }, 220);
+    }
+
+    function checkCvpReady() {
+        cvpGateAttempts++;
+        console.log('[TopologyConverter] CVP gate check attempt #' + cvpGateAttempts);
+
+        $.ajax({
+            url: CVP_GATE_URL,
+            method: 'GET',
+            dataType: 'json',
+            timeout: 5000,
+            success: function(data) {
+                const state = (data && data.status) ? data.status : 'Unknown';
+                console.log('[TopologyConverter] CVP status response:', data);
+
+                if (state === 'UP') {
+                    console.log('[TopologyConverter] CVP is UP — opening gate');
+                    openCvpGate();
+                    return;
+                }
+                updateCvpGateState(state);
+                maybeExhaustCvpGate();
+            },
+            error: function(xhr, status, error) {
+                console.warn('[TopologyConverter] CVP status check failed:', status, error);
+                updateCvpGateState('Unknown');
+                maybeExhaustCvpGate();
+            }
+        });
+    }
+
+    function maybeExhaustCvpGate() {
+        if (cvpGateAttempts >= CVP_GATE_MAX_ATTEMPTS) {
+            console.error('[TopologyConverter] CVP gate exhausted after ' + cvpGateAttempts + ' attempts');
+            if (cvpGateInterval) {
+                clearInterval(cvpGateInterval);
+                cvpGateInterval = null;
+            }
+            $('#cvp-gate-state-text').text('Timed out');
+            $('.cvp-gate-body').text('CVP did not come up after 1 hour. Contact admin or refresh page.');
+        }
+    }
+
+    function openCvpGate() {
+        if (cvpGateOpened) return;
+        cvpGateOpened = true;
+        if (cvpGateInterval) {
+            clearInterval(cvpGateInterval);
+            cvpGateInterval = null;
+        }
+        hideCvpGate();
+        // Now run the normal page init flow
+        init();
+    }
+
     function init() {
-        loadCurrentTopology();
-        loadAvailableTopologies();
         setupEventListeners();
+        // Load current topology first, then available — prevents race condition
+        // where dropdown renders before currentTopology is set
+        loadCurrentTopology(function() {
+            loadAvailableTopologies();
+        });
     }
 
     function setupEventListeners() {
@@ -48,7 +146,7 @@
         });
     }
 
-    function loadCurrentTopology() {
+    function loadCurrentTopology(callback) {
         console.log('[TopologyConverter] Loading current topology');
         $.ajax({
             url: API.getCurrentTopology,
@@ -58,10 +156,13 @@
                 console.log('[TopologyConverter] Current topology:', data);
                 currentTopology = data;
                 updateCurrentTopologyUI(data);
+                if (callback) callback();
             },
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to load current topology:', error);
                 showError('Failed to load current topology: ' + error);
+                // Still load available even if current fails
+                if (callback) callback();
             }
         });
     }
@@ -75,6 +176,9 @@
             success: function(data) {
                 console.log('[TopologyConverter] Available topologies:', data);
                 availableTopologies = data.topologies || [];
+                if (data.error) {
+                    console.warn('[TopologyConverter] ' + data.error);
+                }
                 updateTopologySelect();
             },
             error: function(xhr, status, error) {
@@ -85,7 +189,13 @@
     }
 
     function updateCurrentTopologyUI(data) {
-        $('#current-topology-name').text(data.name || 'Unknown');
+        // Prefer the lab label (display_name) — the topology id is shown
+        // as a secondary qualifier when both are available.
+        var label = data.display_name || data.name || data.topology || 'Unknown';
+        if (data.display_name && data.topology && data.topology !== data.display_name) {
+            label = data.display_name + ' (' + data.topology + ')';
+        }
+        $('#current-topology-name').text(label);
         $('#current-topology-devices').text(data.node_count || '0');
         $('#current-topology-type').text(data.eos_type || 'Unknown');
         $('#current-topology-configlets').text(data.configlet_count || '0');
@@ -94,46 +204,90 @@
     function updateTopologySelect() {
         const $select = $('#target-topology-select');
         $select.empty();
-        $select.append('<option value="">-- Select a topology --</option>');
 
-        availableTopologies.forEach(function(topo) {
-            // Don't show current topology
-            if (currentTopology && topo !== currentTopology.name) {
-                $select.append(`<option value="${topo}">${topo}</option>`);
+        if (availableTopologies.length === 0) {
+            $select.append('<option value="">-- No labs configured in ACCESS_INFO file --</option>');
+            $select.prop('disabled', true);
+            $('#convert-btn').prop('disabled', true);
+            return;
+        }
+
+        $select.append('<option value="">-- Select a lab --</option>');
+
+        // Available topologies are display names (lab labels) keyed under
+        // `topology-switcher` in ACCESS_INFO.yaml. Hide the lab that is
+        // already active so the user cannot select a no-op conversion.
+        var currentLabel = currentTopology
+            ? (currentTopology.display_name || currentTopology.name)
+            : null;
+        availableTopologies.forEach(function(labLabel) {
+            if (!currentLabel || labLabel !== currentLabel) {
+                $select.append(`<option value="${labLabel}">${labLabel}</option>`);
             }
         });
+
+        // CVP-readiness gate disables the select on page load. Re-enable
+        // it once the lab list is populated; convert-btn stays disabled
+        // until the user picks a target.
+        $select.prop('disabled', false);
     }
 
     function handleTopologySelection() {
         const selected = $('#target-topology-select').val();
-        console.log('[TopologyConverter] Selected topology:', selected);
+        console.log('[TopologyConverter] Selected lab:', selected);
 
         if (!selected) {
+            targetLabInfo = null;
             $('#target-topology-info').hide();
             $('#convert-btn').prop('disabled', true);
             return;
         }
 
-        // Load topology info
+        // Load lab info — backend resolves display_name → topology + labguides.
         $.ajax({
-            url: API.getTopologyInfo + '?topology=' + encodeURIComponent(selected),
+            url: API.getTopologyInfo + '?display_name=' + encodeURIComponent(selected),
             method: 'GET',
             dataType: 'json',
             success: function(data) {
-                console.log('[TopologyConverter] Topology info:', data);
+                console.log('[TopologyConverter] Lab info:', data);
+                targetLabInfo = data;
                 updateTargetTopologyUI(data);
                 $('#target-topology-info').fadeIn();
-                $('#convert-btn').prop('disabled', false);
+                // Block conversion when backend's labguide pre-flight failed
+                // (Firestore doc missing or expansion < 2 modules). Surface
+                // the warning so the user understands why they cannot
+                // proceed, instead of letting lgbuild crash downstream.
+                if (data.labguides_valid === false) {
+                    $('#convert-btn').prop('disabled', true);
+                    showError('Labguide unavailable: ' + (data.labguides_warning || 'invalid labguide configuration for this lab'));
+                } else {
+                    $('#convert-btn').prop('disabled', false);
+                }
             },
             error: function(xhr, status, error) {
-                console.error('[TopologyConverter] Failed to load topology info:', error);
-                showError('Failed to load topology information: ' + error);
+                console.error('[TopologyConverter] Failed to load lab info:', error);
+                showError('Failed to load lab information: ' + error);
             }
         });
     }
 
+    // Labguides-only mode = source/target labs share the same topology id.
+    // Backend skips VM rebuild and only runs atdUpdate.sh, but the UI
+    // intentionally hides this distinction from the user — same warning,
+    // same confirm dialog, same phase list — so they always see a uniform
+    // "switching lab" experience and never see the internal mechanics.
+    function isLabguidesOnlyMode() {
+        return !!(currentTopology && targetLabInfo
+                  && currentTopology.topology
+                  && currentTopology.topology === targetLabInfo.topology);
+    }
+
     function updateTargetTopologyUI(data) {
-        $('#target-topology-name').text(data.name || 'Unknown');
+        var label = data.display_name || data.name || data.topology || 'Unknown';
+        if (data.display_name && data.topology && data.topology !== data.display_name) {
+            label = data.display_name + ' (' + data.topology + ')';
+        }
+        $('#target-topology-name').text(label);
         $('#target-topology-devices').text(data.node_count || '0');
         $('#target-topology-device-list').text((data.nodes || []).slice(0, 8).join(', ') +
             (data.nodes && data.nodes.length > 8 ? '...' : ''));
@@ -144,12 +298,14 @@
         const selected = $('#target-topology-select').val();
 
         if (!selected) {
-            showError('Please select a target topology');
+            showError('Please select a target lab');
             return;
         }
 
-        // Show confirmation
-        const confirmed = confirm(
+        // Same confirmation flow for every switch — the UI deliberately
+        // does not differentiate between full conversion and same-topology
+        // labguides-only update, so the user always sees the same prompt.
+        const confirmMsg =
             `Are you sure you want to convert to ${selected}?\n\n` +
             `This will:\n` +
             `- Destroy all existing VMs\n` +
@@ -157,14 +313,12 @@
             `- Create new topology\n` +
             `- Reconfigure CVP\n\n` +
             `This process takes 10-15 minutes and cannot be interrupted.\n\n` +
-            `Type 'yes' to confirm.`
-        );
+            `Type 'yes' to confirm.`;
 
-        if (!confirmed) {
+        if (!confirm(confirmMsg)) {
             return;
         }
 
-        // Additional confirmation
         const userInput = prompt('Please type "yes" to confirm the conversion:');
         if (userInput !== 'yes') {
             alert('Conversion cancelled.');
@@ -174,8 +328,8 @@
         startConversion(selected);
     }
 
-    function startConversion(targetTopology) {
-        console.log('[TopologyConverter] Starting conversion to:', targetTopology);
+    function startConversion(targetDisplayName) {
+        console.log('[TopologyConverter] Starting conversion to lab:', targetDisplayName);
 
         // Disable UI
         $('#convert-btn').prop('disabled', true);
@@ -185,18 +339,19 @@
         $('#conversion-progress').fadeIn();
         updatePhases('starting');
 
-        // Start conversion
+        // Start conversion — body field is `target_display_name`; backend
+        // resolves it to the underlying topology id via topology-switcher.
         $.ajax({
             url: API.startConversion,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                target_topology: targetTopology
+                target_display_name: targetDisplayName
             }),
             dataType: 'json',
             success: function(data) {
                 console.log('[TopologyConverter] Conversion started:', data);
-                cloudLog('info', 'Topology conversion started: ' + targetTopology, { source: 'topology-converter', action: 'conversion_start', topology: targetTopology });
+                cloudLog('info', 'Topology conversion started: ' + targetDisplayName, { source: 'topology-converter', action: 'conversion_start', topology: targetDisplayName });
                 conversionInProgress = true;
 
                 if (data.status === 'started') {
@@ -296,9 +451,9 @@
         updatePhases('build');
 
         // Update the UI to show waiting state
-        $('#status-callout').removeClass('topo-callout alert').addClass('topo-callout warning');
+        $('#status-callout').removeClass('tc-status-error').addClass('tc-status-warning');
         $('#current-status').html(
-            '<i class="fas fa-sync fa-spin"></i> Server restarting... ' +
+            '<i class="fa-solid fa-rotate fa-spin"></i> Server restarting... ' +
             '<span id="retry-count"></span>'
         );
     }
@@ -310,7 +465,7 @@
 
     function showManualCheckMessage() {
         $('#current-status').html(
-            '<i class="fas fa-exclamation-triangle"></i> Connection timeout. ' +
+            '<i class="fa-solid fa-triangle-exclamation"></i> Connection timeout. ' +
             'The conversion may have completed.'
         );
         appendLog('Connection timeout after multiple retries.');
@@ -318,10 +473,10 @@
 
         // Show a button to reload
         $('#status-callout').after(
-            '<div class="topo-callout info" style="margin-top: 1rem;">' +
+            '<div class="tc-status" style="margin-top: 1rem;">' +
             '<p>The server may still be starting up. Please wait a moment and then:</p>' +
-            '<button class="topo-btn primary" onclick="location.reload();">' +
-            '<i class="fas fa-refresh"></i> Refresh Page</button>' +
+            '<button class="tc-btn tc-btn-primary" onclick="location.reload();" style="margin-top: 8px;">' +
+            '<i class="fa-solid fa-rotate"></i> Refresh Page</button>' +
             '</div>'
         );
     }
@@ -340,14 +495,14 @@
                 cloudLog('info', 'Topology conversion completed', { source: 'topology-converter', action: 'conversion_complete' });
 
                 // Keep progress visible and update header
-                $('#conversion-progress .topo-card-header h5').html(
-                    '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Conversion Complete - Waiting for Devices'
+                $('#conversion-progress .tc-card-header h5').html(
+                    '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Conversion Complete - Waiting for Devices'
                 );
 
                 // Show completion message (keep logs visible)
                 $('#completion-message').fadeIn();
-                $('#completion-message .topo-callout').html(
-                    '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
+                $('#completion-message .tc-completion').html(
+                    '<h5><i class="fa-solid fa-circle-check"></i> Topology Conversion Completed!</h5>' +
                     '<p>The topology has been converted to: <strong>' + data.name + '</strong></p>' +
                     '<p>CVP is now configuring the devices. This may take several minutes.</p>'
                 );
@@ -359,7 +514,7 @@
                 appendLog('='.repeat(60));
 
                 updateStatus('Conversion completed! Now waiting for devices to come online...');
-                $('#status-callout').removeClass('topo-callout alert warning').addClass('topo-callout success');
+                $('#status-callout').removeClass('tc-status-error tc-status-warning').addClass('tc-status-success');
                 updatePhases('devices');
 
                 // Start monitoring device status
@@ -404,6 +559,9 @@
     }
 
     function updatePhases(currentPhase) {
+        // One phase list for every switch — UI does not expose the fast
+        // labguides-only path. Phases the backend never emits in the fast
+        // path simply stay in their default "pending" state on screen.
         const phases = [
             { id: 'validate', name: 'Validation', icon: 'check-circle' },
             { id: 'backup', name: 'Backup', icon: 'save' },
@@ -443,17 +601,18 @@
         conversionCompleted = true;
 
         if (success) {
-            // Keep progress section visible but update header
-            $('#conversion-progress .topo-card-header h5').html(
-                '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Conversion Complete - Waiting for Devices'
+            // Same completion UX for every successful switch. The fast
+            // labguides-only path also lands here; device monitoring runs
+            // either way and simply reports the existing devices as online.
+            $('#conversion-progress .tc-card-header h5').html(
+                '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Conversion Complete - Waiting for Devices'
             );
             updateStatus('Conversion completed! Now waiting for devices to come online...');
-            $('#status-callout').removeClass('topo-callout alert warning').addClass('topo-callout success');
+            $('#status-callout').removeClass('tc-status-error tc-status-warning').addClass('tc-status-success');
 
-            // Show completion message above logs (don't hide progress)
             $('#completion-message').fadeIn();
-            $('#completion-message .topo-callout').html(
-                '<h5><i class="fas fa-check-circle"></i> Topology Conversion Completed!</h5>' +
+            $('#completion-message .tc-completion').html(
+                '<h5><i class="fa-solid fa-circle-check"></i> Topology Conversion Completed!</h5>' +
                 '<p>The topology infrastructure has been rebuilt. CVP is now configuring the devices.</p>' +
                 '<p><strong>Note:</strong> Devices may take several minutes to boot and receive their configuration from CVP.</p>'
             );
@@ -463,14 +622,11 @@
             appendLog('Devices will appear as "online" once they boot and eAPI is enabled.');
             appendLog('='.repeat(60));
 
-            // Update phase to show we're in "devices" phase
             updatePhases('devices');
-
-            // Start monitoring device status
             startDeviceMonitoring();
         } else {
             updateStatus('Conversion failed. Check logs for details.');
-            $('#status-callout').removeClass('topo-callout success warning').addClass('topo-callout alert');
+            $('#status-callout').removeClass('tc-status-success tc-status-warning').addClass('tc-status-error');
             appendLog('='.repeat(60));
             appendLog('CONVERSION FAILED - Check logs above for details');
             appendLog('='.repeat(60));
@@ -484,9 +640,9 @@
         if ($('#device-status-section').length === 0) {
             const deviceStatusHtml = `
                 <div id="device-status-section" style="margin-top: 1.5rem;">
-                    <h6><i class="fas fa-server"></i> Device Status:</h6>
-                    <div id="device-status-grid" class="topo-callout info">
-                        <p><i class="fas fa-spinner fa-spin"></i> Checking device status...</p>
+                    <h6><i class="fa-solid fa-server"></i> Device Status</h6>
+                    <div id="device-status-grid">
+                        <p><i class="fa-solid fa-spinner fa-spin"></i> Checking device status...</p>
                     </div>
                 </div>
             `;
@@ -522,7 +678,7 @@
             error: function(xhr, status, error) {
                 console.error('[TopologyConverter] Failed to get device status:', error);
                 $('#device-status-grid').html(
-                    '<p><i class="fas fa-exclamation-triangle" style="color: #fbb500;"></i> ' +
+                    '<p><i class="fa-solid fa-triangle-exclamation" style="color: var(--secondary-color);"></i> ' +
                     'Unable to check device status. Devices may still be booting...</p>'
                 );
             }
@@ -561,8 +717,8 @@
 
             gridHtml += `
                 <div class="cell small-6 medium-4 large-3" style="padding: 0.5rem;">
-                    <div style="padding: 0.5rem; background: ${isOnline ? 'rgba(120,216,44,0.1)' : 'rgba(227,9,9,0.1)'}; border: 1px solid ${isOnline ? 'rgba(120,216,44,0.3)' : 'rgba(227,9,9,0.3)'}; border-radius: 4px; text-align: center; color: #fff;">
-                        ${statusIcon} <strong>${name}</strong><br>
+                    <div style="padding: 0.5rem; background: ${isOnline ? 'rgba(120,216,44,0.1)' : 'rgba(227,9,9,0.1)'}; border: 1px solid ${isOnline ? 'rgba(120,216,44,0.3)' : 'rgba(227,9,9,0.3)'}; border-radius: 4px; text-align: center;">
+                        ${statusIcon} <strong style="color: #fff;">${name}</strong><br>
                         <small style="color: rgba(255,255,255,0.6);">${statusText}</small>
                     </div>
                 </div>
@@ -573,14 +729,14 @@
 
         // Add summary
         const summaryHtml = `
-            <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(251,181,0,0.15); border-radius: 4px; color: #fff;">
-                <strong>Summary:</strong>
-                <span style="color: #78d82c;">${onlineCount} online</span> /
-                <span style="color: #e30909;">${offlineCount} offline</span> /
-                ${totalCount} total
+            <div style="margin-bottom: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
+                <strong style="color: #fff;">Summary:</strong>
+                <span style="color: var(--neon-green);">${onlineCount} online</span> /
+                <span style="color: var(--red);">${offlineCount} offline</span> /
+                <span style="color: rgba(255,255,255,0.6);">${totalCount} total</span>
                 ${offlineCount > 0 ?
-                    ' <span style="color: rgba(255,255,255,0.5);">(devices are still booting, please wait...)</span>' :
-                    ' <span style="color: #78d82c;">All devices ready!</span>'
+                    ' <span style="color: rgba(255,255,255,0.4);">(devices are still booting, please wait...)</span>' :
+                    ' <span style="color: var(--neon-green);">All devices ready!</span>'
                 }
             </div>
         `;
@@ -595,16 +751,16 @@
             stopDeviceMonitoring();
 
             // Update completion message
-            $('#completion-message .topo-callout').html(
-                '<h5><i class="fas fa-check-circle"></i> Lab Ready!</h5>' +
+            $('#completion-message .tc-completion').html(
+                '<h5><i class="fa-solid fa-circle-check"></i> Lab Ready!</h5>' +
                 '<p>All ' + totalCount + ' devices are online and configured.</p>' +
-                '<button class="topo-btn primary" onclick="window.location.href=\'/\';">' +
-                '<i class="fas fa-home"></i> Return to Home</button>'
+                '<div style="margin-top: 12px;"><button class="tc-btn tc-btn-primary" onclick="window.location.href=\'/\';">' +
+                '<i class="fa-solid fa-house"></i> Return to Home</button></div>'
             );
 
             // Update header
-            $('#conversion-progress .topo-card-header h5').html(
-                '<i class="fas fa-check-circle" style="color: #78d82c;"></i> Lab Ready!'
+            $('#conversion-progress .tc-card-header h5').html(
+                '<i class="fa-solid fa-circle-check" style="color: var(--neon-green);"></i> Lab Ready!'
             );
         }
     }

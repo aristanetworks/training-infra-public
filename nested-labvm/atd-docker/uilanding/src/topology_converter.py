@@ -7,41 +7,145 @@ Extracted from uilanding.py to reduce file size.
 
 import json
 import os
+import random
 import re
 import subprocess
 import threading
 from collections import deque
 from datetime import datetime
 
+import docker
 import tornado.web
 from ruamel.yaml import YAML
 
+from cloud_logging_utils import (
+    setup_cloud_logging,
+    log_operation_start,
+    log_operation_success,
+    log_operation_error,
+)
 from handlers.auth import BaseHandler
-from utils import safe_log, pS
+from utils import getAPI, safe_log
 
-# Cloud Logging Setup
 try:
-    from cloud_logging_utils import setup_cloud_logging, log_operation_start, log_operation_success, log_operation_error
-    logger = setup_cloud_logging('topology-converter')
-except Exception:
-    import logging as _logging
-    logger = _logging.getLogger('topology-converter')
-    logger.addHandler(_logging.StreamHandler())
-    logger.setLevel(_logging.INFO)
-
-    def log_operation_start(lgr, operation, **kwargs):
-        lgr.info(f"Starting operation: {operation} {kwargs}")
-
-    def log_operation_success(lgr, operation, **kwargs):
-        lgr.info(f"Operation completed: {operation} {kwargs}")
-
-    def log_operation_error(lgr, operation, error_msg, **kwargs):
-        lgr.error(f"Operation failed: {operation} - {error_msg} {kwargs}")
-
+    from google.cloud import firestore
+    FIRESTORE_AVAILABLE = True
+except ImportError:
+    FIRESTORE_AVAILABLE = False
 
 # Constants
 ATD_ACCESS_PATH = '/etc/atd/ACCESS_INFO.yaml'
 BASE_PATH = '/opt/topo/html/'
+LABGUIDES_COLLECTION = 'labGuides'
+
+# Setup cloud logging for topology converter
+logger = setup_cloud_logging('topology-converter')
+
+
+# =============================================================================
+# Labguide module expansion (mirrors api-deploy/main.py:modularGuides)
+# =============================================================================
+
+def _mod_select_item(data):
+    """Recursively select random items from compatibility tree."""
+    if isinstance(data, dict):
+        compatible_items = data.get('compatible')
+        if compatible_items:
+            return _mod_select_item(compatible_items)
+        key = random.choice(list(data.keys()))
+        return [key] + _mod_select_item(data[key])
+    elif isinstance(data, list):
+        return [random.choice(data[0][item]) for item in data[0]]
+    return []
+
+
+def _modular_selection(data):
+    """Build module list for mod-exam type with random selection."""
+    index = list(data.keys())
+    first_mandatory = data[index[0]]['first_mandatory']
+    last_mandatory = data[index[0]]['last_mandatory']
+    selected_items = _mod_select_item(data[index[0]])
+    return index + first_mandatory + selected_items + last_mandatory
+
+
+def expand_labguide_modules(lab_names):
+    """
+    Expand labguide IDs into full module list via Firestore lookup.
+
+    Mirrors modularGuides() in cloud-functions/api-deploy/src/main.py.
+    For each lab_name:
+      - If found in Firestore labGuides collection:
+          - type 'mod-exam' -> random selection from modules tree
+          - type 'class'/'exam'/'nugget' -> use full modules list
+      - If not found: keep raw lab_name (legacy/manual modules)
+    """
+    if not FIRESTORE_AVAILABLE:
+        logger.warning("google-cloud-firestore not installed, returning raw labguide list")
+        return list(lab_names)
+
+    try:
+        db = firestore.Client()
+    except Exception as e:
+        logger.warning(f"Firestore client init failed: {e}, returning raw labguide list")
+        return list(lab_names)
+
+    modules = []
+    for lab in lab_names:
+        try:
+            doc = db.collection(LABGUIDES_COLLECTION).document(lab).get()
+            from_db = doc.to_dict() if doc.exists else None
+            if from_db:
+                info = from_db.get('metadata', {})
+                lg_type = info.get('type')
+                if lg_type == 'mod-exam':
+                    modules.extend(_modular_selection(from_db['modules']))
+                elif lg_type in ('class', 'exam', 'nugget'):
+                    modules.extend(from_db.get('modules', []))
+                else:
+                    logger.warning(f"Labguide '{lab}' has unknown type '{lg_type}', skipping")
+            else:
+                # No Firestore doc - treat as raw module name (legacy behavior)
+                modules.append(lab)
+        except Exception as e:
+            logger.warning(f"Firestore lookup failed for '{lab}': {e}, using raw value")
+            modules.append(lab)
+
+    return modules
+
+
+def validate_lab_labguides(raw_labguides):
+    """Pre-flight validation of a lab's `labguides` list.
+
+    Returns (is_valid, error_message). Treats a `labguides` list as valid
+    when either:
+      - it contains a single Firestore class/exam/nugget/mod-exam id that
+        expands to >= 2 modules (so lgbuild's `len < 2` guard passes), or
+      - it contains >= 2 raw module ids (legacy "detailed" form, passed to
+        lgbuild verbatim with no Firestore lookup needed).
+
+    A single raw id that does not exist in Firestore is rejected here —
+    that is what causes lgbuild.py:285-288 to raise an empty exception
+    downstream, surfacing as "Failed to load ACCESS_INFO data" and a
+    blank labguide.pdf in the user's browser.
+    """
+    raw = list(raw_labguides or [])
+    if not raw:
+        return False, 'No labguides configured for this lab.'
+
+    # Detailed form: 2+ raw module ids. lgbuild accepts as-is.
+    if len(raw) >= 2:
+        return True, ''
+
+    # Expandable form: single Firestore id.
+    expanded = expand_labguide_modules(raw)
+    if len(expanded) >= 2:
+        return True, ''
+
+    return False, (
+        f'Labguide "{raw[0]}" unavailable: not found in Firestore '
+        f'(or expands to fewer than 2 modules). Use a valid Firestore '
+        f'class/exam id, or provide 2+ raw module ids in the labguides list.'
+    )
 
 
 # Global variables for conversion status
@@ -54,6 +158,79 @@ conversion_status = {
     'completed': False,
     'success': False
 }
+
+# Persist conversion_status across uilanding restarts/recreations. The
+# labguides-only path runs `atdUpdate.sh` which calls `atdStartup.sh`,
+# and that does `docker compose up -d` — recreating atd-uilanding from
+# scratch (not just restarting it). A recreate wipes the container's
+# writable overlay, so /tmp does NOT survive. /etc/atd is the only
+# host-bind-mounted writable directory available inside this container,
+# so the snapshot lives there. Reloaded on import; if a prior conversion
+# was in_progress when uilanding was killed, it is promoted to completed
+# (atdStartup only returns after success, so by the time we are reading
+# this file again the conversion has effectively finished).
+STATUS_PERSIST_PATH = '/etc/atd/topo_conversion_status.json'
+
+
+def _persist_conversion_status():
+    try:
+        snapshot = {
+            'in_progress': conversion_status['in_progress'],
+            'phase': conversion_status['phase'],
+            'status': conversion_status['status'],
+            'log': list(conversion_status['log'])[-100:],
+            'completed': conversion_status['completed'],
+            'success': conversion_status['success'],
+        }
+        tmp = STATUS_PERSIST_PATH + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(snapshot, f)
+        os.replace(tmp, STATUS_PERSIST_PATH)
+    except Exception as e:
+        try:
+            logger.warning(f'Failed to persist conversion_status: {e}')
+        except Exception:
+            pass
+
+
+def _load_persisted_conversion_status():
+    """Restore conversion_status from disk on module import.
+
+    If a previous conversion was in_progress when uilanding died (atdUpdate
+    triggered atdStartup → restart), promote it to completed/success here
+    so the UI's next /status poll sees the terminal state. atdUpdate.sh
+    only finishes successfully if everything downstream did, and uilanding
+    only comes back up after atdStartup returns, so by the time this code
+    runs the conversion has effectively succeeded.
+    """
+    try:
+        if not os.path.exists(STATUS_PERSIST_PATH):
+            return
+        with open(STATUS_PERSIST_PATH, 'r') as f:
+            snap = json.load(f)
+        if snap.get('in_progress'):
+            snap['in_progress'] = False
+            snap['completed'] = True
+            snap['success'] = True
+            snap['phase'] = 'completed'
+            snap['status'] = (snap.get('status') or '') + ' (resumed after uilanding restart)'
+        conversion_status['in_progress'] = snap.get('in_progress', False)
+        conversion_status['phase'] = snap.get('phase')
+        conversion_status['status'] = snap.get('status', 'Idle')
+        conversion_status['completed'] = snap.get('completed', False)
+        conversion_status['success'] = snap.get('success', False)
+        conversion_status['log'].clear()
+        for line in snap.get('log', []):
+            conversion_status['log'].append(line)
+        _persist_conversion_status()
+    except Exception as e:
+        try:
+            logger.warning(f'Failed to load persisted conversion_status: {e}')
+        except Exception:
+            pass
+
+
+_load_persisted_conversion_status()
 
 
 class TopologyConverterCurrentHandler(BaseHandler):
@@ -84,6 +261,19 @@ class TopologyConverterCurrentHandler(BaseHandler):
             topo_path = f'/opt/atd/topologies/{topology_name}'
             safe_log('info', f'Current topology identified: {topology_name}',
                      event='topology_info', handler='TopologyConverterCurrentHandler', topology=topology_name)
+
+            # Resolve the user-facing display name (lab label) for the
+            # currently-active topology. Prefer the explicitly-stored
+            # `topology-switcher-active` field; otherwise fall back to the
+            # first display name in topology-switcher whose `topology`
+            # matches the active topology id.
+            display_name = access_info.get('topology-switcher-active')
+            if not display_name:
+                switcher_config = access_info.get('topology-switcher') or {}
+                for d_name, entry in switcher_config.items():
+                    if isinstance(entry, dict) and entry.get('topology') == topology_name:
+                        display_name = d_name
+                        break
 
             # Read topo_build.yml if it exists
             topo_build_path = f'{topo_path}/topo_build.yml'
@@ -117,15 +307,18 @@ class TopologyConverterCurrentHandler(BaseHandler):
 
             response = {
                 'name': topology_name,
+                'topology': topology_name,
+                'display_name': display_name,
                 'node_count': node_count,
                 'nodes': nodes,
                 'eos_type': access_info.get('eos_type', 'veos'),
                 'configlet_count': configlet_count
             }
 
-            safe_log('info', f'Successfully returned current topology info: {topology_name}',
+            safe_log('info', f'Successfully returned current topology info: '
+                     f'topology={topology_name!r}, display_name={display_name!r}',
                      event='api_response', handler='TopologyConverterCurrentHandler',
-                     topology=topology_name, status_code=200)
+                     topology=topology_name, display_name=str(display_name), status_code=200)
             self.write(json.dumps(response))
 
         except Exception as e:
@@ -136,7 +329,12 @@ class TopologyConverterCurrentHandler(BaseHandler):
 
 
 class TopologyConverterAvailableHandler(BaseHandler):
-    """API endpoint to get list of available topologies."""
+    """API endpoint to get list of available topologies.
+
+    Returns only topologies listed in the 'topology-switcher' section of
+    ACCESS_INFO.yaml. If that section is missing or empty, returns an
+    error so the frontend can prompt the user to fix the file.
+    """
 
     def get(self):
         safe_log('info', 'Available topologies list requested',
@@ -153,33 +351,23 @@ class TopologyConverterAvailableHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            topo_dir = '/opt/atd/topologies'
-            topologies = []
+            with open(ATD_ACCESS_PATH, 'r') as f:
+                access_info = YAML().load(f)
 
-            if os.path.exists(topo_dir):
-                safe_log('info', f'Scanning topology directory: {topo_dir}',
-                         event='directory_scan', handler='TopologyConverterAvailableHandler', directory=topo_dir)
-                all_items = os.listdir(topo_dir)
-                for item in all_items:
-                    item_path = os.path.join(topo_dir, item)
-                    topo_build = os.path.join(item_path, 'topo_build.yml')
+            switcher_config = access_info.get('topology-switcher')
 
-                    # Only include if it has topo_build.yml
-                    if os.path.isdir(item_path) and os.path.exists(topo_build):
-                        topologies.append(item)
-                    elif os.path.isdir(item_path):
-                        safe_log('info', f'Skipping directory {item}: no topo_build.yml found',
-                                 event='topology_skip', handler='TopologyConverterAvailableHandler',
-                                 directory=item, reason='missing_topo_build')
-            else:
-                safe_log('warning', f'Topology directory not found: {topo_dir}',
-                         event='directory_missing', handler='TopologyConverterAvailableHandler', directory=topo_dir)
+            if not switcher_config:
+                logger.warning("No topology-switcher config in ACCESS_INFO.yaml")  # LOG 1
+                self.write(json.dumps({
+                    'topologies': [],
+                    'error': 'No topology-switcher configuration found in ACCESS_INFO.yaml'
+                }))
+                return
 
-            sorted_topologies = sorted(topologies)
-            safe_log('info', f'Found {len(sorted_topologies)} available topologies: {", ".join(sorted_topologies)}',
-                     event='api_response', handler='TopologyConverterAvailableHandler',
-                     topology_count=len(sorted_topologies), status_code=200)
-            self.write(json.dumps({'topologies': sorted_topologies}))
+            # Keys of topology-switcher dict are the allowed topology names
+            topologies = sorted(switcher_config.keys())
+
+            self.write(json.dumps({'topologies': topologies}))
 
         except Exception as e:
             safe_log('error', f'Error listing available topologies: {e}',
@@ -189,13 +377,22 @@ class TopologyConverterAvailableHandler(BaseHandler):
 
 
 class TopologyConverterInfoHandler(BaseHandler):
-    """API endpoint to get information about a specific topology."""
+    """API endpoint to get information about a specific topology.
+
+    Accepts either `display_name` (preferred — the lab label keyed under
+    `topology-switcher` in ACCESS_INFO.yaml) or `topology` (legacy — raw
+    topology id). When a display_name is given it is resolved via the
+    topology-switcher map to its underlying topology id, and the
+    associated labguides list is included in the response.
+    """
 
     def get(self):
+        display_name = self.get_argument('display_name', None)
         topology_name = self.get_argument('topology', None)
-        safe_log('info', f'Topology info requested for: {topology_name}',
+        requested = display_name or topology_name
+        safe_log('info', f'Topology info requested for: {requested}',
                  event='api_request', handler='TopologyConverterInfoHandler', method='GET',
-                 requested_topology=str(topology_name))
+                 requested_topology=str(requested))
 
         if not self.current_user:
             safe_log('warning', 'Unauthenticated request to topology info endpoint',
@@ -207,13 +404,52 @@ class TopologyConverterInfoHandler(BaseHandler):
         self.set_header("Content-Type", "application/json")
         self.set_header("Access-Control-Allow-Origin", "*")
 
+        labguides = []
         try:
-            if not topology_name:
-                safe_log('warning', 'Topology info request missing topology parameter',
+            if not requested:
+                safe_log('warning', 'Topology info request missing display_name/topology parameter',
                          event='validation_error', handler='TopologyConverterInfoHandler',
                          reason='missing_parameter')
                 self.set_status(400)
-                self.write(json.dumps({'error': 'topology parameter required'}))
+                self.write(json.dumps({'error': 'display_name or topology parameter required'}))
+                return
+
+            # Display names allow spaces; topology ids do not. Validate the
+            # incoming string with the looser rule, then re-validate the
+            # resolved topology id strictly before any filesystem use.
+            if not re.match(r'^[a-zA-Z0-9_ .-]+$', requested):
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid name'}))
+                return
+
+            # Resolve display_name → topology id via topology-switcher map.
+            if display_name:
+                try:
+                    with open(ATD_ACCESS_PATH, 'r') as f:
+                        access_info = YAML().load(f)
+                    switcher_config = access_info.get('topology-switcher') or {}
+                    entry = switcher_config.get(display_name)
+                    if not entry or not isinstance(entry, dict):
+                        self.set_status(404)
+                        self.write(json.dumps({'error': f'Lab "{display_name}" not found in topology-switcher'}))
+                        return
+                    topology_name = entry.get('topology')
+                    labguides = list(entry.get('labguides') or [])
+                    if not topology_name:
+                        self.set_status(400)
+                        self.write(json.dumps({'error': f'Lab "{display_name}" has no topology configured'}))
+                        return
+                except Exception as e:
+                    safe_log('error', f'Failed to resolve display_name {display_name}: {e}',
+                             event='error', handler='TopologyConverterInfoHandler', error=str(e))
+                    self.set_status(500)
+                    self.write(json.dumps({'error': str(e)}))
+                    return
+
+            # Strict path-traversal guard on the topology id we are about to use.
+            if not topology_name or not re.match(r'^[a-zA-Z0-9_-]+$', topology_name):
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid topology name'}))
                 return
 
             # Validate topology name to prevent path traversal
@@ -267,11 +503,22 @@ class TopologyConverterInfoHandler(BaseHandler):
                          event='topology_info', handler='TopologyConverterInfoHandler',
                          topology=topology_name, configlet_count=configlet_count)
 
+            # Pre-flight labguide validation. Surfaces as `labguides_valid`
+            # + `labguides_warning` in the response so the UI can warn the
+            # user before they trigger a conversion that would crash
+            # lgbuild downstream.
+            lg_valid, lg_error = validate_lab_labguides(labguides)
+
             response = {
-                'name': topology_name,
+                'name': display_name or topology_name,
+                'display_name': display_name,
+                'topology': topology_name,
                 'node_count': node_count,
                 'nodes': nodes,
-                'configlet_count': configlet_count
+                'configlet_count': configlet_count,
+                'labguides': labguides,
+                'labguides_valid': lg_valid,
+                'labguides_warning': lg_error if not lg_valid else '',
             }
 
             safe_log('info', f'Successfully returned info for topology: {topology_name}',
@@ -285,6 +532,144 @@ class TopologyConverterInfoHandler(BaseHandler):
                      topology=str(topology_name), error=str(e))
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
+
+
+def _update_labguides_modules(display_name, status):
+    """Update labguides_modules in ACCESS_INFO.yaml for the selected lab.
+
+    Looks up the topology-switcher entry by display_name (the lab label),
+    expands the labguide IDs via Firestore lookup, writes the resulting
+    module list to labguides_modules, and records the active display_name
+    as `topology-switcher-active` so the UI can resolve the current lab.
+    """
+    try:
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        with open(ATD_ACCESS_PATH, 'r') as f:
+            access_info = yaml.load(f)
+
+        switcher_config = access_info.get('topology-switcher')
+        if not switcher_config or display_name not in switcher_config:
+            msg = (f'No topology-switcher entry for lab "{display_name}" '
+                   f'— labguides_modules unchanged')
+            logger.warning(msg)
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        entry = switcher_config[display_name]
+        if not isinstance(entry, dict):
+            msg = (f'topology-switcher entry for "{display_name}" must be a mapping '
+                   f'with `topology` and `labguides` — got {type(entry).__name__}')
+            logger.warning(msg)
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        raw_entries = list(entry.get('labguides') or [])
+        if not raw_entries:
+            msg = (f'No labguides configured for lab "{display_name}" '
+                   f'— labguides_modules unchanged')
+            logger.warning(msg)
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        # Expand labguide IDs via Firestore lookup (e.g. Foundations_Track -> module list)
+        expanded_modules = expand_labguide_modules(raw_entries)
+        if not expanded_modules:
+            msg = (f'Labguide expansion returned empty list for lab "{display_name}"'
+                   f' — labguides_modules unchanged')
+            logger.warning(msg)
+            status['log'].append(f'WARNING: {msg}')
+            return
+
+        old_modules = access_info.get('labguides_modules', [])
+        access_info['labguides_modules'] = expanded_modules
+        # Persist the active lab label so subsequent UI loads can show it
+        # without guessing from the topology id alone.
+        access_info['topology-switcher-active'] = display_name
+
+        with open(ATD_ACCESS_PATH, 'w') as f:
+            yaml.dump(access_info, f)
+
+        log_operation_success(logger, 'update-labguides-modules',
+                              display_name=display_name,
+                              raw_entries=str(raw_entries),
+                              expanded_count=len(expanded_modules),
+                              old_modules=str(old_modules))
+        status['log'].append(
+            f'Updated labguides_modules for "{display_name}": '
+            f'{raw_entries} -> {len(expanded_modules)} modules'
+        )
+
+    except Exception as e:
+        log_operation_error(logger, 'update-labguides-modules', str(e),
+                            display_name=display_name)
+        status['log'].append(f'WARNING: Failed to update labguides_modules: {e}')
+
+
+def _run_atd_update_on_host(status, timeout=900):
+    """Execute /usr/local/bin/atdUpdate.sh on the host via privileged nsenter.
+
+    Used by the labguides-only conversion path — when source and target
+    labs share a topology, no VM rebuild is needed; atdUpdate.sh pulls the
+    latest repo and runs atdStartup.sh, which reconciles services against
+    the updated ACCESS_INFO.yaml (labguides_modules + topology-switcher-active).
+    """
+    cmd = [
+        'docker', 'run', '--rm',
+        '--privileged',
+        '--pid=host',
+        '--network=host',
+        '-v', '/:/host',
+        '-v', '/var/run/docker.sock:/var/run/docker.sock',
+        'python:3.9-slim',
+        'nsenter', '--target', '1', '--mount', '--uts', '--ipc', '--net', '--pid', '--',
+        'bash', '/usr/local/bin/atdUpdate.sh',
+    ]
+
+    logger.info('Executing host atdUpdate.sh for labguides-only refresh')
+    status['log'].append('Executing atdUpdate.sh on host via privileged container...')
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    for line in iter(process.stdout.readline, ''):
+        line = line.strip()
+        if line:
+            status['log'].append(line)
+            status['status'] = line
+
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        raise Exception(f'atdUpdate.sh timed out after {timeout}s')
+
+    if process.returncode != 0:
+        raise Exception(f'atdUpdate.sh exited with code {process.returncode}')
+
+
+def _restart_labguides_container(status):
+    """Restart atd-labguides-v2 container so it rebuilds with updated modules."""
+    try:
+        client = docker.from_env()
+        container = client.containers.get('atd-labguides-v2')
+        status['log'].append('Restarting atd-labguides-v2 to rebuild labguides...')
+        container.restart(timeout=10)
+        log_operation_success(logger, 'restart-labguides-container')  # LOG 6
+        status['log'].append('atd-labguides-v2 restarted — labguides will rebuild')
+    except docker.errors.NotFound:
+        log_operation_error(logger, 'restart-labguides-container',  # LOG 7
+                            'atd-labguides-v2 container not found')
+        status['log'].append('WARNING: atd-labguides-v2 container not found — labguides not rebuilt')
+    except Exception as e:
+        log_operation_error(logger, 'restart-labguides-container', str(e))  # LOG 8
+        status['log'].append(f'WARNING: Failed to restart labguides container: {e}')
 
 
 class TopologyConverterConvertHandler(BaseHandler):
@@ -307,36 +692,81 @@ class TopologyConverterConvertHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Atomically check-and-set to prevent race condition with concurrent requests
-            with _conversion_lock:
-                if conversion_status['in_progress']:
-                    safe_log('warning', 'Conversion request rejected: another conversion already in progress',
-                             event='conversion_conflict', handler='TopologyConverterConvertHandler',
-                             current_phase=str(conversion_status.get('phase', 'unknown')))
-                    self.set_status(409)
-                    self.write(json.dumps({'error': 'Conversion already in progress'}))
-                    return
-                # Set in_progress immediately under lock to prevent race
-                conversion_status['in_progress'] = True
-                conversion_status['phase'] = 'starting'
-
-            # Parse request body
-            body = json.loads(self.request.body.decode('utf-8'))
-            target_topology = body.get('target_topology')
-            safe_log('info', f'Conversion requested to target topology: {target_topology}',
-                     event='conversion_request', handler='TopologyConverterConvertHandler',
-                     target_topology=str(target_topology))
-
-            if not target_topology:
-                safe_log('warning', 'Conversion request missing target_topology parameter',
-                         event='validation_error', handler='TopologyConverterConvertHandler',
-                         reason='missing_target_topology')
-                conversion_status['in_progress'] = False
-                self.set_status(400)
-                self.write(json.dumps({'error': 'target_topology required'}))
+            # Check if conversion is already in progress
+            if conversion_status['in_progress']:
+                logger.warning("Conversion rejected: already in progress")  # LOG 9
+                self.set_status(409)
+                self.write(json.dumps({'error': 'Conversion already in progress'}))
                 return
 
-            # TC-3: Validate topology name to prevent path traversal
+            # Parse request body. Prefer `target_display_name` (the lab label
+            # from the topology-switcher dropdown); accept legacy
+            # `target_topology` for backward compatibility — when only the
+            # legacy field is given, treat its value as a display_name too.
+            body = json.loads(self.request.body.decode('utf-8'))
+            target_display_name = body.get('target_display_name') or body.get('target_topology')
+            safe_log('info', f'Conversion requested for lab: {target_display_name}',
+                     event='conversion_request', handler='TopologyConverterConvertHandler',
+                     target_display_name=str(target_display_name))
+
+            if not target_display_name:
+                safe_log('warning', 'Conversion request missing target_display_name parameter',
+                         event='validation_error', handler='TopologyConverterConvertHandler',
+                         reason='missing_target_display_name')
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': 'target_display_name required'}))
+                return
+
+            # Display names allow spaces; reject anything outside the
+            # alphanumeric + space/_/-/. set before using them as a YAML key.
+            if not re.match(r'^[a-zA-Z0-9_ .-]+$', target_display_name):
+                safe_log('warning', f'Invalid display name rejected: {target_display_name}',
+                         event='validation_error', handler='TopologyConverterConvertHandler',
+                         reason='invalid_display_name')
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid lab name'}))
+                return
+
+            # Resolve display_name → underlying topology id via topology-switcher.
+            target_topology = None
+            current_topology = None
+            current_display_name = None
+            try:
+                with open(ATD_ACCESS_PATH, 'r') as f:
+                    access_info = YAML().load(f)
+                switcher_config = access_info.get('topology-switcher') or {}
+                entry = switcher_config.get(target_display_name)
+                if entry and isinstance(entry, dict):
+                    target_topology = entry.get('topology')
+                else:
+                    # Legacy fallback: caller passed a raw topology id and
+                    # no display name matches it. Use it as-is.
+                    target_topology = target_display_name
+                current_topology = access_info.get('topology', '')
+                # Prefer the explicit `topology-switcher-active` marker. If
+                # absent (fresh lab, never converted), fall back to the
+                # first display_name in topology-switcher whose `topology`
+                # matches the active topology id — mirrors the resolution
+                # done by TopologyConverterCurrentHandler so the UI and
+                # backend agree on what the "current lab" is.
+                current_display_name = access_info.get('topology-switcher-active')
+                if not current_display_name:
+                    for d_name, sw_entry in switcher_config.items():
+                        if isinstance(sw_entry, dict) and sw_entry.get('topology') == current_topology:
+                            current_display_name = d_name
+                            break
+            except Exception as e:
+                logger.warning(f"Could not read ACCESS_INFO.yaml: {e}")
+
+            if not target_topology:
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': f'Lab "{target_display_name}" has no topology configured'}))
+                return
+
+            # Path-traversal guard on the resolved topology id.
             if not re.match(r'^[a-zA-Z0-9_-]+$', target_topology):
                 safe_log('warning', f'Invalid topology name rejected: {target_topology}',
                          event='validation_error', handler='TopologyConverterConvertHandler',
@@ -346,41 +776,64 @@ class TopologyConverterConvertHandler(BaseHandler):
                 self.write(json.dumps({'error': 'Invalid topology name'}))
                 return
 
-            # Validate target topology exists
+            # Validate resolved topology exists on disk
             topo_path = f'/opt/atd/topologies/{target_topology}'
             if not os.path.exists(topo_path):
-                safe_log('warning', f'Target topology not found: {target_topology} (path: {topo_path})',
-                         event='topology_not_found', handler='TopologyConverterConvertHandler',
-                         target_topology=target_topology, path=topo_path)
-                conversion_status['in_progress'] = False
+                logger.warning(f"Conversion rejected: topology not found: {target_topology}")
                 self.set_status(404)
                 self.write(json.dumps({'error': 'Target topology not found'}))
                 return
 
-            # Check if target is same as current topology
-            current_topology = None
-            try:
-                with open(ATD_ACCESS_PATH, 'r') as f:
-                    access_info = YAML().load(f)
-                    current_topology = access_info.get('topology', '')
-                    safe_log('info', f'Current topology: {current_topology}, target: {target_topology}',
-                             event='conversion_validation', handler='TopologyConverterConvertHandler',
-                             current_topology=current_topology, target_topology=target_topology)
-                    if current_topology == target_topology:
-                        safe_log('warning', f'Conversion rejected: target same as current ({target_topology})',
-                                 event='conversion_rejected', handler='TopologyConverterConvertHandler',
-                                 reason='same_topology', topology=target_topology)
-                        conversion_status['in_progress'] = False
-                        self.set_status(400)
-                        self.write(json.dumps({
-                            'error': f'Target topology "{target_topology}" is the same as current topology. No conversion needed.'
-                        }))
-                        return
-            except Exception as e:
-                safe_log('warning', f'Could not check current topology: {e}',
-                         event='conversion_warning', handler='TopologyConverterConvertHandler',
-                         error=str(e))
-                pS(f"Warning: Could not check current topology: {e}")
+            # Pre-flight labguide validation. lgbuild crashes on labguide
+            # lists with fewer than 2 effective modules (Foundations_Track
+            # → 1 raw entry when Firestore doesn't have the doc), leaving
+            # the user with a blank labguide.pdf and no obvious error.
+            # Reject the conversion up-front so the operator sees the
+            # real failure ("labguide X unavailable") instead of a stuck
+            # progress bar.
+            entry = (switcher_config or {}).get(target_display_name)
+            target_labguides = list((entry or {}).get('labguides') or [])
+            lg_valid, lg_error = validate_lab_labguides(target_labguides)
+            if not lg_valid:
+                safe_log('warning', f'Conversion rejected: invalid labguides for {target_display_name}: {lg_error}',
+                         event='conversion_rejected', handler='TopologyConverterConvertHandler',
+                         reason='invalid_labguides', display_name=target_display_name,
+                         labguides=str(target_labguides))
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({'error': lg_error}))
+                return
+
+            # Reject re-selecting the currently-active lab. Compare strictly
+            # on display_name — multiple labs share a topology id, so a
+            # topology-id match alone does not mean the same lab. When the
+            # current display_name is unknown, allow the conversion (the
+            # dropdown already hides the resolved-current lab on the UI).
+            same_as_current = bool(current_display_name) and current_display_name == target_display_name
+            if same_as_current:
+                safe_log('warning', f'Conversion rejected: target same as current ({target_display_name})',
+                         event='conversion_rejected', handler='TopologyConverterConvertHandler',
+                         reason='same_lab', display_name=target_display_name)
+                conversion_status['in_progress'] = False
+                self.set_status(400)
+                self.write(json.dumps({
+                    'error': f'Lab "{target_display_name}" is already the active lab. No conversion needed.'
+                }))
+                return
+
+            # Fast-path detection: when the source and target labs map to the
+            # same underlying topology id, the VMs do not need to be torn
+            # down and rebuilt — only ACCESS_INFO (labguides_modules +
+            # topology-switcher-active) changes, then atdUpdate.sh applies it.
+            labguides_only = bool(current_topology) and current_topology == target_topology
+
+            # Get user for logging
+            user = self.current_user.decode('utf-8') if self.current_user else 'unknown'
+
+            log_operation_start(logger, 'topology-conversion',  # LOG 11
+                                target_topology=target_topology,
+                                current_topology=current_topology,
+                                user=user)
 
             # Log conversion initiation with full context
             log_operation_start(logger, 'topology_conversion',
@@ -405,8 +858,42 @@ class TopologyConverterConvertHandler(BaseHandler):
                     'completed': False,
                     'success': False
                 }
+                _persist_conversion_status()
 
                 try:
+                    # Update labguides_modules in ACCESS_INFO.yaml before conversion
+                    # so the labguides container rebuilds with correct modules.
+                    # Also persists `topology-switcher-active` = display_name.
+                    _update_labguides_modules(target_display_name, conversion_status)
+
+                    # Labguides-only fast path: same topology id, only the
+                    # lab label and labguide module list change. Skip the
+                    # VM destroy/build pipeline and just run atdUpdate.sh —
+                    # ACCESS_INFO is already updated above.
+                    if labguides_only:
+                        conversion_status['phase'] = 'update'
+                        conversion_status['status'] = (
+                            f'Same topology ({target_topology}) — running labguides-only update'
+                        )
+                        conversion_status['log'].append(
+                            f'Labguides-only switch: {current_display_name or current_topology} '
+                            f'-> {target_display_name} (topology {target_topology} unchanged)'
+                        )
+                        _persist_conversion_status()
+                        _run_atd_update_on_host(conversion_status)
+                        _persist_conversion_status()
+                        _restart_labguides_container(conversion_status)
+                        conversion_status['phase'] = 'completed'
+                        conversion_status['success'] = True
+                        conversion_status['status'] = 'Labguides update completed successfully!'
+                        conversion_status['log'].append('SUCCESS: Labguides-only update completed')
+                        _persist_conversion_status()
+                        log_operation_success(logger, 'topology-conversion',
+                                              target_topology=target_topology,
+                                              current_topology=current_topology,
+                                              mode='labguides-only')
+                        return
+
                     # Run the conversion script on HOST using docker
                     # We use nsenter via a privileged container to run on the host
                     script_path = '/opt/atd/scripts/topology_converter_v2.py'
@@ -427,10 +914,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                         '--force'  # Skip confirmation prompt
                     ]
 
-                    safe_log('info', f'Executing conversion command via privileged container',
-                             event='conversion_docker_exec', handler='TopologyConverterConvertHandler',
-                             target_topology=target_topology, script=script_path,
-                             command=' '.join(cmd[:6]) + ' ... ' + ' '.join(cmd[-4:]))
+                    logger.info(f"Executing host conversion for {target_topology}")  # LOG 12
                     conversion_status['log'].append(f'Executing conversion on host via privileged container...')
 
                     # Execute with real-time output capture
@@ -450,6 +934,7 @@ class TopologyConverterConvertHandler(BaseHandler):
                     line_count = 0
 
                     # Read output line by line
+                    prev_phase = None
                     for line in iter(process.stdout.readline, ''):
                         line = line.strip()
                         if line:
@@ -461,9 +946,9 @@ class TopologyConverterConvertHandler(BaseHandler):
                                 conversion_status['phase'] = 'validate'
                             elif 'Phase 2' in line or 'Backup Current' in line:
                                 conversion_status['phase'] = 'backup'
-                            elif 'Phase 3' in line or 'CVP Cleanup' in line:
+                            elif 'Phase 3' in line or 'Destroy Current VMs' in line:
                                 conversion_status['phase'] = 'destroy'
-                            elif 'Phase 4' in line or 'Destroy Current VMs' in line:
+                            elif 'Phase 4' in line or 'CVP Device Cleanup' in line:
                                 conversion_status['phase'] = 'destroy'
                             elif 'Phase 5' in line or 'Destroy OVS' in line:
                                 conversion_status['phase'] = 'destroy'
@@ -486,24 +971,17 @@ class TopologyConverterConvertHandler(BaseHandler):
                             elif 'COMPLETED' in line:
                                 conversion_status['phase'] = 'completed'
 
-                            # Log phase transitions to cloud
-                            if conversion_status['phase'] != previous_phase:
-                                safe_log('info', f'Conversion phase transition: {previous_phase} -> {conversion_status["phase"]}',
-                                         event='conversion_phase_change', handler='TopologyConverterConvertHandler',
-                                         target_topology=target_topology,
-                                         previous_phase=str(previous_phase),
-                                         new_phase=str(conversion_status['phase']),
-                                         trigger_line=line[:200])
-                                previous_phase = conversion_status['phase']
-
-                            # Log error/warning lines from the script
-                            line_lower = line.lower()
-                            if 'error' in line_lower or 'fail' in line_lower:
-                                safe_log('warning', f'Conversion script output (potential issue): {line[:500]}',
-                                         event='conversion_script_warning', handler='TopologyConverterConvertHandler',
-                                         target_topology=target_topology,
-                                         phase=str(conversion_status['phase']),
-                                         line_number=line_count)
+                            # Log phase transitions to Cloud Logging
+                            if conversion_status['phase'] != prev_phase:
+                                logger.info(  # LOG 13 (per phase change, ~7 unique phases)
+                                    f"Phase: {conversion_status['phase']}",
+                                    extra={'labels': {
+                                        'operation': 'topology-conversion',
+                                        'phase': conversion_status['phase'],
+                                        'target_topology': target_topology,
+                                    }}
+                                )
+                                prev_phase = conversion_status['phase']
 
                             conversion_status['status'] = line
 
@@ -526,12 +1004,13 @@ class TopologyConverterConvertHandler(BaseHandler):
                         conversion_status['success'] = True
                         conversion_status['status'] = 'Conversion completed successfully!'
                         conversion_status['log'].append('SUCCESS: Conversion completed')
-                        log_operation_success(logger, 'topology_conversion',
-                                              current_topology=str(current_topology),
+
+                        log_operation_success(logger, 'topology-conversion',  # LOG 14
                                               target_topology=target_topology,
-                                              elapsed_seconds=elapsed,
-                                              total_log_lines=line_count,
-                                              exit_code=0)
+                                              current_topology=current_topology)
+
+                        # Restart labguides container to rebuild with new modules
+                        _restart_labguides_container(conversion_status)
                     else:
                         conversion_status['success'] = False
                         conversion_status['status'] = f'Conversion failed with exit code {process.returncode}'
@@ -544,6 +1023,10 @@ class TopologyConverterConvertHandler(BaseHandler):
                                             total_log_lines=line_count,
                                             exit_code=process.returncode,
                                             last_phase=str(conversion_status.get('phase', 'unknown')))
+
+                        log_operation_error(logger, 'topology-conversion',  # LOG 15
+                                            f'Exit code {process.returncode}',
+                                            target_topology=target_topology)
 
                 except Exception as e:
                     elapsed = (datetime.now() - conversion_start_time).total_seconds()
@@ -558,9 +1041,14 @@ class TopologyConverterConvertHandler(BaseHandler):
                                         last_phase=str(conversion_status.get('phase', 'unknown')),
                                         exception_type=type(e).__name__)
 
+                    log_operation_error(logger, 'topology-conversion',  # LOG 16
+                                        str(e),
+                                        target_topology=target_topology)
+
                 finally:
                     conversion_status['in_progress'] = False
                     conversion_status['completed'] = True
+                    _persist_conversion_status()
                     elapsed = (datetime.now() - conversion_start_time).total_seconds()
                     safe_log('info', f'Conversion thread finished. Success: {conversion_status["success"]}, '
                              f'Duration: {elapsed:.1f}s, Final phase: {conversion_status.get("phase", "unknown")}',
@@ -580,7 +1068,14 @@ class TopologyConverterConvertHandler(BaseHandler):
                      target_topology=target_topology, thread_name=thread.name)
             self.write(json.dumps({
                 'status': 'started',
-                'message': f'Conversion to {target_topology} started in background'
+                'display_name': target_display_name,
+                'topology': target_topology,
+                'mode': 'labguides-only' if labguides_only else 'full-conversion',
+                'message': (
+                    f'Labguides-only update to "{target_display_name}" started in background'
+                    if labguides_only else
+                    f'Conversion to "{target_display_name}" (topology {target_topology}) started in background'
+                ),
             }))
 
         except json.JSONDecodeError as e:
@@ -623,8 +1118,8 @@ class TopologyConverterStatusHandler(BaseHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
 
         try:
-            # Return last 50 log lines
-            recent_logs = conversion_status['log'][-50:] if conversion_status['log'] else []
+            # Return last 50 log lines (log is a deque, convert to list to slice)
+            recent_logs = list(conversion_status['log'])[-50:] if conversion_status['log'] else []
 
             response = {
                 'in_progress': conversion_status['in_progress'],
@@ -651,6 +1146,36 @@ class TopologyConverterStatusHandler(BaseHandler):
                      event='error', handler='TopologyConverterStatusHandler', error=str(e))
             self.set_status(500)
             self.write(json.dumps({'error': str(e)}))
+
+
+class TopologyConverterCvpStatusHandler(BaseHandler):
+    """Proxy endpoint returning CVP readiness status from conftopo.
+
+    Returns the dict from getAPI('cvp_status'), shape:
+        {'status': 'UP'|'DOWN'|other, 'version': str (optional), ...}
+    Used by topology-converter.html overlay gate to unlock the page only
+    when CVP is online.
+    """
+
+    def get(self):
+        if not self.current_user:
+            self.set_status(401)
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps({'status': 'DOWN', 'error': 'Authentication required'}))
+            return
+
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        try:
+            result = getAPI('cvp_status')
+            if not isinstance(result, dict):
+                result = {'status': 'DOWN', 'error': 'invalid response'}
+            self.write(json.dumps(result))
+        except Exception as e:
+            safe_log('error', f'Error fetching cvp_status: {e}',
+                     event='error', handler='TopologyConverterCvpStatusHandler', error=str(e))
+            self.set_status(500)
+            self.write(json.dumps({'status': 'DOWN', 'error': str(e)}))
 
 
 class TopologyConverterPageHandler(BaseHandler):

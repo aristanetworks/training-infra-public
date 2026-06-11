@@ -1,0 +1,38 @@
+!
+hostname P6
+!
+ip routing
+!
+mpls ip
+!
+interface Ethernet1
+   no switchport
+   ip address 172.16.56.6/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.26.6/24
+   isis enable isis
+   isis network point-to-point
+   mpls ldp interface
+!
+interface Loopback0
+   ip address 192.168.100.6/32
+   isis enable isis
+!
+router isis isis
+   net 49.0001.0000.0000.0006.00
+   is-type level-1
+   router-id ipv4 192.168.100.6
+   !
+   address-family ipv4 unicast
+      segment-routing mpls
+!
+mpls ldp
+   router-id 192.168.100.6
+   no shutdown
+   transport-address interface Loopback0
+!

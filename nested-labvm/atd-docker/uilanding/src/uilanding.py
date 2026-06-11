@@ -16,6 +16,7 @@ from topology_converter import (
     TopologyConverterInfoHandler,
     TopologyConverterConvertHandler,
     TopologyConverterStatusHandler,
+    TopologyConverterCvpStatusHandler,
     TopologyConverterPageHandler,
 )
 # Note: capture_manager is no longer imported here.
@@ -443,6 +444,7 @@ if __name__ == "__main__":
         (r'/td-api/topology-converter/info', TopologyConverterInfoHandler),
         (r'/td-api/topology-converter/convert', TopologyConverterConvertHandler),
         (r'/td-api/topology-converter/status', TopologyConverterStatusHandler),
+        (r'/td-api/topology-converter/cvp-status', TopologyConverterCvpStatusHandler),
         # Connectivity status endpoint
         (r'/td-api/connectivity-status', ConnectivityStatusHandler, {'session_state': _session_state}),
     ], **settings)
