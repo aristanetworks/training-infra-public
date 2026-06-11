@@ -12,7 +12,7 @@ services:
       - atd_nginx
   configservice:
     container_name: atd-configservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_configservice:3.1.0
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_configservice:008603f9
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_uilanding:1.0.37-toposwitcher
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:008603f9
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -173,7 +173,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nginx:1.0.18
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:008603f9
     restart: always
     depends_on:
       - uilanding
@@ -284,7 +284,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atddocker_nodebuilder:1.0.5
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:008603f9
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
@@ -334,7 +334,7 @@ services:
   # Host network mode required to reach VM management IPs (192.168.0.x)
   novnc:
     container_name: atd-novnc
-    build: ./novnc
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_novnc:008603f9
     restart: on-failure
     # Host network mode to reach VMs on vmgmt bridge (192.168.0.x)
     network_mode: host
