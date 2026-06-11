@@ -1,0 +1,14 @@
+hostname P4
+ip routing
+!
+interface Ethernet3
+   no switchport
+   ip address 172.16.46.4/24
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.45.4/24
+!
+interface Loopback0
+   ip address 192.168.100.4/32
+!

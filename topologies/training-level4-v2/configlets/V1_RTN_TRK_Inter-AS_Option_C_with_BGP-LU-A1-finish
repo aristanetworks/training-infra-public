@@ -1,0 +1,17 @@
+hostname A1
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.11.2/30
+!
+interface Loopback0
+   ip address 192.168.10.1/32
+!
+ip routing
+!
+router bgp 65100
+   router-id 192.168.10.1
+   neighbor 192.168.11.1 remote-as 100
+   neighbor 192.168.11.1 allowas-in 3
+   network 192.168.10.1/32
+!

@@ -287,6 +287,19 @@ class ConnectionManager:
                         'error': str(claim_err),
                         'note': 'Interface connected but registry not updated'
                     })
+
+                # Clean up the old bridge that was kept alive for the orphaned slot
+                old_bridge = orphaned_slot.get('old_bridge')
+                if old_bridge and old_bridge != conn.bridge_name:
+                    try:
+                        delete_ovs_bridge(old_bridge)
+                        self.logger.info(
+                            f"Cleaned up old bridge {old_bridge} after slot reuse"
+                        )
+                    except Exception as e:
+                        self.logger.debug(
+                            f"Old bridge {old_bridge} cleanup skipped: {e}"
+                        )
         else:
             # Standard attach - create new interface
             try:
@@ -486,39 +499,55 @@ class ConnectionManager:
                     'error': str(e)
                 })
 
-        # Step 3: Delete OVS bridge
-        # Check if any detachment had actual failures (not just "not_found" which is OK)
-        detachment_failures = [
-            err for err in result['errors']
-            if err.get('step') in ('detach_source', 'detach_target', 'preserve_target_slot')
-        ]
+        # Check if target slot was actually preserved (step 2 succeeded)
+        slot_actually_preserved = any(
+            step.get('step') == 'preserve_target_slot' and step.get('status') == 'orphaned'
+            for step in result['steps']
+        )
 
-        if detachment_failures:
-            self.logger.warning(
-                f"BRIDGE DELETION WITH ISSUES: {len(detachment_failures)} "
-                f"error(s) for bridge {conn.bridge_name}. Details: {detachment_failures}"
+        # Step 3: Delete OVS bridge (skip if slot was preserved -- bridge keeps target VM bootable)
+        if slot_actually_preserved:
+            self.logger.info(
+                f"Keeping bridge {conn.bridge_name} (preserved for orphaned slot on "
+                f"{conn.target_device}:{conn.target_port})"
             )
-            result['warning'] = (
-                f"Bridge {conn.bridge_name} deleted but {len(detachment_failures)} "
-                f"error(s) occurred during cleanup"
-            )
-
-        try:
-            bridge_result = delete_ovs_bridge(conn.bridge_name)
             result['steps'].append({
-                'step': 'delete_bridge',
-                'status': bridge_result.get('status'),
+                'step': 'keep_bridge',
+                'status': 'preserved',
                 'bridge': conn.bridge_name
             })
-        except Exception as e:
-            self.logger.warning(f"Failed to delete bridge: {e}")
-            result['errors'].append({
-                'step': 'delete_bridge',
-                'error': str(e)
-            })
+        else:
+            detachment_failures = [
+                err for err in result['errors']
+                if err.get('step') in ('detach_source', 'detach_target', 'preserve_target_slot')
+            ]
+
+            if detachment_failures:
+                self.logger.warning(
+                    f"BRIDGE DELETION WITH ISSUES: {len(detachment_failures)} "
+                    f"error(s) for bridge {conn.bridge_name}. Details: {detachment_failures}"
+                )
+                result['warning'] = (
+                    f"Bridge {conn.bridge_name} deleted but {len(detachment_failures)} "
+                    f"error(s) occurred during cleanup"
+                )
+
+            try:
+                bridge_result = delete_ovs_bridge(conn.bridge_name)
+                result['steps'].append({
+                    'step': 'delete_bridge',
+                    'status': bridge_result.get('status'),
+                    'bridge': conn.bridge_name
+                })
+            except Exception as e:
+                self.logger.warning(f"Failed to delete bridge: {e}")
+                result['errors'].append({
+                    'step': 'delete_bridge',
+                    'error': str(e)
+                })
 
         result['status'] = 'deleted' if not result['errors'] else 'deleted_with_errors'
-        result['slot_preserved'] = preserve_target_slot
+        result['slot_preserved'] = slot_actually_preserved
         return result
 
     def _find_interface_mac(self, vm_name: str, bridge_name: str) -> Optional[str]:

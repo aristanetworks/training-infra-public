@@ -1,0 +1,67 @@
+hostname P3
+!
+ip routing
+mpls ip
+!
+interface Ethernet2
+   no switchport
+   ip address 172.16.23.3/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   ip address 172.16.36.3/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.3/32
+   isis enable isis
+   node-segment ipv4 index 3
+!
+router isis isis
+   net 49.0000.0000.0000.0003.00
+   router-id ipv4 192.168.100.3
+   is-type level-1
+   !
+   address-family ipv4 unicast
+   !
+   segment-routing mpls
+      router-id 192.168.100.3
+      no shutdown
+!
+router bgp 200
+   router-id 192.168.100.3
+   no bgp default ipv4-unicast
+   bgp labeled-unicast rib ip tunnel
+   neighbor 192.168.100.2 remote-as 200
+   neighbor 192.168.100.2 update-source Loopback0
+   neighbor 192.168.100.2 route-reflector-client
+   neighbor 192.168.100.2 send-community extended
+   neighbor 192.168.100.6 remote-as 200
+   neighbor 192.168.100.6 update-source Loopback0
+   neighbor 192.168.100.6 route-reflector-client
+   neighbor 192.168.100.6 send-community extended
+   neighbor 192.168.100.5 remote-as 100
+   neighbor 192.168.100.5 update-source Loopback0
+   neighbor 192.168.100.5 ebgp-multihop 10
+   neighbor 192.168.100.5 send-community extended
+   !
+   address-family ipv4
+      neighbor 192.168.100.2 activate
+      neighbor 192.168.100.6 activate
+   !
+   address-family ipv4 labeled-unicast
+      neighbor 192.168.100.2 activate
+      neighbor 192.168.100.6 activate
+      neighbor 192.168.100.5 activate
+      network 192.168.100.3/32
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.2 activate
+      neighbor 192.168.100.5 activate
+      neighbor 192.168.100.5 next-hop-unchanged
+!

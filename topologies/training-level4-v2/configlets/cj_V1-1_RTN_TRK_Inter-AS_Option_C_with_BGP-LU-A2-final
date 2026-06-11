@@ -1,0 +1,18 @@
+hostname A2
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.12.2/30
+!
+interface Loopback0
+   ip address 192.168.10.2/32
+!
+router bgp 65100
+   router-id 192.168.10.2
+   neighbor 192.168.12.1 remote-as 200
+   neighbor 192.168.12.1 allowas-in 3
+   network 192.168.10.2/32

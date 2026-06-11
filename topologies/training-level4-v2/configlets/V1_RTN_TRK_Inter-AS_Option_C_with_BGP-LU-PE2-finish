@@ -1,0 +1,85 @@
+hostname PE2
+!
+vrf instance Cust-A
+!
+vrf instance Cust-B
+!
+interface Ethernet1
+   no switchport
+   vrf Cust-A
+   ip address 192.168.12.1/30
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   vrf Cust-B
+   ip address 192.168.22.1/30
+   no shutdown
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+   isis enable isis
+   isis network point-to-point
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+   node-segment ipv4 index 2
+   isis enable isis
+!
+ip routing
+ip routing vrf Cust-A
+ip routing vrf Cust-B
+!
+mpls ip
+!
+router bgp 200
+   router-id 192.168.100.2
+   no bgp default ipv4-unicast
+   bgp labeled-unicast rib ip tunnel
+   neighbor 192.168.100.3 remote-as 200
+   neighbor 192.168.100.3 update-source Loopback0
+   neighbor 192.168.100.3 send-community extended
+   !
+   address-family ipv4
+      neighbor 192.168.100.3 activate
+   !
+   address-family ipv4 labeled-unicast
+      neighbor 192.168.100.3 activate
+      network 192.168.100.2/32
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.3 activate
+   !
+   vrf Cust-A
+      rd 100:10
+      route-target import vpn-ipv4 100:10
+      route-target export vpn-ipv4 100:10
+      neighbor 192.168.12.2 remote-as 65100
+      redistribute connected
+      !
+      address-family ipv4
+         neighbor 192.168.12.2 activate
+   !
+   vrf Cust-B
+      rd 100:20
+      route-target import vpn-ipv4 100:20
+      route-target export vpn-ipv4 100:20
+      neighbor 192.168.22.2 remote-as 65200
+      redistribute connected
+      !
+      address-family ipv4
+         neighbor 192.168.22.2 activate
+!
+router isis isis
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   !
+   address-family ipv4 unicast
+   !
+   segment-routing mpls
+      router-id 192.168.100.2
+      no shutdown
+!

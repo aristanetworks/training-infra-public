@@ -61,6 +61,10 @@ from config import (
     USER_NODES_PATH,
     USER_HOSTS_PATH,
     USER_FIREWALLS_PATH,
+    USER_VELO_PATH,
+    USER_CLOUDEOS_PATH,
+    USER_DMF_PATH,
+    USER_LINKS_PATH,
     MGMT_BRIDGE,
     ENABLE_SLOT_PRESERVATION,
     SUBPROCESS_TIMEOUT_DEFAULT,
@@ -249,7 +253,11 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
     2. User-added vEOS nodes (user_nodes.yaml) - added node neighbors
     3. User-added Linux hosts (user_hosts.yaml) - host connections
     4. User-added VyOS firewalls (user_firewalls.yaml) - firewall connections
-    5. Live VM interfaces (virsh domiflist) - catches unsaved attachments
+    5. User-added VeloCloud devices (user_velo.yaml) - VeloCloud connections
+    6. User-added CloudEOS devices (user_cloudeos.yaml) - CloudEOS neighbors
+    7. User-added DMF devices (user_dmf.yaml) - DMF neighbors
+    8. User-added links (user_links.yaml) - extra links between devices
+    9. Live VM interfaces (virsh domiflist) - catches unsaved attachments
 
     Args:
         device_name: Name of the device
@@ -257,28 +265,29 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
     Returns:
         List of used port numbers (e.g., [1, 2, 3] for Ethernet1-3)
     """
-    from persistence import load_user_hosts, load_user_firewalls
+    from persistence import (
+        load_user_hosts, load_user_firewalls,
+        list_user_velo_devices, list_user_cloudeos,
+        list_user_dmf_devices, list_user_links,
+    )
 
     topo_build_path = get_topo_build_path()
     all_nodes = get_all_nodes(topo_build_path, USER_NODES_PATH)
 
     used_ports = set()
+    device_lower = device_name.lower()
 
     # Source 1 & 2: Base topology + user-added vEOS nodes
     for node in all_nodes:
-        # Check if this device has neighbors
-        if node['name'].lower() == device_name.lower():
+        if node['name'].lower() == device_lower:
             for neighbor in node.get('neighbors', []):
-                port = neighbor.get('port', '')
-                port_num = extract_port_number(port)
+                port_num = extract_port_number(neighbor.get('port', ''))
                 if port_num:
                     used_ports.add(port_num)
 
-        # Check if this device is a neighbor of another device
         for neighbor in node.get('neighbors', []):
-            if neighbor.get('neighborDevice', '').lower() == device_name.lower():
-                port = neighbor.get('neighborPort', '')
-                port_num = extract_port_number(port)
+            if neighbor.get('neighborDevice', '').lower() == device_lower:
+                port_num = extract_port_number(neighbor.get('neighborPort', ''))
                 if port_num:
                     used_ports.add(port_num)
 
@@ -288,43 +297,85 @@ def get_used_ports_from_topology(device_name: str) -> List[int]:
         for host_entry in hosts_data.get('hosts', []) or []:
             for host_name, host_info in host_entry.items():
                 connection = host_info.get('connection', {})
-                if connection:
-                    target_device = connection.get('target_device', '')
-                    if target_device.lower() == device_name.lower():
-                        port = connection.get('target_port', '')
-                        port_num = extract_port_number(port)
-                        if port_num:
-                            used_ports.add(port_num)
+                if connection and connection.get('target_device', '').lower() == device_lower:
+                    port_num = extract_port_number(connection.get('target_port', ''))
+                    if port_num:
+                        used_ports.add(port_num)
     except Exception:
-        pass  # File might not exist
+        pass
 
     # Source 4: User-added VyOS firewalls (check both inside and outside)
     try:
         firewalls_data = load_user_firewalls(USER_FIREWALLS_PATH)
         for fw_entry in firewalls_data.get('firewalls', []) or []:
             for fw_name, fw_info in fw_entry.items():
-                # Check inside interface
-                inside = fw_info.get('inside_interface', {})
-                if inside:
-                    target_device = inside.get('target_device', '')
-                    if target_device.lower() == device_name.lower():
-                        port = inside.get('target_port', '')
-                        port_num = extract_port_number(port)
-                        if port_num:
-                            used_ports.add(port_num)
-                # Check outside interface
-                outside = fw_info.get('outside_interface', {})
-                if outside:
-                    target_device = outside.get('target_device', '')
-                    if target_device.lower() == device_name.lower():
-                        port = outside.get('target_port', '')
-                        port_num = extract_port_number(port)
+                for iface_key in ('inside_interface', 'outside_interface'):
+                    iface = fw_info.get(iface_key, {})
+                    if iface and iface.get('target_device', '').lower() == device_lower:
+                        port_num = extract_port_number(iface.get('target_port', ''))
                         if port_num:
                             used_ports.add(port_num)
     except Exception:
-        pass  # File might not exist
+        pass
 
-    # Source 5: Live VM interfaces (catches recently attached but unsaved)
+    # Source 5: User-added VeloCloud devices
+    try:
+        velo_devices = list_user_velo_devices(USER_VELO_PATH)
+        for device_entry in velo_devices:
+            if isinstance(device_entry, dict):
+                for velo_name, velo_info in device_entry.items():
+                    for conn in velo_info.get('connections', []):
+                        if conn.get('target_device', '').lower() == device_lower:
+                            port_num = extract_port_number(conn.get('target_port', ''))
+                            if port_num:
+                                used_ports.add(port_num)
+    except Exception:
+        pass
+
+    # Source 6: User-added CloudEOS devices (neighbors format)
+    try:
+        cloudeos_entries = list_user_cloudeos(USER_CLOUDEOS_PATH)
+        for device_entry in cloudeos_entries:
+            if isinstance(device_entry, dict):
+                for ce_name, ce_info in device_entry.items():
+                    for neighbor in ce_info.get('neighbors', []):
+                        if neighbor.get('neighborDevice', '').lower() == device_lower:
+                            port_num = extract_port_number(neighbor.get('neighborPort', ''))
+                            if port_num:
+                                used_ports.add(port_num)
+    except Exception:
+        pass
+
+    # Source 7: User-added DMF devices (neighbors format)
+    try:
+        dmf_entries = list_user_dmf_devices(USER_DMF_PATH)
+        for device_entry in dmf_entries:
+            if isinstance(device_entry, dict):
+                for dmf_name, dmf_info in device_entry.items():
+                    for neighbor in dmf_info.get('neighbors', []):
+                        if neighbor.get('neighborDevice', '').lower() == device_lower:
+                            port_num = extract_port_number(neighbor.get('neighborPort', ''))
+                            if port_num:
+                                used_ports.add(port_num)
+    except Exception:
+        pass
+
+    # Source 8: User-added links (both sides)
+    try:
+        user_links = list_user_links(USER_LINKS_PATH)
+        for link in user_links:
+            if link.get('source_device', '').lower() == device_lower:
+                port_num = extract_port_number(link.get('source_port', ''))
+                if port_num:
+                    used_ports.add(port_num)
+            if link.get('target_device', '').lower() == device_lower:
+                port_num = extract_port_number(link.get('target_port', ''))
+                if port_num:
+                    used_ports.add(port_num)
+    except Exception:
+        pass
+
+    # Source 9: Live VM interfaces (catches recently attached but unsaved)
     live_ports = get_used_ports_from_live_vm(device_name)
     for port_num in live_ports:
         used_ports.add(port_num)

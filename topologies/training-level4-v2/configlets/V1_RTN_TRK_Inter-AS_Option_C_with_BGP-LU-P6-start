@@ -1,0 +1,14 @@
+hostname P6
+ip routing
+!
+interface Ethernet3
+   no switchport
+   ip address 172.16.46.6/24
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.36.6/24
+!
+interface Loopback0
+   ip address 192.168.100.6/32
+!

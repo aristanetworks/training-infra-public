@@ -209,6 +209,33 @@ CLOUDEOS_RAM_MB = 8192  # 8GB
 CLOUDEOS_BASE_IMAGE_PATH = f'{LIBVIRT_IMAGES_PATH}/veos/base/veos.qcow2'  # Placeholder until real CloudEOS image
 MAX_CLOUDEOS_PER_TOPOLOGY = 4
 
+# =============================================================================
+# DMF (DANZ Monitoring Fabric) Configuration
+# =============================================================================
+# Arista DMF device support - Controller, Switch, and Service Node
+# Feature gate is read from ACCESS_INFO.yaml extras.dmf_enabled
+
+DMF_CONTROLLER_ENABLED = True
+DMF_SWITCH_ENABLED = True
+DMF_SERVICENODE_ENABLED = True
+
+DMF_CONTROLLER_CPU = 4
+DMF_CONTROLLER_RAM_MB = 8192
+DMF_SWITCH_CPU = 2
+DMF_SWITCH_RAM_MB = 4096
+DMF_SERVICENODE_CPU = 4
+DMF_SERVICENODE_RAM_MB = 8192
+
+MAX_DMF_CONTROLLER_PER_TOPOLOGY = 2
+MAX_DMF_SWITCH_PER_TOPOLOGY = 4
+MAX_DMF_SERVICENODE_PER_TOPOLOGY = 2
+
+DMF_CONTROLLER_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/dmf/base/dmf-controller-base.qcow2'
+DMF_SWITCH_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/dmf/base/dmf-switch-base.qcow2'
+DMF_SERVICENODE_BASE_IMAGE = f'{LIBVIRT_IMAGES_PATH}/dmf/base/dmf-servicenode-base.qcow2'
+
+USER_DMF_PATH = os.getenv('USER_DMF_PATH', '/etc/atd/user_dmf.yaml')
+
 # Persistence paths
 USER_CLOUDEOS_PATH = os.getenv('USER_CLOUDEOS_PATH', '/etc/atd/user_cloudeos.yaml')
 USER_LINKS_PATH = os.getenv('USER_LINKS_PATH', '/etc/atd/user_links.yaml')
@@ -297,10 +324,10 @@ ORPHANED_INTERFACES_PATH = os.getenv(
     '/etc/atd/orphaned_interfaces.yaml'
 )
 
-# Interface slot preservation - disabled by default
+# Interface slot preservation - enabled by default
 # When disabled, interfaces are detached on device deletion (requires target reboot)
 # When enabled, interfaces are preserved as orphaned slots for reuse (avoids reboot
-# but adds tracking complexity and can cause boot failures if bridges are deleted)
+# and prevents vEOS interface renumbering when intermediate interfaces are removed)
 ENABLE_SLOT_PRESERVATION = os.getenv(
     'ENABLE_SLOT_PRESERVATION', 'false'
 ).lower() == 'true'
@@ -389,6 +416,11 @@ GCP_VELO_ORCHESTRATOR_DISK_PATHS = [
     'velo/orchestrator/store3.qcow2',
 ]
 
+# GCP paths for DMF device images
+GCP_DMF_CONTROLLER_IMAGE_PATH = 'dmf/dmf-controller-base.qcow2'
+GCP_DMF_SWITCH_IMAGE_PATH = 'dmf/dmf-switch-base.qcow2'
+GCP_DMF_SERVICENODE_IMAGE_PATH = 'dmf/dmf-servicenode-base.qcow2'
+
 # Download timeout for base images (large files need time)
 BASE_IMAGE_DOWNLOAD_TIMEOUT = 600  # 10 minutes
 LARGE_IMAGE_DOWNLOAD_TIMEOUT = 1800  # 30 minutes for orchestrator disks (~2.5GB each)
@@ -409,6 +441,9 @@ def log_gcp_config():
     logger.info(f"  VeloCloud Edge image: {bucket}/{GCP_VELO_EDGE_IMAGE_PATH}")
     logger.info(f"  VeloCloud Gateway image: {bucket}/{GCP_VELO_GATEWAY_IMAGE_PATH}")
     logger.info(f"  VeloCloud Orchestrator disks: {bucket}/velo/orchestrator/ (4 disk images)")
+    logger.info(f"  DMF Controller image: {bucket}/{GCP_DMF_CONTROLLER_IMAGE_PATH}")
+    logger.info(f"  DMF Switch image: {bucket}/{GCP_DMF_SWITCH_IMAGE_PATH}")
+    logger.info(f"  DMF Service Node image: {bucket}/{GCP_DMF_SERVICENODE_IMAGE_PATH}")
 
 
 def get_device_credentials() -> dict:
@@ -773,3 +808,107 @@ def get_velo_orchestrator_disk_paths(auto_download: bool = True) -> list:
         disk_paths.append(disk_info)
 
     return disk_paths
+
+
+# =============================================================================
+# DMF Helper Functions
+# =============================================================================
+
+def is_dmf_enabled() -> bool:
+    """
+    Check if DMF features are enabled.
+
+    DMF is enabled if ANY of:
+    1. extras.dmf_enabled is True in ACCESS_INFO.yaml (explicit enable)
+    2. The lab is in dev mode (atd-testdrivetraining-dev project)
+    3. NODEBUILDER_TEST_MODE environment variable is set
+
+    Returns:
+        True if DMF features should be shown/available
+    """
+    if os.getenv('NODEBUILDER_TEST_MODE', '').lower() == 'true':
+        return True
+
+    try:
+        from ruamel.yaml import YAML
+        yaml = YAML()
+        with open(ACCESS_INFO_PATH, 'r') as f:
+            access_info = yaml.load(f)
+
+            extras = access_info.get('extras', {})
+            if extras.get('dmf_enabled', False):
+                return True
+
+            project = access_info.get('project', '')
+            if project and 'prod' not in project.lower():
+                return True
+
+            return False
+    except Exception:
+        return False
+
+
+def get_dmf_config() -> dict:
+    """
+    Get DMF configuration.
+
+    Returns:
+        Dict with enabled flag and per-device-type config
+    """
+    return {
+        'enabled': is_dmf_enabled(),
+        'controller': {
+            'enabled': DMF_CONTROLLER_ENABLED,
+            'max_count': MAX_DMF_CONTROLLER_PER_TOPOLOGY,
+            'cpu': DMF_CONTROLLER_CPU,
+            'ram_mb': DMF_CONTROLLER_RAM_MB
+        },
+        'switch': {
+            'enabled': DMF_SWITCH_ENABLED,
+            'max_count': MAX_DMF_SWITCH_PER_TOPOLOGY,
+            'cpu': DMF_SWITCH_CPU,
+            'ram_mb': DMF_SWITCH_RAM_MB
+        },
+        'servicenode': {
+            'enabled': DMF_SERVICENODE_ENABLED,
+            'max_count': MAX_DMF_SERVICENODE_PER_TOPOLOGY,
+            'cpu': DMF_SERVICENODE_CPU,
+            'ram_mb': DMF_SERVICENODE_RAM_MB
+        }
+    }
+
+
+def get_dmf_base_image_path(device_type: str, auto_download: bool = True) -> str:
+    """
+    Get base image path for a DMF device type.
+    Downloads from GCP if not found locally.
+
+    Args:
+        device_type: 'controller', 'switch', or 'servicenode'
+        auto_download: If True, download from GCP if missing
+
+    Returns:
+        Path to the base image
+
+    Raises:
+        ValueError: If device_type is unknown
+    """
+    image_map = {
+        'controller': (DMF_CONTROLLER_BASE_IMAGE, GCP_DMF_CONTROLLER_IMAGE_PATH),
+        'switch': (DMF_SWITCH_BASE_IMAGE, GCP_DMF_SWITCH_IMAGE_PATH),
+        'servicenode': (DMF_SERVICENODE_BASE_IMAGE, GCP_DMF_SERVICENODE_IMAGE_PATH),
+    }
+
+    if device_type not in image_map:
+        raise ValueError(f"Unknown DMF device type: {device_type}")
+
+    local_path, gcp_path = image_map[device_type]
+
+    if os.path.exists(local_path):
+        return local_path
+
+    if auto_download:
+        if download_base_image_from_gcp(gcp_path, local_path):
+            return local_path
+
+    return local_path

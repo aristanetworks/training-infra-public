@@ -1563,6 +1563,7 @@ class ATDStartup:
         ceos_timeout = 300  # 5 minutes
 
         if os.path.exists(ceos_flag):
+            # Wait for startup script to appear with timeout
             elapsed = 0
             while not os.path.exists(ceos_startup):
                 if elapsed >= ceos_timeout:
@@ -1608,6 +1609,7 @@ class ATDStartup:
                 labels={'service': 'atd-startup', 'phase': 'container-health', 'status': 'recovery-start'}
             )
 
+            # Set flag before recursive call
             try:
                 with open(recovery_flag, 'w') as f:
                     f.write(str(int(time.time())))
@@ -1616,6 +1618,7 @@ class ATDStartup:
 
             subprocess.run(['bash', '/usr/local/bin/atdUpdate.sh'])
 
+            # Clean up flag after successful recovery
             try:
                 os.remove(recovery_flag)
             except OSError:

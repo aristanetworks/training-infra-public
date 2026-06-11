@@ -452,6 +452,12 @@ class TopologyConverterInfoHandler(BaseHandler):
                 self.write(json.dumps({'error': 'Invalid topology name'}))
                 return
 
+            # Validate topology name to prevent path traversal
+            if not re.match(r'^[a-zA-Z0-9_-]+$', topology_name):
+                self.set_status(400)
+                self.write(json.dumps({'error': 'Invalid topology name'}))
+                return
+
             topo_path = f'/opt/atd/topologies/{topology_name}'
 
             if not os.path.exists(topo_path):

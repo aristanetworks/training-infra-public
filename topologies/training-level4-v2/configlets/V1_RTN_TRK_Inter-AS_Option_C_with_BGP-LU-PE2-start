@@ -1,0 +1,18 @@
+hostname PE2
+ip routing
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.12.1/30
+!
+interface Ethernet2
+   no switchport
+   ip address 192.168.22.1/30
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+!

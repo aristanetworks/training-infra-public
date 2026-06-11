@@ -1,0 +1,53 @@
+hostname P6
+!
+service routing protocols model multi-agent
+!
+ip routing
+!
+mpls ip
+!
+interface Ethernet3
+   description to ASBR1 (P4) [EXTERNAL]
+   no switchport
+   ip address 172.16.46.6/24
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.36.6/24
+   isis enable isis
+   isis network point-to-point
+!
+interface Loopback0
+   ip address 192.168.100.6/32
+   node-segment ipv4 index 6
+   isis enable isis
+!
+router bgp 200
+   bgp labeled-unicast rib ip tunnel
+   router-id 192.168.100.6
+   no bgp default ipv4-unicast
+   neighbor 172.16.46.4 remote-as 100
+   neighbor 192.168.100.3 remote-as 200
+   neighbor 192.168.100.3 update-source Loopback0
+   !
+   address-family ipv4
+      neighbor 172.16.46.4 activate
+      neighbor 192.168.100.3 activate
+      neighbor 192.168.100.3 next-hop-self
+   !
+   address-family ipv4 labeled-unicast
+      neighbor 172.16.46.4 activate
+      neighbor 172.16.46.4 next-hop-self
+      neighbor 192.168.100.3 activate
+      neighbor 192.168.100.3 next-hop-self
+      network 192.168.100.6/32
+!
+router isis isis
+   net 49.0000.0000.0000.0006.00
+   router-id ipv4 192.168.100.6
+   is-type level-1
+   !
+   address-family ipv4 unicast
+   !
+   segment-routing mpls
+      no shutdown
