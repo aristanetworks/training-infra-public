@@ -426,7 +426,7 @@ topologies:
           2025.1.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 80
               ram: 160
             branch: nested/2025.1
             orderable: true
@@ -436,7 +436,7 @@ topologies:
           2026.1.0:
             schema: 1
             resources:
-              cpu: 48
+              cpu: 80
               ram: 160
             branch: nested/2026.1
             orderable: true
