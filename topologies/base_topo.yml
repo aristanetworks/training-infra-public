@@ -5,7 +5,7 @@ topologies:
     dev:
       veos:
         cpu: 60
-        ram: 90
+        ram: 160
         cvp:
           2025.1.0:
             schema: 1
@@ -21,7 +21,7 @@ topologies:
             schema: 1
             resources:
               cpu: 80
-              ram: 110
+              ram: 160
             branch: nested/2026.1
             orderable: true
             image: base-veos-training-l4-v2-2026-1-20260610-142758
@@ -738,13 +738,13 @@ topologies:
     dev:
       veos:
         cpu: 80
-        ram: 110
+        ram: 160
         cvp:
           2026.1.0:
             schema: 1
             resources:
               cpu: 80
-              ram: 110
+              ram: 160
             branch: nested/2026.1
             orderable: true
             image: base-veos-training-l4-v2-2026-1-20260610-142758
@@ -753,13 +753,13 @@ topologies:
     prod:
       veos:
         cpu: 80
-        ram: 110
+        ram: 160
         cvp:
           2026.1.0:
             schema: 1
             resources:
               cpu: 80
-              ram: 110
+              ram: 160
             branch: nested/2026.1
             orderable: true
             image: base-veos-training-l4-v2-2026-1-20260610-142758
