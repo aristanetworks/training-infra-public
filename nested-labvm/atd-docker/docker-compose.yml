@@ -133,6 +133,7 @@ services:
       - /etc/atd/ACCESS_INFO.yaml:/app/ACCESS_INFO.yaml:ro
       - /home/arista/arista-dir/menus/:/app/menus/:rw
       - /opt/templates/grading:/app/grading:rw
+      - /home/arista/arista-dir/apps/coder/labfiles:/home/coder/project/labfiles:rw
     networks:
       - atd_nginx
 
