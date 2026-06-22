@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:f6586f63
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:cdeb9255
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -124,7 +124,7 @@ services:
   labguides-v2:
     container_name: atd-labguides-v2
     # image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v2:1.0.3
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:cea51f99
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:cdeb9255
     restart: on-failure
     environment:
       - PYTHONUNBUFFERED=1
@@ -174,7 +174,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:008603f9
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:cdeb9255
     restart: always
     depends_on:
       - uilanding
