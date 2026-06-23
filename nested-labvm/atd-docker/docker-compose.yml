@@ -285,7 +285,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:3d9225eb
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:0193197c
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
