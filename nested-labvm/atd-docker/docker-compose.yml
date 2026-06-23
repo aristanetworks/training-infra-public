@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:cdeb9255
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:28a374c7
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -174,7 +174,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:cdeb9255
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:28a374c7
     restart: always
     depends_on:
       - uilanding
@@ -285,7 +285,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:008603f9
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:28a374c7
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
