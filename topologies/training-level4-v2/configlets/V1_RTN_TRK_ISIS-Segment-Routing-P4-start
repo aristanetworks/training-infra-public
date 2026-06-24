@@ -26,12 +26,3 @@ router isis isis
 !
 mpls ip
 !
-ip prefix-list ldp-fec-prefix-list
-   seq 10 permit 192.168.100.0/24 eq 32
-!
-mpls ldp
-   router-id interface Loopback0
-   transport-address interface Loopback0
-   fec filter prefix-list ldp-fec-prefix-list
-   no shutdown
-!
