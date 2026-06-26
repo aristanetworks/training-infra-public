@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect instance metrics every 3 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
