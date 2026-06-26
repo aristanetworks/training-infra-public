@@ -34,12 +34,13 @@ rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/util
 rsync -av /opt/atd/nested-labvm/services/topology_converter_v2.py /opt/atd/scripts/ 2>/dev/null || true
 
 # Install required Python packages
+# --break-system-packages: needed on rpm-managed systems where pip can't uninstall system packages (e.g. requests)
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing required Python packages..."
-pip3 install --upgrade google-cloud-logging cvprac ruamel.yaml psutil 2>&1 || {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] First pip install attempt failed, retrying..."
+pip3 install --upgrade --break-system-packages google-cloud-logging cvprac ruamel.yaml psutil 2>&1 || {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] First pip install attempt failed, retrying with --ignore-installed..."
     sleep 5
-    pip3 install --upgrade --force-reinstall google-cloud-logging 2>&1 || echo "Warning: Failed to install google-cloud-logging"
-    pip3 install --upgrade cvprac ruamel.yaml psutil 2>&1 || echo "Warning: Failed to install Python packages"
+    pip3 install --ignore-installed --break-system-packages google-cloud-logging 2>&1 || echo "Warning: Failed to install google-cloud-logging"
+    pip3 install --upgrade --break-system-packages cvprac ruamel.yaml psutil 2>&1 || echo "Warning: Failed to install Python packages"
 }
 
 # Run the Python ATD Startup script
