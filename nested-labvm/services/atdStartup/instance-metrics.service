@@ -1,0 +1,17 @@
+[Unit]
+Description=Collect and log instance metrics to Cloud Logging
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /usr/local/bin/instance_metrics.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120
+Restart=no
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

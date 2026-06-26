@@ -1403,7 +1403,10 @@ class ATDStartup:
             # Step 19: Setup unit test timer
             self._setup_unit_test_timer()
 
-            # Step 20: Enable password authentication for SSH
+            # Step 20: Setup instance metrics timer
+            self._setup_metrics_timer()
+
+            # Step 21: Enable password authentication for SSH
             self._enable_ssh_password_auth()
 
             self.logger.info("ATD Startup completed successfully")
@@ -1664,6 +1667,17 @@ class ATDStartup:
         # self.systemd_manager.enable('atd-unit-test-60min.timer')
         # self.systemd_manager.start('atd-unit-test.timer')
         # self.systemd_manager.start('atd-unit-test-60min.timer')
+
+    def _setup_metrics_timer(self) -> None:
+        """Setup instance metrics collection timer"""
+        metrics_script = f'{self.config.atd_opt_path}/nested-labvm/services/instance-metrics/instance_metrics.py'
+        self.file_manager.rsync(metrics_script, '/usr/local/bin/')
+        self.file_manager.chmod('/usr/local/bin/instance_metrics.py', 0o755)
+
+        self.systemd_manager.setup_timer(
+            f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/instance-metrics.service',
+            f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/instance-metrics.timer'
+        )
 
     def _enable_ssh_password_auth(self) -> None:
         """Enable password authentication for SSH"""
