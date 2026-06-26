@@ -35,7 +35,12 @@ rsync -av /opt/atd/nested-labvm/services/topology_converter_v2.py /opt/atd/scrip
 
 # Install required Python packages
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing required Python packages..."
-pip3 install --upgrade google-cloud-logging cvprac ruamel.yaml psutil 2>/dev/null || echo "Warning: Failed to install Python packages"
+pip3 install --upgrade google-cloud-logging cvprac ruamel.yaml psutil 2>&1 || {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] First pip install attempt failed, retrying..."
+    sleep 5
+    pip3 install --upgrade --force-reinstall google-cloud-logging 2>&1 || echo "Warning: Failed to install google-cloud-logging"
+    pip3 install --upgrade cvprac ruamel.yaml psutil 2>&1 || echo "Warning: Failed to install Python packages"
+}
 
 # Run the Python ATD Startup script
 echo ""
