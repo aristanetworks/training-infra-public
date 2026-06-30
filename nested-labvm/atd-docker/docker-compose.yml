@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:903ff2b2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:08313b1e
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
