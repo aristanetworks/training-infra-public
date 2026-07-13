@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7cd2712f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:5272596b
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -174,7 +174,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:28a374c7
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:5272596b
     restart: always
     depends_on:
       - uilanding
@@ -343,6 +343,13 @@ services:
       # Token file for websockify authentication (format: "token: host:port")
       # Tokens are written by nodebuilder's novnc_manager.py
       - /tmp/novnc:/tmp/novnc:ro
+  trafficservice:
+    container_name: atl-trafficservice
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_trafficservice:5272596b
+    network_mode: host
+    volumes:
+      - /etc/atd:/etc/atd:ro
+    restart: unless-stopped
 networks:
   atd_nginx:
 volumes:
