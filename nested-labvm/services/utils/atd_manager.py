@@ -1547,15 +1547,6 @@ class ATDStartup:
                 'us.gcr.io/atd-testdrivetraining-dev/atddocker_coder:1.0.2-path-finder'
             )
 
-        # Copy webui VNC password into config volume before compose up
-        # Skip if already obfuscated (.vncpass exists) — jlesage init handles it
-        webui_config_dir = f'{self.config.arista_home}/arista-dir/apps/webui'
-        vncpass_src = f'{self.config.docker_compose_path}/runtime-configs/webui/.vncpass_clear'
-        vncpass_obfuscated = os.path.join(webui_config_dir, '.vncpass')
-        if os.path.exists(vncpass_src) and not os.path.exists(vncpass_obfuscated):
-            os.makedirs(webui_config_dir, exist_ok=True)
-            shutil.copy2(vncpass_src, os.path.join(webui_config_dir, '.vncpass_clear'))
-
         # Run docker compose
         self.docker_manager.compose_up()
         self.docker_manager.prune_images()
