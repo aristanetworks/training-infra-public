@@ -1,8 +1,0 @@
-#cloud-config
-vyos_config_commands:
-  - set system host-name 'firewall'
-  - set system time-zone UTC
-  - set service ssh port 22
-  - set system login user vyos authentication plaintext-password vyos
-  - set system login user vyos level admin
-  - set system console device ttyS0 speed 115200
