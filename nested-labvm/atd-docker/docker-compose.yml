@@ -245,7 +245,6 @@ services:
     restart: always
     volumes:
       - "/home/arista/arista-dir/apps/webui:/config:rw"
-      - /opt/atd/nested-labvm/atd-docker/runtime-configs/webui/.vncpass_clear:/config/.vncpass_clear:rw
     networks:
       - atd_nginx
   captureservice:
