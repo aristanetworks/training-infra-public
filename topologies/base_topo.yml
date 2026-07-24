@@ -392,7 +392,7 @@ topologies:
               ram: 110
             branch: nested/2025.1
             orderable: true
-            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20251006
+            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20260723
             eos:
               - 4.32.1F                
     prod:
@@ -407,7 +407,7 @@ topologies:
               ram: 160
             branch:  v2025.1-22072026
             orderable: true
-            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20251006
+            image: base-veos-training-lx-cl-exam-veos-2025-1-4321-20260723
             eos:
               - 4.32.1F  
     desc: 'Training Lab vEOS Exam. For use by the Arista Training Team.'
