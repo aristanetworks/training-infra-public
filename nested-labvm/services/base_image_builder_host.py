@@ -167,9 +167,11 @@ class BuildState:
 class BaseImageBuilder:
     """Builds ATD base images on the host."""
 
-    def __init__(self, cvp_version, eos_version, topology, eos_type='veos'):
+    def __init__(self, cvp_version, eos_version, topology, eos_type='veos',
+                 skip_update=False):
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
+        self.skip_update = skip_update
 
         if not VERSION_PATTERN.match(cvp_version):
             raise ValueError(f"Invalid CVP version format: {cvp_version}")
@@ -479,6 +481,15 @@ class BaseImageBuilder:
         logger.info("Phase 7: Wait for KVM Builder")
         logger.info("-" * 60)
 
+        # When called with --skip-update (from atdStartup), kvmbuilder already
+        # ran with the OLD topology from compose_up. Phase 5 updated ACCESS_INFO
+        # with the new topology. Restart kvmbuilder so it re-reads the config
+        # and generates scripts for the correct topology.
+        if self.skip_update:
+            logger.info("  Restarting kvmbuilder for updated topology...")
+            self._run_command('docker restart atd-kvmbuilder', check=False, timeout=30)
+            time.sleep(3)
+
         scripts_dir = f'{KVM_SCRIPTS_DIR}/{self.topology}'
         ovs_script = f'{scripts_dir}/{self.topology}-ovs-create.sh'
         kvm_script = f'{scripts_dir}/{self.topology}-kvm-create.sh'
@@ -672,6 +683,8 @@ def main():
                         help='EOS type (default: veos)')
     parser.add_argument('--force', action='store_true', help='Skip confirmation prompt')
     parser.add_argument('--resume', action='store_true', help='Resume failed build')
+    parser.add_argument('--skip-update', action='store_true',
+                        help='Skip atdUpdate phase (use when called from atdStartup)')
 
     args = parser.parse_args()
 
@@ -684,13 +697,16 @@ def main():
         eos_version=args.eos_version,
         topology=args.topology,
         eos_type=args.eos_type,
+        skip_update=args.skip_update,
     )
 
     skip_phases = []
+    if args.skip_update:
+        skip_phases.append('atd_update')
+
     if args.resume:
         if builder.state.load():
-            skip_phases = builder.state.completed_phases
-            # Use saved skip flags from original run, not re-derived from new args
+            skip_phases.extend(builder.state.completed_phases)
             builder.cvp_version = builder.state.cvp_version or args.cvp_version
             builder.eos_version = builder.state.eos_version or args.eos_version
             builder.topology = builder.state.topology or args.topology
