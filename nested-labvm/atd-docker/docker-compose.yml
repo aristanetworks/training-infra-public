@@ -52,7 +52,7 @@ services:
       - /opt/templates/grading:/opt/templates/grading:ro
   cvpupdater:
     container_name: atd-cvpupdater
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvpupdater:e02489e2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvpupdater:8f57da15
     user: $ArID:$ArGD
     restart: always
     environment:
