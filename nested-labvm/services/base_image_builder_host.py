@@ -452,6 +452,21 @@ class BaseImageBuilder:
         logger.info(f"  eos_type:  {self.eos_type}")
         logger.info("  ✓ ACCESS_INFO.yaml updated")
 
+        # Rsync topology files to arista-dir so cvpupdater gets the correct
+        # cvp_info.yaml when it restarts (it reads from /home/arista/cvp/).
+        topo_files = f'{TOPOLOGIES_DIR}/{self.topology}/files/'
+        arista_dir = '/home/arista/arista-dir'
+        if os.path.isdir(topo_files):
+            self._run_command(
+                f'rsync -av --update {topo_files} {arista_dir}/',
+                check=False, timeout=60,
+            )
+            self._run_command(
+                f'chown -R arista:arista {arista_dir}',
+                check=False, timeout=30,
+            )
+            logger.info("  ✓ Topology files synced to arista-dir")
+
     # =========================================================================
     # Phase 6: atdUpdate
     # =========================================================================
