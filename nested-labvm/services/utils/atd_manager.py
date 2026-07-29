@@ -30,6 +30,7 @@ Usage:
     python3 atd_manager.py check-exam
 """
 
+import json
 import os
 import sys
 import subprocess
@@ -226,6 +227,8 @@ class AccessInfo:
     zone: str = ''
     host: str = ''
     username: str = ''
+    base_topology: str = ''
+    eos_version: str = ''
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> 'AccessInfo':
@@ -250,7 +253,9 @@ class AccessInfo:
                 eos_type=data.get('eos_type', 'veos'),
                 zone=data.get('zone', ''),
                 host=data.get('cvp_host', ''),
-                username=data.get('username', 'arista')
+                username=data.get('username', 'arista'),
+                base_topology=data.get('base_topology', ''),
+                eos_version=data.get('version', ''),
             )
         except Exception as e:
             logger.error(f"Failed to load ACCESS_INFO.yaml: {e}")
@@ -1383,7 +1388,8 @@ class ATDStartup:
             # Step 12: Setup Docker containers
             self._setup_docker()
 
-            # Step 13: (removed — sshd restart moved to Step 20 after config change)
+            # Step 13: Auto-build base image if base_topology is set in ACCESS_INFO
+            self._auto_build_if_needed()
 
             # Step 14: Run container labs setup if present
             self._run_container_labs_setup()
@@ -1550,6 +1556,84 @@ class ATDStartup:
         # Run docker compose
         self.docker_manager.compose_up()
         self.docker_manager.prune_images()
+
+    def _auto_build_if_needed(self) -> None:
+        """Auto-build base image if base_topology is set in ACCESS_INFO.
+
+        When base_topology is present, runs the host-level base image builder
+        to download CVP/EOS and create VMs. Skips if already built (flag file).
+        When base_topology is absent, this is a no-op.
+        """
+        base_topo = self.access_info.base_topology
+        if not base_topo:
+            return
+
+        cvp_ver = self.access_info.cvp_version
+        eos_ver = self.access_info.eos_version
+        eos_type = self.access_info.eos_type
+
+        if not cvp_ver or not eos_ver:
+            self.logger.warning(
+                f"base_topology={base_topo} set but cvp ({cvp_ver}) or "
+                f"version ({eos_ver}) missing — skipping auto-build"
+            )
+            return
+
+        flag_file = '/etc/atd/.base_build_complete'
+        try:
+            if os.path.exists(flag_file):
+                with open(flag_file, 'r') as f:
+                    prev = json.loads(f.read())
+                if (prev.get('topology') == base_topo and
+                        prev.get('cvp') == cvp_ver and
+                        prev.get('eos') == eos_ver):
+                    self.logger.info(
+                        f"Base image already built for {base_topo} "
+                        f"(CVP {cvp_ver}, EOS {eos_ver}) — skipping"
+                    )
+                    return
+        except Exception:
+            pass
+
+        self.logger.info(f"Auto-building base image: {base_topo} "
+                         f"(CVP {cvp_ver}, EOS {eos_ver})")
+
+        script = '/opt/atd/scripts/base_image_builder_host.py'
+        if not os.path.exists(script):
+            self.logger.error(f"Base image builder script not found at {script}")
+            return
+
+        try:
+            cmd = [
+                'python3', script,
+                '--cvp-version', cvp_ver,
+                '--eos-version', eos_ver,
+                '--topology', base_topo,
+                '--eos-type', eos_type,
+                '--skip-update',
+                '--force',
+            ]
+            result = subprocess.run(
+                cmd, capture_output=False, text=True, timeout=7200
+            )
+
+            if result.returncode == 0:
+                self.logger.info("Base image build completed successfully")
+                with open(flag_file, 'w') as f:
+                    f.write(json.dumps({
+                        'topology': base_topo,
+                        'cvp': cvp_ver,
+                        'eos': eos_ver,
+                        'built_at': datetime.now().isoformat(),
+                    }))
+            else:
+                self.logger.error(
+                    f"Base image build failed with exit code {result.returncode}"
+                )
+        except subprocess.TimeoutExpired:
+            self.logger.error("Base image build timed out after 2 hours")
+        except Exception as e:
+            self.logger.error(f"Base image build error: {e}")
 
     def _run_container_labs_setup(self) -> None:
         """Run container labs setup if present"""

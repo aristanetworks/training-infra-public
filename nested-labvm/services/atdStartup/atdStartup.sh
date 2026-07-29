@@ -32,6 +32,7 @@ mkdir -p /opt/atd/scripts
 rsync -av /opt/atd/nested-labvm/services/atdStartup/atdStartup.py /usr/local/bin/ 2>/dev/null || true
 rsync -av /opt/atd/nested-labvm/services/utils/ /usr/local/lib/atd-services/utils/ 2>/dev/null || true
 rsync -av /opt/atd/nested-labvm/services/topology_converter_v2.py /opt/atd/scripts/ 2>/dev/null || true
+rsync -av /opt/atd/nested-labvm/services/base_image_builder_host.py /opt/atd/scripts/ 2>/dev/null || true
 
 # Install required Python packages
 # --break-system-packages: needed on rpm-managed systems where pip can't uninstall system packages (e.g. requests)
