@@ -458,7 +458,7 @@ class BaseImageBuilder:
         arista_dir = '/home/arista/arista-dir'
         if os.path.isdir(topo_files):
             self._run_command(
-                f'rsync -av --update {topo_files} {arista_dir}/',
+                f'rsync -av {topo_files} {arista_dir}/',
                 check=False, timeout=60,
             )
             self._run_command(
