@@ -96,7 +96,7 @@ services:
       - /opt/ceos:/opt/ceos:rw
   uilanding:
     container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:20f118eb
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:e964ea21
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
@@ -285,7 +285,7 @@ services:
       - cvpupdater
   nodebuilder:
     container_name: atd-nodebuilder
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:2af284fc
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:e964ea21
     restart: always
     # Host network mode required to access libvirt socket and OVS bridges on host
     network_mode: host
@@ -317,7 +317,7 @@ services:
       # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:
     container_name: atd-consoleservice
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:e02489e2
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:e964ea21
     restart: on-failure
     # Host network mode required to access libvirt socket on host
     network_mode: host
