@@ -199,6 +199,7 @@ services:
       - nginx_log:/var/log/nginx:ro
       - /etc/atd:/etc/atd:ro
       - /var/log/wtmp:/var/log/wtmp:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   jenkins:
     container_name: atd-jenkins
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_jenkins:e02489e2
