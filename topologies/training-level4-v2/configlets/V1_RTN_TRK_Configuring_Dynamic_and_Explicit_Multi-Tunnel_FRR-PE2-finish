@@ -1,0 +1,97 @@
+hostname PE2
+!
+ip routing
+!
+service routing protocols model multi-agent
+!
+mpls ip
+!
+ip prefix-list ldp-fec-prefix-list
+   seq 10 permit 192.168.100.0/24 ge 24
+!
+mpls ldp
+   router-id interface Loopback0
+   fec filter prefix-list ldp-fec-prefix-list
+   no shutdown
+!
+mpls rsvp
+   fast-reroute mode node-protection
+   no shutdown
+!
+vrf instance B
+!
+ip routing vrf B
+!
+router isis isis
+   net 49.0000.0000.0000.0002.00
+   router-id ipv4 192.168.100.2
+   is-type level-1
+   address-family ipv4 unicast
+   traffic-engineering
+      no shutdown
+!
+router traffic-engineering
+   rsvp
+      local-interface Loopback0
+!
+router bgp 100
+   neighbor 192.168.100.1 remote-as 100
+   neighbor 192.168.100.1 update-source Loopback0
+   neighbor 192.168.100.1 send-community extended
+   !
+   address-family vpn-ipv4
+      neighbor 192.168.100.1 activate
+   !
+   vrf B
+      rd 100:2
+      route-target import vpn-ipv4 100:2
+      route-target export vpn-ipv4 100:2
+      neighbor 192.168.22.2 remote-as 65202
+!
+interface Ethernet1
+   no switchport
+   ip address 192.168.12.1/30
+   no shutdown
+!
+interface Ethernet2
+   no switchport
+   vrf B
+   ip address 192.168.22.1/30
+   no shutdown
+!
+interface Ethernet3
+   no switchport
+   ip address 192.168.32.1/30
+   no shutdown
+!
+interface Ethernet4
+   no switchport
+   ip address 172.16.23.2/24
+   isis enable isis
+   isis network point-to-point
+   traffic-engineering
+   traffic-engineering bandwidth 75 percent
+   no shutdown
+!
+interface Ethernet5
+   no switchport
+   ip address 172.16.24.2/24
+   isis enable isis
+   isis network point-to-point
+   traffic-engineering
+   traffic-engineering bandwidth 75 percent
+   no shutdown
+!
+interface Ethernet6
+   no switchport
+   ip address 172.16.26.2/24
+   isis enable isis
+   isis network point-to-point
+   traffic-engineering
+   traffic-engineering bandwidth 75 percent
+   no shutdown
+!
+interface Loopback0
+   ip address 192.168.100.2/32
+   isis enable isis
+!

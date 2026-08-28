@@ -10,14 +10,14 @@ router isis isis
    is-type level-1
    address-family ipv4 unicast
 !
-interface Ethernet4
+interface Ethernet1
    no switchport
    ip address 172.16.13.3/24
    isis enable isis
    isis network point-to-point
    no shutdown
 !
-interface Ethernet5
+interface Ethernet2
    no switchport
    ip address 172.16.23.3/24
    isis enable isis
