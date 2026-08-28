@@ -196,6 +196,7 @@ services:
     depends_on:
       - nginx
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - nginx_log:/var/log/nginx:ro
       - /etc/atd:/etc/atd:ro
       - /var/log/wtmp:/var/log/wtmp:ro
