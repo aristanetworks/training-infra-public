@@ -122,7 +122,7 @@ services:
   # -----------------------------------------------------------------------
   uilanding-ui-frontend:
     container_name: uilanding-ui-frontend
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:13d258dd
     command: ["--app", "ui-frontend"]
     restart: always
     environment:
@@ -139,7 +139,7 @@ services:
 
   uilanding-api:
     container_name: uilanding-api
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:13d258dd
     command: ["--app", "api"]
     restart: always
     environment:
@@ -153,7 +153,7 @@ services:
 
   uilanding-websocket:
     container_name: uilanding-websocket
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:13d258dd
     command: ["--app", "websocket"]
     restart: always
     environment:
@@ -167,7 +167,7 @@ services:
 
   uilanding-exam:
     container_name: uilanding-exam
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:13d258dd
     command: ["--app", "exam"]
     restart: always
     environment:
@@ -182,7 +182,7 @@ services:
 
   uilanding-proxy-svc:
     container_name: uilanding-proxy-svc
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:13d258dd
     command: ["--app", "proxy"]
     restart: always
     environment:
