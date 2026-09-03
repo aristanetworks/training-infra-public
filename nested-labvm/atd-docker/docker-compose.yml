@@ -16,6 +16,10 @@ services:
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
+      # Phase 2: uptime endpoint moved from atd-uilanding:80 to the split
+      # ui-frontend container. The image reads this env var via os.getenv
+      # (configservice/src/config.py), so no rebuild is required.
+      - UILANDING_UPTIME_URL=http://uilanding-ui-frontend:8080/uptimeWithRuntime
     volumes:
       - /etc/atd:/etc/atd:rw
     networks:
@@ -94,18 +98,99 @@ services:
       - /etc/atd:/etc/atd:ro
       - /opt/atd:/opt/atd:ro
       - /opt/ceos:/opt/ceos:rw
-  uilanding:
-    container_name: atd-uilanding
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:ed2a8348
+  # -----------------------------------------------------------------------
+  # UILanding (Phase 2 — same image, 5 containers, one per app)
+  #
+  # Each service pulls the same atl_docker_uilanding image and passes
+  # `--app <name>` to select which Tornado app to run. Docker Compose's
+  # `command:` is appended to the image's ENTRYPOINT ["uilanding"].
+  #
+  # Shared state (no external services required):
+  #   * COOKIE_SECRET — auto-generated on first boot and persisted to
+  #     /etc/atd/cookie_secret by shared_config.get_cookie_secret(). All
+  #     five containers mount /etc/atd, so they converge on the same value.
+  #     The file survives `--force-recreate` because /etc/atd is a host
+  #     bind mount, not a container volume.
+  #   * Exam timing — uilanding-exam writes /etc/atd/exam_state.json;
+  #     uilanding-ui-frontend and uilanding-websocket read it with mtime caching.
+  #   * Session / gRPC state — uilanding-ui-frontend queries uilanding-websocket at
+  #     http://uilanding-websocket:8082/internal/session-status.
+  #
+  # Cloud logging: UILANDING_APP is attached as `app` label on every log
+  # entry, so per-container output is filterable in GCP Log Explorer:
+  #   jsonPayload.labels.app="api"
+  # -----------------------------------------------------------------------
+  uilanding-ui-frontend:
+    container_name: uilanding-ui-frontend
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    command: ["--app", "ui-frontend"]
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
+      - UILANDING_APP=ui-frontend
     volumes:
       - /etc/atd:/etc/atd:rw
       - /opt/atd:/opt/atd:ro
       - /home/arista/arista-dir/apps/uilanding:/opt/modules:ro
       - /home/arista/arista-dir/menus:/opt/menus:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - atd_nginx
+
+  uilanding-api:
+    container_name: uilanding-api
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    command: ["--app", "api"]
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UILANDING_APP=api
+    volumes:
+      - /etc/atd:/etc/atd:rw
+      - /opt/atd:/opt/atd:ro
+    networks:
+      - atd_nginx
+
+  uilanding-websocket:
+    container_name: uilanding-websocket
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    command: ["--app", "websocket"]
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UILANDING_APP=websocket
+    volumes:
+      - /etc/atd:/etc/atd:rw
+      - /opt/atd:/opt/atd:ro
+    networks:
+      - atd_nginx
+
+  uilanding-exam:
+    container_name: uilanding-exam
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    command: ["--app", "exam"]
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UILANDING_APP=exam
+    volumes:
+      - /etc/atd:/etc/atd:rw
+      - /opt/atd:/opt/atd:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - atd_nginx
+
+  uilanding-proxy-svc:
+    container_name: uilanding-proxy-svc
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:99ca2c07
+    command: ["--app", "proxy"]
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UILANDING_APP=proxy
+    volumes:
+      - /etc/atd:/etc/atd:rw
+      - /opt/atd:/opt/atd:ro
     networks:
       - atd_nginx
   labguides:
@@ -174,10 +259,14 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:ed2a8348
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:99ca2c07
     restart: always
     depends_on:
-      - uilanding
+      - uilanding-ui-frontend
+      - uilanding-api
+      - uilanding-websocket
+      - uilanding-exam
+      - uilanding-proxy-svc
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
