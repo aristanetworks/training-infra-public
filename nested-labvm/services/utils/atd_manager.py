@@ -1251,6 +1251,9 @@ class DockerAuthManager:
 # Main ATD Startup Class
 # =============================================================================
 
+MAX_STARTUP_WAIT = 300  # seconds — cap on waiting for ACCESS_INFO.yaml to be fully populated
+
+
 class ATDStartup:
     """Main startup orchestrator - Python equivalent of atdStartup.sh"""
 
@@ -1293,6 +1296,12 @@ class ATDStartup:
         try:
             # Step 1: Download base topology
             self.config_manager.download_base_topo()
+
+            # Step 1.5: Wait for ACCESS_INFO.yaml to be fully populated
+            # (cloud-init writes password via sed then appends topology/name/zone
+            # in a later block — reading too early silently breaks placeholder
+            # substitution for topologies/*/files, e.g. coder.yaml)
+            self._wait_for_access_info()
 
             # Step 2: Load access info
             self.access_info = AccessInfo.from_yaml(self.config.access_info_path)
@@ -1438,6 +1447,49 @@ class ATDStartup:
                 error=str(e)
             )
             return False
+
+    def _wait_for_access_info(self) -> None:
+        """Block until ACCESS_INFO.yaml has both a real password AND a topology.
+
+        Cloud-init writes password via sed then appends topology/name/zone in
+        a later block. Reading too early yields empty topology, which silently
+        breaks _replace_password_placeholders() (coder.yaml keeps its
+        {ARISTA_REPLACE} placeholder) and _copy_topology_files() (no-op on
+        /opt/atd/topologies//files).
+        """
+        start = time.time()
+        pw_ok = topo_ok = False
+        while True:
+            try:
+                with open(self.config.access_info_path, 'r') as f:
+                    data = yaml.safe_load(f) or {}
+                pw = data.get('login_info', {}).get('jump_host', {}).get('pw', '')
+                topo = data.get('topology', '')
+                pw_ok = bool(pw) and pw != 'REPLACE_PWD'
+                topo_ok = bool(topo and str(topo).strip())
+                if pw_ok and topo_ok:
+                    self.logger.info("ACCESS_INFO.yaml fully populated (password + topology)")
+                    return
+            except Exception as e:
+                self.logger.warning(f"Waiting for ACCESS_INFO.yaml: {e}")
+            if time.time() - start > MAX_STARTUP_WAIT:
+                missing = [n for n, ok in (('password', pw_ok), ('topology', topo_ok)) if not ok]
+                self.logger.warning(
+                    f"Timed out waiting for ACCESS_INFO.yaml after {MAX_STARTUP_WAIT}s, "
+                    f"proceeding with missing fields: {missing}"
+                )
+                # Match the cloud_logging call style already used elsewhere in this file
+                try:
+                    self.cloud_logging.log_structured(
+                        f"ACCESS_INFO wait timeout, missing: {missing}",
+                        severity='WARNING',
+                        labels={'service': 'atd-startup', 'phase': 'wait-access-info',
+                                'missing_fields': ','.join(missing)}
+                    )
+                except Exception:
+                    pass  # Don't crash startup if cloud logging is unavailable
+                return
+            time.sleep(2)
 
     def _setup_network(self) -> None:
         """Setup network configuration based on platform"""
