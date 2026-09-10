@@ -1251,7 +1251,7 @@ class DockerAuthManager:
 # Main ATD Startup Class
 # =============================================================================
 
-MAX_STARTUP_WAIT = 300  # seconds — cap on waiting for ACCESS_INFO.yaml to be fully populated
+MAX_STARTUP_WAIT = 1200  # seconds (20 min) — cap on waiting for ACCESS_INFO.yaml to be fully populated. Slow provisions have been observed taking >5 min for cloud-init to write the topology field.
 
 
 class ATDStartup:
@@ -1474,17 +1474,26 @@ class ATDStartup:
                 self.logger.warning(f"Waiting for ACCESS_INFO.yaml: {e}")
             if time.time() - start > MAX_STARTUP_WAIT:
                 missing = [n for n, ok in (('password', pw_ok), ('topology', topo_ok)) if not ok]
-                self.logger.warning(
+                self.logger.error(
                     f"Timed out waiting for ACCESS_INFO.yaml after {MAX_STARTUP_WAIT}s, "
-                    f"proceeding with missing fields: {missing}"
+                    f"proceeding with missing fields: {missing}. "
+                    f"Downstream placeholder substitution (coder.yaml, jenkins, freeradius) "
+                    f"will likely fail — expect broken coder/jenkins login on this lab."
                 )
-                # Match the cloud_logging call style already used elsewhere in this file
+                # Send an ERROR-severity structured log so timeouts are easy to find in
+                # GCP Log Explorer. Filter:
+                #   severity="ERROR" AND jsonPayload.labels.event="startup-timeout"
                 try:
                     self.cloud_logging.log_structured(
-                        f"ACCESS_INFO wait timeout, missing: {missing}",
-                        severity='WARNING',
-                        labels={'service': 'atd-startup', 'phase': 'wait-access-info',
-                                'missing_fields': ','.join(missing)}
+                        f"ACCESS_INFO wait timeout after {MAX_STARTUP_WAIT}s, missing: {missing}",
+                        severity='ERROR',
+                        labels={
+                            'service': 'atd-startup',
+                            'phase': 'wait-access-info',
+                            'event': 'startup-timeout',
+                            'missing_fields': ','.join(missing),
+                            'timeout_seconds': str(MAX_STARTUP_WAIT),
+                        }
                     )
                 except Exception:
                     pass  # Don't crash startup if cloud logging is unavailable
