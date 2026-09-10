@@ -441,18 +441,18 @@ services:
       - /etc/atd:/etc/atd:ro
     restart: unless-stopped
 #  Startup process manages the start of devices and passes those states to topoviewer-v2. The UILANDING_HOST env var points the service to the correct uilanding service to monitor.
-  startup-progress:
-    container_name: atd-startup-progress
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_startup-progress:3d256e4b
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-      - UILANDING_HOST=uilanding-ui-frontend
-    volumes:
-      - /etc/atd:/etc/atd:ro
-      - /opt/atd:/opt/atd:ro
-    networks:
-     - atd_nginx
+#  startup-progress:
+  #  container_name: atd-startup-progress
+  #  image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_startup-progress:3d256e4b
+ #   restart: always
+ #   environment:
+ #     - PYTHONUNBUFFERED=1
+ #     - UILANDING_HOST=uilanding-ui-frontend
+ #   volumes:
+#      - /etc/atd:/etc/atd:ro
+#      - /opt/atd:/opt/atd:ro
+#    networks:
+#     - atd_nginx
 networks:
   atd_nginx:
 volumes:
