@@ -259,7 +259,7 @@ services:
       - "1813:1813/udp"
   nginx:
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:18068a10
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:43189194
     restart: always
     depends_on:
       - uilanding-ui-frontend
@@ -443,7 +443,7 @@ services:
 #  Startup process manages the start of devices and passes those states to topoviewer-v2. The UILANDING_HOST env var points the service to the correct uilanding service to monitor.
   startup-progress:
     container_name: atd-startup-progress
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_startup-progress:3d256e4b
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_startup-progress:43189194
     restart: always
     environment:
       - PYTHONUNBUFFERED=1
