@@ -243,7 +243,12 @@ class AccessInfo:
             customer_details = data.get('customer_details', {})
 
             return cls(
-                topology=data.get('topology', ''),
+                # Prefer 'topology' if set (older base VM images populate it), else
+                # fall back to 'base_topology' (newer deploy paths write only this).
+                # Without the fallback, _replace_password_placeholders() silently
+                # no-ops on new-image labs — coder.yaml / jenkins / freeradius keep
+                # their {ARISTA_REPLACE} placeholder → coder login broken.
+                topology=data.get('topology') or data.get('base_topology', ''),
                 password=jump_host.get('pw', ''),
                 project=data.get('project', ''),
                 cvp_version=data.get('cvp', ''),
