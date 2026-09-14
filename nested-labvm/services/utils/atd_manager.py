@@ -1458,31 +1458,46 @@ class ATDStartup:
             return False
 
     def _wait_for_access_info(self) -> None:
-        """Block until ACCESS_INFO.yaml has both a real password AND a topology.
+        """Block until ACCESS_INFO.yaml has been fully populated by cloud-init.
 
-        Cloud-init writes password via sed then appends topology/name/zone in
-        a later block. Reading too early yields empty topology, which silently
-        breaks _replace_password_placeholders() (coder.yaml keeps its
-        {ARISTA_REPLACE} placeholder) and _copy_topology_files() (no-op on
-        /opt/atd/topologies//files).
+        Cloud-init writes the password via `sed` on REPLACE_PWD first, then
+        appends `zone`/`name`/`project`/`base_topology`/... in a `cat >>`
+        heredoc block. Reading too early can miss the appended fields and
+        silently break downstream steps (e.g. `_replace_password_placeholders`
+        walking /opt/atd/topologies//files as a no-op because
+        `self.access_info.topology` was empty).
+
+        Wait signal: `login_info.jump_host.pw` != REPLACE_PWD (real password
+        substituted) AND `zone` non-empty (cloud-init's heredoc append has
+        completed — `zone` is always included regardless of lab type, so this
+        is a reliable "cloud-init done" indicator).
+
+        We deliberately do NOT wait on `topology` because some lab types
+        (e.g. `verify-uiland-*` testing VMs) legitimately have an empty
+        `topology` field — the base VM image template ships it as a
+        placeholder and the deploy path only writes `base_topology`. Waiting
+        on `topology` there would burn the full MAX_STARTUP_WAIT with no
+        upside.
         """
         start = time.time()
-        pw_ok = topo_ok = False
+        pw_ok = zone_ok = False
         while True:
             try:
                 with open(self.config.access_info_path, 'r') as f:
                     data = yaml.safe_load(f) or {}
                 pw = data.get('login_info', {}).get('jump_host', {}).get('pw', '')
-                topo = data.get('topology', '')
+                zone = data.get('zone', '')
                 pw_ok = bool(pw) and pw != 'REPLACE_PWD'
-                topo_ok = bool(topo and str(topo).strip())
-                if pw_ok and topo_ok:
-                    self.logger.info("ACCESS_INFO.yaml fully populated (password + topology)")
+                zone_ok = bool(zone and str(zone).strip())
+                if pw_ok and zone_ok:
+                    self.logger.info(
+                        "ACCESS_INFO.yaml fully populated (password + zone present)"
+                    )
                     return
             except Exception as e:
                 self.logger.warning(f"Waiting for ACCESS_INFO.yaml: {e}")
             if time.time() - start > MAX_STARTUP_WAIT:
-                missing = [n for n, ok in (('password', pw_ok), ('topology', topo_ok)) if not ok]
+                missing = [n for n, ok in (('password', pw_ok), ('zone', zone_ok)) if not ok]
                 self.logger.error(
                     f"Timed out waiting for ACCESS_INFO.yaml after {MAX_STARTUP_WAIT}s, "
                     f"proceeding with missing fields: {missing}. "
