@@ -1400,6 +1400,15 @@ class ATDStartup:
             # Step 13: Auto-build base image if base_topology is set in ACCESS_INFO
             self._auto_build_if_needed()
 
+            # Ordering constraint: _auto_build_if_needed() may re-extract topology
+            # files (topologies/*/files/apps/coder/coder.yaml etc.) which re-introduces
+            # the raw {ARISTA_REPLACE} placeholder. The earlier Step 8 substitution
+            # therefore gets clobbered on labs that trigger the auto-builder. Re-run
+            # placeholder substitution here so coder.yaml (and any other topology
+            # file with {ARISTA_REPLACE}) ends up with the real password before any
+            # downstream step recreates Docker containers that mount those files.
+            self._replace_password_placeholders()
+
             # Step 14: Run container labs setup if present
             self._run_container_labs_setup()
 
