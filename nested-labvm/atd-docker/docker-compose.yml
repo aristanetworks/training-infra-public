@@ -311,7 +311,10 @@ services:
       - atd_nginx
     volumes:
       - /etc/atd:/etc/atd:rw
-      - /home/arista/arista-dir/apps/coder/coder.yaml:/home/coder/.config/code-server/config.yaml:rw
+      # Moved from /home/arista/arista-dir/apps/coder/coder.yaml (topology-scoped rsync target)
+      # to atd-docker/runtime-configs/ (constant, always-substituted). Fixes coder login on
+      # labs where topology is empty in ACCESS_INFO — matches jenkins/freeradius pattern above.
+      - /opt/atd/nested-labvm/atd-docker/runtime-configs/coder/coder.yaml:/home/coder/.config/code-server/config.yaml:rw
       - /home/arista/.ssh:/home/coder/.ssh:rw
       - /home/arista/GUI_Desktop/persist:/home/coder/project/persist:rw
       - /home/arista/arista-dir/hosts:/etc/hosts:ro
