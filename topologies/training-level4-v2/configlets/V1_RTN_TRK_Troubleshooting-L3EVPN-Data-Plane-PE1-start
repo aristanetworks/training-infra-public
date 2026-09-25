@@ -35,18 +35,21 @@ hostname PE1
          rd 65100:10
          route-target import vpn-ipv4 65100:10
          route-target export vpn-ipv4 65100:10
+         redistribute connected
          redistribute static
       !
       vrf Cust-B
          rd 65100:20
          route-target import vpn-ipv4 65100:20
          route-target export vpn-ipv4 65100:20
+         redistribute connected
          redistribute static
       !
       vrf Cust-C
          rd 65100:30
          route-target import vpn-ipv4 65100:30
          route-target export vpn-ipv4 65100:30
+         redistribute connected
          redistribute static
    !
    interface Loopback0
