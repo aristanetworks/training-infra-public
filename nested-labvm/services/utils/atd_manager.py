@@ -213,6 +213,31 @@ class CloudLoggingManager:
 # Data Classes
 # =============================================================================
 
+DEFAULT_STUDENT_USER = 'generic-user'
+# Accounts the student user must never shadow on devices, CVP or RADIUS.
+RESERVED_USERNAMES = {'arista', 'admin', 'root', 'cvpadmin', 'aerisadmin', 'cvp', 'cvpsystem', 'radius', 'tacacs'}
+STUDENT_USER_MAX_LEN = 32
+
+
+def derive_student_user(customer_details: Any) -> Tuple[str, str]:
+    """Username for the {STUDENT_USER_REPLACE} RADIUS account, and where it came from.
+
+    Uses the local part of customer_details.exam_taker_email, lowercased and
+    reduced to [a-z0-9._-] so it is valid for EOS, CVP and FreeRADIUS. Falls
+    back to DEFAULT_STUDENT_USER when the email is missing or unusable.
+    """
+    email = customer_details.get('exam_taker_email') if isinstance(customer_details, dict) else None
+    if not isinstance(email, str) or '@' not in email:
+        return DEFAULT_STUDENT_USER, 'fallback: no exam_taker_email'
+    local = re.sub(r'[^a-z0-9._-]', '', email.strip().split('@', 1)[0].lower())
+    local = local.strip('._-')[:STUDENT_USER_MAX_LEN].rstrip('._-')
+    if not local:
+        return DEFAULT_STUDENT_USER, 'fallback: email local part has no usable characters'
+    if local in RESERVED_USERNAMES:
+        return DEFAULT_STUDENT_USER, 'fallback: {0} is a reserved account'.format(local)
+    return local, 'customer_details.exam_taker_email'
+
+
 @dataclass
 class AccessInfo:
     """Data class holding ACCESS_INFO.yaml contents"""
@@ -229,6 +254,8 @@ class AccessInfo:
     username: str = ''
     base_topology: str = ''
     eos_version: str = ''
+    student_user: str = DEFAULT_STUDENT_USER
+    student_user_source: str = ''
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> 'AccessInfo':
@@ -240,7 +267,9 @@ class AccessInfo:
             # Extract nested values safely
             login_info = data.get('login_info', {})
             jump_host = login_info.get('jump_host', {})
-            customer_details = data.get('customer_details', {})
+            # `customer_details:` can be present but empty (None) on non-customer labs.
+            customer_details = data.get('customer_details') or {}
+            student_user, student_user_source = derive_student_user(customer_details)
 
             return cls(
                 # Prefer 'topology' if set (older base VM images populate it), else
@@ -261,6 +290,8 @@ class AccessInfo:
                 username=data.get('username', 'arista'),
                 base_topology=data.get('base_topology', ''),
                 eos_version=data.get('version', ''),
+                student_user=student_user,
+                student_user_source=student_user_source,
             )
         except Exception as e:
             logger.error(f"Failed to load ACCESS_INFO.yaml: {e}")
@@ -1563,16 +1594,18 @@ class ATDStartup:
             )
 
     def _replace_password_placeholders(self) -> None:
-        """Replace password placeholders in files"""
+        """Replace {ARISTA_REPLACE} (lab password) and {STUDENT_USER_REPLACE} (student RADIUS user) in files"""
         password = self.access_info.password
-
-        # Replace in atd-docker files
+        student_user = self.access_info.student_user
         docker_dir = f'{self.config.atd_opt_path}/nested-labvm/atd-docker'
-        self.file_manager.find_and_replace(docker_dir, r'\{ARISTA_REPLACE\}', password)
 
-        # Replace in topology files
         topo_files_dir = f'{self.config.atd_opt_path}/topologies/{self.access_info.topology}/files'
-        self.file_manager.find_and_replace(topo_files_dir, r'\{ARISTA_REPLACE\}', password)
+
+        for directory in (docker_dir, topo_files_dir):
+            self.file_manager.find_and_replace(directory, r'\{ARISTA_REPLACE\}', password)
+            self.file_manager.find_and_replace(directory, r'\{STUDENT_USER_REPLACE\}', student_user)
+
+        self.logger.info(f"Student RADIUS user set to {student_user} ({self.access_info.student_user_source})")
 
     def _update_mgmt_interface(self) -> None:
         """Update management interface naming for ceos"""

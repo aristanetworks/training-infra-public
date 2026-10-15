@@ -1,6 +1,13 @@
 version: "3"
+x-logging: &default-logging
+  # Cap each container's `docker logs` at 30 MB (3 x 10 MB rotated files).
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   uptime:
+    logging: *default-logging
     container_name: atd-uptime
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uptime:e02489e2
     restart: always
@@ -11,6 +18,7 @@ services:
     networks:
       - atd_nginx
   configservice:
+    logging: *default-logging
     container_name: atd-configservice
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_configservice:008603f9
     restart: always
@@ -25,6 +33,7 @@ services:
     networks:
       - atd_nginx
   conftopo:
+    logging: *default-logging
     container_name: atd-conftopo
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_conftopo:e02489e2
     restart: always
@@ -37,6 +46,7 @@ services:
       - /opt/atd/topologies:/opt/atd/topologies:ro
       - /home/arista/arista-dir:/home/arista:rw
   login:
+    logging: *default-logging
     container_name: atd-login
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_login:ead31679
     user: $ArID:$ArGD
@@ -55,6 +65,7 @@ services:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
       - /opt/templates/grading:/opt/templates/grading:ro
   cvpupdater:
+    logging: *default-logging
     container_name: atd-cvpupdater
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvpupdater:8f57da15
     user: $ArID:$ArGD
@@ -67,6 +78,7 @@ services:
       - /opt/atd:/opt/atd:ro
       - cvp_dir:/home/arista/CVP_DATA:rw
   gitconfigletsync:
+    logging: *default-logging
     container_name: atd-gitconfigletsync
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_gitconfigletsync:e02489e2
     user: $ArID:$ArGD
@@ -78,6 +90,7 @@ services:
       - /opt/atd:/opt/atd:ro
       - cvp_dir:/home/arista/CVP_DATA:rw
   kvmbuilder:
+    logging: *default-logging
     container_name: atd-kvmbuilder
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_kvmbuilder:8a666e98
     user: $AtID:$AtGD
@@ -89,6 +102,7 @@ services:
       - /opt/atd:/opt/atd:ro
       - /home/atdadmin/KVM_scripts:/home/atdadmin/kvm:rw
   ceosbuilder:
+    logging: *default-logging
     container_name: atd-ceosbuilder
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ceosbuilder:e02489e2
     restart: on-failure
@@ -121,8 +135,9 @@ services:
   #   jsonPayload.labels.app="api"
   # -----------------------------------------------------------------------
   uilanding-ui-frontend:
+    logging: *default-logging
     container_name: uilanding-ui-frontend
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:4988716f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7d1003f1
     command: ["--app", "ui-frontend"]
     restart: always
     environment:
@@ -138,8 +153,9 @@ services:
       - atd_nginx
 
   uilanding-api:
+    logging: *default-logging
     container_name: uilanding-api
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:4988716f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7d1003f1
     command: ["--app", "api"]
     restart: always
     environment:
@@ -152,8 +168,9 @@ services:
       - atd_nginx
 
   uilanding-websocket:
+    logging: *default-logging
     container_name: uilanding-websocket
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:4988716f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7d1003f1
     command: ["--app", "websocket"]
     restart: always
     environment:
@@ -166,8 +183,9 @@ services:
       - atd_nginx
 
   uilanding-exam:
+    logging: *default-logging
     container_name: uilanding-exam
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:4988716f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7d1003f1
     command: ["--app", "exam"]
     restart: always
     environment:
@@ -181,8 +199,9 @@ services:
       - atd_nginx
 
   uilanding-proxy-svc:
+    logging: *default-logging
     container_name: uilanding-proxy-svc
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:4988716f
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_uilanding:7d1003f1
     command: ["--app", "proxy"]
     restart: always
     environment:
@@ -194,6 +213,7 @@ services:
     networks:
       - atd_nginx
   labguides:
+     logging: *default-logging
      container_name: atd-labguides
      image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides:e02489e2
      restart: always
@@ -207,6 +227,7 @@ services:
        - atd_nginx
 
   labguides-v2:
+    logging: *default-logging
     container_name: atd-labguides-v2
     # image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v2:1.0.3
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_labguides-v3:cdeb9255
@@ -249,6 +270,7 @@ services:
   #   networks:
   #     - atd_nginx
   freerad:
+    logging: *default-logging
     container_name: atd-freeradius
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_freeradius:e02489e2
     restart: always
@@ -258,6 +280,7 @@ services:
       - "1812:1812/udp"
       - "1813:1813/udp"
   nginx:
+    logging: *default-logging
     container_name: atd-nginx
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:43189194
     restart: always
@@ -277,19 +300,32 @@ services:
     networks:
       - atd_nginx
   monitor:
+    logging: *default-logging
     container_name: atd-monitor
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_monitor:91ca1977
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_monitor:7d1003f1
     restart: always
+    # A monitor bug must never starve the lab: cap it, and let Docker restart only this container.
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
     environment:
       - PYTHONUNBUFFERED=1
     depends_on:
       - nginx
+    networks:
+      - atd_nginx
     volumes:
       - nginx_log:/var/log/nginx:ro
       - /etc/atd:/etc/atd:ro
       - /var/log/wtmp:/var/log/wtmp:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Monitor dashboard: topology device IPs, KVM stats, VM disk usage, CVP boot history
+      - /opt/atd:/opt/atd:ro
+      - /var/run/libvirt:/var/run/libvirt:ro
+      - /var/lib/libvirt/images:/var/lib/libvirt/images:ro
+      - atd_monitor:/var/lib/atd-monitor
   jenkins:
+    logging: *default-logging
     container_name: atd-jenkins
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_jenkins:e02489e2
     restart: always
@@ -302,6 +338,7 @@ services:
       - /home/arista/arista-dir/apps/coder/labfiles:/opt/labfiles:rw
       - /opt/atd/nested-labvm/atd-docker/runtime-configs/jenkins/users.groovy.override:/usr/share/jenkins/ref/init.groovy.d/users.groovy.override:rw
   coder:
+    logging: *default-logging
     container_name: atd-coder
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_coder:d87e7e68
     restart: always
@@ -323,6 +360,7 @@ services:
       - /opt/sftp/uploads:/opt/sftp:ro
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
   ssh:
+    logging: *default-logging
     container_name: atd-ssh
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_ssh:e02489e2
     restart: always
@@ -331,6 +369,7 @@ services:
     volumes:
       - /home/arista/arista-dir/apps/ssh/web.json:/opt/webssh2/app/config.json:ro
   webui:
+    logging: *default-logging
     container_name: atd-webui
     image: jlesage/firefox:v25.06.2
     privileged: true
@@ -341,6 +380,7 @@ services:
     networks:
       - atd_nginx
   captureservice:
+    logging: *default-logging
     container_name: atd-captureservice
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_captureservice:807bad6e
     restart: always
@@ -360,6 +400,7 @@ services:
       # OVS socket required for ovs-vsctl to list bridges
       - /var/run/openvswitch:/var/run/openvswitch:rw
   cvp-device-registration:
+    logging: *default-logging
     container_name: atd-cvp-device-registration
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_cvp-device-registration:e02489e2
     restart: "no"
@@ -377,6 +418,7 @@ services:
     depends_on:
       - cvpupdater
   nodebuilder:
+    logging: *default-logging
     container_name: atd-nodebuilder
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nodebuilder:e964ea21
     restart: always
@@ -409,6 +451,7 @@ services:
       # Note: Cloud-init templates are built into the Docker image
       # To override, mount: /opt/nodebuilder/images/cloud-init:/opt/nodebuilder/images/cloud-init:ro
   consoleservice:
+    logging: *default-logging
     container_name: atd-consoleservice
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_consoleservice:e964ea21
     restart: on-failure
@@ -427,6 +470,7 @@ services:
   # Uses token-based authentication to map tokens to VM management IPs
   # Host network mode required to reach VM management IPs (192.168.0.x)
   novnc:
+    logging: *default-logging
     container_name: atd-novnc
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_novnc:008603f9
     restart: on-failure
@@ -437,6 +481,7 @@ services:
       # Tokens are written by nodebuilder's novnc_manager.py
       - /tmp/novnc:/tmp/novnc:ro
   trafficservice:
+    logging: *default-logging
     container_name: atl-trafficservice
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_trafficservice:5272596b
     network_mode: host
@@ -445,6 +490,7 @@ services:
     restart: unless-stopped
 #  Startup process manages the start of devices and passes those states to topoviewer-v2. The UILANDING_HOST env var points the service to the correct uilanding service to monitor.
   startup-progress:
+    logging: *default-logging
     container_name: atd-startup-progress
     image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_startup-progress:43189194
     restart: always
@@ -464,3 +510,4 @@ volumes:
   jenkins_home:
   cvp_dir:
   nginx_log:
+  atd_monitor:

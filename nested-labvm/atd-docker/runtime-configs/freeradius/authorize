@@ -8,3 +8,9 @@ arista	Cleartext-Password := "{ARISTA_REPLACE}"
 	Arista-AVPair = "shell:roles=network-admin",
 	Arista-AVPair = "shell:priv-lvl=15",
 	Service-Type = NAS-Prompt-User
+
+{STUDENT_USER_REPLACE}	Cleartext-Password := "{ARISTA_REPLACE}"
+	Arista-AVPair = "shell:cvp-roles=network-admin",
+	Arista-AVPair = "shell:roles=network-admin",
+	Arista-AVPair = "shell:priv-lvl=15",
+	Service-Type = NAS-Prompt-User
