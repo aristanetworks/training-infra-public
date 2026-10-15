@@ -282,7 +282,7 @@ services:
   nginx:
     logging: *default-logging
     container_name: atd-nginx
-    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:43189194
+    image: us.gcr.io/atd-testdrivetraining-dev/atl_docker_nginx:7d1003f1
     restart: always
     depends_on:
       - uilanding-ui-frontend
