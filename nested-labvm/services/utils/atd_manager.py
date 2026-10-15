@@ -1598,7 +1598,6 @@ class ATDStartup:
         password = self.access_info.password
         student_user = self.access_info.student_user
         docker_dir = f'{self.config.atd_opt_path}/nested-labvm/atd-docker'
-
         topo_files_dir = f'{self.config.atd_opt_path}/topologies/{self.access_info.topology}/files'
 
         for directory in (docker_dir, topo_files_dir):
