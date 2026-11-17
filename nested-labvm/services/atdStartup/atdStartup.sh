@@ -4,7 +4,7 @@
 # This script syncs Python files and delegates to the Python implementation
 #
 # The Python script (atd_manager.py startup) handles all startup logic:
-#   - Download base topology
+#   - Fetch topology definition from Firestore
 #   - Setup exam configuration
 #   - Network setup (NAT for cloudeos)
 #   - Labguide download

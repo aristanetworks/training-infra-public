@@ -17,6 +17,7 @@ Classes:
     - FileManager: Handles file operations (rsync, copy, sed replacements)
     - LabguideManager: Manages lab guide downloads and extraction
     - ExamManager: Handles exam-related functionality
+    - CvpWifiMockManager: Keeps CVP's Wi-Fi (aware) UI in mock mode
     - ATDStartup: Main startup orchestrator
 
 Usage:
@@ -28,6 +29,9 @@ Usage:
 
     # Check exam submission
     python3 atd_manager.py check-exam
+
+    # Ensure CVP Wi-Fi UI is in mock mode
+    python3 atd_manager.py cvp-wifi-mock
 """
 
 import json
@@ -41,6 +45,9 @@ import logging
 import argparse
 import re
 import socket
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
@@ -273,7 +280,7 @@ class ATDConfig:
     access_info_path: str = '/etc/atd/ACCESS_INFO.yaml'
     atd_repo_path: str = '/etc/atd/ATD_REPO.yaml'
     base_topo_path: str = '/etc/atd/base_topo.yml'
-    base_topo_url: str = 'https://raw.githubusercontent.com/aristanetworks/training-infra-public/nested-release/topologies/base_topo.yml'
+    firestore_topologies_collection: str = 'topologies'
     atd_opt_path: str = '/opt/atd'
     labguide_directory: str = '/opt/labguides/web/'
     docker_compose_path: str = '/opt/atd/nested-labvm/atd-docker'
@@ -391,47 +398,87 @@ class ConfigManager:
             self.logger.error(f"Failed to update ATD_REPO.yaml: {e}")
             return False
 
-    def download_base_topo(self) -> bool:
-        """Download the base topology YAML file"""
+    def download_base_topo(self, access_info: AccessInfo) -> bool:
+        """Fetch this lab's topology document from Firestore and write it locally.
+
+        Topology definitions live in each GCP project's default Firestore database
+        under the `topologies` collection (managed by Infocenter), not in the
+        nested-release git branch.
+        """
+        topology = access_info.topology
+        if not topology:
+            self.logger.error("Cannot fetch topology from Firestore: topology name is empty")
+            return False
+
+        project = access_info.project
+        if not project:
+            self.logger.error("Cannot fetch topology from Firestore: project missing from ACCESS_INFO.yaml")
+            return False
+
         try:
-            result = subprocess.run(
-                ['curl', '-o', self.config.base_topo_path, self.config.base_topo_url],
-                capture_output=True,
-                text=True
+            topo_doc = self._fetch_firestore_document(
+                project,
+                self.config.firestore_topologies_collection,
+                topology,
             )
-            if result.returncode == 0:
-                self.logger.info("Downloaded base_topo.yml successfully")
-                return True
-            else:
-                self.logger.error(f"Failed to download base_topo.yml: {result.stderr}")
+            if not topo_doc:
+                self.logger.error(
+                    f"Topology '{topology}' not found in Firestore "
+                    f"(project={project}, collection={self.config.firestore_topologies_collection})"
+                )
                 return False
+
+            wrapped = {'topologies': {topology: topo_doc}}
+            if not self.save_yaml(self.config.base_topo_path, wrapped):
+                return False
+
+            self.logger.info(
+                f"Fetched topology '{topology}' from Firestore project {project} "
+                f"({len(topo_doc.get('variants') or [])} variants)"
+            )
+            return True
         except Exception as e:
-            self.logger.error(f"Exception downloading base_topo.yml: {e}")
+            self.logger.error(f"Exception fetching topology from Firestore: {e}")
             return False
 
     def get_branch_name(self, access_info: AccessInfo) -> Optional[str]:
-        """Determine the correct branch name based on topology and environment"""
+        """Determine the git branch from the topology's matching Firestore variant."""
         base_topo = self.load_yaml(self.config.base_topo_path)
 
         eos_type = access_info.eos_type
         if eos_type == 'container-labs':
             eos_type = 'ceos'
 
-        project = access_info.project
-        if project == 'atd-testdrivetraining-prod':
-            project = 'prod'
-        else:
-            project = 'dev'
-
+        env = 'prod' if access_info.project == 'atd-testdrivetraining-prod' else 'dev'
         cvp_ver = str(access_info.cvp_version)
 
         try:
-            # Navigate the nested structure
             topo_data = base_topo.get('topologies', {}).get(access_info.topology, {})
-            env_data = topo_data.get(project, {}).get(eos_type, {})
-            cvp_data = env_data.get('cvp', {})
+            if not topo_data and 'variants' in base_topo:
+                topo_data = base_topo
 
-            # Try to find matching CVP version
+            variants = topo_data.get('variants') or []
+            if variants:
+                eos_ver = str(access_info.eos_version) if access_info.eos_version else ''
+                for variant in variants:
+                    if (
+                        variant.get('env') == env
+                        and variant.get('eos_type') == eos_type
+                        and str(variant.get('cvp_version')) == cvp_ver
+                    ):
+                        if eos_ver and str(variant.get('eos_version') or '') != eos_ver:
+                            continue
+                        return variant.get('branch') or None
+                self.logger.warning(
+                    f"No Firestore variant matched topology={access_info.topology} "
+                    f"env={env} eos_type={eos_type} cvp={cvp_ver}"
+                    f"{f' eos={eos_ver}' if eos_ver else ''}"
+                )
+                return None
+
+            # Legacy nested YAML: topologies.<topo>.<env>.<eos_type>.cvp.<version>.branch
+            env_data = topo_data.get(env, {}).get(eos_type, {})
+            cvp_data = env_data.get('cvp', {})
             for version, config in cvp_data.items():
                 if str(version) == cvp_ver:
                     return config.get('branch')
@@ -440,6 +487,77 @@ class ConfigManager:
         except Exception as e:
             self.logger.warning(f"Could not determine branch name: {e}")
             return None
+
+    @staticmethod
+    def _decode_firestore_value(value: Any) -> Any:
+        """Convert a Firestore REST API value into a plain Python object."""
+        if not isinstance(value, dict):
+            return value
+        if 'nullValue' in value:
+            return None
+        if 'booleanValue' in value:
+            return value['booleanValue']
+        if 'integerValue' in value:
+            return int(value['integerValue'])
+        if 'doubleValue' in value:
+            return float(value['doubleValue'])
+        if 'stringValue' in value:
+            return value['stringValue']
+        if 'timestampValue' in value:
+            return value['timestampValue']
+        if 'mapValue' in value:
+            fields = value['mapValue'].get('fields') or {}
+            return {k: ConfigManager._decode_firestore_value(v) for k, v in fields.items()}
+        if 'arrayValue' in value:
+            return [
+                ConfigManager._decode_firestore_value(v)
+                for v in (value['arrayValue'].get('values') or [])
+            ]
+        return next(iter(value.values()), None)
+
+    def _fetch_firestore_document(
+        self, project: str, collection: str, doc_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """GET one document from the project's default Firestore database."""
+        token = self._gcloud_access_token()
+        if not token:
+            raise RuntimeError("Failed to get access token from gcloud")
+
+        encoded_id = urllib.parse.quote(doc_id, safe='')
+        url = (
+            f"https://firestore.googleapis.com/v1/projects/{project}"
+            f"/databases/(default)/documents/{collection}/{encoded_id}"
+        )
+        req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload = json.loads(resp.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode('utf-8', errors='replace') if e.fp else ''
+            if e.code == 404:
+                self.logger.error(f"Firestore document not found: {collection}/{doc_id}")
+                return None
+            raise RuntimeError(f"Firestore HTTP {e.code} for {collection}/{doc_id}: {body}") from e
+
+        fields = payload.get('fields') or {}
+        return {k: self._decode_firestore_value(v) for k, v in fields.items()}
+
+    def _gcloud_access_token(self) -> str:
+        """Get an access token from the VM's existing gcloud credentials."""
+        try:
+            result = subprocess.run(
+                ['gcloud', 'auth', 'print-access-token'],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode != 0:
+                self.logger.error(f"gcloud auth print-access-token failed: {result.stderr.strip()}")
+                return ''
+            return result.stdout.strip()
+        except Exception as e:
+            self.logger.error(f"Failed to get gcloud access token: {e}")
+            return ''
 
 
 # =============================================================================
@@ -1073,6 +1191,133 @@ class LabguideManager:
 
 
 # =============================================================================
+# CVP Wi-Fi Mock Manager
+# =============================================================================
+
+class CvpWifiMockManager:
+    """Keeps CVP's Wi-Fi (aware) UI in mock mode.
+
+    The CVP nginx image ships /cvpi/apps/aware/www/wifi/aware/config.json with
+    `enable_mock_mode` listed twice (true, then false); the last one wins. The
+    file lives in the container's writable layer, so any fix is lost whenever
+    the nginx-app pod restarts (every CVP reboot and some crash loops). This is
+    run periodically from cvp-wifi-mock.timer and is a no-op when already set.
+    """
+
+    DEFAULT_CVP_HOST = '192.168.0.5'
+    ASKPASS_PATH = '/etc/atd/cvp-askpass'
+
+    REMOTE_SCRIPT = r'''
+F=/cvpi/apps/aware/www/wifi/aware/config.json
+pods=$(kubectl get pods -o name 2>/dev/null | grep nginx-app)
+if [ -z "$pods" ]; then echo "no nginx-app pods"; exit 2; fi
+rc=0
+for p in $pods; do
+  if kubectl exec "$p" -c nginx -- grep -q '"enable_mock_mode": *false' "$F" 2>/dev/null; then
+    if kubectl exec "$p" -c nginx -- sed -i 's/"enable_mock_mode": *false/"enable_mock_mode": true/' "$F"; then
+      echo "patched $p"
+    else
+      echo "failed $p"; rc=1
+    fi
+  else
+    echo "ok $p"
+  fi
+done
+exit $rc
+'''
+
+    def __init__(self, config: ATDConfig):
+        self.config = config
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def _load_cvp_root_login(self) -> Tuple[str, str]:
+        """Return (cvp_host, root_password) from ACCESS_INFO.yaml."""
+        with open(self.config.access_info_path, 'r') as f:
+            data = yaml.safe_load(f) or {}
+
+        host = data.get('cvp_host') or self.DEFAULT_CVP_HOST
+        shell = data.get('login_info', {}).get('cvp', {}).get('shell') or []
+        if isinstance(shell, dict):
+            shell = [shell]
+        for login in shell:
+            if login.get('user') == 'root':
+                return host, login.get('pw') or login.get('password') or ''
+        return host, ''
+
+    def ensure_mock_mode(self) -> bool:
+        host, password = self._load_cvp_root_login()
+        if not password:
+            self.logger.error("CVP root password not found in ACCESS_INFO.yaml (login_info.cvp.shell)")
+            return False
+
+        # ssh has no password flag; the askpass helper echoes it from the
+        # environment. It stays off disk and the command line, but is readable
+        # by root via /proc/<pid>/environ while ssh runs (ssh does not forward
+        # it to CVP). The helper holds no secret, so it lives at a fixed path
+        # outside /tmp, which may be mounted noexec.
+        askpass = self.ASKPASS_PATH
+        try:
+            with open(askpass, 'w') as f:
+                f.write('#!/bin/sh\nprintf \'%s\\n\' "$ATD_CVP_PW"\n')
+            os.chmod(askpass, 0o700)
+        except OSError as e:
+            self.logger.error(f"Failed to write askpass helper {askpass}: {e}")
+            return False
+
+        try:
+            env = dict(os.environ,
+                       ATD_CVP_PW=password,
+                       SSH_ASKPASS=askpass,
+                       SSH_ASKPASS_REQUIRE='force',
+                       DISPLAY=os.environ.get('DISPLAY', ':0'))
+            result = subprocess.run(
+                ['ssh',
+                 '-o', 'StrictHostKeyChecking=no',
+                 '-o', 'UserKnownHostsFile=/dev/null',
+                 '-o', 'LogLevel=ERROR',
+                 '-o', 'ConnectTimeout=10',
+                 '-o', 'PubkeyAuthentication=no',
+                 '-o', 'NumberOfPasswordPrompts=1',
+                 f'root@{host}', 'bash -s'],
+                input=self.REMOTE_SCRIPT,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.warning(f"Timed out talking to CVP at {host}")
+            return False
+
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            # CVP is often still booting; the timer will retry.
+            self.logger.warning(
+                f"CVP Wi-Fi mock check did not complete (rc={result.returncode}): "
+                f"{output or result.stderr.strip()}"
+            )
+            return False
+
+        patched = [line.split(' ', 1)[1] for line in output.splitlines() if line.startswith('patched ')]
+        if patched:
+            # Cloud Logging is set up only here: this runs every 5 minutes and
+            # routine "already enabled" checks should stay in the local journal.
+            cloud_logging = CloudLoggingManager()
+            cloud_logging.setup(
+                service_name='atd-cvp-wifi-mock',
+                additional_labels={'operation': 'cvp-wifi-mock'}
+            )
+            cloud_logging.log_structured(
+                f"Enabled CVP Wi-Fi mock mode on {', '.join(patched)}",
+                severity='INFO',
+                labels={'service': 'atd-cvp-wifi-mock', 'status': 'patched'}
+            )
+        else:
+            self.logger.info("CVP Wi-Fi mock mode already enabled")
+        return True
+
+
+# =============================================================================
 # Exam Manager
 # =============================================================================
 
@@ -1299,10 +1544,7 @@ class ATDStartup:
         )
 
         try:
-            # Step 1: Download base topology
-            self.config_manager.download_base_topo()
-
-            # Step 1.5: Wait for ACCESS_INFO.yaml to be fully populated
+            # Step 1: Wait for ACCESS_INFO.yaml to be fully populated
             # (cloud-init writes password via sed then appends topology/name/zone
             # in a later block — reading too early silently breaks placeholder
             # substitution for topologies/*/files, e.g. coder.yaml)
@@ -1310,6 +1552,10 @@ class ATDStartup:
 
             # Step 2: Load access info
             self.access_info = AccessInfo.from_yaml(self.config.access_info_path)
+
+            # Step 3: Fetch this topology's definition from Firestore (Infocenter
+            # topologies collection). Needed for branch lookup and platform.
+            self.config_manager.download_base_topo(self.access_info)
 
             # Initialize exam manager
             self.exam_manager = ExamManager(
@@ -1319,12 +1565,12 @@ class ATDStartup:
                 self.systemd_manager
             )
 
-            # Step 3: Setup exam configuration
+            # Step 4: Setup exam configuration
             self.exam_manager.setup_exam_config(self.access_info)
 
-            # Step 4: Determine and update branch name
+            # Step 5: Determine and update branch name
             # Check for branch override file (used for testing/development)
-            # Create /etc/atd/BRANCH_OVERRIDE with desired branch name to skip base_topo lookup
+            # Create /etc/atd/BRANCH_OVERRIDE with desired branch name to skip Firestore variant lookup
             branch = None
             override_path = self.config.branch_override_path
             if os.path.exists(override_path):
@@ -1343,7 +1589,7 @@ class ATDStartup:
                     else:
                         self.logger.warning(f"Branch override file exists but is empty, ignoring")
                         self.cloud_logging.log_structured(
-                            "Branch override file exists but is empty, falling back to base_topo",
+                            "Branch override file exists but is empty, falling back to Firestore topology",
                             severity='WARNING',
                             labels={'service': 'atd-startup', 'phase': 'branch-override', 'status': 'empty-file'}
                         )
@@ -1376,66 +1622,69 @@ class ATDStartup:
             else:
                 self.logger.info("Not changing any branch name")
 
-            # Step 5: Setup NAT if cloudeos platform
+            # Step 6: Setup NAT if cloudeos platform
             self._setup_network()
 
-            # Step 6: Download and setup labguide
+            # Step 7: Download and setup labguide
             self._setup_labguide()
 
-            # Step 7: Update SSH key in configlet
+            # Step 8: Update SSH key in configlet
             self._update_ssh_key()
 
-            # Step 8: Replace password placeholders
+            # Step 9: Replace password placeholders
             self._replace_password_placeholders()
 
-            # Step 9: Setup Docker authentication
+            # Step 10: Setup Docker authentication
             if not self.docker_auth.is_authenticated():
                 self.logger.info("Docker auth file not found, creating...")
                 self.docker_auth.configure_auth()
 
-            # Step 10: Update configlets for ceos/veos mgmt numbering
+            # Step 11: Update configlets for ceos/veos mgmt numbering
             self._update_mgmt_interface()
 
-            # Step 11: Copy topology files
+            # Step 12: Copy topology files
             self._copy_topology_files()
 
-            # Step 12: Setup Docker containers
+            # Step 13: Setup Docker containers
             self._setup_docker()
 
-            # Step 13: Auto-build base image if base_topology is set in ACCESS_INFO
+            # Step 14: Auto-build base image if base_topology is set in ACCESS_INFO
             self._auto_build_if_needed()
 
             # Ordering constraint: _auto_build_if_needed() may re-extract topology
             # files (topologies/*/files/apps/coder/coder.yaml etc.) which re-introduces
-            # the raw {ARISTA_REPLACE} placeholder. The earlier Step 8 substitution
+            # the raw {ARISTA_REPLACE} placeholder. The earlier Step 9 substitution
             # therefore gets clobbered on labs that trigger the auto-builder. Re-run
             # placeholder substitution here so coder.yaml (and any other topology
             # file with {ARISTA_REPLACE}) ends up with the real password before any
             # downstream step recreates Docker containers that mount those files.
             self._replace_password_placeholders()
 
-            # Step 14: Run container labs setup if present
+            # Step 15: Run container labs setup if present
             self._run_container_labs_setup()
 
-            # Step 15: Update routes for AlmaLinux
+            # Step 16: Update routes for AlmaLinux
             self.network_manager.update_routes_for_almalinux()
 
-            # Step 16: Run cEOS startup if present
+            # Step 17: Run cEOS startup if present
             self._run_ceos_startup()
 
-            # Step 17: Check unhealthy containers
+            # Step 18: Check unhealthy containers
             self._check_unhealthy_containers()
 
-            # Step 18: Setup exam submission timer
+            # Step 19: Setup exam submission timer
             self._setup_exam_timer()
 
-            # Step 19: Setup unit test timer
+            # Step 20: Setup unit test timer
             self._setup_unit_test_timer()
 
-            # Step 20: Setup instance metrics timer
+            # Step 21: Setup instance metrics timer
             self._setup_metrics_timer()
 
-            # Step 21: Enable password authentication for SSH
+            # Step 22: Setup CVP Wi-Fi mock mode timer
+            self._setup_cvp_wifi_mock_timer()
+
+            # Step 23: Enable password authentication for SSH
             self._enable_ssh_password_auth()
 
             self.logger.info("ATD Startup completed successfully")
@@ -1853,6 +2102,13 @@ class ATDStartup:
             f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/instance-metrics.timer'
         )
 
+    def _setup_cvp_wifi_mock_timer(self) -> None:
+        """Setup timer that keeps CVP's Wi-Fi UI in mock mode across nginx restarts"""
+        self.systemd_manager.setup_timer(
+            f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/cvp-wifi-mock.service',
+            f'{self.config.atd_opt_path}/nested-labvm/services/atdStartup/cvp-wifi-mock.timer'
+        )
+
     def _enable_ssh_password_auth(self) -> None:
         """Enable password authentication for SSH"""
         self.logger.info("Enabling password authentication for SSH")
@@ -1878,12 +2134,13 @@ Examples:
     python3 atd_manager.py startup           # Run ATD startup sequence
     python3 atd_manager.py check-containers  # Check container health
     python3 atd_manager.py check-exam        # Check exam submission status
+    python3 atd_manager.py cvp-wifi-mock     # Ensure CVP Wi-Fi UI is in mock mode
         """
     )
 
     parser.add_argument(
         'command',
-        choices=['startup', 'check-containers', 'check-exam'],
+        choices=['startup', 'check-containers', 'check-exam', 'cvp-wifi-mock'],
         help='Command to execute'
     )
 
@@ -1930,6 +2187,10 @@ Examples:
 
         exam_manager = ExamManager(config, config_manager, docker_manager, systemd_manager)
         success = exam_manager.check_and_submit_exam()
+        sys.exit(0 if success else 1)
+
+    elif args.command == 'cvp-wifi-mock':
+        success = CvpWifiMockManager(config).ensure_mock_mode()
         sys.exit(0 if success else 1)
 
 

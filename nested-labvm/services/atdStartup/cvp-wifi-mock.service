@@ -1,0 +1,16 @@
+[Unit]
+Description=Ensure CVP Wi-Fi (aware) UI is in mock mode
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /usr/local/lib/atd-services/utils/atd_manager.py cvp-wifi-mock
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=180
+Restart=no
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

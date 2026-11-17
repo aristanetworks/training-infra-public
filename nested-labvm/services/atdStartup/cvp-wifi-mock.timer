@@ -1,0 +1,10 @@
+[Unit]
+Description=Check CVP Wi-Fi mock mode every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
