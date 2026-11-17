@@ -1213,7 +1213,13 @@ pods=$(kubectl get pods -o name 2>/dev/null | grep nginx-app)
 if [ -z "$pods" ]; then echo "no nginx-app pods"; exit 2; fi
 rc=0
 for p in $pods; do
-  if kubectl exec "$p" -c nginx -- grep -q '"enable_mock_mode": *false' "$F" 2>/dev/null; then
+  # A failed exec (pod still starting) must not look like "already enabled".
+  if ! cfg=$(kubectl exec "$p" -c nginx -- sh -c "cat $F 2>/dev/null || echo __NOFILE__" 2>/dev/null); then
+    echo "notready $p"; rc=3; continue
+  fi
+  if [ "$cfg" = "__NOFILE__" ]; then
+    echo "nofile $p"
+  elif printf '%s' "$cfg" | grep -q '"enable_mock_mode": *false'; then
     if kubectl exec "$p" -c nginx -- sed -i 's/"enable_mock_mode": *false/"enable_mock_mode": true/' "$F"; then
       echo "patched $p"
     else
