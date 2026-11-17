@@ -47,7 +47,7 @@ topologies:
             resources:
               cpu: 80
               ram: 192
-            branch: v2026.1-16112026
+            branch: v2026.1-17112026
             orderable: true
             image: base-image-cvp-disks-20261-07292026-300g
             eos:
