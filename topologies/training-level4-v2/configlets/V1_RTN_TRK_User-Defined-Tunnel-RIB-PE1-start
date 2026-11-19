@@ -67,7 +67,7 @@ mpls ldp
    transport-address interface Loopback0
 !
 tunnel-ribs
-   system tunnel-rib
+   tunnel-rib system-tunnel-rib
       source-protocol isis segment-routing preference 50
 !
 ip route vrf Cust-A 192.168.10.1/32 192.168.11.2
